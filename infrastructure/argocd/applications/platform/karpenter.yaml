@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: karpenter
+  namespace: argocd
+spec:
+  project: default
+  source:
+    chart: karpenter
+    repoURL: public.ecr.aws/karpenter
+    targetRevision: 1.0.x
+    helm:
+      values: |
+        settings:
+          clusterName: alp-${ENV}
+          interruptionQueue: alp-${ENV}-karpenter
+        serviceAccount:
+          annotations:
+            eks.amazonaws.com/role-arn: TODO-fill-in-after-eks-apply
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: karpenter
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: ["CreateNamespace=true", "ServerSideApply=true"]
+---
+# NodePool + EC2NodeClass definitions (CRDs supplied by Karpenter) live in
+# infrastructure/argocd/applications/platform/karpenter-nodepools/ (next PR).

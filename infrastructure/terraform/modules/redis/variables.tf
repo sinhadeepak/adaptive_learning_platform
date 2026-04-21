@@ -1,0 +1,9 @@
+variable "project" { type = string }
+variable "env" { type = string }
+variable "vpc_id" { type = string }
+variable "subnet_ids" { type = list(string) }
+variable "eks_node_security_group_id" { type = string }
+variable "redis_engine_version" { type = string }
+variable "node_type" { type = string }
+variable "num_node_groups" { type = number }
+variable "replicas" { type = number }

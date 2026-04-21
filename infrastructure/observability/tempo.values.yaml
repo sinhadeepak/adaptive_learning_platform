@@ -1,0 +1,32 @@
+# Tempo — single-binary deployment for staging; microservices split for prod.
+tempo:
+  reportingEnabled: false
+  storage:
+    trace:
+      backend: s3
+      s3:
+        bucket: alp-${ENV}-tempo
+        endpoint: s3.ap-south-1.amazonaws.com
+        region: ap-south-1
+  retention: 168h   # 7 days for staging; prod will use 30d via separate values file
+
+persistence:
+  enabled: true
+  storageClassName: gp3
+  size: 10Gi
+
+service:
+  type: ClusterIP
+
+# OTLP ingress — services send traces here via OpenTelemetry SDK.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "0.0.0.0:4317"
+      http:
+        endpoint: "0.0.0.0:4318"
+
+resources:
+  requests: { cpu: 250m, memory: 512Mi }
+  limits:   { cpu: 1,    memory: 2Gi }

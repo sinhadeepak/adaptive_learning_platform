@@ -1,0 +1,49 @@
+# ArgoCD install via upstream Helm chart.
+# Applied manually once per cluster (see infrastructure/argocd/README.md).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: argo-cd
+      version: "7.7.x"
+      sourceRef:
+        kind: HelmRepository
+        name: argo
+  values:
+    global:
+      domain: argocd.${ENV}.adaptivelearn.in   # staging | prod
+    server:
+      ingress:
+        enabled: true
+        ingressClassName: alb
+        annotations:
+          alb.ingress.kubernetes.io/scheme: internal
+          alb.ingress.kubernetes.io/target-type: ip
+      extraArgs: ["--insecure"]                # ALB terminates TLS
+    configs:
+      cm:
+        # OIDC via Google Workspace / SSO — fill in once IdP is ready.
+        # TODO: oidc.config
+        timeout.reconciliation: "180s"
+      params:
+        application.namespaces: "*"
+    notifications:
+      enabled: true
+      # Slack webhook wired via Secret (not in git).
+    dex:
+      enabled: false
+---
+# NOTE: install flow differs if the team prefers `kubectl apply -k` over Flux.
+# In that case, replace HelmRelease with the vanilla install manifests from
+# https://raw.githubusercontent.com/argoproj/argo-cd/v2.13.x/manifests/install.yaml
+# and manage overrides via kustomize.
