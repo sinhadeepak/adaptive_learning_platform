@@ -1,0 +1,12 @@
+apiVersion: v2
+name: alp-service
+description: |
+  Common Helm library chart for Adaptive Learning Platform services.
+  Provides Deployment, Service, HPA, ServiceMonitor, ServiceAccount (IRSA),
+  ConfigMap, and NetworkPolicy templates. Each service's chart declares this
+  as a library dependency and supplies values.
+type: library
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: platform-team

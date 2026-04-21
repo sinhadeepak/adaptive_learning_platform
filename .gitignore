@@ -86,6 +86,11 @@ secrets/
 *.tar.gz
 *.zip
 
+# Helm
+# Chart.lock + downloaded deps are regenerated from Chart.yaml; don't check them in
+infrastructure/k8s/charts/*/Chart.lock
+infrastructure/k8s/charts/*/charts/
+
 # Reports / generated
 /reports/
 /tmp/
