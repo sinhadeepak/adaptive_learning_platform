@@ -1,0 +1,159 @@
+name: Terraform
+
+on:
+  pull_request:
+    branches: [main, staging, development]
+    paths:
+      - "infrastructure/terraform/**"
+      - ".github/workflows/terraform.yml"
+  push:
+    branches: [main, staging]
+    paths:
+      - "infrastructure/terraform/**"
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "Target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options: [staging, prod]
+
+concurrency:
+  group: tf-${{ github.workflow }}-${{ inputs.env || github.ref }}
+  cancel-in-progress: false    # never cancel a running plan/apply mid-flight
+
+permissions:
+  contents: read
+  id-token: write              # for AWS OIDC federation — no long-lived keys
+  pull-requests: write         # to post plan summary as PR comment
+
+env:
+  TF_VERSION: "1.9.8"
+  TG_VERSION: "0.67.16"
+  AWS_REGION: ap-south-1
+  # Per-env AWS role ARNs — set as repo-level environment secrets, not plain env here.
+
+jobs:
+  # --- Lint + security scan (runs on every PR) ----------------------------
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: ${{ env.TF_VERSION }} }
+      - name: fmt check
+        run: terraform fmt -check -recursive infrastructure/terraform
+      - uses: terraform-linters/setup-tflint@v4
+        with: { tflint_version: latest }
+      - name: tflint
+        run: |
+          cd infrastructure/terraform
+          tflint --init
+          tflint --recursive
+      - uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: infrastructure/terraform
+          soft_fail: false
+
+  # --- Plan on PR (staging only — prod plans are manual via workflow_dispatch) --
+  plan-staging:
+    needs: lint
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: staging
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/live/staging/ap-south-1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: ${{ env.TF_VERSION }} }
+      - uses: gruntwork-io/terragrunt-action@v2
+        with: { terragrunt_version: ${{ env.TG_VERSION }} }
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TF_PLAN_ROLE_STAGING }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: terragrunt run-all plan
+        id: plan
+        run: |
+          terragrunt run-all plan \
+            --terragrunt-non-interactive \
+            --terragrunt-log-level info \
+            -out=tfplan 2>&1 | tee plan.txt
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Post plan summary to PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('infrastructure/terraform/live/staging/ap-south-1/plan.txt', 'utf8');
+            const truncated = plan.length > 60000 ? plan.slice(0, 60000) + '\n...[truncated]' : plan;
+            const body = `### Terraform plan (staging · ap-south-1)\n\n<details><summary>plan output</summary>\n\n\`\`\`hcl\n${truncated}\n\`\`\`\n\n</details>`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+      - name: Upload plan artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-staging
+          path: infrastructure/terraform/live/staging/ap-south-1/**/tfplan
+          retention-days: 14
+
+  # --- Apply on merge to main (staging) ------------------------------------
+  apply-staging:
+    needs: lint
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: staging-apply    # GitHub Environment gate — requires manual approval
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/live/staging/ap-south-1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: ${{ env.TF_VERSION }} }
+      - uses: gruntwork-io/terragrunt-action@v2
+        with: { terragrunt_version: ${{ env.TG_VERSION }} }
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TF_APPLY_ROLE_STAGING }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: terragrunt run-all apply
+        run: |
+          terragrunt run-all apply \
+            --terragrunt-non-interactive \
+            --terragrunt-log-level info
+
+  # --- Manual prod apply via workflow_dispatch -----------------------------
+  apply-prod:
+    if: github.event_name == 'workflow_dispatch' && inputs.env == 'prod'
+    runs-on: ubuntu-latest
+    environment: prod-apply        # second human approval layer
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/live/prod/ap-south-1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: ${{ env.TF_VERSION }} }
+      - uses: gruntwork-io/terragrunt-action@v2
+        with: { terragrunt_version: ${{ env.TG_VERSION }} }
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TF_APPLY_ROLE_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: terragrunt run-all plan   # plan first — human reviews in the workflow log
+        run: terragrunt run-all plan --terragrunt-non-interactive -out=tfplan
+      - name: terragrunt run-all apply
+        run: terragrunt run-all apply --terragrunt-non-interactive
