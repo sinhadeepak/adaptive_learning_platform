@@ -1,0 +1,42 @@
+# Pre-commit — run `pre-commit install` once per clone. Blocks bad commits locally;
+# CI re-runs the same checks so a missing install can't bypass them.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.4
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+        files: ^services/(auth|user-profile|content|catalog|search|analytics|payment|institution|notification|adaptive-engine)/
+      - id: ruff-format
+        files: ^services/(auth|user-profile|content|catalog|search|analytics|payment|institution|notification|adaptive-engine)/
+
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: go-fmt
+      - id: go-vet
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.6.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: ["feat", "fix", "docs", "chore", "refactor", "test", "build", "ci", "perf", "revert"]

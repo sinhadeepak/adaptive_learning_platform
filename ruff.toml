@@ -1,0 +1,30 @@
+# Shared ruff config — each service's pyproject.toml extends this file.
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = [
+    "E", "W",      # pycodestyle
+    "F",           # pyflakes
+    "I",           # isort
+    "B",           # bugbear
+    "UP",          # pyupgrade
+    "N",           # pep8-naming
+    "S",           # bandit (security)
+    "A",           # builtins
+    "C4",          # comprehensions
+    "SIM",         # simplify
+    "RUF",         # ruff-specific
+    "ASYNC",       # async best practices
+]
+ignore = [
+    "S101",        # assert allowed in tests
+]
+
+[lint.per-file-ignores]
+"tests/**/*.py" = ["S", "N"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

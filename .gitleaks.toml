@@ -1,0 +1,6 @@
+# gitleaks allowlist — keep tight.
+[allowlist]
+paths = [
+    '''docs/''',
+    '''\.env\.example$''',
+]

@@ -1,0 +1,19 @@
+from fastapi.testclient import TestClient
+
+from payment.main import app
+
+
+def test_health_returns_ok() -> None:
+    with TestClient(app) as client:
+        resp = client.get("/health")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["service"] == "payment"
+
+
+def test_ready_returns_ready() -> None:
+    with TestClient(app) as client:
+        resp = client.get("/ready")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ready"

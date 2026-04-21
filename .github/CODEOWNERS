@@ -1,0 +1,31 @@
+# CODEOWNERS — see https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+# Format: <path>  <owner(s)>
+# Owners are required reviewers. Fill in GitHub handles during Sprint 0.
+
+# Default
+*                                @TODO-tech-lead
+
+# Backend services
+/services/quiz/                  @TODO-be-lead-go
+/services/adaptive-engine/       @TODO-be-lead-python @TODO-ml-lead
+/services/auth/                  @TODO-be-lead-python
+/services/user-profile/          @TODO-be-lead-python
+/services/content/               @TODO-be-lead-python
+/services/catalog/               @TODO-be-lead-python
+/services/search/                @TODO-be-lead-python
+/services/analytics/             @TODO-be-lead-python
+/services/payment/               @TODO-be-lead-python
+/services/institution/           @TODO-be-lead-python
+/services/notification/          @TODO-be-lead-python
+
+# Frontend + Mobile
+/apps/web/                       @TODO-fe-lead
+/apps/mobile/                    @TODO-mobile-lead
+
+# Infra + CI
+/infrastructure/                 @TODO-devops-lead
+/.github/                        @TODO-devops-lead @TODO-tech-lead
+
+# Docs and ADRs — TL + author's discretion
+/docs/adr/                       @TODO-tech-lead
+/docs/                           @TODO-tech-lead

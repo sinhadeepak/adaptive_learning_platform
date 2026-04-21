@@ -1,0 +1,23 @@
+# Flutter app (per ADR-0002). This is a Sprint 0 stub — replace by running `flutter create .`
+# from this directory once Flutter SDK is installed on the engineer's laptop.
+name: adaptive_learning_mobile
+description: Adaptive Learning Platform — mobile app (iOS + Android).
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
