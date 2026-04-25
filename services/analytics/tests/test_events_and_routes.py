@@ -32,8 +32,22 @@ async def client() -> AsyncIterator[AsyncClient]:
 
 
 class FakeMsg:
+    """Mimics enough of nats.aio.msg.Msg for the JetStream handler to
+    drive ack/term/nak without a real subscription. Records the terminal
+    action so tests can assert which path the handler took."""
+
     def __init__(self, payload: dict) -> None:
         self.data = json.dumps(payload).encode("utf-8")
+        self.action: str | None = None  # "ack" | "term" | "nak"
+
+    async def ack(self) -> None:
+        self.action = "ack"
+
+    async def term(self) -> None:
+        self.action = "term"
+
+    async def nak(self, *, delay: int | None = None) -> None:  # noqa: ARG002
+        self.action = "nak"
 
 
 def _payload(*, user_id: str, topic_id: str, score: float, session_id: str | None = None) -> dict:
