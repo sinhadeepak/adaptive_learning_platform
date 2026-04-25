@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'auth/auth_client.dart';
+import 'auth/deep_link.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/onboarding/daily_goal_screen.dart';
@@ -9,6 +10,7 @@ import 'screens/onboarding/language_screen.dart';
 import 'screens/onboarding/target_date_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/register_screen.dart';
+import 'screens/reset_password_screen.dart';
 import 'screens/verify_screen.dart';
 
 const _apiBaseUrl = String.fromEnvironment(
@@ -21,15 +23,23 @@ void main() {
 }
 
 class AdaptiveLearningApp extends StatefulWidget {
-  const AdaptiveLearningApp({super.key, required this.auth});
+  const AdaptiveLearningApp({
+    super.key,
+    required this.auth,
+    this.initialDeepLink,
+  });
 
   final AuthClient auth;
+
+  /// Raw URL the OS handed us at cold start (e.g. from `app_links`'
+  /// `getInitialAppLink`). Tests inject directly.
+  final String? initialDeepLink;
 
   @override
   State<AdaptiveLearningApp> createState() => _AdaptiveLearningAppState();
 }
 
-enum _GuestScreen { login, register, verify, forgotPassword }
+enum _GuestScreen { login, register, verify, forgotPassword, resetPassword }
 
 enum _OnboardStep { exam, language, targetDate, dailyGoal, done }
 
@@ -39,13 +49,26 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
   _GuestScreen _guestScreen = _GuestScreen.login;
   String? _pendingUserId;
   String? _pendingEmail;
+  String? _resetToken;
   _OnboardStep _onboardStep = _OnboardStep.exam;
 
   @override
   void initState() {
     super.initState();
     widget.auth.bootstrap().whenComplete(() {
-      if (mounted) setState(() => _bootstrapped = true);
+      if (!mounted) return;
+      // After token rehydration, resolve the deep link (if any). A reset
+      // link that arrives while the user is already signed in still routes
+      // to reset — they asked for it; the active session gets revoked when
+      // the new password is set anyway.
+      final route = parseDeepLink(widget.initialDeepLink);
+      setState(() {
+        _bootstrapped = true;
+        if (route.kind == DeepLinkRouteKind.resetPassword) {
+          _resetToken = route.token;
+          _guestScreen = _GuestScreen.resetPassword;
+        }
+      });
     });
   }
 
@@ -86,6 +109,21 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
         return ForgotPasswordScreen(
           auth: widget.auth,
           onBackToLogin: () => setState(() => _guestScreen = _GuestScreen.login),
+        );
+      case _GuestScreen.resetPassword:
+        return ResetPasswordScreen(
+          auth: widget.auth,
+          token: _resetToken ?? '',
+          onResetCompleted: () => setState(() {
+            // Auth has revoked all refresh tokens; force a fresh sign-in.
+            _resetToken = null;
+            _session = null;
+            _guestScreen = _GuestScreen.login;
+          }),
+          onBackToLogin: () => setState(() {
+            _resetToken = null;
+            _guestScreen = _GuestScreen.login;
+          }),
         );
     }
   }
