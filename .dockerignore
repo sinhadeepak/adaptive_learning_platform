@@ -39,12 +39,17 @@ apps/mobile/.dart_tool
 apps/mobile/ios/Pods
 apps/mobile/android/.gradle
 
-# Infra / docs — not needed in web-app image builds
+# Infra / docs — most isn't needed in image builds
 infrastructure
 docs
 runbook
 *.md
 !apps/*/README.md
+# But Dockerfiles + entrypoints DO need to land in images that copy them
+!infrastructure/docker/Dockerfile.python
+!infrastructure/docker/Dockerfile.golang
+!infrastructure/docker/python-entrypoint.sh
+!infrastructure/docker/go-entrypoint.sh
 
 # Test artefacts
 **/*.log

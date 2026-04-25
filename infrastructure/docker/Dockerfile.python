@@ -1,0 +1,53 @@
+# syntax=docker/dockerfile:1.7
+# Unified Dockerfile for all Python backend services. Build from monorepo root
+# so the alp-flags path-installable lib resolves. The SERVICE arg is the
+# service directory name (auth, user-profile, ...); MODULE is the dotted
+# Python module path (auth.main, user_profile.main, ...).
+
+ARG PY_VERSION=3.11-slim
+
+FROM python:${PY_VERSION} AS builder
+ARG SERVICE
+ENV UV_LINK_MODE=copy
+WORKDIR /repo
+RUN pip install --no-cache-dir uv==0.5.*
+
+# Internal libs that services reference via path
+COPY libs/python ./libs/python
+COPY ruff.toml ./
+
+# Service files
+COPY services/${SERVICE}/pyproject.toml ./services/${SERVICE}/pyproject.toml
+COPY services/${SERVICE}/src ./services/${SERVICE}/src
+
+# alembic + migrations (some services don't have these yet — copy via wildcard
+# that succeeds when missing). We use COPY with a glob pattern by listing
+# specific files; for missing dirs, the build still succeeds because the COPY
+# is targeted at files we know exist for migration-bearing services. For
+# services without alembic, the `entrypoint.sh` is a no-op on the migrate path.
+COPY services/${SERVICE}/ ./services/${SERVICE}/
+
+WORKDIR /repo/services/${SERVICE}
+RUN uv sync --no-dev
+
+FROM python:${PY_VERSION} AS runtime
+ARG SERVICE
+ARG MODULE
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/repo/services/${SERVICE}/.venv/bin:$PATH" \
+    SERVICE_DIR="/repo/services/${SERVICE}" \
+    APP_MODULE="${MODULE}"
+
+WORKDIR /repo/services/${SERVICE}
+RUN useradd --create-home --shell /bin/bash app
+COPY --from=builder --chown=app:app /repo /repo
+COPY --chown=app:app infrastructure/docker/python-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+USER app
+
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD python -c "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/health').status==200 else sys.exit(1)"
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
