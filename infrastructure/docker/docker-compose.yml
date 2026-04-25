@@ -200,9 +200,12 @@ services:
     image: alp/notification:local
     ports: ["38009:8000"]
     environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/notification
+      NOTIFICATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/notification
       NOTIFICATION_NATS_URL: nats://nats:4222
       NOTIFICATION_INSTITUTION_BASE_URL: http://institution:8000
     depends_on:
+      postgres: { condition: service_healthy }
       nats: { condition: service_healthy }
 
   adaptive-engine:
