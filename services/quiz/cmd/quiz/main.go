@@ -62,6 +62,16 @@ func main() {
 
 	publisher := events.Connect(cfg.NATSURL, logger)
 	defer func() { _ = publisher.Close() }()
+
+	// Content → Quiz bridge (Sprint 3): mirror published questions into our
+	// bank. Best-effort — failures are logged but don't gate startup.
+	contentSub, contentSubErr := events.StartContentSubscriber(cfg.NATSURL, pool, logger)
+	if contentSubErr != nil {
+		logger.Warn("content_subscriber.start_failed", "error", contentSubErr)
+	} else {
+		defer func() { _ = contentSub.Close() }()
+	}
+
 	sess := server.NewSessionService(st, flagClient, adaptiveClient, publisher, cfg.SessionTTL)
 
 	mux := http.NewServeMux()

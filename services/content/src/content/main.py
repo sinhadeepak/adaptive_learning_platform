@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from content import __version__
+from content import __version__, events
 from content.config import settings
 from content.db import dispose
 from content.logging import configure_logging
@@ -13,9 +13,11 @@ from content.routes import router as content_router
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
+    await events.connect()
     try:
         yield
     finally:
+        await events.close()
         await dispose()
 
 
