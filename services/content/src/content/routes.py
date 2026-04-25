@@ -16,6 +16,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from content import events
 from content.db import sessionmaker
 from content.repositories import (
     get_question,
@@ -197,4 +198,7 @@ async def review_question(
         )
     await session.commit()
     row = await get_question(session, qid)
+    if body.approve and row is not None and row["status"] == "PUBLISHED":
+        # Best-effort fan-out — Quiz mirrors this into its bank.
+        await events.publish_question_published(row)
     return _to_detail(row)
