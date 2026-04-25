@@ -61,6 +61,7 @@ async def list_topics(subject_id: str, session: SessionDep) -> list[Topic]:
             id=str(r["id"]),
             subjectId=str(r["subject_id"]),
             title=r["title"],
+            titleHi=r.get("title_hi"),
             questionCount=int(r["question_count"]),
             tier=_projected_tier(r["tier"], enforce),
         )
@@ -78,6 +79,7 @@ async def topic_detail(topic_id: str, session: SessionDep) -> TopicDetail:
         id=str(row["id"]),
         subjectId=str(row["subject_id"]),
         title=row["title"],
+        titleHi=row.get("title_hi"),
         questionCount=int(row["question_count"]),
         tier=_projected_tier(row["tier"], enforce),
         description=row.get("description"),

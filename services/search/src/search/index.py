@@ -1,8 +1,14 @@
 """OpenSearch client + index lifecycle helpers.
 
-The `topics_v1` index has English analyzer for Sprint 1. SPIKE-02 informs the
-Hindi analyzer choice for `topics_v2` (Sprint 2). Index name is versioned so
-re-indexing into a new analyzer can happen behind a small swap with zero downtime.
+`topics_v2` is the bilingual index per [SPIKE-02 closure](docs/02_planning/13_SPIKE-02_OpenSearch_Hindi_Analyzer.md).
+Each topic carries:
+- `title` analyzed by `alp_english` AND a sub-field `title.hi` analyzed by `alp_hindi`,
+  so Devanagari and Latin queries both match without language detection.
+- `subtitle` and `description` carry Hinglish aliases (e.g. "yantriki") via the
+  English analyzer's standard tokenizer — no separate language router needed.
+
+Index name is versioned so re-indexing into a new analyzer happens behind a
+small alias swap with zero downtime.
 """
 
 from __future__ import annotations
@@ -44,11 +50,24 @@ TOPIC_MAPPING: dict[str, Any] = {
                 "alp_english": {
                     "tokenizer": "standard",
                     "filter": ["lowercase", "english_stop", "english_stemmer"],
-                }
+                },
+                "alp_hindi": {
+                    "tokenizer": "standard",
+                    "filter": [
+                        "lowercase",
+                        "decimal_digit",
+                        "indic_normalization",
+                        "hindi_normalization",
+                        "hindi_stop",
+                        "hindi_stemmer",
+                    ],
+                },
             },
             "filter": {
                 "english_stop": {"type": "stop", "stopwords": "_english_"},
                 "english_stemmer": {"type": "stemmer", "language": "english"},
+                "hindi_stop": {"type": "stop", "stopwords": "_hindi_"},
+                "hindi_stemmer": {"type": "stemmer", "language": "hindi"},
             },
         },
     },
@@ -56,8 +75,16 @@ TOPIC_MAPPING: dict[str, Any] = {
         "properties": {
             "id": {"type": "keyword"},
             "type": {"type": "keyword"},
+            # English-side title (Latin script, Hinglish queries also hit here).
             "title": {"type": "text", "analyzer": "alp_english"},
+            # Devanagari mirror (NULL-tolerant via index_phrases=false default).
+            "title_hi": {"type": "text", "analyzer": "alp_hindi"},
+            # Subtitle = "Subject · Exam" → English analyzer suffices.
             "subtitle": {"type": "text", "analyzer": "alp_english"},
+            # Description carries the Hinglish alias appended by catalog 004
+            # ("Mechanics. (yantriki)") so Hinglish queries hit even if the
+            # user spells in Latin script.
+            "description": {"type": "text", "analyzer": "alp_english"},
             "subject_name": {"type": "keyword"},
             "exam_code": {"type": "keyword"},
             "tier": {"type": "keyword"},

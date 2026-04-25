@@ -794,6 +794,10 @@ components:
         id: { type: string }
         subjectId: { type: string }
         title: { type: string }
+        titleHi:
+          type: string
+          nullable: true
+          description: Devanagari title (added Sprint 2 — GAP-04 bilingual closure)
         questionCount: { type: integer }
         tier: { type: string, enum: [FREE, PREMIUM] }
         mastery:
