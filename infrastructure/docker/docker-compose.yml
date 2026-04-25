@@ -137,6 +137,22 @@ services:
       postgres: { condition: service_healthy }
       nats: { condition: service_healthy }
 
+  content:
+    build:
+      <<: *py-build
+      args: { SERVICE: content, MODULE: content.main }
+    image: alp/content:local
+    ports: ["38003:8000"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/content
+      CONTENT_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/content
+      CONTENT_NATS_URL: nats://nats:4222
+      # Must match auth's JWT_SECRET so tokens issued by Auth verify here.
+      CONTENT_JWT_SECRET: dev-only-change-me-in-staging-at-least-32-bytes-long
+    depends_on:
+      postgres: { condition: service_healthy }
+      nats: { condition: service_healthy }
+
   search:
     build:
       <<: *py-build

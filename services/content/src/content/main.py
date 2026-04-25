@@ -1,17 +1,22 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import FastAPI
 
 from content import __version__
 from content.config import settings
+from content.db import dispose
 from content.logging import configure_logging
+from content.routes import router as content_router
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
-    yield
+    try:
+        yield
+    finally:
+        await dispose()
 
 
 app = FastAPI(
@@ -19,6 +24,7 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+app.include_router(content_router)
 
 
 @app.get("/health")
