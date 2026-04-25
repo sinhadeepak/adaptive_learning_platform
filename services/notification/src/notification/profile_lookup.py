@@ -37,20 +37,21 @@ async def email_for(user_id: str) -> str | None:
 
     email: str | None = None
     try:
-        # Profile has /profile/me (auth-required). Sprint 4 adds
-        # /profile/{userId} for service-to-service lookup. For closed-beta
-        # demo we fall back to a synthesized address derived from user_id.
+        # Profile exposes /internal/profile/{userId} (no JWT, network-protected).
+        # If lookup fails we fall back to a synthesized address so dispatch
+        # keeps moving under partial-outage conditions.
         async with httpx.AsyncClient(timeout=2.0) as http:
-            r = await http.get(f"http://user-profile:8000/profile/{user_id}")
+            r = await http.get(
+                f"{settings.profile_internal_base_url}/internal/profile/{user_id}"
+            )
             if r.status_code == 200:
-                email = r.json().get("email")
+                email = r.json().get("email") or None
     except Exception as err:  # noqa: BLE001
         log.debug("profile lookup failed for %s: %s", user_id, err)
 
     if not email:
-        # Closed-beta fallback so Mailpit captures a recipient instead of
-        # silently dropping. Sprint 4 hard-fails here once the
-        # /profile/{userId} endpoint is live.
+        # Defensive fallback. Real users registered via /auth/register always
+        # have an email captured by the user.created NATS subscriber.
         email = f"user-{user_id[:8]}@adaptivelearn.in"
 
     _cache[user_id] = (now, email)

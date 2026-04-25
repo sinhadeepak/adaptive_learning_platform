@@ -18,7 +18,7 @@ class ProfileRepo:
         row = (
             await self.s.execute(
                 text(
-                    "SELECT user_id, first_name, last_name, avatar_url, locale, language_pref, "
+                    "SELECT user_id, first_name, last_name, email, avatar_url, locale, language_pref, "
                     "daily_goal_minutes, onboarding_state, timezone, tenant_id "
                     "FROM profile_schema.profiles WHERE user_id = :uid"
                 ),

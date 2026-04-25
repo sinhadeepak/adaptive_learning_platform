@@ -70,18 +70,21 @@ async def _on_user_created(msg: Msg) -> None:
 
     first = payload.get("first_name") or ""
     last = payload.get("last_name") or ""
+    email = payload.get("email") or None
 
     try:
         async with sessionmaker()() as session:
             await session.execute(
                 text(
-                    "INSERT INTO profile_schema.profiles (user_id, first_name, last_name) "
-                    "VALUES (:uid, :fn, :ln) "
+                    "INSERT INTO profile_schema.profiles (user_id, first_name, last_name, email) "
+                    "VALUES (:uid, :fn, :ln, :em) "
                     "ON CONFLICT (user_id) DO UPDATE SET "
-                    "first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, "
+                    "first_name = EXCLUDED.first_name, "
+                    "last_name = EXCLUDED.last_name, "
+                    "email = COALESCE(EXCLUDED.email, profile_schema.profiles.email), "
                     "updated_at = NOW()"
                 ),
-                {"uid": user_id, "fn": first or "User", "ln": last or "Student"},
+                {"uid": user_id, "fn": first or "User", "ln": last or "Student", "em": email},
             )
             await session.commit()
         log.info("user_profile.user_created processed user_id=%s", user_id)

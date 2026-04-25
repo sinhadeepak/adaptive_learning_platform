@@ -207,10 +207,13 @@ services:
       # SMTP outbound — Mailpit container in local dev (port 1025, no auth).
       NOTIFICATION_SMTP_HOST: mailpit
       NOTIFICATION_SMTP_PORT: "1025"
+      # Service-to-service profile lookup for the "to:" email.
+      NOTIFICATION_PROFILE_INTERNAL_BASE_URL: http://user-profile:8000
     depends_on:
       postgres: { condition: service_healthy }
       nats: { condition: service_healthy }
       mailpit: { condition: service_started }
+      user-profile: { condition: service_started }
 
   adaptive-engine:
     build:

@@ -220,3 +220,39 @@ async def test_user_created_event_handler_is_idempotent(
 async def test_bad_token_returns_401(client: AsyncClient, clean_db: None) -> None:
     r = await client.get("/profile/me", headers={"authorization": "Bearer not-a-jwt"})
     assert r.status_code == 401
+
+
+# ---- service-to-service /internal/profile/{user_id} ----
+
+
+async def test_internal_profile_lookup_returns_user(client: AsyncClient) -> None:
+    """Direct DB seed avoids needing a live NATS in unit tests; mimics the
+    same write the user.created subscriber does."""
+    from uuid import uuid4 as _u4
+
+    from user_profile.db import sessionmaker
+    user_id = str(_u4())
+    async with sessionmaker()() as session:
+        await session.execute(
+            text(
+                "INSERT INTO profile_schema.profiles (user_id, first_name, last_name, email) "
+                "VALUES (:uid, :fn, :ln, :em)"
+            ),
+            {"uid": user_id, "fn": "Demo", "ln": "Student", "em": "demo@example.com"},
+        )
+        await session.commit()
+
+    r = await client.get(f"/internal/profile/{user_id}")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["id"] == user_id
+    assert body["firstName"] == "Demo"
+    assert body["lastName"] == "Student"
+    assert body["email"] == "demo@example.com"
+
+
+async def test_internal_profile_lookup_404_for_unknown(client: AsyncClient) -> None:
+    from uuid import uuid4 as _u4
+    r = await client.get(f"/internal/profile/{_u4()}")
+    assert r.status_code == 404
+    assert r.json()["detail"]["code"] == "profile_not_found"
