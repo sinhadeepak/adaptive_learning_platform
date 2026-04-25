@@ -286,8 +286,13 @@ func (s *Store) RecordAnswer(
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// CTE: write only when no answer exists yet; return the resulting row in either case.
+	// CTE returns either the freshly-updated row (with did_update=true) or the
+	// pre-existing already-answered row (did_update=false). The sentinel keys
+	// the aggregate bump — earlier versions compared answered_at timestamps,
+	// which silently broke because Postgres truncates to microseconds while
+	// Go's time.Now() is nanoseconds.
 	var it domain.SessionItem
+	var didUpdate bool
 	row := tx.QueryRow(ctx, `
 		WITH updated AS (
 		  UPDATE quiz_schema.quiz_session_items
@@ -295,23 +300,25 @@ func (s *Store) RecordAnswer(
 		   WHERE session_id = $1 AND item_idx = $2 AND answer_idx IS NULL
 		   RETURNING session_id, item_idx, question_id, served_at, answer_idx, is_correct, answered_at
 		)
-		SELECT session_id, item_idx, question_id, served_at, answer_idx, is_correct, answered_at FROM updated
+		SELECT session_id, item_idx, question_id, served_at, answer_idx, is_correct, answered_at, true AS did_update
+		  FROM updated
 		UNION ALL
-		SELECT session_id, item_idx, question_id, served_at, answer_idx, is_correct, answered_at
+		SELECT session_id, item_idx, question_id, served_at, answer_idx, is_correct, answered_at, false AS did_update
 		  FROM quiz_schema.quiz_session_items
 		 WHERE session_id = $1 AND item_idx = $2 AND NOT EXISTS (SELECT 1 FROM updated)
 		LIMIT 1`,
 		sessionID, itemIdx, answerIdx, isCorrect, answeredAt,
 	)
-	if err := row.Scan(&it.SessionID, &it.ItemIdx, &it.QuestionID, &it.ServedAt, &it.AnswerIdx, &it.IsCorrect, &it.AnsweredAt); err != nil {
+	if err := row.Scan(&it.SessionID, &it.ItemIdx, &it.QuestionID, &it.ServedAt, &it.AnswerIdx, &it.IsCorrect, &it.AnsweredAt, &didUpdate); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return it, ErrItemNotFound
 		}
 		return it, fmt.Errorf("record answer: %w", err)
 	}
 
-	// If this call performed the first write, bump aggregate counters.
-	if it.AnsweredAt != nil && it.AnsweredAt.Equal(answeredAt) && it.AnswerIdx != nil && *it.AnswerIdx == answerIdx {
+	// First-write wins: only bump aggregates when this call actually performed
+	// the UPDATE. Re-submissions land in the false branch and are no-ops.
+	if didUpdate {
 		delta := int16(0)
 		if isCorrect {
 			delta = 1
