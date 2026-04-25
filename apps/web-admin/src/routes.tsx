@@ -1,0 +1,38 @@
+import { Navigate, type RouteObject } from "react-router-dom";
+import { AdminGate, GuestOnlyRoute, ProtectedRoute } from "./lib/protected-route";
+import { Login } from "./pages/Login";
+import { FlagDetail } from "./pages/FlagDetail";
+import { Flags } from "./pages/Flags";
+
+export const routes: RouteObject[] = [
+  { path: "/", element: <Navigate to="/flags" replace /> },
+  {
+    path: "/login",
+    element: (
+      <GuestOnlyRoute>
+        <Login />
+      </GuestOnlyRoute>
+    ),
+  },
+  {
+    path: "/flags",
+    element: (
+      <ProtectedRoute>
+        <AdminGate>
+          <Flags />
+        </AdminGate>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/flags/:name",
+    element: (
+      <ProtectedRoute>
+        <AdminGate>
+          <FlagDetail />
+        </AdminGate>
+      </ProtectedRoute>
+    ),
+  },
+  { path: "*", element: <Navigate to="/flags" replace /> },
+];
