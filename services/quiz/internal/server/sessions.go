@@ -11,8 +11,23 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/adaptive-learn/quiz/internal/adaptive"
 	"github.com/adaptive-learn/quiz/internal/domain"
 	"github.com/adaptive-learn/quiz/internal/store"
+)
+
+// coldStartItems is the number of binary-search-selected items at the start of
+// an IRT session before we hand off to the engine. < 3 responses give EAP very
+// little signal so the early picks would just track the prior — wasted calls.
+const coldStartItems = 3
+
+// defaultDiscrimination + defaultGuessing are the IRT params used until the
+// question schema gains explicit a/c columns. The closed-beta seed has only
+// difficulty_b calibrated, so a=1.0 / c=0.0 reduces 3PL to 2PL with no
+// guessing floor — fine for a first pass.
+const (
+	defaultDiscrimination = 1.0
+	defaultGuessing       = 0.0
 )
 
 // SessionService coordinates the FSM around sessions: creation, next-question
@@ -20,15 +35,17 @@ import (
 type SessionService struct {
 	store      *store.Store
 	flags      FlagEvaluator
+	adaptive   adaptive.Client
 	clock      func() time.Time
 	sessionTTL time.Duration
 	target     int16
 }
 
-func NewSessionService(s *store.Store, flags FlagEvaluator, ttl time.Duration) *SessionService {
+func NewSessionService(s *store.Store, flags FlagEvaluator, adapt adaptive.Client, ttl time.Duration) *SessionService {
 	return &SessionService{
 		store:      s,
 		flags:      flags,
+		adaptive:   adapt,
 		clock:      time.Now,
 		sessionTTL: ttl,
 		target:     10,
@@ -185,7 +202,7 @@ func (svc *SessionService) Next(logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		q, err := svc.store.PickNextQuestion(r.Context(), sess)
+		q, err := svc.pickNext(r.Context(), sess, logger)
 		if errors.Is(err, store.ErrQuestionNotFound) {
 			writeJSON(w, http.StatusOK, nextResponse{
 				SessionID: sess.ID.String(),
@@ -294,15 +311,89 @@ func (svc *SessionService) Answer(logger *slog.Logger) http.HandlerFunc {
 	}
 }
 
-// nextAbility is a placeholder ability update — symmetrical step damped by
-// the number of answered items. Replaced by the full 3PL IRT EAP/MAP
-// estimator when SPIKE-01 lands.
+// nextAbility is a placeholder local ability update — symmetrical step damped
+// by the number of answered items. Used for the binary_search strategy and
+// for the IRT cold-start phase (< coldStartItems answered). Once we have
+// enough responses, /next pulls the canonical θ from Adaptive Engine.
 func nextAbility(prev float32, isCorrect bool, served int16) float32 {
 	step := float32(0.3) / float32(1+served/2)
 	if !isCorrect {
 		step = -step
 	}
 	return prev + step
+}
+
+// pickNext chooses the next question. The IRT branch consults Adaptive Engine
+// once the session is past cold-start; everything else uses the local
+// closest-difficulty heuristic. Falls back to the local heuristic on engine
+// error so a transient outage doesn't break the quiz flow.
+func (svc *SessionService) pickNext(ctx context.Context, sess domain.Session, logger *slog.Logger) (domain.Question, error) {
+	if svc.adaptive == nil ||
+		sess.Strategy != domain.StrategyIRT ||
+		sess.ServedCount < coldStartItems {
+		return svc.store.PickNextQuestion(ctx, sess)
+	}
+
+	candidates, err := svc.store.ListUnservedCandidates(ctx, sess.ID, sess.TopicID)
+	if err != nil {
+		logger.Warn("list_candidates.failed", "err", err)
+		return svc.store.PickNextQuestion(ctx, sess)
+	}
+	if len(candidates) == 0 {
+		return domain.Question{}, store.ErrQuestionNotFound
+	}
+
+	answered, err := svc.store.ListAnsweredItemsWithDifficulty(ctx, sess.ID)
+	if err != nil {
+		logger.Warn("list_answered.failed", "err", err)
+		return svc.store.PickNextQuestion(ctx, sess)
+	}
+
+	theta := sess.AbilityEstimate
+	if len(answered) > 0 {
+		responses := make([]adaptive.ResponseDTO, 0, len(answered))
+		for _, a := range answered {
+			responses = append(responses, adaptive.ResponseDTO{
+				IRTItem:   adaptive.IRTItem{A: defaultDiscrimination, B: a.DifficultyB, C: defaultGuessing},
+				IsCorrect: a.IsCorrect,
+			})
+		}
+		ar, aerr := svc.adaptive.Ability(ctx, adaptive.AbilityRequest{
+			Responses: responses,
+			PriorMean: 0,
+			PriorSD:   1,
+		})
+		if aerr != nil {
+			logger.Warn("adaptive.ability.failed", "err", aerr)
+		} else {
+			theta = ar.Theta
+		}
+	}
+
+	cands := make([]adaptive.CandidateDTO, 0, len(candidates))
+	for _, c := range candidates {
+		cands = append(cands, adaptive.CandidateDTO{
+			ID:      c.ID.String(),
+			IRTItem: adaptive.IRTItem{A: defaultDiscrimination, B: c.DifficultyB, C: defaultGuessing},
+		})
+	}
+	sel, serr := svc.adaptive.SelectNext(ctx, adaptive.SelectNextRequest{
+		Theta:       theta,
+		Candidates:  cands,
+		ExposureCap: 5,
+	})
+	if serr != nil || sel.ItemID == nil {
+		if serr != nil {
+			logger.Warn("adaptive.select_next.failed", "err", serr)
+		}
+		return svc.store.PickNextQuestion(ctx, sess)
+	}
+	chosenID, err := uuid.Parse(*sel.ItemID)
+	if err != nil {
+		logger.Warn("adaptive.select_next.bad_id", "id", *sel.ItemID, "err", err)
+		return svc.store.PickNextQuestion(ctx, sess)
+	}
+	return svc.store.GetQuestion(ctx, chosenID)
 }
 
 type submitResponse struct {

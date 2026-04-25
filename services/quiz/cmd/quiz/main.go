@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/adaptive-learn/quiz/internal/adaptive"
 	"github.com/adaptive-learn/quiz/internal/config"
 	"github.com/adaptive-learn/quiz/internal/db"
 	"github.com/adaptive-learn/quiz/internal/flags"
@@ -48,7 +49,9 @@ func main() {
 	defer pool.Close()
 
 	st := store.New(pool)
-	sess := server.NewSessionService(st, flagClient, cfg.SessionTTL)
+	adaptiveClient := adaptive.NewHTTPClient(cfg.AdaptiveURL,
+		time.Duration(cfg.AdaptiveTimeoutMS)*time.Millisecond)
+	sess := server.NewSessionService(st, flagClient, adaptiveClient, cfg.SessionTTL)
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,

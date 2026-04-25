@@ -51,7 +51,7 @@ func newPGFixture(t *testing.T, flags FlagEvaluator) *pgFixture {
 		return nil
 	}
 	st := store.New(pool)
-	svc := NewSessionService(st, flags, 90*time.Minute)
+	svc := NewSessionService(st, flags, nil, 90*time.Minute)
 	srv := httptest.NewServer(Router(slog.New(slog.NewJSONHandler(os.Stdout, nil)), svc, flags))
 	closeAll := func() {
 		srv.Close()
@@ -263,7 +263,7 @@ func TestPG_ExpiredSessionRejectsNext(t *testing.T) {
 	t.Cleanup(pool.Close)
 	st := store.New(pool)
 	// 1 ns TTL — session is born expired.
-	svc := NewSessionService(st, stubFlags{}, 1*time.Nanosecond)
+	svc := NewSessionService(st, stubFlags{}, nil, 1*time.Nanosecond)
 	srv := httptest.NewServer(Router(slog.New(slog.NewJSONHandler(os.Stdout, nil)), svc, stubFlags{}))
 	t.Cleanup(srv.Close)
 
