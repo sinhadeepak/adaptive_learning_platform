@@ -5,13 +5,19 @@ from fastapi import FastAPI
 
 from catalog import __version__
 from catalog.config import settings
+from catalog.flags import close_flags, connect_flags
 from catalog.logging import configure_logging
+from catalog.routes import router as catalog_router
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
-    yield
+    await connect_flags()
+    try:
+        yield
+    finally:
+        await close_flags()
 
 
 app = FastAPI(
@@ -19,6 +25,8 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+
+app.include_router(catalog_router)
 
 
 @app.get("/health")

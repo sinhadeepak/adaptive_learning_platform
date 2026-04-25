@@ -1,0 +1,51 @@
+# Root .dockerignore — applies to all container builds that use the repo as context.
+
+# VCS / editor
+.git
+.gitignore
+.gitattributes
+.vscode
+.idea
+.cursor
+
+# Env + secrets
+.env
+.env.*
+!.env.example
+
+# Node / pnpm
+**/node_modules
+**/.pnpm-store
+**/dist
+**/build
+**/coverage
+**/.vite
+
+# Python
+**/__pycache__
+**/*.pyc
+**/.venv
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/htmlcov
+
+# Go
+**/vendor
+
+# Flutter
+apps/mobile/build
+apps/mobile/.dart_tool
+apps/mobile/ios/Pods
+apps/mobile/android/.gradle
+
+# Infra / docs — not needed in web-app image builds
+infrastructure
+docs
+runbook
+*.md
+!apps/*/README.md
+
+# Test artefacts
+**/*.log
+**/.DS_Store

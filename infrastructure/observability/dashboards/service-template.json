@@ -1,0 +1,51 @@
+{
+  "__comment": "Template Grafana dashboard — one per service. Fill $service + $env at ConfigMap-generation time.",
+  "title": "${service} — RED",
+  "uid": "alp-${service}-red",
+  "schemaVersion": 39,
+  "tags": ["alp", "service", "${service}"],
+  "timezone": "",
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "env",
+        "label": "Environment",
+        "type": "custom",
+        "query": "staging,prod",
+        "current": { "text": "staging", "value": "staging" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "Requests / sec (by status code)",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "sum by (status_code) (rate(http_server_requests_total{service=\"${service}\",env=\"$env\"}[1m]))" }
+      ]
+    },
+    {
+      "title": "P95 latency",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_duration_seconds_bucket{service=\"${service}\",env=\"$env\"}[5m])))" }
+      ]
+    },
+    {
+      "title": "Error rate (5xx / total)",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "sum(rate(http_server_requests_total{service=\"${service}\",env=\"$env\",status_code=~\"5..\"}[1m])) / sum(rate(http_server_requests_total{service=\"${service}\",env=\"$env\"}[1m]))" }
+      ]
+    },
+    {
+      "title": "Pod CPU / memory",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"${service}\"}[1m]))" },
+        { "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"${service}\"})" }
+      ]
+    }
+  ]
+}

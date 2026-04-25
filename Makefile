@@ -53,6 +53,40 @@ dev-logs: ## Tail logs for the local stack
 dev-seed: ## Run seed script against local Postgres + NATS (placeholder until Sprint 1)
 	@echo "→ dev-seed: implemented in Sprint 1 (scripts/seed_staging.py, GAP-09)"
 
+# -- migrations --
+
+# Per-service Alembic. The service name maps to its own database (one DB per service
+# in local Compose; one schema per service in Aurora staging/prod). Auth is the
+# template implementation — other services will mirror this pattern in Sprint 1.
+.PHONY: migrate
+migrate: ## Run Alembic upgrade head for one service.  Usage: make migrate svc=auth
+	@if [ -z "$(svc)" ]; then echo "Usage: make migrate svc=<service-name>"; exit 1; fi
+	@if [ ! -f services/$(svc)/alembic.ini ]; then \
+		echo "✗ services/$(svc) has no alembic.ini yet — Sprint 1 will add migrations to remaining services"; \
+		exit 1; \
+	fi
+	@svc_upper=$$(echo "$(svc)" | tr 'a-z-' 'A-Z_'); \
+	url_var=$${svc_upper}_DATABASE_URL; \
+	if [ -z "$${!url_var:-}" ]; then \
+		set -a; . ./.env 2>/dev/null || true; set +a; \
+	fi; \
+	url=$${!url_var}; \
+	if [ -z "$$url" ]; then \
+		echo "✗ $$url_var not set. Add it to .env (see .env.example)."; \
+		exit 1; \
+	fi; \
+	echo "→ alembic upgrade head — services/$(svc)"; \
+	(cd services/$(svc) && DATABASE_URL=$$url uv run alembic upgrade head)
+
+.PHONY: migrate-status
+migrate-status: ## Show current Alembic revision for one service.  Usage: make migrate-status svc=auth
+	@if [ -z "$(svc)" ]; then echo "Usage: make migrate-status svc=<service-name>"; exit 1; fi
+	@svc_upper=$$(echo "$(svc)" | tr 'a-z-' 'A-Z_'); \
+	url_var=$${svc_upper}_DATABASE_URL; \
+	if [ -z "$${!url_var:-}" ]; then set -a; . ./.env 2>/dev/null || true; set +a; fi; \
+	url=$${!url_var}; \
+	(cd services/$(svc) && DATABASE_URL=$$url uv run alembic current)
+
 # -- per-stack commands --
 
 .PHONY: install
@@ -67,7 +101,7 @@ install-py:
 
 .PHONY: install-web
 install-web:
-	cd apps/web && pnpm install --frozen-lockfile || cd apps/web && pnpm install
+	pnpm install --frozen-lockfile || pnpm install
 
 .PHONY: install-go
 install-go:
@@ -91,7 +125,7 @@ test-go:
 
 .PHONY: test-web
 test-web:
-	cd apps/web && pnpm test
+	pnpm -r --filter=@alp/* test
 
 # -- lint --
 
@@ -113,7 +147,8 @@ lint-go:
 
 .PHONY: lint-web
 lint-web:
-	cd apps/web && pnpm lint && pnpm format
+	pnpm -r --filter=@alp/* lint
+	pnpm -r --filter=@alp/* format
 
 # -- format --
 
@@ -121,13 +156,19 @@ lint-web:
 format: ## Auto-format all stacks
 	@for svc in $(PY_SERVICES); do (cd services/$$svc && uv run ruff format . && uv run ruff check --fix .); done
 	@for svc in $(GO_SERVICES); do (cd services/$$svc && gofmt -w -s .); done
-	cd apps/web && pnpm exec prettier --write .
+	pnpm -r --filter=@alp/* exec prettier --write .
 
 # -- build --
+
+WEB_APPS := web-student web-portal web-admin
 
 .PHONY: build
 build: ## Build all Docker images (local tag: alp/<svc>:dev)
 	@for svc in $(PY_SERVICES) $(GO_SERVICES); do \
 	  echo "→ docker build services/$$svc"; \
 	  docker build -t alp/$$svc:dev services/$$svc || exit 1; \
+	done
+	@for app in $(WEB_APPS); do \
+	  echo "→ docker build apps/$$app"; \
+	  docker build -t alp/$$app:dev -f apps/$$app/Dockerfile . || exit 1; \
 	done

@@ -1,17 +1,24 @@
+import uuid
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Literal
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 from notification import __version__
 from notification.config import settings
+from notification.flags import channel_enabled, close_flags, connect_flags
 from notification.logging import configure_logging
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
-    yield
+    await connect_flags()
+    try:
+        yield
+    finally:
+        await close_flags()
 
 
 app = FastAPI(
@@ -29,3 +36,39 @@ async def health() -> dict[str, str]:
 @app.get("/ready")
 async def ready() -> dict[str, str]:
     return {"status": "ready", "service": settings.service_name}
+
+
+Channel = Literal["push", "sms", "email"]
+
+
+class SendRequest(BaseModel):
+    userId: str
+    channel: Channel
+    type: str = Field(min_length=1, max_length=64)
+    payload: dict = Field(default_factory=dict)
+    tenantId: str | None = None
+
+
+class SendResponse(BaseModel):
+    accepted: bool
+    channel: Channel
+    notificationId: str
+
+
+@app.post("/notifications/send", response_model=SendResponse)
+async def send(req: SendRequest) -> SendResponse:
+    """GAP-16 #5 — gates dispatch on the channel-specific kill-switch flag.
+
+    Sprint 1 returns a synthesized notificationId; Sprint 2 wires real FCM/APNs +
+    Twilio SMS + SendGrid email behind the same gate. The contract stays stable.
+    """
+    if not await channel_enabled(req.channel, tenant_id=req.tenantId):
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "channel_disabled",
+                "message": f"{req.channel} channel is currently disabled",
+                "channel": req.channel,
+            },
+        )
+    return SendResponse(accepted=True, channel=req.channel, notificationId=str(uuid.uuid4()))

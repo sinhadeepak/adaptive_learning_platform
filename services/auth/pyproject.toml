@@ -7,10 +7,22 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
+    "pydantic[email]>=2.9",
     "pydantic-settings>=2.6",
     "structlog>=24.4",
     "httpx>=0.27",
+    "sqlalchemy[asyncio]>=2.0",
+    "alembic>=1.13",
+    "asyncpg>=0.29",
+    "bcrypt>=4.2",
+    "pyjwt>=2.10",
+    "aiosmtplib>=3.0",
+    "alp-flags",
+    "redis>=5.0",
 ]
+
+[tool.uv.sources]
+alp-flags = { path = "../../libs/python/alp_flags", editable = true }
 
 [dependency-groups]
 dev = [

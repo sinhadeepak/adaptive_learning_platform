@@ -6,8 +6,8 @@ Catalog service — Exam→Subject→Topic hierarchy (STU-REQ-24..27).
 
 ```bash
 uv sync
-uv run uvicorn catalog.main:app --reload --port 8004
-curl http://localhost:8004/health
+uv run uvicorn catalog.main:app --reload --port 38004
+curl http://localhost:38004/health
 ```
 
 ## Test

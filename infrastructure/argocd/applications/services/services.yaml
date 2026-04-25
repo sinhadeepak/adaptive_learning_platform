@@ -1,0 +1,50 @@
+# ApplicationSet — one ArgoCD Application per backend service.
+# Each service chart lives at infrastructure/k8s/charts/<service>/ (Helm chart
+# with Deployment + Service + HPA + ServiceMonitor + PodMonitor). Charts are
+# added in Sprint 1 alongside each service's first real feature PR.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: alp-services
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - { name: auth,             port: 8000 }
+          - { name: user-profile,     port: 8000 }
+          - { name: content,          port: 8000 }
+          - { name: catalog,          port: 8000 }
+          - { name: search,           port: 8000 }
+          - { name: analytics,        port: 8000 }
+          - { name: payment,          port: 8000 }
+          - { name: institution,      port: 8000 }
+          - { name: notification,     port: 8000 }
+          - { name: adaptive-engine,  port: 8000 }
+          - { name: quiz,             port: 8000 }
+
+  template:
+    metadata:
+      name: '{{.name}}'
+      namespace: argocd
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/sinhadeepak/adaptive_learning_platform.git
+        targetRevision: main
+        # Helm chart path (added in Sprint 1 — chart will supply Deployment, Service, HPA, ServiceMonitor).
+        path: infrastructure/k8s/charts/{{.name}}
+        helm:
+          valueFiles:
+            - values.yaml
+            - values-staging.yaml   # prod uses values-prod.yaml in the prod ApplicationSet
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{.name}}'
+      syncPolicy:
+        automated: { prune: true, selfHeal: true }
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+      # Progressive delivery: block sync if ServiceMonitor scrape fails post-deploy.
+      # Argo Rollouts or Flagger wired in Sprint 3 alongside canary rollout.

@@ -5,13 +5,19 @@ from fastapi import FastAPI
 
 from search import __version__
 from search.config import settings
+from search.index import close as close_os, ensure_index
 from search.logging import configure_logging
+from search.routes import router as search_router
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
-    yield
+    await ensure_index()
+    try:
+        yield
+    finally:
+        await close_os()
 
 
 app = FastAPI(
@@ -19,6 +25,8 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+
+app.include_router(search_router)
 
 
 @app.get("/health")

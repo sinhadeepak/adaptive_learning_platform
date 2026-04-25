@@ -1,0 +1,96 @@
+# kube-prometheus-stack values — staging defaults.
+# prod overrides live in kube-prometheus-stack.values-prod.yaml (next PR).
+
+fullnameOverride: kps
+
+crds:
+  enabled: true
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    retentionSize: 45GiB
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 50Gi
+    resources:
+      requests: { cpu: 500m, memory: 2Gi }
+      limits:   { cpu: 2,    memory: 8Gi }
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    remoteWrite: []   # add Mimir/Thanos endpoint in Phase 2
+
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources: { requests: { storage: 10Gi } }
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 500m, memory: 1Gi }
+  config:
+    # Real routing wired via a Secret overlay (PagerDuty + Slack).
+    # See alertmanager-routes.yaml (to be added with the first real alert).
+    route:
+      receiver: "null"
+      routes:
+        - matchers: ['severity="critical"']
+          receiver: pagerduty
+        - matchers: ['severity="warning"']
+          receiver: slack
+    receivers:
+      - name: "null"
+      - name: pagerduty
+        pagerduty_configs:
+          - routing_key: "$(PAGERDUTY_KEY)"
+      - name: slack
+        slack_configs:
+          - api_url: "$(SLACK_WEBHOOK)"
+            channel: "#alp-alerts"
+            send_resolved: true
+
+grafana:
+  adminPassword: "$(GRAFANA_ADMIN_PASSWORD)"   # from External Secrets
+  persistence:
+    enabled: true
+    storageClassName: gp3
+    size: 10Gi
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internal
+      alb.ingress.kubernetes.io/target-type: ip
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://loki-gateway.observability.svc:80
+    - name: Tempo
+      type: tempo
+      access: proxy
+      url: http://tempo.observability.svc:3200
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: alp
+          orgId: 1
+          folder: ALP
+          type: file
+          options: { path: /var/lib/grafana/dashboards/alp }
+
+nodeExporter:
+  enabled: true
+
+kube-state-metrics:
+  enabled: true

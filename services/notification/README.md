@@ -6,8 +6,8 @@ Notification service — push/SMS/email, channel flags (GAP-16).
 
 ```bash
 uv sync
-uv run uvicorn notification.main:app --reload --port 8009
-curl http://localhost:8009/health
+uv run uvicorn notification.main:app --reload --port 38009
+curl http://localhost:38009/health
 ```
 
 ## Test

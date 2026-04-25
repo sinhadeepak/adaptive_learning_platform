@@ -6,8 +6,8 @@ User profile service — onboarding FSM, exam selection, JWT claim propagation (
 
 ```bash
 uv sync
-uv run uvicorn user_profile.main:app --reload --port 8002
-curl http://localhost:8002/health
+uv run uvicorn user_profile.main:app --reload --port 38002
+curl http://localhost:38002/health
 ```
 
 ## Test

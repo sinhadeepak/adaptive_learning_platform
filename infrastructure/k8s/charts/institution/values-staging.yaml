@@ -1,0 +1,16 @@
+replicaCount: 2
+
+autoscaling:
+  minReplicas: 2
+  maxReplicas: 4
+
+resources:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits:   { cpu: 500m, memory: 512Mi }
+
+serviceAccount:
+  annotations:
+    # Wired after Terraform apply emits IRSA role ARNs.
+    eks.amazonaws.com/role-arn: "REPLACE_WITH_IRSA_ARN_institution_staging"
+
+envFromSecret: alp-staging-institution

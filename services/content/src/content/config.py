@@ -8,11 +8,11 @@ class Settings(BaseSettings):
     service_name: str = "content"
     environment: str = Field(default="local")
     log_level: str = Field(default="INFO")
-    port: int = Field(default=8003)
+    port: int = Field(default=38003)
 
-    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:5432/content")
-    redis_url: str = Field(default="redis://localhost:6379/0")
-    nats_url: str = Field(default="nats://localhost:4222")
+    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:35432/content")
+    redis_url: str = Field(default="redis://localhost:36379/0")
+    nats_url: str = Field(default="nats://localhost:34222")
 
 
 settings = Settings()

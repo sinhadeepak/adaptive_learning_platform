@@ -1,17 +1,22 @@
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import Annotated, AsyncIterator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 
 from adaptive_engine import __version__
 from adaptive_engine.config import settings
+from adaptive_engine.flags import close_flags, connect_flags, use_irt
 from adaptive_engine.logging import configure_logging
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
-    yield
+    await connect_flags()
+    try:
+        yield
+    finally:
+        await close_flags()
 
 
 app = FastAPI(
@@ -29,3 +34,12 @@ async def health() -> dict[str, str]:
 @app.get("/ready")
 async def ready() -> dict[str, str]:
     return {"status": "ready", "service": settings.service_name}
+
+
+@app.get("/strategy/select")
+async def select_strategy(
+    tenant_id: Annotated[str | None, Query(alias="tenantId")] = None,
+) -> dict[str, str]:
+    """Demonstrates the GAP-16 IRT toggle. Sprint 2 lands the gRPC `SelectNext` RPC
+    that uses the same gate but additionally returns a question difficulty estimate."""
+    return {"strategy": "irt" if await use_irt(tenant_id=tenant_id) else "binary_search"}

@@ -6,8 +6,8 @@ Content service — question, explanation, media management (EXP-REQ + MOD-REQ).
 
 ```bash
 uv sync
-uv run uvicorn content.main:app --reload --port 8003
-curl http://localhost:8003/health
+uv run uvicorn content.main:app --reload --port 38003
+curl http://localhost:38003/health
 ```
 
 ## Test

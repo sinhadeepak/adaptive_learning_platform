@@ -8,8 +8,8 @@ Adaptive Engine — 3PL IRT model, gRPC API, readiness scoring.
 
 ```bash
 uv sync
-uv run uvicorn adaptive_engine.main:app --reload --port 8010
-curl http://localhost:8010/health
+uv run uvicorn adaptive_engine.main:app --reload --port 38010
+curl http://localhost:38010/health
 ```
 
 ## Test

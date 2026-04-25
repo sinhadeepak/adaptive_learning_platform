@@ -1,0 +1,20 @@
+{
+  "name": "adaptive-learning-platform",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Monorepo root — pnpm workspace for ALP web apps + shared packages.",
+  "packageManager": "pnpm@9.12.3",
+  "engines": {
+    "node": ">=20 <21",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter=@alp/* build",
+    "lint": "pnpm -r --filter=@alp/* lint",
+    "test": "pnpm -r --filter=@alp/* test",
+    "format": "pnpm -r --filter=@alp/* format",
+    "dev:web-student": "pnpm --filter=@alp/web-student dev",
+    "dev:web-portal": "pnpm --filter=@alp/web-portal dev",
+    "dev:web-admin": "pnpm --filter=@alp/web-admin dev"
+  }
+}

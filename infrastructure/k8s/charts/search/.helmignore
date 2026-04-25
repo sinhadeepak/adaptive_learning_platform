@@ -1,0 +1,5 @@
+# Chart-local ignores
+.DS_Store
+.git/
+*.swp
+*.tmp

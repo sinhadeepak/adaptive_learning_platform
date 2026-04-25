@@ -1,0 +1,82 @@
+# Defaults for the alp-service library chart. Individual service charts
+# override via their own values.yaml + values-<env>.yaml files.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: "REPLACE_WITH_ECR_REPO"
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+service:
+  port: 8000
+  targetPort: 8000
+
+containerPort: 8000
+
+podAnnotations: {}
+podLabels: {}
+
+serviceAccount:
+  create: true
+  # IRSA role — set per-service per-env, wired to Secrets Manager + S3 access.
+  annotations: {}
+  # eks.amazonaws.com/role-arn: arn:aws:iam::<acct>:role/alp-<env>-<service>
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+# Health probes — services must expose /health and /ready.
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+  readiness:
+    path: /ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+# Prometheus scrape via ServiceMonitor (kube-prometheus-stack CRD).
+serviceMonitor:
+  enabled: true
+  path: /metrics
+  interval: 30s
+  scrapeTimeout: 10s
+
+# NetworkPolicy — default-deny egress, allow only Postgres/Redis/NATS/OpenSearch/DNS.
+networkPolicy:
+  enabled: true
+  allowDns: true
+  allowPostgres: true
+  allowRedis: true
+  allowNats: true
+  allowOpenSearch: false   # per-service override; Search service sets true
+
+env: []
+# Secrets populated from AWS Secrets Manager via ExternalSecrets.
+envFromSecret: ""
+
+# Topology spread — fan pods across AZs.
+topologySpread:
+  enabled: true
+  maxSkew: 1
+  topologyKey: topology.kubernetes.io/zone

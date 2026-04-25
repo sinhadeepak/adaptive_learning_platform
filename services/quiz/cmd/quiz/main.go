@@ -1,4 +1,4 @@
-// Quiz service entry point. Sprint 0: HTTP health endpoint only.
+// Quiz service entry point.
 package main
 
 import (
@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/adaptive-learn/quiz/internal/flags"
 	"github.com/adaptive-learn/quiz/internal/server"
 )
 
@@ -23,9 +24,20 @@ func main() {
 		port = "8000"
 	}
 
+	startupCtx, cancelStartup := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelStartup()
+	flagClient, err := flags.New(startupCtx, logger)
+	if err != nil {
+		logger.Error("flags.connect_failed", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		_ = flagClient.Close()
+	}()
+
 	srv := &http.Server{
 		Addr:              ":" + port,
-		Handler:           server.Router(logger),
+		Handler:           server.Router(logger, flagClient),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-dns
+  namespace: argocd
+  finalizers: ["resources-finalizer.argocd.argoproj.io"]
+spec:
+  project: default
+  source:
+    chart: external-dns
+    repoURL: https://kubernetes-sigs.github.io/external-dns/
+    targetRevision: 1.15.x
+    helm:
+      values: |
+        provider: aws
+        sources: ["service", "ingress"]
+        txtOwnerId: alp-${ENV}    # filled by ArgoCD Application-level parameters
+        policy: sync
+        serviceAccount:
+          create: true
+          annotations:
+            # IRSA role created in Terraform (module eks).
+            eks.amazonaws.com/role-arn: TODO-fill-in-after-eks-apply
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-dns
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions:
+      - CreateNamespace=true

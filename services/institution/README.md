@@ -6,8 +6,8 @@ Institution service — school/coaching-center cohorts and dashboards.
 
 ```bash
 uv sync
-uv run uvicorn institution.main:app --reload --port 8008
-curl http://localhost:8008/health
+uv run uvicorn institution.main:app --reload --port 38008
+curl http://localhost:38008/health
 ```
 
 ## Test

@@ -1,0 +1,74 @@
+# SPIKE-07 — 3-node NATS JetStream cluster.
+#
+# Run only when exercising the partition test:
+#   docker compose -f spike07-nats-cluster.yml up -d
+#   python ../../scripts/spike07_nats_partition.py
+#   docker compose -f spike07-nats-cluster.yml down -v
+#
+# Ports avoid the +30000 prefixes the main stack uses so it can run alongside.
+
+name: alp-spike07
+
+services:
+  nats-1:
+    image: nats:2.10-alpine
+    container_name: alp-spike07-nats-1
+    command:
+      - "-name=nats-1"
+      - "-server_name=nats-1"
+      - "-js"
+      - "-cluster_name=alp_spike07"
+      - "-cluster=nats://0.0.0.0:6222"
+      - "-routes=nats://nats-1:6222,nats://nats-2:6222,nats://nats-3:6222"
+      - "-port=4222"
+      - "-m=8222"
+    ports:
+      - "44221:4222"
+      - "48221:8222"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nats-2:
+    image: nats:2.10-alpine
+    container_name: alp-spike07-nats-2
+    command:
+      - "-name=nats-2"
+      - "-server_name=nats-2"
+      - "-js"
+      - "-cluster_name=alp_spike07"
+      - "-cluster=nats://0.0.0.0:6222"
+      - "-routes=nats://nats-1:6222,nats://nats-2:6222,nats://nats-3:6222"
+      - "-port=4222"
+      - "-m=8222"
+    ports:
+      - "44222:4222"
+      - "48222:8222"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nats-3:
+    image: nats:2.10-alpine
+    container_name: alp-spike07-nats-3
+    command:
+      - "-name=nats-3"
+      - "-server_name=nats-3"
+      - "-js"
+      - "-cluster_name=alp_spike07"
+      - "-cluster=nats://0.0.0.0:6222"
+      - "-routes=nats://nats-1:6222,nats://nats-2:6222,nats://nats-3:6222"
+      - "-port=4222"
+      - "-m=8222"
+    ports:
+      - "44223:4222"
+      - "48223:8222"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
