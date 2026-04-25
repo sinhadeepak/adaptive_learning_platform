@@ -240,14 +240,30 @@ func TestPG_AnswerIsIdempotent(t *testing.T) {
 	if first.Item == nil {
 		t.Fatal("expected item")
 	}
-	// Submit answerIdx=0 twice; both should succeed and return the SAME isCorrect.
-	a1 := postAnswer(t, f.srv, started.SessionID, first.Item.ItemIdx, 0)
-	a2 := postAnswer(t, f.srv, started.SessionID, first.Item.ItemIdx, 0)
-	if a1.IsCorrect != a2.IsCorrect {
+	// Pull the question detail so we can construct a known-correct answer.
+	// Mechanics seed has correct_idx values across choices [0,1,2,3] depending
+	// on the row picked; relying on whatever PRACTICE selects is fragile.
+	// Strategy: submit a deliberately CORRECT answer first, then verify that
+	// duplicate same-answer + different-answer don't change the aggregate.
+	// (The store has a CTE that's first-write-wins; we want to prove the bump
+	// happened on write 1 and DID NOT happen on writes 2+.)
+	correctAns := correctAnswerFor(t, f.st, first.Item.QuestionID)
+	a1 := postAnswer(t, f.srv, started.SessionID, first.Item.ItemIdx, correctAns)
+	if !a1.IsCorrect {
+		t.Fatalf("expected first answer to be correct (correctAns=%d); got %+v", correctAns, a1)
+	}
+	if a1.CorrectCount != 1 {
+		t.Errorf("first correct write must bump correctCount to 1; got %d", a1.CorrectCount)
+	}
+	a2 := postAnswer(t, f.srv, started.SessionID, first.Item.ItemIdx, correctAns)
+	if a2.IsCorrect != a1.IsCorrect {
 		t.Errorf("idempotent same-answer should match: a1=%+v a2=%+v", a1, a2)
 	}
-	if a1.ServedCount != a2.ServedCount {
+	if a2.ServedCount != a1.ServedCount {
 		t.Errorf("served_count must not change on duplicate: a1=%d a2=%d", a1.ServedCount, a2.ServedCount)
+	}
+	if a2.CorrectCount != a1.CorrectCount {
+		t.Errorf("correct_count must not double-bump on duplicate: a1=%d a2=%d", a1.CorrectCount, a2.CorrectCount)
 	}
 	// Re-submit with a DIFFERENT answer index; first-write wins, so isCorrect must stay.
 	a3 := postAnswer(t, f.srv, started.SessionID, first.Item.ItemIdx, 1)
@@ -421,4 +437,70 @@ func postAnswer(t *testing.T, srv *httptest.Server, sessionID string, itemIdx, a
 		t.Fatalf("decode answer: %v", err)
 	}
 	return ar
+}
+
+// correctAnswerFor looks up the seeded question's correct_idx so tests can
+// deliberately submit a right answer (rather than relying on the PRACTICE
+// strategy's pick happening to expose a known one).
+func correctAnswerFor(t *testing.T, st *store.Store, questionID string) int16 {
+	t.Helper()
+	qid, err := uuid.Parse(questionID)
+	if err != nil {
+		t.Fatalf("parse questionID: %v", err)
+	}
+	q, err := st.GetQuestion(context.Background(), qid)
+	if err != nil {
+		t.Fatalf("get question %s: %v", questionID, err)
+	}
+	return q.CorrectIdx
+}
+
+func TestPG_PerfectScoreBumpsCorrectCount(t *testing.T) {
+	// Regression: prior to fix/quiz-correct-count-bump, RecordAnswer's
+	// timestamp-equality bump-condition silently broke (Postgres microsecond
+	// truncation vs Go nanoseconds), so a perfect 5/5 walk reported score=0.
+	// This test walks an answer-aware loop and asserts the final correctCount
+	// matches the number of correct submissions.
+	f := newPGFixture(t, stubFlags{})
+	if f == nil {
+		return
+	}
+	body := []byte(fmt.Sprintf(`{"topicId":%q,"userId":%q,"mode":"PRACTICE"}`,
+		mechanicsTopicID, uuid.New().String()))
+	started := startSession(t, f.srv, body)
+	t.Cleanup(func() { f.cleanupSession(t, started.SessionID) })
+
+	const steps = 5
+	for i := 0; i < steps; i++ {
+		nx := getNext(t, f.srv, started.SessionID)
+		if nx.Item == nil {
+			t.Fatalf("step %d: no item", i)
+		}
+		correct := correctAnswerFor(t, f.st, nx.Item.QuestionID)
+		ar := postAnswer(t, f.srv, started.SessionID, nx.Item.ItemIdx, correct)
+		if !ar.IsCorrect {
+			t.Errorf("step %d: deliberate correct answer should be correct, got %+v", i, ar)
+		}
+		if got := int(ar.CorrectCount); got != i+1 {
+			t.Errorf("step %d: correctCount should equal i+1 (=%d), got %d", i, i+1, got)
+		}
+	}
+
+	r, err := http.Post(f.srv.URL+"/quiz/sessions/"+started.SessionID+"/submit",
+		"application/json", bytes.NewReader([]byte(`{}`)))
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	defer r.Body.Close()
+	var sr submitResponse
+	_ = json.NewDecoder(r.Body).Decode(&sr)
+	if sr.CorrectCount != steps {
+		t.Errorf("submit: want correctCount=%d, got %d", steps, sr.CorrectCount)
+	}
+	if sr.ServedCount != steps {
+		t.Errorf("submit: want servedCount=%d, got %d", steps, sr.ServedCount)
+	}
+	if sr.Score != 1.0 {
+		t.Errorf("submit: want score=1.0, got %v", sr.Score)
+	}
 }
