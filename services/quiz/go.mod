@@ -4,11 +4,17 @@ go 1.25.0
 
 replace github.com/adaptive-learn/alpflags => ../../libs/go/alpflags
 
+replace github.com/adaptive-learn/alptelemetry => ../../libs/go/alptelemetry
+
 require (
 	github.com/adaptive-learn/alpflags v0.0.0-00010101000000-000000000000
+	github.com/adaptive-learn/alptelemetry v0.0.0-00010101000000-000000000000
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
+	github.com/nats-io/nats.go v1.51.0
+	github.com/prometheus/client_golang v1.23.2
+	github.com/sony/gobreaker v1.0.0
 )
 
 require (
@@ -18,16 +24,14 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/nats-io/nats.go v1.51.0 // indirect
 	github.com/nats-io/nkeys v0.4.15 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
-	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
-	github.com/sony/gobreaker v1.0.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/crypto v0.49.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect

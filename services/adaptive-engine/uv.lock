@@ -8,6 +8,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "alp-flags" },
+    { name = "alp-telemetry" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pydantic" },
@@ -27,6 +28,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alp-flags", directory = "../../libs/python/alp_flags" },
+    { name = "alp-telemetry", editable = "../../libs/python/alp_telemetry" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "pydantic", specifier = ">=2.9" },
@@ -63,6 +65,28 @@ dev = [
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "pytest-mock", specifier = ">=3.14" },
+]
+
+[[package]]
+name = "alp-telemetry"
+version = "0.1.0"
+source = { editable = "../../libs/python/alp_telemetry" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "structlog" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "structlog", specifier = ">=24.4" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
 ]
 
 [[package]]
