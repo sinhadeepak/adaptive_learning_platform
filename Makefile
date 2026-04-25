@@ -64,6 +64,12 @@ analytics-backfill: ## Replay any Quiz SUBMITTED sessions Analytics missed. SINC
 	echo "→ analytics backfill since $$since"; \
 	cd services/analytics && uv run python -m analytics.backfill --since "$$since"
 
+.PHONY: notification-backfill
+notification-backfill: ## Replay any Quiz SUBMITTED sessions Notification missed. SINCE=ISO-8601 (default 36h).
+	@since="$${SINCE:-$$(date -u -d '36 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-36H +%Y-%m-%dT%H:%M:%SZ)}"; \
+	echo "→ notification backfill since $$since"; \
+	cd services/notification && uv run python -m notification.backfill --since "$$since"
+
 # -- migrations --
 
 # Per-service Alembic. The service name maps to its own database (one DB per service

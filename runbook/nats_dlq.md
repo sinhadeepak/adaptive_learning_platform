@@ -114,13 +114,20 @@ Re-run with the same `--since` → expect `applied=0 skipped=N` on the second pa
 
 ### 5.2 Notification — `quiz.session.completed` drops (notification side)
 
-Notification has no nightly backfill yet (pending Sprint 5). Manual replay:
+Same shape as Analytics. Source-of-truth is `quiz_schema.quiz_sessions`; backfill replays anything missing from `notification_schema.processed_events`:
 
-1. Identify the lost messages: `psql analytics -c "SELECT session_id FROM analytics_schema.processed_sessions WHERE session_id NOT IN (SELECT event_id FROM notification.processed_events);"` — gives the diff (Analytics has it, Notification didn't).
-2. For each, manually insert a notification row via `notification` `repositories.append_notification()`. **Do NOT** use the live consumer's idempotency key reuse — write fresh rows.
-3. Document the manual operation in the incident ticket.
+```
+make notification-backfill                                   # default: --since "36 hours ago"
+SINCE=2026-04-25T00:00:00Z make notification-backfill        # explicit window
+```
 
-If this happens twice, prioritise the Notification backfill in the next sprint.
+Or directly:
+```
+cd services/notification
+uv run python -m notification.backfill --since 2026-04-25T00:00:00Z --limit 10000
+```
+
+Outcome counters: `appended` = fresh notification rows; `dropped` = channel disabled at the time (terminal — `processed_events` still marked so flag-flips don't replay backlog); `skipped` = already in `processed_events` (idempotent re-run); `failed` = errors. Re-run must show `appended=0 skipped=N`.
 
 ### 5.3 Quiz — `content.question.published` drops
 

@@ -80,9 +80,7 @@ class PendingRow:
     dispatch_attempts: int
 
 
-async def claim_pending_batch(
-    session: AsyncSession, *, limit: int = 25
-) -> list[PendingRow]:
+async def claim_pending_batch(session: AsyncSession, *, limit: int = 25) -> list[PendingRow]:
     """Atomically pick up to `limit` undispatched rows + bump dispatch_attempts.
 
     Uses SELECT … FOR UPDATE SKIP LOCKED so multiple dispatcher instances
@@ -136,14 +134,9 @@ async def mark_dispatched(session: AsyncSession, notification_id: str) -> None:
     )
 
 
-async def record_dispatch_error(
-    session: AsyncSession, notification_id: str, error: str
-) -> None:
+async def record_dispatch_error(session: AsyncSession, notification_id: str, error: str) -> None:
     await session.execute(
-        text(
-            f"UPDATE {SCHEMA}.notifications "
-            "SET last_dispatch_error = :err WHERE id = :id"
-        ),
+        text(f"UPDATE {SCHEMA}.notifications SET last_dispatch_error = :err WHERE id = :id"),
         {"id": notification_id, "err": error[:500]},
     )
 

@@ -20,7 +20,7 @@ async def client() -> AsyncIterator[AsyncClient]:
 
 
 def _stub(values: dict[str, bool]):
-    async def _eval(channel: str, tenant_id: str | None = None) -> bool:  # noqa: ARG001
+    async def _eval(channel: str, tenant_id: str | None = None) -> bool:
         return values.get(channel, False)
 
     return _eval

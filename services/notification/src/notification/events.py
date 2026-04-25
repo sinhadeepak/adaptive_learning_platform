@@ -17,7 +17,6 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
-import uuid
 from typing import Any
 
 import nats
@@ -36,12 +35,7 @@ from nats.js.errors import BadRequestError
 
 from notification.config import settings
 from notification.db import sessionmaker
-from notification.flags import channel_enabled
-from notification.repositories import (
-    append_notification,
-    is_event_processed,
-    mark_event_processed,
-)
+from notification.processing import process_quiz_completed
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +55,7 @@ async def connect() -> None:
     global _client, _js, _subscription
     try:
         _client = await nats.connect(settings.nats_url, connect_timeout=2)
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         log.warning("notification could not connect to NATS (%s); subscriber disabled", err)
         _client = None
         return
@@ -78,7 +72,7 @@ async def connect() -> None:
         )
     except BadRequestError:
         pass
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         log.warning("notification jetstream add_stream failed: %s", err)
         return
 
@@ -95,8 +89,13 @@ async def connect() -> None:
                 max_deliver=5,
             ),
         )
-        log.info("notification subscribed to JetStream %s subject=%s durable=%s", STREAM, SUBJECT, DURABLE)
-    except Exception as err:  # noqa: BLE001
+        log.info(
+            "notification subscribed to JetStream %s subject=%s durable=%s",
+            STREAM,
+            SUBJECT,
+            DURABLE,
+        )
+    except Exception as err:
         # "consumer is already bound to a subscription" — happens when a test
         # ASGI client spins up while the live container holds the durable.
         # Swallow so test_health doesn't crash; live processes won't hit this.
@@ -120,7 +119,7 @@ async def close() -> None:
 async def _on_session_completed(msg: Msg) -> None:
     try:
         payload = json.loads(msg.data.decode("utf-8"))
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         log.warning("notification bad quiz.session.completed payload: %s", err)
         with contextlib.suppress(Exception):
             await msg.term()
@@ -136,53 +135,26 @@ async def _on_session_completed(msg: Msg) -> None:
             await msg.term()
         return
 
-    channel = "email"
     try:
-        if not await channel_enabled(channel, tenant_id=tenant_id):
-            log.info(
-                "notification dropping quiz.completed for user=%s — %s channel disabled",
-                user_id,
-                channel,
-            )
-            # Flag-disabled is a terminal decision — also mark the event
-            # processed so a future flag-flip doesn't replay backlog into
-            # the inbox once the channel re-opens.
-            try:
-                async with sessionmaker()() as session:
-                    await mark_event_processed(session, session_id)
-                    await session.commit()
-            except Exception as err:  # noqa: BLE001
-                log.warning("notification mark_processed (drop path) failed: %s", err)
-            with contextlib.suppress(Exception):
-                await msg.ack()
-            return
-
         async with sessionmaker()() as session:
-            if await is_event_processed(session, session_id):
-                log.info("notification event %s already processed; skipping", session_id)
-                with contextlib.suppress(Exception):
-                    await msg.ack()
-                return
-            await append_notification(
+            outcome = await process_quiz_completed(
                 session,
-                notification_id=str(uuid.uuid4()),
+                session_id=session_id,
                 user_id=user_id,
-                type_="quiz.completed",
-                channel=channel,
-                payload={"sessionId": session_id, "score": score, "topicId": payload.get("topic_id")},
+                score=float(score),
+                topic_id=payload.get("topic_id"),
+                tenant_id=tenant_id,
             )
-            await mark_event_processed(session, session_id)
             await session.commit()
-
         log.info(
-            "notification enqueued quiz.completed user=%s session=%s score=%.2f",
+            "notification quiz.completed outcome=%s user=%s session=%s",
+            outcome,
             user_id,
             session_id,
-            float(score),
         )
         with contextlib.suppress(Exception):
             await msg.ack()
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         log.warning("notification handler failed for %s: %s", session_id, err)
         with contextlib.suppress(Exception):
             await msg.nak(delay=5)

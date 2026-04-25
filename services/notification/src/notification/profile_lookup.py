@@ -41,12 +41,10 @@ async def email_for(user_id: str) -> str | None:
         # If lookup fails we fall back to a synthesized address so dispatch
         # keeps moving under partial-outage conditions.
         async with httpx.AsyncClient(timeout=2.0) as http:
-            r = await http.get(
-                f"{settings.profile_internal_base_url}/internal/profile/{user_id}"
-            )
+            r = await http.get(f"{settings.profile_internal_base_url}/internal/profile/{user_id}")
             if r.status_code == 200:
                 email = r.json().get("email") or None
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         log.debug("profile lookup failed for %s: %s", user_id, err)
 
     if not email:

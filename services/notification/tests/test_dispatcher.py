@@ -5,7 +5,6 @@ is exercised end-to-end. SMTP is stubbed; nothing leaves the test process.
 
 from __future__ import annotations
 
-import json
 from collections.abc import AsyncIterator
 from uuid import uuid4
 
@@ -157,6 +156,7 @@ async def test_dispatcher_skips_non_email_channel_for_now() -> None:
 async def test_render_quiz_completed_template() -> None:
     """Direct unit test of the template helper — no DB / SMTP."""
     from notification.sender import render_email
+
     subject, body = render_email("quiz.completed", {"score": 0.6, "topicId": "t-1"})
     assert "60%" in subject
     assert "60%" in body
@@ -165,6 +165,7 @@ async def test_render_quiz_completed_template() -> None:
 
 async def test_render_unknown_type_falls_through() -> None:
     from notification.sender import render_email
+
     subject, body = render_email("future.event", {"meta": "data"})
     assert "future.event" in subject
     assert "data" in body

@@ -13,7 +13,7 @@ os.environ.setdefault(
     "postgresql+asyncpg://postgres:postgres@localhost:35432/notification",
 )
 
-from notification import db  # noqa: E402
+from notification import db
 
 
 @pytest_asyncio.fixture(autouse=True)
