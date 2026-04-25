@@ -2,6 +2,7 @@ package alpflags
 
 import (
 	"context"
+	"strings"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -184,5 +185,85 @@ func TestInvalidateDropsAllTenantEntries(t *testing.T) {
 	}
 	if got := calls.Load(); got != 3 {
 		t.Errorf("want 3 fetches after re-eval, got %d", got)
+	}
+}
+
+// ---- GAP-25 OnDecision hook ----
+
+func TestOnDecision_LabelsCacheVsInstitution(t *testing.T) {
+	var decisions []Decision
+	c := New(Options{
+		InstitutionURL: "",
+		Fallbacks:      map[string]bool{"email_channel_enabled": false},
+		OnDecision:     func(d Decision) { decisions = append(decisions, d) },
+	})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeFlag(w, "email_channel_enabled", true)
+	}))
+	t.Cleanup(srv.Close)
+	c.opts.InstitutionURL = srv.URL
+
+	// First call — institution path.
+	if _, err := c.Evaluate(context.Background(), "email_channel_enabled", ""); err != nil {
+		t.Fatal(err)
+	}
+	if len(decisions) != 1 || decisions[0].Source != "institution" || !decisions[0].Value {
+		t.Fatalf("expected 1 decision source=institution value=true, got %+v", decisions)
+	}
+
+	// Second call — cache path.
+	if _, err := c.Evaluate(context.Background(), "email_channel_enabled", ""); err != nil {
+		t.Fatal(err)
+	}
+	if len(decisions) != 2 || decisions[1].Source != "cache" {
+		t.Fatalf("expected 2nd decision source=cache, got %+v", decisions)
+	}
+}
+
+func TestOnDecision_LabelsFallbackWithReason(t *testing.T) {
+	var decisions []Decision
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+	c := New(Options{
+		InstitutionURL: srv.URL,
+		Fallbacks:      map[string]bool{"checkout_enabled": false},
+		OnDecision:     func(d Decision) { decisions = append(decisions, d) },
+	})
+
+	v, err := c.Evaluate(context.Background(), "checkout_enabled", "")
+	if err != nil || v {
+		t.Fatalf("want false fallback, got v=%v err=%v", v, err)
+	}
+	if len(decisions) != 1 {
+		t.Fatalf("want 1 decision, got %d", len(decisions))
+	}
+	if decisions[0].Source != "fallback" {
+		t.Errorf("want source=fallback, got %q", decisions[0].Source)
+	}
+	if !strings.Contains(decisions[0].FallbackReason, "institution_error") {
+		t.Errorf("want fallback_reason to carry institution_error, got %q", decisions[0].FallbackReason)
+	}
+}
+
+func TestOnDecision_HookPanicDoesNotBreakEvaluate(t *testing.T) {
+	c := New(Options{
+		InstitutionURL: "",
+		Fallbacks:      map[string]bool{"x": true},
+		OnDecision:     func(_ Decision) { panic("logging crashed") },
+	})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeFlag(w, "x", true)
+	}))
+	t.Cleanup(srv.Close)
+	c.opts.InstitutionURL = srv.URL
+
+	v, err := c.Evaluate(context.Background(), "x", "")
+	if err != nil {
+		t.Fatalf("hook panic should not surface; got %v", err)
+	}
+	if !v {
+		t.Errorf("evaluate must still return correct value")
 	}
 }

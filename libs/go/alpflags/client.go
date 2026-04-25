@@ -27,6 +27,22 @@ type Options struct {
 	CacheTTL       time.Duration
 	HTTPTimeout    time.Duration
 	Logger         *slog.Logger
+	// OnDecision (GAP-25) is invoked synchronously after every Evaluate call
+	// with the resolved value + source label. nil disables decision logging.
+	// Hook errors are swallowed — a logging bug must never break flag eval.
+	OnDecision func(Decision)
+}
+
+// Decision is one flag-evaluation outcome, emitted to OnDecision after each
+// Evaluate call. Source: "cache" | "institution" | "fallback". On the
+// fallback path, FallbackReason carries the underlying error string so ops
+// dashboards can spot Institution-health spikes.
+type Decision struct {
+	FlagName       string
+	TenantID       string
+	Value          bool
+	Source         string
+	FallbackReason string
 }
 
 // Client evaluates feature flags. Construct via New, call Connect, then Evaluate.
@@ -123,17 +139,33 @@ func (c *Client) Close() error {
 
 // Evaluate looks up the flag value, preferring (in order) local cache, Institution HTTP,
 // then the hardcoded fallback. Pass tenantID="" for the global default.
+// Emits a Decision via OnDecision (if configured) on every call.
 func (c *Client) Evaluate(ctx context.Context, flag, tenantID string) (bool, error) {
 	key := cacheKey{flag: flag, tenant: tenantID}
 	if v, ok := c.cache.get(key); ok {
+		c.emitDecision(Decision{FlagName: flag, TenantID: tenantID, Value: v, Source: "cache"})
 		return v, nil
 	}
-	v, err := c.fetch(ctx, flag, tenantID)
+	v, source, reason, err := c.fetchWithSource(ctx, flag, tenantID)
 	if err != nil {
+		// Hard error — no fallback declared. Don't cache or emit.
 		return v, err
 	}
 	c.cache.put(key, v)
+	c.emitDecision(Decision{FlagName: flag, TenantID: tenantID, Value: v, Source: source, FallbackReason: reason})
 	return v, nil
+}
+
+func (c *Client) emitDecision(d Decision) {
+	if c.opts.OnDecision == nil {
+		return
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			c.logger.Warn("alpflags OnDecision panicked", "panic", r)
+		}
+	}()
+	c.opts.OnDecision(d)
 }
 
 type flagDetail struct {
@@ -147,48 +179,52 @@ type flagOverrideJSON struct {
 	Value    bool   `json:"value"`
 }
 
-func (c *Client) fetch(ctx context.Context, flag, tenantID string) (bool, error) {
+// fetchWithSource is fetch + the source label needed for the Decision emit.
+// Returns (value, source, fallbackReason, err). On a hard error (no fallback
+// declared for an unknown flag), err is non-nil and the caller does not emit.
+func (c *Client) fetchWithSource(ctx context.Context, flag, tenantID string) (bool, string, string, error) {
 	url := fmt.Sprintf("%s/flags/%s", c.opts.InstitutionURL, flag)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return c.fallback(flag, fmt.Errorf("build request: %w", err))
+		return c.fallbackWithSource(flag, fmt.Errorf("build request: %w", err))
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return c.fallback(flag, err)
+		return c.fallbackWithSource(flag, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return c.fallback(flag, errors.New("flag_unknown"))
+		return c.fallbackWithSource(flag, errors.New("flag_unknown"))
 	}
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
-		return c.fallback(flag, fmt.Errorf("institution status %d: %s", resp.StatusCode, body))
+		return c.fallbackWithSource(flag, fmt.Errorf("institution status %d: %s", resp.StatusCode, body))
 	}
 
 	var detail flagDetail
 	if err := json.NewDecoder(resp.Body).Decode(&detail); err != nil {
-		return c.fallback(flag, fmt.Errorf("decode: %w", err))
+		return c.fallbackWithSource(flag, fmt.Errorf("decode: %w", err))
 	}
 
 	if tenantID != "" {
 		for _, o := range detail.Overrides {
 			if o.TenantID == tenantID {
-				return o.Value, nil
+				return o.Value, "institution", "", nil
 			}
 		}
 	}
-	return detail.DefaultValue, nil
+	return detail.DefaultValue, "institution", "", nil
 }
 
-func (c *Client) fallback(flag string, reason error) (bool, error) {
+func (c *Client) fallbackWithSource(flag string, reason error) (bool, string, string, error) {
 	v, ok := c.opts.Fallbacks[flag]
 	if !ok {
-		return false, fmt.Errorf("alpflags: no fallback for flag %q (declare it in Options.Fallbacks): %w", flag, reason)
+		return false, "", "", fmt.Errorf("alpflags: no fallback for flag %q (declare it in Options.Fallbacks): %w", flag, reason)
 	}
-	c.logger.Warn("alpflags using hardcoded fallback", "flag", flag, "reason", reason)
-	return v, nil
+	reasonStr := "institution_error:" + reason.Error()
+	c.logger.Warn("alpflags using hardcoded fallback", "flag", flag, "reason", reasonStr)
+	return v, "fallback", reasonStr, nil
 }
 
 // CacheSize is exposed for tests and operational metrics.

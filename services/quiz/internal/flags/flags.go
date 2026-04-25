@@ -35,6 +35,7 @@ func New(ctx context.Context, logger *slog.Logger) (*alpflags.Client, error) {
 		Fallbacks:      Fallbacks,
 		CacheTTL:       30 * time.Second,
 		Logger:         logger,
+		OnDecision:     alpflags.SlogDecisionHook("quiz", logger),
 	})
 	if err := c.Connect(ctx); err != nil {
 		return nil, err
