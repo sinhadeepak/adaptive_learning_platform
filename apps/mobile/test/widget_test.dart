@@ -377,6 +377,61 @@ void main() {
     expect(find.textContaining('Email or password is incorrect'), findsOneWidget);
   });
 
+// ---- Sprint 4 — deep-link cold-start ----
+
+testWidgets('cold-start with reset-password deep link routes to ResetPasswordScreen',
+    (tester) async {
+  FlutterSecureStorage.setMockInitialValues({});
+  final auth = AuthClient(
+    baseUrl: 'http://test',
+    httpClient: MockClient((_) async => http.Response('{}', 404)),
+  );
+
+  await tester.pumpWidget(
+    AdaptiveLearningApp(
+      auth: auth,
+      initialDeepLink: 'alp://reset?token=cold-start-token',
+    ),
+  );
+  // Splash → bootstrap completes → routing settles.
+  await tester.pumpAndSettle();
+
+  expect(find.text('Set new password'), findsOneWidget);
+  expect(find.byKey(const Key('reset.password')), findsOneWidget);
+});
+
+testWidgets('cold-start without deep link lands on login', (tester) async {
+  FlutterSecureStorage.setMockInitialValues({});
+  final auth = AuthClient(
+    baseUrl: 'http://test',
+    httpClient: MockClient((_) async => http.Response('{}', 404)),
+  );
+
+  await tester.pumpWidget(AdaptiveLearningApp(auth: auth));
+  await tester.pumpAndSettle();
+
+  expect(find.byKey(const Key('login.email')), findsOneWidget);
+});
+
+testWidgets('cold-start with ignored deep link (no token) falls through to login',
+    (tester) async {
+  FlutterSecureStorage.setMockInitialValues({});
+  final auth = AuthClient(
+    baseUrl: 'http://test',
+    httpClient: MockClient((_) async => http.Response('{}', 404)),
+  );
+
+  await tester.pumpWidget(
+    AdaptiveLearningApp(
+      auth: auth,
+      initialDeepLink: 'https://app.adaptive-learn.io/reset', // no ?token=
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  expect(find.byKey(const Key('login.email')), findsOneWidget);
+});
+
 // ---- Sprint 3 — forgot/reset password ----
 
 testWidgets('login forgot button calls onForgotPassword', (tester) async {
