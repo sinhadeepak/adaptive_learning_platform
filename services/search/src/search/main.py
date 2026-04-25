@@ -1,12 +1,13 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from alp_telemetry import TraceContextMiddleware
 from fastapi import FastAPI
 
 from search import __version__
 from search.config import settings
-from search.index import close as close_os, ensure_index
+from search.index import close as close_os
+from search.index import ensure_index
 from search.logging import configure_logging
 from search.routes import router as search_router
 

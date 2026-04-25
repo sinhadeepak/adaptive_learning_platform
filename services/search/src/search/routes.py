@@ -57,7 +57,11 @@ async def search(
     }
     response = await os_client().search(index=settings.topics_index, body=body)
     hits = response.get("hits", {})
-    total = hits.get("total", {}).get("value", 0) if isinstance(hits.get("total"), dict) else hits.get("total", 0)
+    total = (
+        hits.get("total", {}).get("value", 0)
+        if isinstance(hits.get("total"), dict)
+        else hits.get("total", 0)
+    )
     results = [
         SearchHit(
             type=h["_source"]["type"],

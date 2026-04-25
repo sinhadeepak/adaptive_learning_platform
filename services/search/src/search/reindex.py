@@ -23,17 +23,19 @@ async def fetch_catalog_topics() -> list[dict[str, Any]]:
     async with httpx.AsyncClient(timeout=10.0) as http:
         exams = (await http.get(f"{settings.catalog_base_url}/exams")).json()
         for exam in exams:
-            subjects = (await http.get(f"{settings.catalog_base_url}/exams/{exam['id']}/subjects")).json()
+            subjects = (
+                await http.get(f"{settings.catalog_base_url}/exams/{exam['id']}/subjects")
+            ).json()
             for subject in subjects:
-                topics = (await http.get(f"{settings.catalog_base_url}/subjects/{subject['id']}/topics")).json()
+                topics = (
+                    await http.get(f"{settings.catalog_base_url}/subjects/{subject['id']}/topics")
+                ).json()
                 for topic in topics:
                     title_hi = topic.get("titleHi") or ""
                     # Pull the topic detail to also get description (carries
                     # the Hinglish alias appended by catalog migration 004).
                     detail = (
-                        await http.get(
-                            f"{settings.catalog_base_url}/topics/{topic['id']}"
-                        )
+                        await http.get(f"{settings.catalog_base_url}/topics/{topic['id']}")
                     ).json()
                     description = detail.get("description") or ""
                     suggest_inputs = [topic["title"], subject["name"]]
