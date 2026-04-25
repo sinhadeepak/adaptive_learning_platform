@@ -62,6 +62,8 @@ def _to_detail(row: dict) -> QuestionDetail:
         choices=row["choices"],
         correctIdx=row["correct_idx"],
         difficultyB=row["difficulty_b"],
+        discriminationA=row["discrimination_a"],
+        guessingC=row["guessing_c"],
         language=row["language"],
         status=row["status"],
         createdBy=row["created_by"],
@@ -101,6 +103,8 @@ async def create_question(
         choices=body.choices,
         correct_idx=body.correctIdx,
         difficulty_b=body.difficultyB,
+        discrimination_a=body.discriminationA,
+        guessing_c=body.guessingC,
         language=body.language,
         created_by=principal.user_id,
     )

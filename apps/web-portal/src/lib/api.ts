@@ -23,6 +23,8 @@ export interface Question {
   choices: string[];
   correctIdx: number;
   difficultyB: number;
+  discriminationA: number;
+  guessingC: number;
   language: string;
   status: "DRAFT" | "REVIEW" | "PUBLISHED" | "REJECTED" | "RETIRED";
   createdBy: string;
@@ -39,6 +41,10 @@ export interface CreateQuestionInput {
   choices: string[];
   correctIdx: number;
   difficultyB?: number;
+  // IRT calibration — optional. Omit to use defaults (a=1.0, c=0.0,
+  // effectively 2PL). Set when subject-matter experts have calibration data.
+  discriminationA?: number;
+  guessingC?: number;
   language?: "en" | "hi";
 }
 

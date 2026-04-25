@@ -93,6 +93,10 @@ async def publish_question_published(question: dict[str, Any]) -> None:
         "choices": question["choices"],
         "correct_idx": question["correct_idx"],
         "difficulty_b": question["difficulty_b"],
+        # IRT calibration — present after Sprint 4 migration; defaults to
+        # 1.0/0.0 (2PL) for rows authored before then.
+        "discrimination_a": question.get("discrimination_a", 1.0),
+        "guessing_c": question.get("guessing_c", 0.0),
         "language": question["language"],
         "reviewed_by": question["reviewed_by"],
         "reviewed_at": (

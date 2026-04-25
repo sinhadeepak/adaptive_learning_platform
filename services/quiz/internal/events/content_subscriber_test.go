@@ -199,6 +199,83 @@ func TestContentSubscriber_IsIdempotent(t *testing.T) {
 	}
 }
 
+func TestContentSubscriber_RoundTripsIRTCalibration(t *testing.T) {
+	_, pool, js, cleanup := startSubscriber(t)
+	defer cleanup()
+
+	id := uuid.New().String()
+	defer cleanupQuestion(t, pool, id)
+
+	a := float32(1.7)
+	c := float32(0.18)
+	payload, _ := json.Marshal(QuestionPublished{
+		ID: id, TopicID: "33333333-0000-0000-0000-000000000001",
+		Stem: "IRT calibration round-trip", Choices: []string{"a", "b", "c"},
+		CorrectIdx: 1, DifficultyB: 0.5, DiscriminationA: &a, GuessingC: &c,
+		Language: "en",
+	})
+	if _, err := js.Publish(context.Background(), SubjectContentQuestionPublished, payload); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	var gotA, gotC float32
+	for time.Now().Before(deadline) {
+		err := pool.QueryRow(context.Background(),
+			`SELECT discrimination_a, guessing_c FROM quiz_schema.questions WHERE id = $1`,
+			id,
+		).Scan(&gotA, &gotC)
+		if err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if gotA < 1.69 || gotA > 1.71 {
+		t.Errorf("a not round-tripped: got %v", gotA)
+	}
+	if gotC < 0.17 || gotC > 0.19 {
+		t.Errorf("c not round-tripped: got %v", gotC)
+	}
+}
+
+func TestContentSubscriber_DefaultsAcWhenAbsent(t *testing.T) {
+	// Older publishers that omit a/c fall back to neutral defaults so the
+	// downstream IRT path keeps behaving as 2PL.
+	_, pool, js, cleanup := startSubscriber(t)
+	defer cleanup()
+
+	id := uuid.New().String()
+	defer cleanupQuestion(t, pool, id)
+
+	payload, _ := json.Marshal(QuestionPublished{
+		ID: id, TopicID: "33333333-0000-0000-0000-000000000001",
+		Stem: "No a/c on the wire", Choices: []string{"a", "b"},
+		CorrectIdx: 0, DifficultyB: 0.0, Language: "en",
+	})
+	if _, err := js.Publish(context.Background(), SubjectContentQuestionPublished, payload); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	var gotA, gotC float32
+	for time.Now().Before(deadline) {
+		err := pool.QueryRow(context.Background(),
+			`SELECT discrimination_a, guessing_c FROM quiz_schema.questions WHERE id = $1`,
+			id,
+		).Scan(&gotA, &gotC)
+		if err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if gotA != 1.0 {
+		t.Errorf("a default mismatch: got %v want 1.0", gotA)
+	}
+	if gotC != 0.0 {
+		t.Errorf("c default mismatch: got %v want 0.0", gotC)
+	}
+}
+
 func TestContentSubscriber_TermsBadPayload(t *testing.T) {
 	_, _, js, cleanup := startSubscriber(t)
 	defer cleanup()

@@ -171,3 +171,43 @@ def test_get_single_visibility_rules(client: TestClient) -> None:
 def test_unauthenticated_request_rejected(client: TestClient) -> None:
     resp = client.post("/content/questions", json=_new_question_body())
     assert resp.status_code == 401
+
+
+def test_irt_calibration_defaults_to_2pl(client: TestClient) -> None:
+    """Authoring without a/c should land defaults (a=1.0, c=0.0)."""
+    teacher = str(uuid4())
+    resp = client.post(
+        "/content/questions",
+        headers=_auth(teacher, "TEACHER"),
+        json=_new_question_body(),
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["discriminationA"] == 1.0
+    assert body["guessingC"] == 0.0
+
+
+def test_irt_calibration_round_trips_explicit_values(client: TestClient) -> None:
+    """Authoring with explicit a/c should round-trip on the response."""
+    teacher = str(uuid4())
+    payload = _new_question_body() | {"discriminationA": 1.4, "guessingC": 0.25}
+    resp = client.post("/content/questions", headers=_auth(teacher, "TEACHER"), json=payload)
+    assert resp.status_code == 201
+    body = resp.json()
+    assert abs(body["discriminationA"] - 1.4) < 1e-5
+    assert abs(body["guessingC"] - 0.25) < 1e-5
+
+
+def test_irt_calibration_validates_ranges(client: TestClient) -> None:
+    """a must be > 0; c must be in [0, 1)."""
+    teacher = str(uuid4())
+    bad_a = _new_question_body() | {"discriminationA": -0.5}
+    bad_c = _new_question_body() | {"guessingC": 1.0}
+    assert (
+        client.post("/content/questions", headers=_auth(teacher, "TEACHER"), json=bad_a).status_code
+        == 422
+    )
+    assert (
+        client.post("/content/questions", headers=_auth(teacher, "TEACHER"), json=bad_c).status_code
+        == 422
+    )

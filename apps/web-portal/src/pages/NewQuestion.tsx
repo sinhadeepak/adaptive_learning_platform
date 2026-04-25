@@ -10,6 +10,9 @@ export function NewQuestion() {
   const [correctIdx, setCorrectIdx] = useState(0);
   const [language, setLanguage] = useState<"en" | "hi">("en");
   const [difficultyB, setDifficultyB] = useState(0);
+  const [discriminationA, setDiscriminationA] = useState(1.0);
+  const [guessingC, setGuessingC] = useState(0.0);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -46,6 +49,9 @@ export function NewQuestion() {
         choices: trimmedChoices,
         correctIdx,
         difficultyB,
+        // Only forward a/c when the author opened the advanced panel —
+        // otherwise the server's defaults (1.0, 0.0) apply.
+        ...(showAdvanced ? { discriminationA, guessingC } : {}),
         language,
       });
       navigate("/questions", { replace: true });
@@ -146,6 +152,48 @@ export function NewQuestion() {
             </select>
           </label>
         </div>
+
+        <details
+          open={showAdvanced}
+          onToggle={(e) => setShowAdvanced((e.target as HTMLDetailsElement).open)}
+          style={{ border: "1px solid #ddd", padding: 12 }}
+        >
+          <summary style={{ fontSize: 13, cursor: "pointer" }}>
+            Advanced — IRT calibration (only set if you have data)
+          </summary>
+          <p style={{ fontSize: 12, color: "#666", margin: "8px 0" }}>
+            Defaults <code>a=1.0</code>, <code>c=0.0</code> reduce to 2PL with
+            no guessing floor. Increase <code>a</code> for sharper items;
+            increase <code>c</code> for easy-to-guess items (typical 0.20–0.25
+            for 4-choice MCQs).
+          </p>
+          <div style={{ display: "flex", gap: 16 }}>
+            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+              Discrimination (a)
+              <input
+                type="number"
+                min={0.1}
+                max={4}
+                step={0.05}
+                value={discriminationA}
+                onChange={(e) => setDiscriminationA(parseFloat(e.target.value))}
+                style={{ width: 100, padding: 8, fontSize: 14 }}
+              />
+            </label>
+            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+              Guessing (c)
+              <input
+                type="number"
+                min={0}
+                max={0.5}
+                step={0.01}
+                value={guessingC}
+                onChange={(e) => setGuessingC(parseFloat(e.target.value))}
+                style={{ width: 100, padding: 8, fontSize: 14 }}
+              />
+            </label>
+          </div>
+        </details>
 
         {error && (
           <div role="alert" style={{ color: "#a51c30", fontSize: 13 }}>

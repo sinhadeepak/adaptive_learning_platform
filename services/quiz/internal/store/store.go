@@ -43,10 +43,11 @@ func (s *Store) CountQuestions(ctx context.Context, topicID uuid.UUID) (int, err
 
 // ListUnservedCandidates returns the PUBLISHED questions for a topic that have
 // NOT been served in the given session — used by the IRT branch to feed the
-// Adaptive Engine's MFI selector. Includes only the IRT-relevant fields.
+// Adaptive Engine's MFI selector. Includes the full IRT triple (a, b, c).
 func (s *Store) ListUnservedCandidates(ctx context.Context, sessionID, topicID uuid.UUID) ([]domain.Question, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, topic_id, stem, choices, correct_idx, difficulty_b, language, status
+		SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
+		       discrimination_a, guessing_c, language, status
 		FROM quiz_schema.questions
 		WHERE topic_id = $1 AND status = 'PUBLISHED'
 		  AND id NOT IN (
@@ -63,7 +64,8 @@ func (s *Store) ListUnservedCandidates(ctx context.Context, sessionID, topicID u
 		var q domain.Question
 		var choicesJSON []byte
 		if err := rows.Scan(&q.ID, &q.TopicID, &q.Stem, &choicesJSON,
-			&q.CorrectIdx, &q.DifficultyB, &q.Language, &q.Status); err != nil {
+			&q.CorrectIdx, &q.DifficultyB, &q.DiscriminationA, &q.GuessingC,
+			&q.Language, &q.Status); err != nil {
 			return nil, err
 		}
 		_ = json.Unmarshal(choicesJSON, &q.Choices)
@@ -72,12 +74,12 @@ func (s *Store) ListUnservedCandidates(ctx context.Context, sessionID, topicID u
 	return out, rows.Err()
 }
 
-// ListAnsweredItemsWithDifficulty returns answered items joined with question
-// IRT params, ordered by item_idx — used to rebuild the response history for
-// the Adaptive Engine's ability re-estimate.
+// ListAnsweredItemsWithDifficulty returns answered items joined with the full
+// per-question IRT triple, ordered by item_idx — used to rebuild the response
+// history for the Adaptive Engine's ability re-estimate.
 func (s *Store) ListAnsweredItemsWithDifficulty(ctx context.Context, sessionID uuid.UUID) ([]AnsweredItem, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT i.item_idx, i.is_correct, q.difficulty_b
+		SELECT i.item_idx, i.is_correct, q.difficulty_b, q.discrimination_a, q.guessing_c
 		FROM quiz_schema.quiz_session_items i
 		JOIN quiz_schema.questions q ON q.id = i.question_id
 		WHERE i.session_id = $1 AND i.is_correct IS NOT NULL
@@ -90,7 +92,8 @@ func (s *Store) ListAnsweredItemsWithDifficulty(ctx context.Context, sessionID u
 	var out []AnsweredItem
 	for rows.Next() {
 		var ai AnsweredItem
-		if err := rows.Scan(&ai.ItemIdx, &ai.IsCorrect, &ai.DifficultyB); err != nil {
+		if err := rows.Scan(&ai.ItemIdx, &ai.IsCorrect, &ai.DifficultyB,
+			&ai.DiscriminationA, &ai.GuessingC); err != nil {
 			return nil, err
 		}
 		out = append(out, ai)
@@ -99,12 +102,14 @@ func (s *Store) ListAnsweredItemsWithDifficulty(ctx context.Context, sessionID u
 }
 
 // AnsweredItem is the slim view ListAnsweredItemsWithDifficulty returns —
-// just enough for the IRT estimator. Avoids hauling stem + choices over
-// the wire for every ability recompute.
+// the full IRT triple (a, b, c) the engine needs for EAP. Avoids hauling
+// stem + choices over the wire for every ability recompute.
 type AnsweredItem struct {
-	ItemIdx     int16
-	IsCorrect   bool
-	DifficultyB float32
+	ItemIdx         int16
+	IsCorrect       bool
+	DifficultyB     float32
+	DiscriminationA float32
+	GuessingC       float32
 }
 
 // PickNextQuestion picks the next question for a session, excluding any already
@@ -118,7 +123,8 @@ func (s *Store) PickNextQuestion(ctx context.Context, sess domain.Session) (doma
 	switch sess.Mode {
 	case domain.ModeMock:
 		query = `
-			SELECT id, topic_id, stem, choices, correct_idx, difficulty_b, language, status
+			SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
+			       discrimination_a, guessing_c, language, status
 			FROM quiz_schema.questions
 			WHERE topic_id = $1 AND status = 'PUBLISHED'
 			  AND id NOT IN (
@@ -128,7 +134,8 @@ func (s *Store) PickNextQuestion(ctx context.Context, sess domain.Session) (doma
 			LIMIT 1`
 	default:
 		query = `
-			SELECT id, topic_id, stem, choices, correct_idx, difficulty_b, language, status
+			SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
+			       discrimination_a, guessing_c, language, status
 			FROM quiz_schema.questions
 			WHERE topic_id = $1 AND status = 'PUBLISHED'
 			  AND id NOT IN (
@@ -144,7 +151,8 @@ func (s *Store) PickNextQuestion(ctx context.Context, sess domain.Session) (doma
 	} else {
 		row = s.pool.QueryRow(ctx, query, sess.TopicID, sess.ID, sess.AbilityEstimate)
 	}
-	err := row.Scan(&q.ID, &q.TopicID, &q.Stem, &choicesJSON, &q.CorrectIdx, &q.DifficultyB, &q.Language, &q.Status)
+	err := row.Scan(&q.ID, &q.TopicID, &q.Stem, &choicesJSON, &q.CorrectIdx, &q.DifficultyB,
+		&q.DiscriminationA, &q.GuessingC, &q.Language, &q.Status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return q, ErrQuestionNotFound
 	}
@@ -255,9 +263,11 @@ func (s *Store) GetQuestion(ctx context.Context, id uuid.UUID) (domain.Question,
 	var q domain.Question
 	var choicesJSON []byte
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, topic_id, stem, choices, correct_idx, difficulty_b, language, status
+		SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
+		       discrimination_a, guessing_c, language, status
 		FROM quiz_schema.questions WHERE id = $1`, id,
-	).Scan(&q.ID, &q.TopicID, &q.Stem, &choicesJSON, &q.CorrectIdx, &q.DifficultyB, &q.Language, &q.Status)
+	).Scan(&q.ID, &q.TopicID, &q.Stem, &choicesJSON, &q.CorrectIdx, &q.DifficultyB,
+		&q.DiscriminationA, &q.GuessingC, &q.Language, &q.Status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return q, ErrQuestionNotFound
 	}
