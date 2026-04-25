@@ -59,24 +59,23 @@ dev-seed: ## Run seed script against local Postgres + NATS (placeholder until Sp
 # in local Compose; one schema per service in Aurora staging/prod). Auth is the
 # template implementation — other services will mirror this pattern in Sprint 1.
 .PHONY: migrate
-migrate: ## Run Alembic upgrade head for one service.  Usage: make migrate svc=auth
+migrate: ## Run migrations for one service.  Usage: make migrate svc=auth   (also: make migrate svc=quiz)
 	@if [ -z "$(svc)" ]; then echo "Usage: make migrate svc=<service-name>"; exit 1; fi
-	@if [ ! -f services/$(svc)/alembic.ini ]; then \
-		echo "✗ services/$(svc) has no alembic.ini yet — Sprint 1 will add migrations to remaining services"; \
+	@if [ -d services/$(svc)/migrations ]; then \
+		echo "→ go-migrate up — services/$(svc)"; \
+		(cd services/$(svc) && go run ./cmd/migrate up); \
+	elif [ -f services/$(svc)/alembic.ini ]; then \
+		svc_upper=$$(echo "$(svc)" | tr 'a-z-' 'A-Z_'); \
+		url_var=$${svc_upper}_DATABASE_URL; \
+		if [ -z "$${!url_var:-}" ]; then set -a; . ./.env 2>/dev/null || true; set +a; fi; \
+		url=$${!url_var}; \
+		if [ -z "$$url" ]; then echo "✗ $$url_var not set. Add it to .env (see .env.example)."; exit 1; fi; \
+		echo "→ alembic upgrade head — services/$(svc)"; \
+		(cd services/$(svc) && DATABASE_URL=$$url uv run alembic upgrade head); \
+	else \
+		echo "✗ services/$(svc) has neither alembic.ini nor migrations/ — nothing to run"; \
 		exit 1; \
 	fi
-	@svc_upper=$$(echo "$(svc)" | tr 'a-z-' 'A-Z_'); \
-	url_var=$${svc_upper}_DATABASE_URL; \
-	if [ -z "$${!url_var:-}" ]; then \
-		set -a; . ./.env 2>/dev/null || true; set +a; \
-	fi; \
-	url=$${!url_var}; \
-	if [ -z "$$url" ]; then \
-		echo "✗ $$url_var not set. Add it to .env (see .env.example)."; \
-		exit 1; \
-	fi; \
-	echo "→ alembic upgrade head — services/$(svc)"; \
-	(cd services/$(svc) && DATABASE_URL=$$url uv run alembic upgrade head)
 
 .PHONY: migrate-status
 migrate-status: ## Show current Alembic revision for one service.  Usage: make migrate-status svc=auth

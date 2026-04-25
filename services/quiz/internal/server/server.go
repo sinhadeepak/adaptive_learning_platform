@@ -18,12 +18,23 @@ type FlagEvaluator interface {
 	Evaluate(ctx context.Context, flag, tenantID string) (bool, error)
 }
 
-// Router builds the HTTP routes for the quiz service.
-func Router(logger *slog.Logger, flags FlagEvaluator) http.Handler {
+// Router builds the HTTP routes for the quiz service. Pass a non-nil session
+// service for the full Sprint 2 surface; pass nil to expose only the legacy
+// flag-gated /quiz/sessions/start (used by the Sprint 1 unit tests until they
+// migrate to a real session service).
+func Router(logger *slog.Logger, sess *SessionService, flags FlagEvaluator) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", health)
 	mux.HandleFunc("GET /ready", ready)
-	mux.HandleFunc("POST /quiz/sessions/start", startSession(logger, flags))
+	if sess != nil {
+		mux.HandleFunc("POST /quiz/sessions/start", sess.Start(logger))
+		mux.HandleFunc("GET /quiz/sessions/{id}", sess.Get(logger))
+		mux.HandleFunc("GET /quiz/sessions/{id}/next", sess.Next(logger))
+		mux.HandleFunc("POST /quiz/sessions/{id}/answers", sess.Answer(logger))
+		mux.HandleFunc("POST /quiz/sessions/{id}/submit", sess.Submit(logger))
+	} else {
+		mux.HandleFunc("POST /quiz/sessions/start", legacyStartSession(logger, flags))
+	}
 	return mux
 }
 
@@ -41,51 +52,43 @@ func ready(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-type startSessionRequest struct {
-	TopicID  string `json:"topicId"`
-	UserID   string `json:"userId"`
-	TenantID string `json:"tenantId,omitempty"`
-}
-
-type startSessionResponse struct {
-	SessionID string `json:"sessionId"`
-	Strategy  string `json:"strategy"` // "irt" | "binary_search"
-}
-
-// startSession demonstrates flag-gated branching using the alpflags Go SDK.
-// Sprint 1 records the chosen strategy in the response so we can verify it in
-// tests + smoke. Sprint 2 hooks the adaptive-engine gRPC client behind the IRT
-// branch and the local fallback behind the binary_search branch.
-func startSession(logger *slog.Logger, flags FlagEvaluator) http.HandlerFunc {
+// legacyStartSession preserves the Sprint 1 signature: returns
+// {sessionId, strategy} based purely on a flag eval, no persistence.
+// Kept so existing tests keep passing without a Postgres dependency.
+func legacyStartSession(logger *slog.Logger, flags FlagEvaluator) http.HandlerFunc {
+	type req struct {
+		TopicID  string `json:"topicId"`
+		UserID   string `json:"userId"`
+		TenantID string `json:"tenantId,omitempty"`
+	}
+	type resp struct {
+		SessionID string `json:"sessionId"`
+		Strategy  string `json:"strategy"`
+	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req startSessionRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		var body req
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeProblem(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
 			return
 		}
-		if req.TopicID == "" || req.UserID == "" {
+		if body.TopicID == "" || body.UserID == "" {
 			writeProblem(w, http.StatusBadRequest, "missing_field", "topicId and userId are required")
 			return
 		}
-
 		strategy := "binary_search"
 		if flags != nil {
-			useIRT, err := flags.Evaluate(r.Context(), "irt_model_enabled", req.TenantID)
+			useIRT, err := flags.Evaluate(r.Context(), "irt_model_enabled", body.TenantID)
 			if err != nil {
 				logger.Warn("flag.evaluate.failed", "flag", "irt_model_enabled", "err", err)
 			} else if useIRT {
 				strategy = "irt"
 			}
 		}
-
-		writeJSON(w, http.StatusCreated, startSessionResponse{
-			SessionID: newSessionID(),
-			Strategy:  strategy,
-		})
+		writeJSON(w, http.StatusCreated, resp{SessionID: legacySessionID(), Strategy: strategy})
 	}
 }
 
-func newSessionID() string {
+func legacySessionID() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)

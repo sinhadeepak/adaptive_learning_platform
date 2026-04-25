@@ -26,9 +26,17 @@ func (s stubFlags) Evaluate(_ context.Context, flag, _ string) (bool, error) {
 
 func newTestSrv(t *testing.T, flags FlagEvaluator) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(Router(slog.New(slog.NewJSONHandler(os.Stdout, nil)), flags))
+	srv := httptest.NewServer(Router(slog.New(slog.NewJSONHandler(os.Stdout, nil)), nil, flags))
 	t.Cleanup(srv.Close)
 	return srv
+}
+
+// legacyResp mirrors the Sprint 1 /quiz/sessions/start response when no
+// SessionService is wired (used by these unit tests until they migrate to a
+// real Postgres-backed integration test in sessions_pg_test.go).
+type legacyResp struct {
+	SessionID string `json:"sessionId"`
+	Strategy  string `json:"strategy"`
 }
 
 func TestHealthReturnsOK(t *testing.T) {
@@ -80,7 +88,7 @@ func TestStartSession_BinarySearchWhenIRTOff(t *testing.T) {
 		t.Fatalf("want 201, got %d", resp.StatusCode)
 	}
 
-	var body startSessionResponse
+	var body legacyResp
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +110,7 @@ func TestStartSession_IRTWhenFlagOn(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	var body startSessionResponse
+	var body legacyResp
 	_ = json.NewDecoder(resp.Body).Decode(&body)
 	if body.Strategy != "irt" {
 		t.Errorf("want strategy=irt, got %q", body.Strategy)
@@ -131,7 +139,7 @@ func TestStartSession_NoFlagsClientFallsBackToBinarySearch(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	var body startSessionResponse
+	var body legacyResp
 	_ = json.NewDecoder(resp.Body).Decode(&body)
 	if body.Strategy != "binary_search" {
 		t.Errorf("want strategy=binary_search, got %q", body.Strategy)
