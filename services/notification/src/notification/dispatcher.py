@@ -32,7 +32,7 @@ log = logging.getLogger(__name__)
 _task: asyncio.Task | None = None
 
 
-async def _tick(sender: "Sender") -> int:
+async def _tick(sender: Sender) -> int:
     """One pass: claim a batch, send each, mark or record. Returns count
     successfully dispatched (mostly for tests + ops metrics)."""
     sent = 0
@@ -64,18 +64,18 @@ async def _tick(sender: "Sender") -> int:
                 await session.commit()
             sent += 1
             log.info("notification dispatched id=%s to=%s type=%s", row.id, to, row.type)
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             log.warning("notification dispatch failed id=%s: %s", row.id, err)
             try:
                 async with sessionmaker()() as session:
                     await record_dispatch_error(session, row.id, str(err))
                     await session.commit()
-            except Exception as ee:  # noqa: BLE001
+            except Exception as ee:
                 log.warning("notification record_dispatch_error failed: %s", ee)
     return sent
 
 
-async def _run_loop(sender: "Sender") -> None:
+async def _run_loop(sender: Sender) -> None:
     log.info(
         "notification dispatcher running interval=%.1fs max_attempts=%d",
         settings.dispatch_interval_seconds,
@@ -84,12 +84,12 @@ async def _run_loop(sender: "Sender") -> None:
     while True:
         try:
             await _tick(sender)
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             log.warning("notification dispatcher tick crashed: %s", err)
         await asyncio.sleep(settings.dispatch_interval_seconds)
 
 
-async def start(sender: "Sender" | None = None) -> None:
+async def start(sender: Sender | None = None) -> None:
     """Spawn the worker if dispatch_enabled. No-op when disabled (e.g. tests)."""
     global _task
     if not settings.dispatch_enabled:
@@ -107,11 +107,11 @@ async def stop() -> None:
     _task.cancel()
     try:
         await _task
-    except (asyncio.CancelledError, Exception):  # noqa: BLE001
+    except (asyncio.CancelledError, Exception):
         pass
     _task = None
 
 
 # Test helper — drive a single tick without spawning the loop.
-async def run_one_tick(sender: "Sender" | None = None) -> int:
+async def run_one_tick(sender: Sender | None = None) -> int:
     return await _tick(sender or default_sender)

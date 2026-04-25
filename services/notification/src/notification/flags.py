@@ -62,5 +62,5 @@ async def channel_enabled(channel: str, tenant_id: str | None = None) -> bool:
         return False
     try:
         return await client().evaluate(flag, tenant_id=tenant_id)
-    except Exception:  # noqa: BLE001
+    except Exception:
         return FALLBACKS[flag]

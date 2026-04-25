@@ -10,7 +10,15 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO")
     port: int = Field(default=38009)
 
-    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:35432/notification")
+    database_url: str = Field(
+        default="postgresql+asyncpg://postgres:postgres@localhost:35432/notification"
+    )
+    # Read-only handle into Quiz's DB for the nightly backfill (Sprint 5).
+    # Mirrors the Analytics backfill shape from PR #29 — replays SUBMITTED
+    # sessions that the JetStream consumer never landed in processed_events.
+    quiz_database_url: str = Field(
+        default="postgresql+asyncpg://postgres:postgres@localhost:35432/quiz"
+    )
     redis_url: str = Field(default="redis://localhost:36379/0")
     nats_url: str = Field(default="nats://localhost:34222")
 

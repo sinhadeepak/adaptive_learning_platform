@@ -14,7 +14,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from notification import events as events_module
+from notification import processing as processing_module
 from notification.events import _on_session_completed
 from notification.main import app
 
@@ -41,7 +41,7 @@ class FakeMsg:
     async def term(self) -> None:
         self.action = "term"
 
-    async def nak(self, *, delay: int | None = None) -> None:  # noqa: ARG002
+    async def nak(self, *, delay: int | None = None) -> None:
         self.action = "nak"
 
 
@@ -67,7 +67,7 @@ async def test_quiz_completed_enqueues_when_email_flag_on(
     async def _on(_channel: str, tenant_id: str | None = None) -> bool:
         return True
 
-    monkeypatch.setattr(events_module, "channel_enabled", _on)
+    monkeypatch.setattr(processing_module, "channel_enabled", _on)
     user = str(uuid4())
     await _on_session_completed(FakeMsg(_payload(user_id=user, score=0.7)))
 
@@ -87,7 +87,7 @@ async def test_quiz_completed_dropped_when_email_flag_off(
     async def _off(_channel: str, tenant_id: str | None = None) -> bool:
         return False
 
-    monkeypatch.setattr(events_module, "channel_enabled", _off)
+    monkeypatch.setattr(processing_module, "channel_enabled", _off)
     user = str(uuid4())
     await _on_session_completed(FakeMsg(_payload(user_id=user)))
 
@@ -99,7 +99,7 @@ async def test_inbox_filters_by_user(client: AsyncClient, monkeypatch: pytest.Mo
     async def _on(_channel: str, tenant_id: str | None = None) -> bool:
         return True
 
-    monkeypatch.setattr(events_module, "channel_enabled", _on)
+    monkeypatch.setattr(processing_module, "channel_enabled", _on)
     user_a = str(uuid4())
     user_b = str(uuid4())
     await _on_session_completed(FakeMsg(_payload(user_id=user_a)))
@@ -118,7 +118,7 @@ async def test_malformed_payload_is_dropped_silently(
     async def _on(_channel: str, tenant_id: str | None = None) -> bool:
         return True
 
-    monkeypatch.setattr(events_module, "channel_enabled", _on)
+    monkeypatch.setattr(processing_module, "channel_enabled", _on)
     # Missing user_id
     msg = FakeMsg({"session_id": str(uuid4()), "score": 0.5})
     await _on_session_completed(msg)
