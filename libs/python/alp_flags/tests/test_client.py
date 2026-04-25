@@ -160,3 +160,111 @@ async def test_invalidate_drops_all_tenant_entries_for_flag() -> None:
     # Next eval re-fetches
     await client.evaluate("irt_model_enabled")
     assert len(calls) == 3
+
+
+# ---- GAP-25 decision-log hook ----
+
+
+async def test_on_decision_hook_fires_with_source_cache_or_institution() -> None:
+    decisions = []
+
+    async def capture(d):  # type: ignore[no-untyped-def]
+        decisions.append(d)
+
+    def respond(_req: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "name": "premium_tier_enforcement",
+                "description": "...",
+                "defaultValue": True,
+                "dangerCritical": False,
+                "overrides": [],
+                "audit": [],
+                "overrideCount": 0,
+                "updatedAt": "2026-04-25T00:00:00Z",
+            },
+        )
+
+    client = FlagClient(
+        institution_url="http://institution.test",
+        nats_url=None,
+        fallbacks={"premium_tier_enforcement": False},
+        cache_ttl=30.0,
+        on_decision=capture,
+    )
+    client._http = httpx.AsyncClient(
+        base_url="http://institution.test",
+        transport=httpx.MockTransport(respond),
+    )
+
+    # First eval — institution path.
+    assert await client.evaluate("premium_tier_enforcement") is True
+    assert decisions[-1].source == "institution"
+    assert decisions[-1].value is True
+    assert decisions[-1].fallback_reason is None
+    # Second eval — cache path.
+    assert await client.evaluate("premium_tier_enforcement") is True
+    assert decisions[-1].source == "cache"
+
+
+async def test_on_decision_hook_labels_fallback_source_with_reason() -> None:
+    decisions = []
+
+    async def capture(d):  # type: ignore[no-untyped-def]
+        decisions.append(d)
+
+    def respond(_req: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="institution down")
+
+    client = FlagClient(
+        institution_url="http://institution.test",
+        nats_url=None,
+        fallbacks={"checkout_enabled": False},
+        cache_ttl=30.0,
+        on_decision=capture,
+    )
+    client._http = httpx.AsyncClient(
+        base_url="http://institution.test",
+        transport=httpx.MockTransport(respond),
+    )
+
+    assert await client.evaluate("checkout_enabled") is False  # hardcoded fallback
+    assert decisions[-1].source == "fallback"
+    assert decisions[-1].fallback_reason is not None
+    assert "institution_error" in decisions[-1].fallback_reason
+
+
+async def test_on_decision_hook_failure_does_not_break_evaluate() -> None:
+    async def boom(_d):  # type: ignore[no-untyped-def]
+        raise RuntimeError("hook itself crashed — shouldn't escape")
+
+    def respond(_req: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "name": "email_channel_enabled",
+                "description": "...",
+                "defaultValue": True,
+                "dangerCritical": True,
+                "overrides": [],
+                "audit": [],
+                "overrideCount": 0,
+                "updatedAt": "2026-04-25T00:00:00Z",
+            },
+        )
+
+    client = FlagClient(
+        institution_url="http://institution.test",
+        nats_url=None,
+        fallbacks={"email_channel_enabled": False},
+        cache_ttl=30.0,
+        on_decision=boom,
+    )
+    client._http = httpx.AsyncClient(
+        base_url="http://institution.test",
+        transport=httpx.MockTransport(respond),
+    )
+
+    # Bad hook must not break the evaluator.
+    assert await client.evaluate("email_channel_enabled") is True

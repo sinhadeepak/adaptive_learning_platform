@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-from alp_flags import FlagClient
+from alp_flags import FlagClient, structlog_decision_hook
 
 from notification.config import settings
 
@@ -39,6 +39,7 @@ def client() -> FlagClient:
 async def connect_flags() -> None:
     global _client
     _client = FlagClient(
+        on_decision=structlog_decision_hook("notification"),
         institution_url=settings.institution_base_url,
         nats_url=settings.nats_url,
         fallbacks=FALLBACKS,
