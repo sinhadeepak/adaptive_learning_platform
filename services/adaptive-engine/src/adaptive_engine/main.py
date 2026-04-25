@@ -7,6 +7,7 @@ from adaptive_engine import __version__
 from adaptive_engine.config import settings
 from adaptive_engine.flags import close_flags, connect_flags, use_irt
 from adaptive_engine.logging import configure_logging
+from adaptive_engine.routes import router as irt_router
 
 
 @asynccontextmanager
@@ -24,6 +25,7 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+app.include_router(irt_router)
 
 
 @app.get("/health")

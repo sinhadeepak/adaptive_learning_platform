@@ -9,14 +9,16 @@ import (
 )
 
 type Settings struct {
-	Port           string
-	DatabaseURL    string
-	NATSURL        string
-	InstitutionURL string
-	SessionTTL     time.Duration
-	MigrationsDir  string
-	JWTSecret      string
-	Environment    string
+	Port              string
+	DatabaseURL       string
+	NATSURL           string
+	InstitutionURL    string
+	AdaptiveURL       string
+	AdaptiveTimeoutMS int
+	SessionTTL        time.Duration
+	MigrationsDir     string
+	JWTSecret         string
+	Environment       string
 }
 
 func Load() (Settings, error) {
@@ -25,10 +27,16 @@ func Load() (Settings, error) {
 		DatabaseURL:    getenv("QUIZ_DATABASE_URL", "postgres://postgres:postgres@localhost:35432/quiz?sslmode=disable"),
 		NATSURL:        getenv("QUIZ_NATS_URL", "nats://localhost:34222"),
 		InstitutionURL: getenv("QUIZ_INSTITUTION_BASE_URL", "http://localhost:38008"),
+		AdaptiveURL:    getenv("QUIZ_ADAPTIVE_BASE_URL", "http://localhost:38010"),
 		MigrationsDir:  getenv("QUIZ_MIGRATIONS_DIR", "migrations"),
 		JWTSecret:      getenv("QUIZ_JWT_SECRET", "dev-only-change-me-in-staging-at-least-32-bytes-long"),
 		Environment:    getenv("QUIZ_ENVIRONMENT", "local"),
 	}
+	timeoutMS, err := strconv.Atoi(getenv("QUIZ_ADAPTIVE_TIMEOUT_MS", "1500"))
+	if err != nil {
+		return s, fmt.Errorf("invalid QUIZ_ADAPTIVE_TIMEOUT_MS: %w", err)
+	}
+	s.AdaptiveTimeoutMS = timeoutMS
 	ttlMin, err := strconv.Atoi(getenv("QUIZ_SESSION_TTL_MIN", "90"))
 	if err != nil {
 		return s, fmt.Errorf("invalid QUIZ_SESSION_TTL_MIN: %w", err)

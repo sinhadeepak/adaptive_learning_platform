@@ -41,6 +41,72 @@ func (s *Store) CountQuestions(ctx context.Context, topicID uuid.UUID) (int, err
 	return n, err
 }
 
+// ListUnservedCandidates returns the PUBLISHED questions for a topic that have
+// NOT been served in the given session — used by the IRT branch to feed the
+// Adaptive Engine's MFI selector. Includes only the IRT-relevant fields.
+func (s *Store) ListUnservedCandidates(ctx context.Context, sessionID, topicID uuid.UUID) ([]domain.Question, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, topic_id, stem, choices, correct_idx, difficulty_b, language, status
+		FROM quiz_schema.questions
+		WHERE topic_id = $1 AND status = 'PUBLISHED'
+		  AND id NOT IN (
+		    SELECT question_id FROM quiz_schema.quiz_session_items WHERE session_id = $2
+		  )`,
+		topicID, sessionID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.Question
+	for rows.Next() {
+		var q domain.Question
+		var choicesJSON []byte
+		if err := rows.Scan(&q.ID, &q.TopicID, &q.Stem, &choicesJSON,
+			&q.CorrectIdx, &q.DifficultyB, &q.Language, &q.Status); err != nil {
+			return nil, err
+		}
+		_ = json.Unmarshal(choicesJSON, &q.Choices)
+		out = append(out, q)
+	}
+	return out, rows.Err()
+}
+
+// ListAnsweredItemsWithDifficulty returns answered items joined with question
+// IRT params, ordered by item_idx — used to rebuild the response history for
+// the Adaptive Engine's ability re-estimate.
+func (s *Store) ListAnsweredItemsWithDifficulty(ctx context.Context, sessionID uuid.UUID) ([]AnsweredItem, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT i.item_idx, i.is_correct, q.difficulty_b
+		FROM quiz_schema.quiz_session_items i
+		JOIN quiz_schema.questions q ON q.id = i.question_id
+		WHERE i.session_id = $1 AND i.is_correct IS NOT NULL
+		ORDER BY i.item_idx ASC`, sessionID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AnsweredItem
+	for rows.Next() {
+		var ai AnsweredItem
+		if err := rows.Scan(&ai.ItemIdx, &ai.IsCorrect, &ai.DifficultyB); err != nil {
+			return nil, err
+		}
+		out = append(out, ai)
+	}
+	return out, rows.Err()
+}
+
+// AnsweredItem is the slim view ListAnsweredItemsWithDifficulty returns —
+// just enough for the IRT estimator. Avoids hauling stem + choices over
+// the wire for every ability recompute.
+type AnsweredItem struct {
+	ItemIdx     int16
+	IsCorrect   bool
+	DifficultyB float32
+}
+
 // PickNextQuestion picks the next question for a session, excluding any already
 // served. PRACTICE mode chooses the closest-difficulty question to the session's
 // ability estimate; MOCK mode returns questions in difficulty-ascending order.
