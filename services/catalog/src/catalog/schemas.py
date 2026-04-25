@@ -26,6 +26,7 @@ class Topic(BaseModel):
     id: str
     subjectId: str
     title: str
+    titleHi: str | None = None
     questionCount: int = 0
     tier: Literal["FREE", "PREMIUM"] = "FREE"
     mastery: float | None = None

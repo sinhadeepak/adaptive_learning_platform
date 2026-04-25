@@ -66,7 +66,11 @@ async def test_topic_detail(client: AsyncClient) -> None:
     assert r.status_code == 200
     body = r.json()
     assert body["title"] == "Mechanics"
-    assert body["description"] == "Motion, forces, and energy."
+    # Description carries the Hinglish alias appended by migration 004 so
+    # cross-script queries hit via Search's English analyzer.
+    assert body["description"].startswith("Motion, forces, and energy.")
+    assert "yantriki" in body["description"]
+    assert body["titleHi"] == "यांत्रिकी"
     assert body["questionCount"] == 48
     assert body["objectives"] == []
 

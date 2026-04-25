@@ -28,8 +28,23 @@ async def search(
     page: Annotated[int, Query(ge=1, le=100)] = 1,
     perPage: Annotated[int, Query(ge=1, le=50)] = 20,
 ) -> SearchResults:
+    # Bilingual: query both English-analyzed and Hindi-analyzed views of the
+    # title in parallel (same source, two analyzed fields per topics_v2 mapping).
+    # Description carries the Hinglish alias, so cross-script queries like
+    # "yantriki" hit via English analyzer's standard tokenizer.
     must: list[dict[str, Any]] = [
-        {"multi_match": {"query": q, "fields": ["title^3", "subtitle"], "fuzziness": "AUTO"}},
+        {
+            "multi_match": {
+                "query": q,
+                "fields": [
+                    "title^3",
+                    "title_hi^3",
+                    "subtitle",
+                    "description",
+                ],
+                "fuzziness": "AUTO",
+            }
+        },
     ]
     if type:
         must.append({"term": {"type": type}})

@@ -27,17 +27,31 @@ async def fetch_catalog_topics() -> list[dict[str, Any]]:
             for subject in subjects:
                 topics = (await http.get(f"{settings.catalog_base_url}/subjects/{subject['id']}/topics")).json()
                 for topic in topics:
+                    title_hi = topic.get("titleHi") or ""
+                    # Pull the topic detail to also get description (carries
+                    # the Hinglish alias appended by catalog migration 004).
+                    detail = (
+                        await http.get(
+                            f"{settings.catalog_base_url}/topics/{topic['id']}"
+                        )
+                    ).json()
+                    description = detail.get("description") or ""
+                    suggest_inputs = [topic["title"], subject["name"]]
+                    if title_hi:
+                        suggest_inputs.append(title_hi)
                     docs.append(
                         {
                             "id": topic["id"],
                             "type": "topic",
                             "title": topic["title"],
+                            "title_hi": title_hi,
                             "subtitle": f"{subject['name']} · {exam['name']}",
+                            "description": description,
                             "subject_name": subject["name"],
                             "exam_code": exam["code"],
                             "tier": topic["tier"],
                             "title_suggest": {
-                                "input": [topic["title"], subject["name"]],
+                                "input": suggest_inputs,
                                 "weight": topic.get("questionCount", 1),
                             },
                         }

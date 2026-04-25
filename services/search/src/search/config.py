@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     # OpenSearch — search owns no relational state; the `topics_v1` index is the source of truth.
     opensearch_url: str = Field(default="http://localhost:39200")
-    topics_index: str = Field(default="topics_v1")
+    topics_index: str = Field(default="topics_v2")
 
     # Catalog endpoint for reindex (Sprint 1: HTTP pull. Sprint 2: NATS event-driven.)
     catalog_base_url: str = Field(default="http://localhost:38004/catalog")
