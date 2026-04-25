@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import secrets
 from collections.abc import AsyncIterator
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 import pytest
@@ -22,7 +22,7 @@ pytestmark = pytest.mark.asyncio
 
 
 def _admin_token() -> str:
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     return jwt.encode(
         {
             "sub": "00000000-0000-0000-0000-0000000000ad",
@@ -152,9 +152,7 @@ async def test_search_query_required(client: AsyncClient, fresh_index: None) -> 
 # ---- Bilingual search (SPIKE-02 / GAP-04 closure) ---------------------------
 
 
-async def test_search_hindi_devanagari_finds_topic(
-    client: AsyncClient, fresh_index: None
-) -> None:
+async def test_search_hindi_devanagari_finds_topic(client: AsyncClient, fresh_index: None) -> None:
     """Pure Devanagari query hits the title_hi field via alp_hindi analyzer."""
     r = await client.get("/search?q=यांत्रिकी")
     assert r.status_code == 200

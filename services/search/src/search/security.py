@@ -31,8 +31,12 @@ async def require_admin(
     try:
         claims = jwt.decode(creds.credentials, settings.jwt_secret, algorithms=["HS256"])
     except jwt.InvalidTokenError as err:
-        raise HTTPException(status_code=401, detail={"code": "invalid_token", "message": "Invalid token"}) from err
+        raise HTTPException(
+            status_code=401, detail={"code": "invalid_token", "message": "Invalid token"}
+        ) from err
     p = JwtPrincipal(claims)
     if not p.is_admin:
-        raise HTTPException(status_code=403, detail={"code": "forbidden", "message": "Admin required"})
+        raise HTTPException(
+            status_code=403, detail={"code": "forbidden", "message": "Admin required"}
+        )
     return p

@@ -70,6 +70,13 @@ notification-backfill: ## Replay any Quiz SUBMITTED sessions Notification missed
 	echo "→ notification backfill since $$since"; \
 	cd services/notification && uv run python -m notification.backfill --since "$$since"
 
+.PHONY: search-swap-alias
+search-swap-alias: ## Swap topics alias to TARGET. Usage: TARGET=topics_v3 [REINDEX=1] [DROP_OLD=1] make search-swap-alias
+	@if [ -z "$(TARGET)" ]; then echo "Usage: TARGET=topics_v3 [REINDEX=1] [DROP_OLD=1] make search-swap-alias"; exit 1; fi
+	@cd services/search && uv run python -m search.swap_alias --target "$(TARGET)" \
+		$(if $(REINDEX),--reindex,) \
+		$(if $(DROP_OLD),--drop-old,)
+
 # -- migrations --
 
 # Per-service Alembic. The service name maps to its own database (one DB per service
