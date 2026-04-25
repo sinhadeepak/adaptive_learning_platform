@@ -24,6 +24,11 @@ from user_profile.security import JwtPrincipal, current_principal
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
+# Service-to-service router. Mounted under a separate prefix so we can
+# tighten access via NetworkPolicy in Sprint 4 without disturbing the
+# JWT-protected /profile/* surface used by web/mobile clients.
+internal_router = APIRouter(prefix="/internal/profile", tags=["internal"])
+
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 PrincipalDep = Annotated[JwtPrincipal, Depends(current_principal)]
 
@@ -158,3 +163,31 @@ async def delete_avatar(session: SessionDep, principal: PrincipalDep) -> None:
     # Stubbed until S3 avatar upload lands in Sprint 3.
     await session.commit()
     return None
+
+
+# ---- /internal/profile/{user_id} — service-to-service lookup ----
+
+
+@internal_router.get("/{user_id}", response_model=UserIdentity)
+async def get_profile_internal(user_id: str, session: SessionDep) -> UserIdentity:
+    """Service-to-service lookup of the minimal user shape (id, names, email,
+    onboarding state). Used by Notification's outbound dispatcher to resolve
+    `to:` addresses without threading email through every event payload.
+
+    No JWT here — protected by network reachability (compose network in
+    local, K8s NetworkPolicy in staging+prod). Sprint 4 hardens with
+    mTLS via the service mesh.
+    """
+    row = await ProfileRepo(session).by_user_id(user_id)
+    if row is None:
+        raise _problem("profile_not_found", "Profile not found", http_status=404)
+    await session.commit()
+    return UserIdentity(
+        id=user_id,
+        email=row.get("email") or "",
+        firstName=row["first_name"],
+        lastName=row["last_name"],
+        role="STUDENT",
+        tenantId=row.get("tenant_id"),
+        onboardingState=row["onboarding_state"],
+    )

@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     # GAP-16 — Notification gates 3 channels: push/sms/email.
     institution_base_url: str = Field(default="http://localhost:38008")
 
+    # Service-to-service: Profile exposes /internal/profile/{userId} for the
+    # dispatcher's "to:" lookup (Sprint 3). compose sets this to the docker
+    # service name; local-host dev points to :38002.
+    profile_internal_base_url: str = Field(default="http://localhost:38002")
+
     # SMTP outbound — Mailpit in local dev (no auth, port 1025), SendGrid in
     # staging+prod (auth_token via secret + port 587 TLS).
     smtp_host: str = Field(default="localhost")

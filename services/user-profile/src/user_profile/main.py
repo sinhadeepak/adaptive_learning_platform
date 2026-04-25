@@ -8,7 +8,7 @@ from user_profile.config import settings
 from user_profile.events import close as close_events
 from user_profile.events import connect as connect_events
 from user_profile.logging import configure_logging
-from user_profile.routes import router as profile_router
+from user_profile.routes import internal_router, router as profile_router
 
 
 @asynccontextmanager
@@ -28,6 +28,7 @@ app = FastAPI(
 )
 
 app.include_router(profile_router)
+app.include_router(internal_router)
 
 
 @app.get("/health")
