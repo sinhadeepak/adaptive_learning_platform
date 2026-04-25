@@ -36,15 +36,7 @@ from nats.js.errors import BadRequestError
 
 from analytics.config import settings
 from analytics.db import sessionmaker
-from analytics.mastery import readiness_from_mastery, update_ewa
-from analytics.repositories import (
-    get_mastery,
-    is_session_processed,
-    list_user_mastery,
-    mark_session_processed,
-    upsert_mastery,
-    upsert_readiness,
-)
+from analytics.processing import process_session
 
 log = logging.getLogger(__name__)
 
@@ -65,7 +57,7 @@ async def connect() -> None:
     global _client, _js, _subscription
     try:
         _client = await nats.connect(settings.nats_url, connect_timeout=2)
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         log.warning("analytics could not connect to NATS (%s); subscriber disabled", err)
         _client = None
         return
@@ -83,7 +75,7 @@ async def connect() -> None:
     except BadRequestError:
         # Stream already exists — fine, that's the publisher's pre-create.
         pass
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         log.warning("analytics jetstream add_stream failed: %s", err)
         return
 
@@ -100,8 +92,10 @@ async def connect() -> None:
                 max_deliver=5,
             ),
         )
-        log.info("analytics subscribed to JetStream %s subject=%s durable=%s", STREAM, SUBJECT, DURABLE)
-    except Exception as err:  # noqa: BLE001
+        log.info(
+            "analytics subscribed to JetStream %s subject=%s durable=%s", STREAM, SUBJECT, DURABLE
+        )
+    except Exception as err:
         # "consumer is already bound" — happens under pytest when a test ASGI
         # client spins up while the live container holds the durable. Real
         # service processes (one per durable) never hit this.
@@ -127,7 +121,7 @@ async def _on_session_completed(msg: Msg) -> None:
     explicit ack/nak/term so retries do the right thing."""
     try:
         payload = json.loads(msg.data.decode("utf-8"))
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         log.warning("analytics bad quiz.session.completed payload: %s", err)
         with contextlib.suppress(Exception):
             await msg.term()  # poison-pill — never redeliver malformed
@@ -145,54 +139,27 @@ async def _on_session_completed(msg: Msg) -> None:
 
     try:
         async with sessionmaker()() as session:
-            if await is_session_processed(session, session_id):
-                log.info("analytics session %s already processed; skipping", session_id)
-                with contextlib.suppress(Exception):
-                    await msg.ack()
-                return
-            current = await get_mastery(session, user_id, topic_id)
-            prev_ewa = current.ewa if current else 0.0
-            prev_n = current.n if current else 0
-            new_ewa = update_ewa(prev_ewa, prev_n, float(score))
-            await upsert_mastery(
+            applied = await process_session(
                 session,
+                session_id=session_id,
                 user_id=user_id,
                 topic_id=topic_id,
-                new_ewa=new_ewa,
-                new_n=prev_n + 1,
-                last_session_id=session_id,
+                score=float(score),
             )
-            rows = await list_user_mastery(session, user_id)
-            rows = [MasteryRowReplace(r, new_ewa) if r.topic_id == topic_id else r for r in rows]
-            score_global = readiness_from_mastery(rows)
-            await upsert_readiness(
-                session,
-                user_id=user_id,
-                scope="GLOBAL",
-                score=score_global,
-                n_topics=len(rows),
-            )
-            await mark_session_processed(session, session_id)
             await session.commit()
         with contextlib.suppress(Exception):
             await msg.ack()
-        log.info(
-            "analytics processed quiz.session.completed user=%s topic=%s ewa=%.3f readiness=%.3f",
-            user_id,
-            topic_id,
-            new_ewa,
-            score_global,
-        )
-    except Exception as err:  # noqa: BLE001
+        if applied:
+            log.info(
+                "analytics processed quiz.session.completed user=%s topic=%s",
+                user_id,
+                topic_id,
+            )
+        else:
+            log.info("analytics session %s already processed; skipping", session_id)
+    except Exception as err:
         log.warning("analytics quiz.session.completed handler failed for %s: %s", session_id, err)
         with contextlib.suppress(Exception):
             # Infra failure (DB down, etc) — nak with delay so JetStream
             # retries with backoff. MaxDeliver=5 caps the retry storm.
             await msg.nak(delay=5)
-
-
-def MasteryRowReplace(row, new_ewa: float):  # noqa: N802 — mimics dataclasses.replace
-    """Return a copy of `row` with `ewa` swapped — avoids importing dataclasses just for this."""
-    from analytics.mastery import MasteryRow
-
-    return MasteryRow(user_id=row.user_id, topic_id=row.topic_id, ewa=new_ewa, n=row.n)

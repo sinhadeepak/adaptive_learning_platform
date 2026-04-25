@@ -46,7 +46,7 @@ class FakeMsg:
     async def term(self) -> None:
         self.action = "term"
 
-    async def nak(self, *, delay: int | None = None) -> None:  # noqa: ARG002
+    async def nak(self, *, delay: int | None = None) -> None:
         self.action = "nak"
 
 

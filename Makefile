@@ -58,6 +58,12 @@ seed-hindi: ## Seed 15 Hindi MCQs through Content API → bridge → Quiz bank.
 	@echo "→ seeding Hindi content via Content service at $${CONTENT_BASE_URL:-http://localhost:38003}"
 	@cd services/content && uv run python seed/seed_hindi.py
 
+.PHONY: analytics-backfill
+analytics-backfill: ## Replay any Quiz SUBMITTED sessions Analytics missed. SINCE=ISO-8601 (default 36h).
+	@since="$${SINCE:-$$(date -u -d '36 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-36H +%Y-%m-%dT%H:%M:%SZ)}"; \
+	echo "→ analytics backfill since $$since"; \
+	cd services/analytics && uv run python -m analytics.backfill --since "$$since"
+
 # -- migrations --
 
 # Per-service Alembic. The service name maps to its own database (one DB per service
