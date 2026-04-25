@@ -124,6 +124,12 @@ class AuthClient {
     return _http.patch(_uri(path), headers: _authHeaders(json: true), body: jsonEncode(body));
   }
 
+  /// Authenticated POST with JSON body. Use empty {} for endpoints that take
+  /// no body (e.g. /quiz/sessions/{id}/submit).
+  Future<http.Response> apiPost(String path, Object body) {
+    return _http.post(_uri(path), headers: _authHeaders(json: true), body: jsonEncode(body));
+  }
+
   Uri _uri(String path) => Uri.parse('$baseUrl$path');
 
   Map<String, String> _authHeaders({bool json = false}) {
