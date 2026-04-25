@@ -68,6 +68,86 @@ async def append_notification(
     )
 
 
+@dataclass(frozen=True)
+class PendingRow:
+    """Row shape consumed by the dispatcher — only the fields it needs."""
+
+    id: str
+    user_id: str
+    type: str
+    channel: str
+    payload: dict[str, Any]
+    dispatch_attempts: int
+
+
+async def claim_pending_batch(
+    session: AsyncSession, *, limit: int = 25
+) -> list[PendingRow]:
+    """Atomically pick up to `limit` undispatched rows + bump dispatch_attempts.
+
+    Uses SELECT … FOR UPDATE SKIP LOCKED so multiple dispatcher instances
+    (Sprint 4 horizontal scale) can safely poll the same table without
+    duplicating work. Each call increments dispatch_attempts so backoff +
+    max-attempt logic can reason about retries.
+    """
+    res = await session.execute(
+        text(
+            f"""
+            WITH claimed AS (
+              SELECT id FROM {SCHEMA}.notifications
+               WHERE dispatched_at IS NULL
+            ORDER BY created_at ASC
+               LIMIT :lim
+              FOR UPDATE SKIP LOCKED
+            )
+            UPDATE {SCHEMA}.notifications n
+               SET dispatch_attempts = n.dispatch_attempts + 1
+              FROM claimed
+             WHERE n.id = claimed.id
+         RETURNING n.id, n.user_id, n.type, n.channel, n.payload, n.dispatch_attempts
+            """
+        ),
+        {"lim": limit},
+    )
+    rows = []
+    for r in res:
+        p = r[4] if isinstance(r[4], dict) else json.loads(r[4])
+        rows.append(
+            PendingRow(
+                id=str(r[0]),
+                user_id=str(r[1]),
+                type=str(r[2]),
+                channel=str(r[3]),
+                payload=p,
+                dispatch_attempts=int(r[5]),
+            )
+        )
+    return rows
+
+
+async def mark_dispatched(session: AsyncSession, notification_id: str) -> None:
+    await session.execute(
+        text(
+            f"UPDATE {SCHEMA}.notifications "
+            "SET dispatched_at = now(), last_dispatch_error = NULL "
+            "WHERE id = :id"
+        ),
+        {"id": notification_id},
+    )
+
+
+async def record_dispatch_error(
+    session: AsyncSession, notification_id: str, error: str
+) -> None:
+    await session.execute(
+        text(
+            f"UPDATE {SCHEMA}.notifications "
+            "SET last_dispatch_error = :err WHERE id = :id"
+        ),
+        {"id": notification_id, "err": error[:500]},
+    )
+
+
 async def list_for_user(
     session: AsyncSession, user_id: str, limit: int = 50
 ) -> list[NotificationRow]:
