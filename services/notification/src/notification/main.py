@@ -1,12 +1,16 @@
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Literal
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from notification import __version__
 from notification.config import settings
+from notification.events import close as close_events
+from notification.events import connect as connect_events
+from notification.events import inbox
 from notification.flags import channel_enabled, close_flags, connect_flags
 from notification.logging import configure_logging
 
@@ -15,9 +19,11 @@ from notification.logging import configure_logging
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     await connect_flags()
+    await connect_events()
     try:
         yield
     finally:
+        await close_events()
         await close_flags()
 
 
@@ -72,3 +78,23 @@ async def send(req: SendRequest) -> SendResponse:
             },
         )
     return SendResponse(accepted=True, channel=req.channel, notificationId=str(uuid.uuid4()))
+
+
+@app.get("/notifications/inbox/{user_id}")
+async def list_inbox(user_id: str) -> dict:
+    """Read-side for the in-memory notification log. Sprint 3 swaps the
+    backing store for a Postgres table; the contract stays stable."""
+    items = inbox.for_user(user_id)
+    return {
+        "userId": user_id,
+        "items": [
+            {
+                "id": n.id,
+                "type": n.type,
+                "channel": n.channel,
+                "payload": n.payload,
+                "createdAt": n.created_at.isoformat(),
+            }
+            for n in items
+        ],
+    }

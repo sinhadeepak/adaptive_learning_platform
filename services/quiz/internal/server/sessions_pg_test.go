@@ -14,14 +14,31 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/adaptive-learn/quiz/internal/db"
+	"github.com/adaptive-learn/quiz/internal/events"
 	"github.com/adaptive-learn/quiz/internal/store"
 )
+
+// stubPublisher records every PublishSessionCompleted call for assertions.
+type stubPublisher struct {
+	mu    sync.Mutex
+	calls []events.SessionCompleted
+}
+
+func (p *stubPublisher) PublishSessionCompleted(_ context.Context, ev events.SessionCompleted) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.calls = append(p.calls, ev)
+	return nil
+}
+
+func (p *stubPublisher) Close() error { return nil }
 
 const (
 	mechanicsTopicID    = "33333333-0000-0000-0000-000000000001"
@@ -35,6 +52,7 @@ type pgFixture struct {
 	srv      *httptest.Server
 	svc      *SessionService
 	st       *store.Store
+	pub      *stubPublisher
 	closeAll func()
 }
 
@@ -51,14 +69,15 @@ func newPGFixture(t *testing.T, flags FlagEvaluator) *pgFixture {
 		return nil
 	}
 	st := store.New(pool)
-	svc := NewSessionService(st, flags, nil, 90*time.Minute)
+	pub := &stubPublisher{}
+	svc := NewSessionService(st, flags, nil, pub, 90*time.Minute)
 	srv := httptest.NewServer(Router(slog.New(slog.NewJSONHandler(os.Stdout, nil)), svc, flags))
 	closeAll := func() {
 		srv.Close()
 		pool.Close()
 	}
 	t.Cleanup(closeAll)
-	return &pgFixture{srv: srv, svc: svc, st: st, closeAll: closeAll}
+	return &pgFixture{srv: srv, svc: svc, st: st, pub: pub, closeAll: closeAll}
 }
 
 // truncateSession removes any rows created by a single test (sessions cascade
@@ -157,6 +176,27 @@ func TestPG_FullSessionRoundTrip(t *testing.T) {
 	defer r.Body.Close()
 	if r.StatusCode != http.StatusConflict {
 		t.Errorf("next after submit: want 409, got %d", r.StatusCode)
+	}
+
+	// Submit must have fired exactly one quiz.session.completed event with
+	// the per-session counts the response also reported.
+	f.pub.mu.Lock()
+	defer f.pub.mu.Unlock()
+	if len(f.pub.calls) != 1 {
+		t.Fatalf("want 1 session.completed event, got %d", len(f.pub.calls))
+	}
+	ev := f.pub.calls[0]
+	if ev.SessionID != started.SessionID {
+		t.Errorf("event session id mismatch: ev=%s started=%s", ev.SessionID, started.SessionID)
+	}
+	if ev.ServedCount != 5 || ev.CorrectCount != sr.CorrectCount {
+		t.Errorf("event counts mismatch: ev=%+v sr=%+v", ev, sr)
+	}
+	if ev.TopicID != mechanicsTopicID {
+		t.Errorf("event topic mismatch: %s", ev.TopicID)
+	}
+	if ev.SubmittedAt.IsZero() {
+		t.Errorf("event submittedAt unset")
 	}
 }
 
@@ -263,7 +303,7 @@ func TestPG_ExpiredSessionRejectsNext(t *testing.T) {
 	t.Cleanup(pool.Close)
 	st := store.New(pool)
 	// 1 ns TTL — session is born expired.
-	svc := NewSessionService(st, stubFlags{}, nil, 1*time.Nanosecond)
+	svc := NewSessionService(st, stubFlags{}, nil, nil, 1*time.Nanosecond)
 	srv := httptest.NewServer(Router(slog.New(slog.NewJSONHandler(os.Stdout, nil)), svc, stubFlags{}))
 	t.Cleanup(srv.Close)
 

@@ -14,6 +14,7 @@ import (
 	"github.com/adaptive-learn/quiz/internal/adaptive"
 	"github.com/adaptive-learn/quiz/internal/config"
 	"github.com/adaptive-learn/quiz/internal/db"
+	"github.com/adaptive-learn/quiz/internal/events"
 	"github.com/adaptive-learn/quiz/internal/flags"
 	"github.com/adaptive-learn/quiz/internal/server"
 	"github.com/adaptive-learn/quiz/internal/store"
@@ -51,7 +52,9 @@ func main() {
 	st := store.New(pool)
 	adaptiveClient := adaptive.NewHTTPClient(cfg.AdaptiveURL,
 		time.Duration(cfg.AdaptiveTimeoutMS)*time.Millisecond)
-	sess := server.NewSessionService(st, flagClient, adaptiveClient, cfg.SessionTTL)
+	publisher := events.Connect(cfg.NATSURL, logger)
+	defer func() { _ = publisher.Close() }()
+	sess := server.NewSessionService(st, flagClient, adaptiveClient, publisher, cfg.SessionTTL)
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,

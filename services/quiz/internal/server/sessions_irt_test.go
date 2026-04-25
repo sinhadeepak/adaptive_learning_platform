@@ -76,7 +76,7 @@ func newPGFixtureWithAdaptive(t *testing.T, flags FlagEvaluator, adapt adaptive.
 		return nil, nil
 	}
 	st := store.New(pool)
-	svc := NewSessionService(st, flags, adapt, 90*time.Minute)
+	svc := NewSessionService(st, flags, adapt, nil, 90*time.Minute)
 	srv := httptest.NewServer(Router(slog.New(slog.NewJSONHandler(os.Stdout, nil)), svc, flags))
 	t.Cleanup(func() {
 		srv.Close()

@@ -13,6 +13,7 @@ import (
 
 	"github.com/adaptive-learn/quiz/internal/adaptive"
 	"github.com/adaptive-learn/quiz/internal/domain"
+	"github.com/adaptive-learn/quiz/internal/events"
 	"github.com/adaptive-learn/quiz/internal/store"
 )
 
@@ -36,16 +37,24 @@ type SessionService struct {
 	store      *store.Store
 	flags      FlagEvaluator
 	adaptive   adaptive.Client
+	publisher  events.Publisher
 	clock      func() time.Time
 	sessionTTL time.Duration
 	target     int16
 }
 
-func NewSessionService(s *store.Store, flags FlagEvaluator, adapt adaptive.Client, ttl time.Duration) *SessionService {
+func NewSessionService(
+	s *store.Store,
+	flags FlagEvaluator,
+	adapt adaptive.Client,
+	pub events.Publisher,
+	ttl time.Duration,
+) *SessionService {
 	return &SessionService{
 		store:      s,
 		flags:      flags,
 		adaptive:   adapt,
+		publisher:  pub,
 		clock:      time.Now,
 		sessionTTL: ttl,
 		target:     10,
@@ -425,6 +434,32 @@ func (svc *SessionService) Submit(logger *slog.Logger) http.HandlerFunc {
 		var score float32
 		if fresh.ServedCount > 0 {
 			score = float32(fresh.CorrectCount) / float32(fresh.ServedCount)
+		}
+		// Best-effort domain event so Analytics + Notification can react.
+		// Publish errors are swallowed: the session row is the durable record;
+		// missed events are reconciled by Analytics' nightly backfill (Sprint 3).
+		if svc.publisher != nil {
+			submittedAt := svc.clock()
+			if fresh.SubmittedAt != nil {
+				submittedAt = *fresh.SubmittedAt
+			}
+			ev := events.SessionCompleted{
+				SessionID:       fresh.ID.String(),
+				UserID:          fresh.UserID.String(),
+				TenantID:        fresh.TenantID,
+				TopicID:         fresh.TopicID.String(),
+				Mode:            string(fresh.Mode),
+				Strategy:        string(fresh.Strategy),
+				ServedCount:     fresh.ServedCount,
+				CorrectCount:    fresh.CorrectCount,
+				AbilityEstimate: fresh.AbilityEstimate,
+				Score:           score,
+				SubmittedAt:     submittedAt,
+				TS:              svc.clock(),
+			}
+			if perr := svc.publisher.PublishSessionCompleted(r.Context(), ev); perr != nil {
+				logger.Warn("publish.session_completed.failed", "err", perr, "session", fresh.ID)
+			}
 		}
 		writeJSON(w, http.StatusOK, submitResponse{
 			SessionID:    fresh.ID.String(),
