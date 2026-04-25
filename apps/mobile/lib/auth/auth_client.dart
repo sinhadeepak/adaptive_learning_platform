@@ -84,6 +84,53 @@ class AuthClient {
     return session;
   }
 
+  /// Initiate password reset. Server is enumeration-safe: 204 regardless of
+  /// whether `email` exists. Caller should always show "if your email is on
+  /// file you'll get a link" so this contract isn't accidentally leaked.
+  Future<void> forgotPassword({required String email}) async {
+    final res = await _http.post(
+      Uri.parse('$baseUrl/auth/password/forgot'),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+    // 204 on success; 429 on rate-limit. Anything else is a server problem.
+    if (res.statusCode == 204) return;
+    if (res.statusCode == 429) {
+      throw AuthException(
+        code: AuthErrorCode.rateLimited,
+        statusCode: 429,
+        message: 'Too many attempts — wait a minute and retry.',
+      );
+    }
+    throw _decodeAuthError(res);
+  }
+
+  /// Consume a reset token and set a new password. Returns 204; throws on
+  /// expired/invalid token (410) or weak password (422).
+  Future<void> resetPassword({required String token, required String newPassword}) async {
+    final res = await _http.post(
+      Uri.parse('$baseUrl/auth/password/reset'),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode({'token': token, 'newPassword': newPassword}),
+    );
+    if (res.statusCode == 204) return;
+    if (res.statusCode == 410) {
+      throw AuthException(
+        code: AuthErrorCode.resetTokenInvalid,
+        statusCode: 410,
+        message: 'Reset link is invalid or has expired.',
+      );
+    }
+    if (res.statusCode == 422) {
+      throw AuthException(
+        code: AuthErrorCode.weakPassword,
+        statusCode: 422,
+        message: 'Password is too weak. Try at least 8 characters with a digit.',
+      );
+    }
+    throw _decodeAuthError(res);
+  }
+
   Future<void> logout() async {
     final t = _cachedTokens;
     if (t != null) {
@@ -213,6 +260,8 @@ enum AuthErrorCode {
   locked,
   rateLimited,
   notVerified,
+  resetTokenInvalid,
+  weakPassword,
   unknown,
 }
 
