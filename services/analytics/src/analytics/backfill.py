@@ -51,6 +51,7 @@ class SubmittedSession:
     topic_id: str
     served_count: int
     correct_count: int
+    submitted_at: datetime
 
     @property
     def score(self) -> float:
@@ -67,7 +68,7 @@ async def _iter_submitted_sessions(
     res = await quiz_session.execute(
         text(
             """
-            SELECT id, user_id, topic_id, served_count, correct_count
+            SELECT id, user_id, topic_id, served_count, correct_count, submitted_at
               FROM quiz_schema.quiz_sessions
              WHERE status = 'SUBMITTED'
                AND submitted_at >= :since
@@ -85,6 +86,7 @@ async def _iter_submitted_sessions(
             topic_id=str(row["topic_id"]),
             served_count=int(row["served_count"]),
             correct_count=int(row["correct_count"]),
+            submitted_at=row["submitted_at"],
         )
 
 
@@ -120,6 +122,10 @@ async def run_backfill(*, since: datetime, limit: int = 10_000) -> BackfillStats
                         user_id=s.user_id,
                         topic_id=s.topic_id,
                         score=s.score,
+                        # Credit the streak day to when the session actually
+                        # happened — recovered events shouldn't all collapse
+                        # into "today" and lie about user activity history.
+                        activity_date=s.submitted_at.date(),
                     )
                     await a_sess.commit()
                     if applied:

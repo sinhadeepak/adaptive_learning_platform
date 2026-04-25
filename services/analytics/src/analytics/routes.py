@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from analytics.db import sessionmaker
-from analytics.repositories import get_mastery, get_readiness, list_user_mastery
+from analytics.repositories import get_mastery, get_readiness, get_streak, list_user_mastery
 
 router = APIRouter()
 
@@ -43,4 +43,26 @@ async def readiness(user_id: str, scope: str = "GLOBAL") -> dict:
         "score": row["score"],
         "nTopics": row["n_topics"],
         "updatedAt": row["updated_at"],
+    }
+
+
+@router.get("/analytics/streak/{user_id}")
+async def streak(user_id: str) -> dict:
+    """Current + longest streak in consecutive UTC days. Returns zeros for a
+    user that's never submitted — UI renders the empty 'start your streak'
+    state instead of needing to handle a 404."""
+    async with sessionmaker()() as session:
+        row = await get_streak(session, user_id)
+    if row is None:
+        return {
+            "userId": user_id,
+            "currentStreak": 0,
+            "longestStreak": 0,
+            "lastActiveDate": None,
+        }
+    return {
+        "userId": row.user_id,
+        "currentStreak": row.current_streak,
+        "longestStreak": row.longest_streak,
+        "lastActiveDate": row.last_active_date.isoformat(),
     }

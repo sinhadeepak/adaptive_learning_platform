@@ -161,9 +161,7 @@ async def test_backfill_respects_since_filter(quiz_session) -> None:
         submitted_at=old_submitted,
     )
     try:
-        stats = await backfill.run_backfill(
-            since=datetime.now(tz=UTC) - timedelta(hours=1)
-        )
+        await backfill.run_backfill(since=datetime.now(tz=UTC) - timedelta(hours=1))
         # The 30-day-old row must NOT be touched by a 1-hour window.
         from analytics.db import sessionmaker as analytics_sm
 
@@ -173,8 +171,12 @@ async def test_backfill_respects_since_filter(quiz_session) -> None:
                 {"sid": sid},
             )
             assert r.first() is None
-        # Stats only count rows in the window, so this row shouldn't be in scanned.
-        assert stats.applied == 0
+        async with analytics_sm()() as s:
+            r = await s.execute(
+                text("SELECT 1 FROM analytics_schema.processed_sessions WHERE session_id = :sid"),
+                {"sid": sid},
+            )
+            assert r.first() is None
     finally:
         await _cleanup_quiz_session(quiz_session, sid)
 

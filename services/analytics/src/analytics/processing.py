@@ -10,17 +10,22 @@ in response to a Quiz submit goes through here.
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from analytics.mastery import MasteryRow, readiness_from_mastery, update_ewa
 from analytics.repositories import (
     get_mastery,
+    get_streak,
     is_session_processed,
     list_user_mastery,
     mark_session_processed,
     upsert_mastery,
     upsert_readiness,
+    upsert_streak,
 )
+from analytics.streaks import compute_next_streak
 
 
 async def process_session(
@@ -30,13 +35,18 @@ async def process_session(
     user_id: str,
     topic_id: str,
     score: float,
+    activity_date: date | None = None,
 ) -> bool:
-    """Apply mastery + readiness updates for a Quiz submit. Idempotent —
-    a no-op when session_id is already in processed_sessions. Returns True
-    when this call did the work; False on the dedup short-circuit.
+    """Apply mastery + readiness + streak updates for a Quiz submit.
+    Idempotent — a no-op when session_id is already in processed_sessions.
+    Returns True when this call did the work; False on the dedup short-circuit.
 
-    Caller is responsible for `session.commit()` so a backfill batch can
-    decide whether to commit per row or per batch.
+    `activity_date` is the UTC date the session counts toward for streak
+    purposes. Defaults to "today" so the live consumer doesn't need to
+    pass anything; the backfill passes the original `submitted_at` date
+    so a recovered session credits the day it actually happened.
+
+    Caller is responsible for `session.commit()`.
     """
     if await is_session_processed(session, session_id):
         return False
@@ -70,5 +80,26 @@ async def process_session(
         score=score_global,
         n_topics=len(rows),
     )
+
+    # Streak update — UTC date. Same-day repeat is a no-op; a one-day gap
+    # increments; bigger gap resets to 1. Order matters: this runs after
+    # the dedup check so JetStream redeliveries / backfill re-runs can't
+    # double-count a single day's activity.
+    today = activity_date or datetime.now(tz=UTC).date()
+    prev_streak = await get_streak(session, user_id)
+    update = compute_next_streak(
+        today=today,
+        prev_current=prev_streak.current_streak if prev_streak else None,
+        prev_longest=prev_streak.longest_streak if prev_streak else None,
+        prev_last_active=prev_streak.last_active_date if prev_streak else None,
+    )
+    await upsert_streak(
+        session,
+        user_id=user_id,
+        current_streak=update.current_streak,
+        longest_streak=update.longest_streak,
+        last_active_date=update.last_active_date,
+    )
+
     await mark_session_processed(session, session_id)
     return True

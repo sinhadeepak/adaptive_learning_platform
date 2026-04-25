@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import date
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -118,3 +121,60 @@ async def get_readiness(session: AsyncSession, user_id: str, scope: str = "GLOBA
         "n_topics": int(row[3]),
         "updated_at": row[4].isoformat(),
     }
+
+
+@dataclass(frozen=True)
+class StreakRow:
+    user_id: str
+    current_streak: int
+    longest_streak: int
+    last_active_date: date
+
+
+async def get_streak(session: AsyncSession, user_id: str) -> StreakRow | None:
+    res = await session.execute(
+        text(
+            f"SELECT user_id, current_streak, longest_streak, last_active_date "
+            f"FROM {SCHEMA}.streaks WHERE user_id = :uid"
+        ),
+        {"uid": user_id},
+    )
+    row = res.first()
+    if row is None:
+        return None
+    return StreakRow(
+        user_id=str(row[0]),
+        current_streak=int(row[1]),
+        longest_streak=int(row[2]),
+        last_active_date=row[3],
+    )
+
+
+async def upsert_streak(
+    session: AsyncSession,
+    *,
+    user_id: str,
+    current_streak: int,
+    longest_streak: int,
+    last_active_date: date,
+) -> None:
+    await session.execute(
+        text(
+            f"""
+            INSERT INTO {SCHEMA}.streaks
+              (user_id, current_streak, longest_streak, last_active_date, updated_at)
+            VALUES (:uid, :cur, :lng, :dt, NOW())
+            ON CONFLICT (user_id) DO UPDATE
+              SET current_streak = EXCLUDED.current_streak,
+                  longest_streak = EXCLUDED.longest_streak,
+                  last_active_date = EXCLUDED.last_active_date,
+                  updated_at = NOW()
+            """
+        ),
+        {
+            "uid": user_id,
+            "cur": current_streak,
+            "lng": longest_streak,
+            "dt": last_active_date,
+        },
+    )
