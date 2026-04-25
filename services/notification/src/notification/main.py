@@ -8,11 +8,12 @@ from pydantic import BaseModel, Field
 
 from notification import __version__
 from notification.config import settings
+from notification.db import dispose, sessionmaker
 from notification.events import close as close_events
 from notification.events import connect as connect_events
-from notification.events import inbox
 from notification.flags import channel_enabled, close_flags, connect_flags
 from notification.logging import configure_logging
+from notification.repositories import list_for_user
 
 
 @asynccontextmanager
@@ -25,6 +26,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     finally:
         await close_events()
         await close_flags()
+        await dispose()
 
 
 app = FastAPI(
@@ -82,9 +84,12 @@ async def send(req: SendRequest) -> SendResponse:
 
 @app.get("/notifications/inbox/{user_id}")
 async def list_inbox(user_id: str) -> dict:
-    """Read-side for the in-memory notification log. Sprint 3 swaps the
-    backing store for a Postgres table; the contract stays stable."""
-    items = inbox.for_user(user_id)
+    """Read-side over the Postgres-backed notifications table.
+
+    Returns the latest 50 notifications for `user_id`, newest first.
+    """
+    async with sessionmaker()() as session:
+        items = await list_for_user(session, user_id)
     return {
         "userId": user_id,
         "items": [

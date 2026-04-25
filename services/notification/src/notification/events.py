@@ -18,8 +18,6 @@ import contextlib
 import json
 import logging
 import uuid
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from typing import Any
 
 import nats
@@ -37,47 +35,19 @@ from nats.js.api import (
 from nats.js.errors import BadRequestError
 
 from notification.config import settings
+from notification.db import sessionmaker
 from notification.flags import channel_enabled
+from notification.repositories import (
+    append_notification,
+    is_event_processed,
+    mark_event_processed,
+)
 
 log = logging.getLogger(__name__)
 
 STREAM = "QUIZ_EVENTS"
 SUBJECT = "quiz.session.completed"
 DURABLE = "notification-quiz-completed"
-
-
-@dataclass
-class Notification:
-    """In-memory notification record. Sprint 3 follow-up promotes to a DB row."""
-
-    id: str
-    user_id: str
-    type: str
-    channel: str
-    payload: dict[str, Any]
-    created_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
-
-
-class _Inbox:
-    """Process-local notification log. Sprint 3 follow-up swaps for a DB-backed store."""
-
-    def __init__(self) -> None:
-        self._items: list[Notification] = []
-
-    def append(self, n: Notification) -> None:
-        self._items.append(n)
-
-    def for_user(self, user_id: str) -> list[Notification]:
-        return [n for n in self._items if n.user_id == user_id]
-
-    def all(self) -> list[Notification]:
-        return list(self._items)
-
-    def clear(self) -> None:
-        self._items.clear()
-
-
-inbox = _Inbox()
 
 _client: NatsClient | None = None
 _js: JetStreamContext | None = None
@@ -174,19 +144,36 @@ async def _on_session_completed(msg: Msg) -> None:
                 user_id,
                 channel,
             )
+            # Flag-disabled is a terminal decision — also mark the event
+            # processed so a future flag-flip doesn't replay backlog into
+            # the inbox once the channel re-opens.
+            try:
+                async with sessionmaker()() as session:
+                    await mark_event_processed(session, session_id)
+                    await session.commit()
+            except Exception as err:  # noqa: BLE001
+                log.warning("notification mark_processed (drop path) failed: %s", err)
             with contextlib.suppress(Exception):
-                await msg.ack()  # flag-disabled is a terminal decision
+                await msg.ack()
             return
 
-        inbox.append(
-            Notification(
-                id=str(uuid.uuid4()),
+        async with sessionmaker()() as session:
+            if await is_event_processed(session, session_id):
+                log.info("notification event %s already processed; skipping", session_id)
+                with contextlib.suppress(Exception):
+                    await msg.ack()
+                return
+            await append_notification(
+                session,
+                notification_id=str(uuid.uuid4()),
                 user_id=user_id,
-                type="quiz.completed",
+                type_="quiz.completed",
                 channel=channel,
                 payload={"sessionId": session_id, "score": score, "topicId": payload.get("topic_id")},
             )
-        )
+            await mark_event_processed(session, session_id)
+            await session.commit()
+
         log.info(
             "notification enqueued quiz.completed user=%s session=%s score=%.2f",
             user_id,

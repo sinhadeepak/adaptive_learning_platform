@@ -15,7 +15,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from notification import events as events_module
-from notification.events import _on_session_completed, inbox
+from notification.events import _on_session_completed
 from notification.main import app
 
 pytestmark = pytest.mark.asyncio
@@ -23,7 +23,6 @@ pytestmark = pytest.mark.asyncio
 
 @pytest_asyncio.fixture
 async def client() -> AsyncIterator[AsyncClient]:
-    inbox.clear()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
@@ -121,6 +120,10 @@ async def test_malformed_payload_is_dropped_silently(
 
     monkeypatch.setattr(events_module, "channel_enabled", _on)
     # Missing user_id
-    await _on_session_completed(FakeMsg({"session_id": str(uuid4()), "score": 0.5}))
-    # Subscriber must NOT crash and inbox stays empty.
-    assert inbox.all() == []
+    msg = FakeMsg({"session_id": str(uuid4()), "score": 0.5})
+    await _on_session_completed(msg)
+    # Subscriber must NOT crash; bad payload is term'd (poison-pill).
+    assert msg.action == "term"
+    # And nothing landed in the inbox — query the DB instead of in-memory.
+    r = await client.get(f"/notifications/inbox/{uuid4()}")
+    assert r.json()["items"] == []
