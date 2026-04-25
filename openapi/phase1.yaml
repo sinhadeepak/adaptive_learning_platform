@@ -31,6 +31,8 @@ tags:
     description: Federated search + typeahead.
   - name: flags
     description: Feature flags (see ADR-0001).
+  - name: quiz
+    description: Quiz session lifecycle, question serving, answer submission, scoring.
 
 paths:
   # ---------- auth ----------
@@ -537,6 +539,93 @@ paths:
         '200': { description: OK }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  # ---------- quiz ----------
+  /quiz/sessions/start:
+    post:
+      tags: [quiz]
+      summary: Start a quiz session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuizStartRequest' }
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuizStartResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422':
+          description: No published questions for the requested topic
+
+  /quiz/sessions/{id}:
+    get:
+      tags: [quiz]
+      summary: Get session state with served-item history (resume / review)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Session detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuizSession' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /quiz/sessions/{id}/next:
+    get:
+      tags: [quiz]
+      summary: Fetch the next question (or current unanswered item, for resume)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Next item, or done=true when targetCount reached
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuizNextResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Session is SUBMITTED or EXPIRED
+
+  /quiz/sessions/{id}/answers:
+    post:
+      tags: [quiz]
+      summary: Record an answer (idempotent — first write wins per GAP-21)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuizAnswerRequest' }
+      responses:
+        '200':
+          description: Answer recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuizAnswerResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Session is SUBMITTED or EXPIRED
+
+  /quiz/sessions/{id}/submit:
+    post:
+      tags: [quiz]
+      summary: Close the session and return the score
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Session closed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuizSubmitResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Session is already SUBMITTED or EXPIRED
+
 components:
   securitySchemes:
     bearerAuth:
@@ -798,3 +887,106 @@ components:
                   oldValue: { type: boolean, nullable: true }
                   newValue: { type: boolean, nullable: true }
                   rationale: { type: string, nullable: true }
+
+    QuizStartRequest:
+      type: object
+      required: [topicId, userId]
+      properties:
+        topicId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        tenantId: { type: string }
+        mode:
+          type: string
+          enum: [PRACTICE, MOCK]
+          default: PRACTICE
+
+    QuizStartResponse:
+      type: object
+      required: [sessionId, strategy, mode, status, expiresAt]
+      properties:
+        sessionId: { type: string, format: uuid }
+        strategy:
+          type: string
+          enum: [irt, binary_search]
+        mode:
+          type: string
+          enum: [PRACTICE, MOCK]
+        status:
+          type: string
+          enum: [IN_PROGRESS]
+        expiresAt: { type: string, format: date-time }
+
+    QuizSession:
+      type: object
+      required: [sessionId, userId, topicId, mode, strategy, status, targetCount, servedCount, correctCount, startedAt, expiresAt, items]
+      properties:
+        sessionId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        topicId: { type: string, format: uuid }
+        mode: { type: string, enum: [PRACTICE, MOCK] }
+        strategy: { type: string, enum: [irt, binary_search] }
+        status: { type: string, enum: [IN_PROGRESS, SUBMITTED, EXPIRED] }
+        targetCount: { type: integer }
+        servedCount: { type: integer }
+        correctCount: { type: integer }
+        startedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/QuizItemSummary' }
+
+    QuizItemSummary:
+      type: object
+      required: [itemIdx, questionId, answered]
+      properties:
+        itemIdx: { type: integer }
+        questionId: { type: string, format: uuid }
+        answerIdx: { type: integer, nullable: true }
+        isCorrect: { type: boolean, nullable: true }
+        answered: { type: boolean }
+
+    QuizNextResponse:
+      type: object
+      required: [sessionId, status, done]
+      properties:
+        sessionId: { type: string, format: uuid }
+        status: { type: string, enum: [IN_PROGRESS, SUBMITTED, EXPIRED] }
+        done: { type: boolean }
+        item:
+          type: object
+          required: [itemIdx, questionId, stem, choices]
+          properties:
+            itemIdx: { type: integer }
+            questionId: { type: string, format: uuid }
+            stem: { type: string }
+            choices:
+              type: array
+              items: { type: string }
+
+    QuizAnswerRequest:
+      type: object
+      required: [itemIdx, answerIdx]
+      properties:
+        itemIdx: { type: integer, minimum: 0 }
+        answerIdx: { type: integer, minimum: 0 }
+
+    QuizAnswerResponse:
+      type: object
+      required: [sessionId, itemIdx, isCorrect, correctIdx, servedCount, correctCount]
+      properties:
+        sessionId: { type: string, format: uuid }
+        itemIdx: { type: integer }
+        isCorrect: { type: boolean }
+        correctIdx: { type: integer }
+        servedCount: { type: integer }
+        correctCount: { type: integer }
+
+    QuizSubmitResponse:
+      type: object
+      required: [sessionId, status, servedCount, correctCount, score]
+      properties:
+        sessionId: { type: string, format: uuid }
+        status: { type: string, enum: [SUBMITTED] }
+        servedCount: { type: integer }
+        correctCount: { type: integer }
+        score: { type: number, format: float, description: correctCount / servedCount, minimum: 0, maximum: 1 }

@@ -11,21 +11,26 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/adaptive-learn/quiz/internal/config"
+	"github.com/adaptive-learn/quiz/internal/db"
 	"github.com/adaptive-learn/quiz/internal/flags"
 	"github.com/adaptive-learn/quiz/internal/server"
+	"github.com/adaptive-learn/quiz/internal/store"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
-	port := os.Getenv("QUIZ_PORT")
-	if port == "" {
-		port = "8000"
+	cfg, err := config.Load()
+	if err != nil {
+		logger.Error("config.load_failed", "error", err)
+		os.Exit(1)
 	}
 
-	startupCtx, cancelStartup := context.WithTimeout(context.Background(), 5*time.Second)
+	startupCtx, cancelStartup := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelStartup()
+
 	flagClient, err := flags.New(startupCtx, logger)
 	if err != nil {
 		logger.Error("flags.connect_failed", "error", err)
@@ -35,13 +40,24 @@ func main() {
 		_ = flagClient.Close()
 	}()
 
+	pool, err := db.New(startupCtx, cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("db.connect_failed", "error", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	st := store.New(pool)
+	sess := server.NewSessionService(st, flagClient, cfg.SessionTTL)
+
 	srv := &http.Server{
-		Addr:              ":" + port,
-		Handler:           server.Router(logger, flagClient),
+		Addr:              ":" + cfg.Port,
+		Handler:           server.Router(logger, sess, flagClient),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	logger.Info("service.startup", "service", "quiz", "port", port)
+	logger.Info("service.startup", "service", "quiz", "port", cfg.Port,
+		"environment", cfg.Environment, "log_level", "INFO")
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
