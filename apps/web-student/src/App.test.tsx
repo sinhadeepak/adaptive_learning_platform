@@ -124,6 +124,85 @@ test("/home renders greeting when authenticated + onboarded", () => {
   expect(screen.getByRole("heading", { name: /Rahul/ })).toBeInTheDocument();
 });
 
+test("/home shows empty readiness state for fresh user (nTopics=0)", async () => {
+  asAuthenticated({ id: "u-fresh", onboardingState: "ONBOARDED" });
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/v1/profile/me")) {
+      return new Response(
+        JSON.stringify({ user: { firstName: "Test" }, preferences: { language: "en", dailyGoalMinutes: 30 }, exams: [] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    if (url.includes("/api/v1/analytics/readiness/u-fresh")) {
+      return new Response(
+        JSON.stringify({ userId: "u-fresh", scope: "GLOBAL", score: 0.0, nTopics: 0, updatedAt: null }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    if (url.includes("/api/v1/analytics/mastery/u-fresh")) {
+      return new Response(
+        JSON.stringify({ userId: "u-fresh", topics: [] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    return new Response("not found", { status: 404 });
+  });
+  renderAt("/home");
+  expect(await screen.findByText(/take your first quiz/i)).toBeInTheDocument();
+  expect(screen.getByLabelText(/no data yet/i)).toBeInTheDocument();
+});
+
+test("/home renders readiness percent + per-topic mastery bars when user has activity", async () => {
+  asAuthenticated({ id: "u-active", firstName: "Priya", onboardingState: "ONBOARDED" });
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/v1/profile/me")) {
+      return new Response(
+        JSON.stringify({ user: { firstName: "Priya" }, preferences: { language: "en", dailyGoalMinutes: 45 }, exams: [] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    if (url.includes("/api/v1/analytics/readiness/u-active")) {
+      return new Response(
+        JSON.stringify({ userId: "u-active", scope: "GLOBAL", score: 0.72, nTopics: 2, updatedAt: new Date().toISOString() }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    if (url.includes("/api/v1/analytics/mastery/u-active")) {
+      return new Response(
+        JSON.stringify({
+          userId: "u-active",
+          topics: [
+            { topicId: "t-mech", ewa: 0.85, n: 3 },
+            { topicId: "t-thermo", ewa: 0.6, n: 1 },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    if (url.includes("/api/v1/catalog/topics/t-mech")) {
+      return new Response(JSON.stringify({ id: "t-mech", title: "Mechanics" }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.includes("/api/v1/catalog/topics/t-thermo")) {
+      return new Response(JSON.stringify({ id: "t-thermo", title: "Thermodynamics" }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return new Response("not found", { status: 404 });
+  });
+  renderAt("/home");
+  expect(await screen.findByText(/Readiness 72%/)).toBeInTheDocument();
+  // Sorted highest-first: Mechanics 85% before Thermodynamics 60%.
+  const mechanics = await screen.findByText("Mechanics");
+  const thermo = await screen.findByText("Thermodynamics");
+  expect(mechanics).toBeInTheDocument();
+  expect(thermo).toBeInTheDocument();
+  expect(screen.getByText("85%")).toBeInTheDocument();
+  expect(screen.getByText("60%")).toBeInTheDocument();
+  // n=3 + n=1
+  expect(screen.getByText(/3 sessions/)).toBeInTheDocument();
+  expect(screen.getByText(/1 session\b/)).toBeInTheDocument();
+});
+
 test("/catalog lists exams when authenticated", async () => {
   asAuthenticated({ onboardingState: "ONBOARDED" });
   renderAt("/catalog");
