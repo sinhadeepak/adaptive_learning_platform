@@ -6,7 +6,9 @@ import 'package:http/testing.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/main.dart';
+import 'package:adaptive_learning_mobile/screens/forgot_password_screen.dart';
 import 'package:adaptive_learning_mobile/screens/login_screen.dart';
+import 'package:adaptive_learning_mobile/screens/reset_password_screen.dart';
 import 'package:adaptive_learning_mobile/screens/onboarding/daily_goal_screen.dart';
 import 'package:adaptive_learning_mobile/screens/onboarding/exam_select_screen.dart';
 import 'package:adaptive_learning_mobile/screens/onboarding/language_screen.dart';
@@ -374,6 +376,146 @@ void main() {
 
     expect(find.textContaining('Email or password is incorrect'), findsOneWidget);
   });
+
+// ---- Sprint 3 — forgot/reset password ----
+
+testWidgets('login forgot button calls onForgotPassword', (tester) async {
+  final auth = AuthClient(
+    baseUrl: 'http://test',
+    httpClient: MockClient((_) async => http.Response('{}', 404)),
+  );
+
+  var forgotTapped = false;
+  await tester.pumpWidget(
+    MaterialApp(
+      home: LoginScreen(
+        auth: auth,
+        onLoggedIn: (_) {},
+        onForgotPassword: () => forgotTapped = true,
+      ),
+    ),
+  );
+  await tester.tap(find.byKey(const Key('login.forgot')));
+  await tester.pump();
+  expect(forgotTapped, isTrue);
+});
+
+testWidgets('forgot screen submits email and shows confirmation', (tester) async {
+  final calls = <String>[];
+  final mockHttp = MockClient((request) async {
+    calls.add('${request.method} ${request.url.path}');
+    if (request.url.path.endsWith('/auth/password/forgot')) {
+      return http.Response('', 204);
+    }
+    return http.Response('{}', 404);
+  });
+  final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
+
+  await tester.pumpWidget(MaterialApp(
+    home: ForgotPasswordScreen(auth: auth, onBackToLogin: () {}),
+  ));
+
+  await tester.enterText(find.byKey(const Key('forgot.email')), 'a@b.com');
+  await tester.tap(find.byKey(const Key('forgot.submit')));
+  await tester.pumpAndSettle();
+
+  expect(calls.any((c) => c.contains('/auth/password/forgot')), isTrue);
+  expect(find.text('Check your email'), findsOneWidget);
+  expect(find.textContaining('a@b.com'), findsOneWidget);
+});
+
+testWidgets('forgot screen shows enumeration-safe confirmation even on 204', (tester) async {
+  // Auth always returns 204 regardless of whether email exists. The screen
+  // should never reveal which case fired.
+  final mockHttp = MockClient((_) async => http.Response('', 204));
+  final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
+
+  await tester.pumpWidget(MaterialApp(
+    home: ForgotPasswordScreen(auth: auth, onBackToLogin: () {}),
+  ));
+
+  await tester.enterText(find.byKey(const Key('forgot.email')), 'unknown@nowhere.com');
+  await tester.tap(find.byKey(const Key('forgot.submit')));
+  await tester.pumpAndSettle();
+
+  expect(find.textContaining('If an account exists'), findsOneWidget);
+});
+
+testWidgets('reset screen rejects mismatched confirm', (tester) async {
+  final auth = AuthClient(
+    baseUrl: 'http://test',
+    httpClient: MockClient((_) async => http.Response('', 204)),
+  );
+
+  await tester.pumpWidget(MaterialApp(
+    home: ResetPasswordScreen(
+      auth: auth,
+      token: 'tok-123',
+      onResetCompleted: () {},
+      onBackToLogin: () {},
+    ),
+  ));
+
+  await tester.enterText(find.byKey(const Key('reset.password')), 'SuperSecret123!');
+  await tester.enterText(find.byKey(const Key('reset.confirm')), 'doesnotmatch');
+  await tester.tap(find.byKey(const Key('reset.submit')));
+  await tester.pump();
+
+  expect(find.text('Passwords do not match'), findsOneWidget);
+});
+
+testWidgets('reset screen surfaces 410 expired-token error', (tester) async {
+  final mockHttp = MockClient((request) async {
+    if (request.url.path.endsWith('/auth/password/reset')) {
+      return http.Response('{"detail":{"code":"token_invalid_or_expired"}}', 410);
+    }
+    return http.Response('{}', 404);
+  });
+  final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
+
+  await tester.pumpWidget(MaterialApp(
+    home: ResetPasswordScreen(
+      auth: auth,
+      token: 'expired-token',
+      onResetCompleted: () {},
+      onBackToLogin: () {},
+    ),
+  ));
+
+  await tester.enterText(find.byKey(const Key('reset.password')), 'NewSecret123!');
+  await tester.enterText(find.byKey(const Key('reset.confirm')), 'NewSecret123!');
+  await tester.tap(find.byKey(const Key('reset.submit')));
+  await tester.pumpAndSettle();
+
+  expect(find.textContaining('invalid or has expired'), findsOneWidget);
+});
+
+testWidgets('reset success calls onResetCompleted', (tester) async {
+  final mockHttp = MockClient((request) async {
+    if (request.url.path.endsWith('/auth/password/reset')) {
+      return http.Response('', 204);
+    }
+    return http.Response('{}', 404);
+  });
+  final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
+
+  var done = false;
+  await tester.pumpWidget(MaterialApp(
+    home: ResetPasswordScreen(
+      auth: auth,
+      token: 'tok-OK',
+      onResetCompleted: () => done = true,
+      onBackToLogin: () {},
+    ),
+  ));
+
+  await tester.enterText(find.byKey(const Key('reset.password')), 'NewSecret123!');
+  await tester.enterText(find.byKey(const Key('reset.confirm')), 'NewSecret123!');
+  await tester.tap(find.byKey(const Key('reset.submit')));
+  await tester.pumpAndSettle();
+
+  expect(done, isTrue);
+});
 
 // ---- Sprint 3 — quiz play + result screens ----
 

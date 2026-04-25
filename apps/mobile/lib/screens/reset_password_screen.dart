@@ -2,38 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import '../auth/auth_client.dart';
 
-/// Login screen — mobile parity of web-student/src/pages/Login.tsx (Pass 1 §1 wireframe).
-/// Uses alp_design_tokens for brand parity and AuthClient for the live API call.
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({
+/// Consumes a reset token (typically delivered via deep-link) and sets a new
+/// password. Mobile-side parity of web-student ResetPassword.tsx. The token
+/// arrives via the constructor — when we add a deep-link handler in
+/// Sprint 4 the bootstrap parses the URL and pushes this screen with it
+/// pre-filled. For Sprint 3 it's wired only through manual paste / tests.
+class ResetPasswordScreen extends StatefulWidget {
+  const ResetPasswordScreen({
     super.key,
     required this.auth,
-    required this.onLoggedIn,
-    this.onSignUp,
-    this.onForgotPassword,
+    required this.token,
+    required this.onResetCompleted,
+    required this.onBackToLogin,
   });
 
   final AuthClient auth;
-  final void Function(Session session) onLoggedIn;
-  final VoidCallback? onSignUp;
-  final VoidCallback? onForgotPassword;
+  final String token;
+  final VoidCallback onResetCompleted;
+  final VoidCallback onBackToLogin;
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _email = TextEditingController();
   final _password = TextEditingController();
-  bool _remember = false;
+  final _confirm = TextEditingController();
   bool _submitting = false;
   String? _error;
 
   @override
   void dispose() {
-    _email.dispose();
     _password.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
@@ -44,35 +46,16 @@ class _LoginScreenState extends State<LoginScreen> {
       _submitting = true;
     });
     try {
-      final session = await widget.auth.login(
-        email: _email.text.trim(),
-        password: _password.text,
-        remember: _remember,
-      );
-      widget.onLoggedIn(session);
+      await widget.auth.resetPassword(token: widget.token, newPassword: _password.text);
+      if (mounted) widget.onResetCompleted();
     } on AuthException catch (e) {
-      setState(() => _error = _friendlyMessage(e));
+      if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      setState(() => _error = "We couldn't reach the server. Check your connection.");
+      if (mounted) {
+        setState(() => _error = "We couldn't reach the server. Check your connection.");
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
-    }
-  }
-
-  String _friendlyMessage(AuthException e) {
-    switch (e.code) {
-      case AuthErrorCode.invalidCredentials:
-        return 'Email or password is incorrect.';
-      case AuthErrorCode.locked:
-        return e.message;
-      case AuthErrorCode.rateLimited:
-        return 'Too many attempts. Please wait a moment.';
-      case AuthErrorCode.notVerified:
-        return 'Please verify your email to log in.';
-      case AuthErrorCode.resetTokenInvalid:
-      case AuthErrorCode.weakPassword:
-      case AuthErrorCode.unknown:
-        return 'Something went wrong. Please try again.';
     }
   }
 
@@ -80,6 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AlpColors.surfaceSecondary,
+      appBar: AppBar(title: const Text('Set new password')),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -98,9 +82,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('Log in', style: AlpTextStyles.pageTitle),
+                      Text('Set a new password', style: AlpTextStyles.pageTitle),
                       const SizedBox(height: AlpSpacing.s2),
-                      Text('Welcome back, learner.', style: AlpTextStyles.body),
+                      Text(
+                        'Pick a strong one — at least 8 characters with a digit.',
+                        style: AlpTextStyles.body,
+                      ),
                       const SizedBox(height: AlpSpacing.s5),
                       if (_error != null) ...[
                         Container(
@@ -125,62 +112,43 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: AlpSpacing.s4),
                       ],
                       TextFormField(
-                        key: const Key('login.email'),
-                        controller: _email,
-                        keyboardType: TextInputType.emailAddress,
-                        autofillHints: const [AutofillHints.email],
-                        decoration: const InputDecoration(labelText: 'Email'),
+                        key: const Key('reset.password'),
+                        controller: _password,
+                        obscureText: true,
+                        autofillHints: const [AutofillHints.newPassword],
+                        decoration: const InputDecoration(labelText: 'New password'),
                         validator: (v) {
-                          if (v == null || v.isEmpty) return 'Enter your email';
-                          if (!v.contains('@')) return 'Enter a valid email';
+                          if (v == null || v.isEmpty) return 'Enter a password';
+                          if (v.length < 8) return 'Use at least 8 characters';
                           return null;
                         },
                       ),
                       const SizedBox(height: AlpSpacing.s4),
                       TextFormField(
-                        key: const Key('login.password'),
-                        controller: _password,
+                        key: const Key('reset.confirm'),
+                        controller: _confirm,
                         obscureText: true,
-                        autofillHints: const [AutofillHints.password],
-                        decoration: const InputDecoration(labelText: 'Password'),
+                        decoration: const InputDecoration(labelText: 'Confirm password'),
                         onFieldSubmitted: (_) => _submit(),
                         validator: (v) {
-                          if (v == null || v.isEmpty) return 'Enter your password';
+                          if (v != _password.text) return 'Passwords do not match';
                           return null;
                         },
                       ),
-                      const SizedBox(height: AlpSpacing.s3),
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: _remember,
-                            onChanged: (v) => setState(() => _remember = v ?? false),
-                          ),
-                          const Text('Remember me'),
-                          const Spacer(),
-                          TextButton(
-                            key: const Key('login.forgot'),
-                            onPressed:
-                                _submitting ? null : widget.onForgotPassword,
-                            child: const Text('Forgot?'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AlpSpacing.s4),
+                      const SizedBox(height: AlpSpacing.s5),
                       SizedBox(
                         height: 48,
                         child: FilledButton(
-                          key: const Key('login.submit'),
+                          key: const Key('reset.submit'),
                           onPressed: _submitting ? null : _submit,
-                          child: Text(_submitting ? 'Logging in…' : 'Log in'),
+                          child: Text(_submitting ? 'Updating…' : 'Update password'),
                         ),
                       ),
-                      const SizedBox(height: AlpSpacing.s5),
+                      const SizedBox(height: AlpSpacing.s3),
                       Center(
                         child: TextButton(
-                          key: const Key('login.signUp'),
-                          onPressed: _submitting ? null : widget.onSignUp,
-                          child: const Text('New here? Sign up'),
+                          onPressed: _submitting ? null : widget.onBackToLogin,
+                          child: const Text('Back to log in'),
                         ),
                       ),
                     ],

@@ -7,6 +7,7 @@ import 'screens/onboarding/daily_goal_screen.dart';
 import 'screens/onboarding/exam_select_screen.dart';
 import 'screens/onboarding/language_screen.dart';
 import 'screens/onboarding/target_date_screen.dart';
+import 'screens/forgot_password_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/verify_screen.dart';
 
@@ -28,7 +29,7 @@ class AdaptiveLearningApp extends StatefulWidget {
   State<AdaptiveLearningApp> createState() => _AdaptiveLearningAppState();
 }
 
-enum _GuestScreen { login, register, verify }
+enum _GuestScreen { login, register, verify, forgotPassword }
 
 enum _OnboardStep { exam, language, targetDate, dailyGoal, done }
 
@@ -55,6 +56,8 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
           auth: widget.auth,
           onLoggedIn: (s) => setState(() => _session = s),
           onSignUp: () => setState(() => _guestScreen = _GuestScreen.register),
+          onForgotPassword: () =>
+              setState(() => _guestScreen = _GuestScreen.forgotPassword),
         );
       case _GuestScreen.register:
         return RegisterScreen(
@@ -78,6 +81,11 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
             _guestScreen = _GuestScreen.login; // reset so log-out lands on /login
           }),
           onBack: () => setState(() => _guestScreen = _GuestScreen.register),
+        );
+      case _GuestScreen.forgotPassword:
+        return ForgotPasswordScreen(
+          auth: widget.auth,
+          onBackToLogin: () => setState(() => _guestScreen = _GuestScreen.login),
         );
     }
   }
