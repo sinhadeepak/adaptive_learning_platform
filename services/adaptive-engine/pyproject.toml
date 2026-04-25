@@ -11,10 +11,12 @@ dependencies = [
     "structlog>=24.4",
     "httpx>=0.27",
     "alp-flags",
+    "alp-telemetry",
 ]
 
 [tool.uv.sources]
 alp-flags = { path = "../../libs/python/alp_flags" }
+alp-telemetry = { path = "../../libs/python/alp_telemetry", editable = true }
 
 [dependency-groups]
 dev = [

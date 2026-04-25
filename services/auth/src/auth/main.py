@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
+from alp_telemetry import TraceContextMiddleware
 from fastapi import FastAPI
 
 from auth import __version__
@@ -34,6 +35,12 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+
+# Trace-id propagation must be the OUTERMOST middleware so every other
+# middleware + handler runs inside its scope (its log records get the
+# trace_id attribute via structlog.contextvars). Sprint 4 carry-over from
+# Sprint 3's flag.decision telemetry.
+app.add_middleware(TraceContextMiddleware)
 
 # GAP-27 — log X-Client-Version on every request. Pattern documented; other services
 # adopt as they consume client traffic.

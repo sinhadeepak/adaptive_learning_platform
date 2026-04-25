@@ -10,6 +10,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/adaptive-learn/alptelemetry"
 )
 
 // Client is the narrow interface SessionService depends on. Tests inject a stub.
@@ -93,6 +95,8 @@ func (c *HTTPClient) post(ctx context.Context, path string, body, out any) error
 		return fmt.Errorf("new request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	// Forward the trace-id so Adaptive's logs join the same trace as Quiz's.
+	alptelemetry.SetOutboundHeader(ctx, req)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return fmt.Errorf("post %s: %w", path, err)

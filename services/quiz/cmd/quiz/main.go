@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/adaptive-learn/alptelemetry"
 	"github.com/adaptive-learn/quiz/internal/adaptive"
 	"github.com/adaptive-learn/quiz/internal/config"
 	"github.com/adaptive-learn/quiz/internal/db"
@@ -24,7 +25,10 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	// Wrap the JSON handler with alptelemetry's slog handler so every record
+	// produced inside a request scope carries the bound trace-id.
+	base := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
+	logger := slog.New(alptelemetry.NewSlogHandler(base))
 	slog.SetDefault(logger)
 
 	cfg, err := config.Load()
@@ -78,8 +82,10 @@ func main() {
 	mux.Handle("/", server.Router(logger, sess, flagClient))
 	mux.Handle("/metrics", promhttp.Handler())
 	srv := &http.Server{
-		Addr:              ":" + cfg.Port,
-		Handler:           mux,
+		Addr: ":" + cfg.Port,
+		// Trace-id middleware is the OUTERMOST handler so every downstream
+		// request scope carries a bound trace-id available to slog.
+		Handler:           alptelemetry.Middleware(mux),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

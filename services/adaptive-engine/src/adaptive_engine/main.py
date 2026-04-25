@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from typing import Annotated, AsyncIterator
 
+from alp_telemetry import TraceContextMiddleware
 from fastapi import FastAPI, Query
 
 from adaptive_engine import __version__
@@ -25,6 +26,9 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+
+# Trace-id propagation must be the OUTERMOST middleware (Sprint 4).
+app.add_middleware(TraceContextMiddleware)
 app.include_router(irt_router)
 
 

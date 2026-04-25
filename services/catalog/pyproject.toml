@@ -14,10 +14,12 @@ dependencies = [
     "alembic>=1.13",
     "asyncpg>=0.29",
     "alp-flags",
+    "alp-telemetry",
 ]
 
 [tool.uv.sources]
 alp-flags = { path = "../../libs/python/alp_flags" }
+alp-telemetry = { path = "../../libs/python/alp_telemetry", editable = true }
 
 [dependency-groups]
 dev = [

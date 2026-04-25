@@ -2,6 +2,7 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Literal
 
+from alp_telemetry import TraceContextMiddleware
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -26,6 +27,9 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+
+# Trace-id propagation must be the OUTERMOST middleware (Sprint 4).
+app.add_middleware(TraceContextMiddleware)
 
 
 @app.get("/health")

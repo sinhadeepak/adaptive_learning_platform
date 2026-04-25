@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from alp_telemetry import TraceContextMiddleware
 from fastapi import FastAPI
 
 from content import __version__, events
@@ -26,6 +27,10 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+
+# Trace-id propagation must be the OUTERMOST middleware so every request scope
+# carries a trace_id available to structlog (Sprint 4).
+app.add_middleware(TraceContextMiddleware)
 app.include_router(content_router)
 
 

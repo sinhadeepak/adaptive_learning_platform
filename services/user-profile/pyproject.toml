@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "User profile service — onboarding FSM, exam selection, JWT claim propagation (STU-REQ-53..58)."
 requires-python = ">=3.11,<3.12"
 dependencies = [
+    "alp-telemetry",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
@@ -43,3 +44,6 @@ testpaths = ["tests"]
 [tool.mypy]
 strict = true
 python_version = "3.11"
+
+[tool.uv.sources]
+alp-telemetry = { path = "../../libs/python/alp_telemetry", editable = true }
