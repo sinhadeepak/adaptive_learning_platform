@@ -5,6 +5,8 @@ import { CatalogExam } from "./pages/CatalogExam";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { Placeholder } from "./pages/Placeholder";
+import { Quiz } from "./pages/Quiz";
+import { QuizResult } from "./pages/QuizResult";
 import { Register } from "./pages/Register";
 import { Search } from "./pages/Search";
 import { TopicDetail } from "./pages/TopicDetail";
@@ -135,6 +137,24 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <Search />
+      </ProtectedRoute>
+    ),
+  },
+
+  // Quiz play (Sprint 3)
+  {
+    path: "/quiz/:sessionId",
+    element: (
+      <ProtectedRoute>
+        <Quiz />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/quiz/:sessionId/result",
+    element: (
+      <ProtectedRoute>
+        <QuizResult />
       </ProtectedRoute>
     ),
   },
