@@ -11,6 +11,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/adaptive-learn/quiz/internal/adaptive"
 	"github.com/adaptive-learn/quiz/internal/config"
 	"github.com/adaptive-learn/quiz/internal/db"
@@ -50,15 +53,23 @@ func main() {
 	defer pool.Close()
 
 	st := store.New(pool)
-	adaptiveClient := adaptive.NewHTTPClient(cfg.AdaptiveURL,
+	httpAdaptive := adaptive.NewHTTPClient(cfg.AdaptiveURL,
 		time.Duration(cfg.AdaptiveTimeoutMS)*time.Millisecond)
+	// GAP-01: wrap with circuit breaker. Trips after 5 consecutive failures;
+	// `pickNext` already falls back to local heuristic on any error so a
+	// tripped breaker degrades gracefully. Metrics exported at /metrics.
+	adaptiveClient := adaptive.NewBreakerClient(httpAdaptive, prometheus.DefaultRegisterer)
+
 	publisher := events.Connect(cfg.NATSURL, logger)
 	defer func() { _ = publisher.Close() }()
 	sess := server.NewSessionService(st, flagClient, adaptiveClient, publisher, cfg.SessionTTL)
 
+	mux := http.NewServeMux()
+	mux.Handle("/", server.Router(logger, sess, flagClient))
+	mux.Handle("/metrics", promhttp.Handler())
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           server.Router(logger, sess, flagClient),
+		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
