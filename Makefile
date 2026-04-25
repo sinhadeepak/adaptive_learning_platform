@@ -53,6 +53,11 @@ dev-logs: ## Tail logs for the local stack
 dev-seed: ## Run seed script against local Postgres + NATS (placeholder until Sprint 1)
 	@echo "→ dev-seed: implemented in Sprint 1 (scripts/seed_staging.py, GAP-09)"
 
+.PHONY: seed-hindi
+seed-hindi: ## Seed 15 Hindi MCQs through Content API → bridge → Quiz bank.
+	@echo "→ seeding Hindi content via Content service at $${CONTENT_BASE_URL:-http://localhost:38003}"
+	@cd services/content && uv run python seed/seed_hindi.py
+
 # -- migrations --
 
 # Per-service Alembic. The service name maps to its own database (one DB per service
