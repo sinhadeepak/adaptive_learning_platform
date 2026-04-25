@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field
 from notification import __version__
 from notification.config import settings
 from notification.db import dispose, sessionmaker
+from notification.dispatcher import start as start_dispatcher
+from notification.dispatcher import stop as stop_dispatcher
 from notification.events import close as close_events
 from notification.events import connect as connect_events
 from notification.flags import channel_enabled, close_flags, connect_flags
@@ -21,9 +23,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     await connect_flags()
     await connect_events()
+    await start_dispatcher()
     try:
         yield
     finally:
+        await stop_dispatcher()
         await close_events()
         await close_flags()
         await dispose()

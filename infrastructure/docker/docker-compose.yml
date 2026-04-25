@@ -204,9 +204,13 @@ services:
       NOTIFICATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/notification
       NOTIFICATION_NATS_URL: nats://nats:4222
       NOTIFICATION_INSTITUTION_BASE_URL: http://institution:8000
+      # SMTP outbound — Mailpit container in local dev (port 1025, no auth).
+      NOTIFICATION_SMTP_HOST: mailpit
+      NOTIFICATION_SMTP_PORT: "1025"
     depends_on:
       postgres: { condition: service_healthy }
       nats: { condition: service_healthy }
+      mailpit: { condition: service_started }
 
   adaptive-engine:
     build:
