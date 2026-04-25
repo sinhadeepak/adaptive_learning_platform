@@ -5,13 +5,19 @@ from fastapi import FastAPI
 
 from institution import __version__
 from institution.config import settings
+from institution.events import close as close_nats, connect as connect_nats
 from institution.logging import configure_logging
+from institution.routes import router as flags_router
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
-    yield
+    await connect_nats()
+    try:
+        yield
+    finally:
+        await close_nats()
 
 
 app = FastAPI(
@@ -19,6 +25,8 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+
+app.include_router(flags_router)
 
 
 @app.get("/health")

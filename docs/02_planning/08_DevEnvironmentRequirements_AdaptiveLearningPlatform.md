@@ -85,31 +85,33 @@ Mobile dev is macOS-only for iOS; Android works on any OS.
 
 The file `infrastructure/docker-compose.yml` brings up all external dependencies. Services themselves run on the host (faster iteration, native debugger support).
 
-| Service | Image | Local port | Purpose |
-|---|---|---|---|
-| PostgreSQL 15 | `postgres:15.5-alpine` | 5432 | Simulates Aurora. Database `adaptivelearn`, user `al_dev` / `al_dev`. |
-| Redis 7 | `redis:7.2-alpine` | 6379 | Cache + session store. No auth locally. |
-| OpenSearch 2.11 | `opensearchproject/opensearch:2.11.1` | 9200, 9600 | Search + catalog index. Security plugin disabled locally. |
-| OpenSearch Dashboards | `opensearchproject/opensearch-dashboards:2.11.1` | 5601 | Query inspection. |
-| NATS JetStream | `nats:2.10-alpine` with `-js` flag | 4222, 8222 | Event bus. Single node locally. |
-| LocalStack | `localstack/localstack:3.1` | 4566 | Simulates S3 + Secrets Manager. |
-| Mailpit | `axllent/mailpit:v1.13` | 8025 (UI), 1025 (SMTP) | Captures outbound email; used instead of SendGrid locally. |
-| Prometheus | `prom/prometheus:v2.50` | 9090 | Metrics scraping (optional). |
-| Grafana | `grafana/grafana:10.3` | 3000 | Dashboards (optional). |
+All host-bound ports are the canonical port + 30000 (e.g. `5432 → 35432`, `8001 → 38001`). In-container ports stay standard; only the host-side mapping is shifted. This keeps host ports out of the most-trodden 1024–9999 range so collisions with system Postgres / native Redis / dev servers are rare.
+
+| Service | Image | Host port | In-container port | Purpose |
+|---|---|---|---|---|
+| PostgreSQL 15 | `postgres:15-alpine` | **35432** | 5432 | Simulates Aurora. One DB per service (auth, user_profile, …). User `postgres` / `postgres` locally. |
+| Redis 7 | `redis:7-alpine` | **36379** | 6379 | Cache + session store. No auth locally. |
+| OpenSearch 2.15 | `opensearchproject/opensearch:2.15.0` | **39200** | 9200 | Search + catalog index. Security plugin disabled locally. |
+| NATS JetStream | `nats:2.10-alpine` with `-js -m 8222` | **34222** (client), **38222** (monitor) | 4222, 8222 | Event bus. Single node locally. |
+| LocalStack | `localstack/localstack:3.8` | **34566** | 4566 | Simulates S3 + Secrets Manager + SQS + SNS. |
+| Mailpit | `axllent/mailpit:v1.21` | **31025** (SMTP), **38025** (UI) | 1025, 8025 | Captures outbound email; used instead of SendGrid locally. |
 
 ### Bring-up
 
 ```bash
-make dev-infra      # starts all compose services; waits for health checks
-make dev-seed       # runs scripts/seed_local.py (subset of seed_staging.py, GAP-09)
-make dev            # brings up all 11 services on ports 8001..8011
+make dev            # brings up the local Compose stack (Postgres/Redis/OpenSearch/NATS/LocalStack/Mailpit)
+make migrate svc=auth   # apply Alembic migrations for the named service
+make dev-seed       # runs scripts/seed_staging.py --env=local --profile=minimal (Sprint 1, GAP-09)
 ```
 
-### Port allocation
-- 8001 Auth · 8002 Profile · 8003 Catalog · 8004 Search · 8005 Content
-- 8006 Quiz (Go) · 8007 Adaptive Engine (also gRPC on 50051)
-- 8008 Analytics · 8009 Notification · 8010 Payment · 8011 Institution
-- 3001 Web (Next.js dev server)
+Services themselves run on the host (faster iteration, native debugger support) — start each with `cd services/<name> && uv run uvicorn <pkg>.main:app --reload --port $<SVC>_PORT`.
+
+### Port allocation (host-bound; shifted by +30000 from canonical)
+- **38001** Auth · **38002** Profile · **38003** Content · **38004** Catalog · **38005** Search
+- **38006** Analytics · **38007** Payment · **38008** Institution · **38009** Notification
+- **38010** Adaptive Engine (also gRPC on **50051** — already > 30000, unchanged)
+- **38011** Quiz (Go)
+- **3001** Web (Vite dev server) — unchanged; not host-Compose, not subject to the shift
 
 ---
 
@@ -202,7 +204,7 @@ make dev-seed
 make dev
 
 # 9. Smoke test
-curl http://localhost:8001/health   # Auth
+curl http://localhost:38001/health   # Auth
 open http://localhost:3001          # Web
 ```
 
@@ -234,7 +236,7 @@ Target time to a running environment on a fresh laptop: **≤ 30 minutes** (firs
 - [ ] All tools in §2 installed; `make check-tools` passes
 - [ ] Python 3.11, Go 1.22, Node 20 pinned and verified
 - [ ] AWS SSO configured; can `aws s3 ls` against a staging bucket
-- [ ] Can clone repo, run `make dev`, hit `http://localhost:8001/health` and see 200 OK
+- [ ] Can clone repo, run `make dev`, hit `http://localhost:38001/health` and see 200 OK
 - [ ] Can run `make test` and all tests pass
 - [ ] Can run `make lint` clean
 - [ ] ArgoCD staging URL bookmarked on phone and laptop (GAP-17 Phase 1 precondition)

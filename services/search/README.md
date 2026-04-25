@@ -6,8 +6,8 @@ Search service — federated search, typeahead (STU-REQ-28..30).
 
 ```bash
 uv sync
-uv run uvicorn search.main:app --reload --port 8005
-curl http://localhost:8005/health
+uv run uvicorn search.main:app --reload --port 38005
+curl http://localhost:38005/health
 ```
 
 ## Test

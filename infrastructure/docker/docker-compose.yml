@@ -11,7 +11,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_MULTIPLE_DATABASES: auth,user_profile,content,catalog,search,analytics,payment,institution,notification,adaptive_engine,quiz
-    ports: ["5432:5432"]
+    ports: ["35432:5432"]
     volumes:
       - pg-data:/var/lib/postgresql/data
       - ./postgres-init.sh:/docker-entrypoint-initdb.d/10-init-databases.sh:ro
@@ -23,7 +23,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports: ["6379:6379"]
+    ports: ["36379:6379"]
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis-data:/data
@@ -45,7 +45,7 @@ services:
     ulimits:
       memlock: { soft: -1, hard: -1 }
       nofile: { soft: 65536, hard: 65536 }
-    ports: ["9200:9200"]
+    ports: ["39200:9200"]
     volumes:
       - opensearch-data:/usr/share/opensearch/data
     healthcheck:
@@ -58,8 +58,8 @@ services:
     image: nats:2.10-alpine
     command: ["-js", "-m", "8222"]
     ports:
-      - "4222:4222"
-      - "8222:8222"
+      - "34222:4222"
+      - "38222:8222"
     volumes:
       - nats-data:/data
     healthcheck:
@@ -74,15 +74,58 @@ services:
       SERVICES: s3,secretsmanager,sqs,sns
       DEBUG: 0
       AWS_DEFAULT_REGION: ap-south-1
-    ports: ["4566:4566"]
+    ports: ["34566:4566"]
     volumes:
       - localstack-data:/var/lib/localstack
 
   mailpit:
     image: axllent/mailpit:v1.21
     ports:
-      - "1025:1025"  # SMTP
-      - "8025:8025"  # Web UI
+      - "31025:1025"  # SMTP
+      - "38025:8025"  # Web UI
+
+  # ---- Web apps (optional — `--profile frontend` to include) ----
+  # Default dev path is `pnpm dev` on host for hot reload + debugger speed.
+  # These services are primarily for CI smoke tests and prod-like local verification.
+  # Build context is the monorepo root so the pnpm workspace resolves @alp/design-system.
+  web-student:
+    profiles: ["frontend", "all"]
+    build:
+      context: ../..
+      dockerfile: apps/web-student/Dockerfile
+    image: alp/web-student:local
+    ports: ["35173:8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  web-portal:
+    profiles: ["frontend", "all"]
+    build:
+      context: ../..
+      dockerfile: apps/web-portal/Dockerfile
+    image: alp/web-portal:local
+    ports: ["35174:8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  web-admin:
+    profiles: ["frontend", "all"]
+    build:
+      context: ../..
+      dockerfile: apps/web-admin/Dockerfile
+    image: alp/web-admin:local
+    ports: ["35175:8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 volumes:
   pg-data:

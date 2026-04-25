@@ -10,7 +10,14 @@ dependencies = [
     "pydantic-settings>=2.6",
     "structlog>=24.4",
     "httpx>=0.27",
+    "sqlalchemy[asyncio]>=2.0",
+    "alembic>=1.13",
+    "asyncpg>=0.29",
+    "alp-flags",
 ]
+
+[tool.uv.sources]
+alp-flags = { path = "../../libs/python/alp_flags" }
 
 [dependency-groups]
 dev = [

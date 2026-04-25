@@ -8,11 +8,14 @@ class Settings(BaseSettings):
     service_name: str = "user_profile"
     environment: str = Field(default="local")
     log_level: str = Field(default="INFO")
-    port: int = Field(default=8002)
+    port: int = Field(default=38002)
 
-    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:5432/user_profile")
-    redis_url: str = Field(default="redis://localhost:6379/0")
-    nats_url: str = Field(default="nats://localhost:4222")
+    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:35432/user_profile")
+    redis_url: str = Field(default="redis://localhost:36379/0")
+    nats_url: str = Field(default="nats://localhost:34222")
+
+    # Shared JWT secret with Auth service (Sprint 1 HS256). Sprint 2: JWKS from Auth.
+    jwt_secret: str = Field(default="dev-only-change-me-in-staging-at-least-32-bytes-long")
 
 
 settings = Settings()

@@ -38,6 +38,12 @@ node_modules/
 npm-debug.log*
 pnpm-debug.log*
 
+# Build-time artefacts
+*.tsbuildinfo
+dist-storybook/
+coverage/
+.vite/
+
 # Go
 *.exe
 *.test

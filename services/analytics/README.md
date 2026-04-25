@@ -6,8 +6,8 @@ Analytics service — EWA mastery, readiness score, streak tracking (STU-REQ-20,
 
 ```bash
 uv sync
-uv run uvicorn analytics.main:app --reload --port 8006
-curl http://localhost:8006/health
+uv run uvicorn analytics.main:app --reload --port 38006
+curl http://localhost:38006/health
 ```
 
 ## Test
