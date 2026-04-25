@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Badge, Button, tokens } from "@alp/design-system";
 import { auth } from "../lib/api";
+import { useAuth } from "../lib/auth-provider";
 
 interface Topic {
   id: string;
@@ -16,8 +17,11 @@ interface Topic {
 
 export function TopicDetail() {
   const { topicId } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [topic, setTopic] = useState<Topic | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     if (!topicId) return;
@@ -35,6 +39,30 @@ export function TopicDetail() {
       }
     })();
   }, [topicId]);
+
+  async function startQuiz() {
+    if (!topicId || !user || starting) return;
+    setError(null);
+    setStarting(true);
+    try {
+      const r = await auth.fetch(`/api/v1/quiz/sessions/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topicId, userId: user.id, mode: "PRACTICE" }),
+      });
+      if (r.status === 422) {
+        setError("This topic doesn't have any practice questions yet.");
+        return;
+      }
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const body = (await r.json()) as { sessionId: string };
+      navigate(`/quiz/${body.sessionId}`);
+    } catch {
+      setError("We couldn't start the quiz. Try again in a moment.");
+    } finally {
+      setStarting(false);
+    }
+  }
 
   if (error) {
     return (
@@ -79,14 +107,14 @@ export function TopicDetail() {
         <p style={styles.meta}>{topic.questionCount} questions</p>
 
         <div style={styles.actions}>
-          <Button size="lg" disabled title="Quiz lands in Sprint 2">
-            Start practice quiz
+          <Button size="lg" isLoading={starting} onClick={startQuiz}>
+            {starting ? "Starting…" : "Start practice quiz"}
           </Button>
-          <Button variant="secondary" size="lg" disabled title="Lessons land in Sprint 2">
+          <Button variant="secondary" size="lg" disabled title="Lessons land in Sprint 4">
             Read lesson notes
           </Button>
         </div>
-        <p style={styles.disabledNote}>Practice quiz + lesson notes ship in Sprint 2.</p>
+        <p style={styles.disabledNote}>Practice quiz is live (Sprint 3). Lesson notes ship in Sprint 4.</p>
 
         {topic.description ? (
           <>
