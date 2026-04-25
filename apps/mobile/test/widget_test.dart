@@ -12,6 +12,10 @@ import 'package:adaptive_learning_mobile/screens/onboarding/exam_select_screen.d
 import 'package:adaptive_learning_mobile/screens/onboarding/language_screen.dart';
 import 'package:adaptive_learning_mobile/screens/register_screen.dart';
 import 'package:adaptive_learning_mobile/screens/verify_screen.dart';
+import 'package:adaptive_learning_mobile/screens/home_screen.dart';
+import 'package:adaptive_learning_mobile/quiz/quiz_client.dart';
+import 'package:adaptive_learning_mobile/quiz/quiz_screen.dart';
+import 'package:adaptive_learning_mobile/quiz/quiz_result_screen.dart';
 
 void main() {
   setUpAll(() {
@@ -370,4 +374,103 @@ void main() {
 
     expect(find.textContaining('Email or password is incorrect'), findsOneWidget);
   });
+
+// ---- Sprint 3 — quiz play + result screens ----
+
+testWidgets('home screen shows quick-start quiz CTA', (tester) async {
+  FlutterSecureStorage.setMockInitialValues({});
+  final mockHttp = MockClient((request) async => http.Response('{}', 404));
+  final auth = AuthClient(
+    baseUrl: 'http://test',
+    storage: const FlutterSecureStorage(),
+    httpClient: mockHttp,
+  );
+
+  await tester.pumpWidget(MaterialApp(
+    home: HomeScreen(auth: auth, onSignOut: () {}),
+  ));
+  await tester.pump();
+
+  expect(find.textContaining('Hi,'), findsOneWidget);
+  expect(find.text('Mechanics'), findsOneWidget);
+  expect(find.text('Start practice quiz'), findsOneWidget);
+});
+
+testWidgets('quiz screen renders 4 lettered choices for the current item', (tester) async {
+  FlutterSecureStorage.setMockInitialValues({});
+  final mockHttp = MockClient((request) async {
+    final p = request.url.path;
+    if (p.endsWith('/quiz/sessions/sid-1')) {
+      return http.Response(
+        '{"sessionId":"sid-1","userId":"u","topicId":"t","mode":"PRACTICE","strategy":"binary_search","status":"IN_PROGRESS","targetCount":10,"servedCount":0,"correctCount":0,"items":[]}',
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    if (p.endsWith('/quiz/sessions/sid-1/next')) {
+      return http.Response(
+        '{"sessionId":"sid-1","status":"IN_PROGRESS","done":false,"item":{"itemIdx":0,"questionId":"q-1","stem":"What is 2+2?","choices":["3","4","5","22"]}}',
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    return http.Response('{}', 404);
+  });
+  final auth = AuthClient(
+    baseUrl: 'http://test',
+    storage: const FlutterSecureStorage(),
+    httpClient: mockHttp,
+  );
+  final client = QuizClient(auth: auth);
+
+  await tester.pumpWidget(MaterialApp(
+    home: QuizScreen(client: client, sessionId: 'sid-1'),
+  ));
+  await tester.pumpAndSettle();
+
+  expect(find.text('What is 2+2?'), findsOneWidget);
+  expect(find.text('A'), findsOneWidget);
+  expect(find.text('B'), findsOneWidget);
+  expect(find.text('C'), findsOneWidget);
+  expect(find.text('D'), findsOneWidget);
+  expect(find.text('Submit answer'), findsOneWidget);
+});
+
+testWidgets('quiz result screen renders score + per-item review', (tester) async {
+  FlutterSecureStorage.setMockInitialValues({});
+  final mockHttp = MockClient((request) async {
+    if (request.url.path.endsWith('/quiz/sessions/sid-9')) {
+      return http.Response(
+        '{"sessionId":"sid-9","userId":"u","topicId":"t","mode":"PRACTICE","strategy":"binary_search","status":"SUBMITTED","targetCount":5,"servedCount":5,"correctCount":4,"items":['
+        '{"itemIdx":0,"questionId":"q-aaaaaaaa-1","answerIdx":1,"isCorrect":true,"answered":true},'
+        '{"itemIdx":1,"questionId":"q-bbbbbbbb-2","answerIdx":0,"isCorrect":false,"answered":true},'
+        '{"itemIdx":2,"questionId":"q-cccccccc-3","answerIdx":2,"isCorrect":true,"answered":true},'
+        '{"itemIdx":3,"questionId":"q-dddddddd-4","answerIdx":0,"isCorrect":true,"answered":true},'
+        '{"itemIdx":4,"questionId":"q-eeeeeeee-5","answerIdx":3,"isCorrect":true,"answered":true}'
+        ']}',
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    return http.Response('{}', 404);
+  });
+  final auth = AuthClient(
+    baseUrl: 'http://test',
+    storage: const FlutterSecureStorage(),
+    httpClient: mockHttp,
+  );
+  final client = QuizClient(auth: auth);
+
+  await tester.pumpWidget(MaterialApp(
+    home: QuizResultScreen(client: client, sessionId: 'sid-9'),
+  ));
+  await tester.pumpAndSettle();
+
+  expect(find.text('4'), findsOneWidget);
+  expect(find.text('/5'), findsOneWidget);
+  expect(find.text('80%'), findsOneWidget);
+  expect(find.text('Q1'), findsOneWidget);
+  expect(find.text('Q5'), findsOneWidget);
+});
+
 }

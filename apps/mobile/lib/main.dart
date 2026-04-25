@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'auth/auth_client.dart';
+import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/onboarding/daily_goal_screen.dart';
 import 'screens/onboarding/exam_select_screen.dart';
@@ -108,8 +109,8 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
         );
       case _OnboardStep.done:
         // Refresh the session state with the now-onboarded user.
-        return _HomePlaceholder(
-          user: widget.auth.user ?? _session!.user,
+        return HomeScreen(
+          auth: widget.auth,
           onSignOut: () async {
             await widget.auth.logout();
             if (mounted) {
@@ -137,8 +138,8 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
           : _session == null
               ? _guestRoute()
               : _session!.user.onboardingState == 'ONBOARDED'
-                  ? _HomePlaceholder(
-                      user: _session!.user,
+                  ? HomeScreen(
+                      auth: widget.auth,
                       onSignOut: () async {
                         await widget.auth.logout();
                         if (mounted) setState(() => _session = null);
@@ -154,36 +155,6 @@ class _Splash extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       const Scaffold(body: Center(child: CircularProgressIndicator()));
-}
-
-class _HomePlaceholder extends StatelessWidget {
-  const _HomePlaceholder({required this.user, required this.onSignOut});
-  final User user;
-  final VoidCallback onSignOut;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Welcome, ${user.firstName}'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: onSignOut,
-          ),
-        ],
-      ),
-      body: const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'Onboarding + catalog screens land in the next mobile pass.\n\nFor now: signed in.',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// Sprint-0 shell preserved for the legacy widget-render test.
