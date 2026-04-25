@@ -14,6 +14,11 @@ class QuestionCreate(BaseModel):
     choices: list[str] = Field(min_length=2, max_length=8)
     correctIdx: int = Field(ge=0)
     difficultyB: float = Field(default=0.0, ge=-4.0, le=4.0)
+    # IRT calibration — defaults match Quiz's 2PL fallback. Authors with
+    # calibration data set these explicitly; the Adaptive Engine validates
+    # the same ranges (a > 0, 0 ≤ c < 1).
+    discriminationA: float = Field(default=1.0, gt=0, le=4.0)
+    guessingC: float = Field(default=0.0, ge=0.0, lt=1.0)
     language: Literal["en", "hi"] = "en"
 
 
@@ -24,6 +29,8 @@ class QuestionDetail(BaseModel):
     choices: list[str]
     correctIdx: int
     difficultyB: float
+    discriminationA: float
+    guessingC: float
     language: str
     status: str
     createdBy: str

@@ -30,14 +30,20 @@ const (
 
 // QuestionPublished is the wire payload produced by Content's
 // publish_question_published. Field names match the Python emitter.
+//
+// DiscriminationA / GuessingC are pointers so missing fields (older publishers,
+// before Sprint 4) round-trip cleanly to nil — the upsert then falls back to
+// the column defaults (1.0 / 0.0).
 type QuestionPublished struct {
-	ID          string   `json:"id"`
-	TopicID     string   `json:"topic_id"`
-	Stem        string   `json:"stem"`
-	Choices     []string `json:"choices"`
-	CorrectIdx  int16    `json:"correct_idx"`
-	DifficultyB float32  `json:"difficulty_b"`
-	Language    string   `json:"language"`
+	ID              string   `json:"id"`
+	TopicID         string   `json:"topic_id"`
+	Stem            string   `json:"stem"`
+	Choices         []string `json:"choices"`
+	CorrectIdx      int16    `json:"correct_idx"`
+	DifficultyB     float32  `json:"difficulty_b"`
+	DiscriminationA *float32 `json:"discrimination_a,omitempty"`
+	GuessingC       *float32 `json:"guessing_c,omitempty"`
+	Language        string   `json:"language"`
 }
 
 // ContentSubscriber owns the JetStream consumer that mirrors content.question.published
@@ -135,6 +141,16 @@ func (s *ContentSubscriber) handle(msg jetstream.Msg) {
 	if lang == "" {
 		lang = "en"
 	}
+	// Sprint 4: a/c land in the payload as floats. Pre-Sprint-4 emitters omit
+	// them — fall back to neutral defaults (matches the column defaults).
+	a := float32(1.0)
+	if ev.DiscriminationA != nil {
+		a = *ev.DiscriminationA
+	}
+	c := float32(0.0)
+	if ev.GuessingC != nil {
+		c = *ev.GuessingC
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -143,16 +159,19 @@ func (s *ContentSubscriber) handle(msg jetstream.Msg) {
 	// status is forced to PUBLISHED here; Content already gated on its own FSM.
 	_, err = s.pool.Exec(ctx, `
 		INSERT INTO quiz_schema.questions
-		  (id, topic_id, stem, choices, correct_idx, difficulty_b, language, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, 'PUBLISHED')
+		  (id, topic_id, stem, choices, correct_idx, difficulty_b,
+		   discrimination_a, guessing_c, language, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PUBLISHED')
 		ON CONFLICT (id) DO UPDATE SET
 		  stem = EXCLUDED.stem,
 		  choices = EXCLUDED.choices,
 		  correct_idx = EXCLUDED.correct_idx,
 		  difficulty_b = EXCLUDED.difficulty_b,
+		  discrimination_a = EXCLUDED.discrimination_a,
+		  guessing_c = EXCLUDED.guessing_c,
 		  language = EXCLUDED.language,
 		  status = 'PUBLISHED'
-	`, ev.ID, ev.TopicID, ev.Stem, choicesJSON, ev.CorrectIdx, ev.DifficultyB, lang)
+	`, ev.ID, ev.TopicID, ev.Stem, choicesJSON, ev.CorrectIdx, ev.DifficultyB, a, c, lang)
 
 	if err != nil {
 		s.logger.Warn("content.question.published upsert failed", "id", ev.ID, "err", err)

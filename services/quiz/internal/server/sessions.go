@@ -22,14 +22,8 @@ import (
 // little signal so the early picks would just track the prior — wasted calls.
 const coldStartItems = 3
 
-// defaultDiscrimination + defaultGuessing are the IRT params used until the
-// question schema gains explicit a/c columns. The closed-beta seed has only
-// difficulty_b calibrated, so a=1.0 / c=0.0 reduces 3PL to 2PL with no
-// guessing floor — fine for a first pass.
-const (
-	defaultDiscrimination = 1.0
-	defaultGuessing       = 0.0
-)
+// Per-item IRT params now live on the question row (Sprint 4 — migration 003).
+// Existing rows default to a=1.0, c=0.0 (effectively 2PL) until calibration.
 
 // SessionService coordinates the FSM around sessions: creation, next-question
 // selection, idempotent answer recording, expiry, and submit.
@@ -363,7 +357,7 @@ func (svc *SessionService) pickNext(ctx context.Context, sess domain.Session, lo
 		responses := make([]adaptive.ResponseDTO, 0, len(answered))
 		for _, a := range answered {
 			responses = append(responses, adaptive.ResponseDTO{
-				IRTItem:   adaptive.IRTItem{A: defaultDiscrimination, B: a.DifficultyB, C: defaultGuessing},
+				IRTItem:   adaptive.IRTItem{A: a.DiscriminationA, B: a.DifficultyB, C: a.GuessingC},
 				IsCorrect: a.IsCorrect,
 			})
 		}
@@ -383,7 +377,7 @@ func (svc *SessionService) pickNext(ctx context.Context, sess domain.Session, lo
 	for _, c := range candidates {
 		cands = append(cands, adaptive.CandidateDTO{
 			ID:      c.ID.String(),
-			IRTItem: adaptive.IRTItem{A: defaultDiscrimination, B: c.DifficultyB, C: defaultGuessing},
+			IRTItem: adaptive.IRTItem{A: c.DiscriminationA, B: c.DifficultyB, C: c.GuessingC},
 		})
 	}
 	sel, serr := svc.adaptive.SelectNext(ctx, adaptive.SelectNextRequest{

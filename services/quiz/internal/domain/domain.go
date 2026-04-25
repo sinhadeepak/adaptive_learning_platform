@@ -30,14 +30,16 @@ const (
 )
 
 type Question struct {
-	ID          uuid.UUID
-	TopicID     uuid.UUID
-	Stem        string
-	Choices     []string
-	CorrectIdx  int16
-	DifficultyB float32
-	Language    string
-	Status      string
+	ID              uuid.UUID
+	TopicID         uuid.UUID
+	Stem            string
+	Choices         []string
+	CorrectIdx      int16
+	DifficultyB     float32
+	DiscriminationA float32
+	GuessingC       float32
+	Language        string
+	Status          string
 }
 
 type Session struct {
