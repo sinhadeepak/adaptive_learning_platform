@@ -14,6 +14,8 @@ export interface AuthClient {
   logout(): Promise<void>;
   ssoUrl(provider: SsoProvider, params?: { returnTo?: string }): string;
   completeSso(search: string): Promise<Session>;
+  forgotPassword(email: string): Promise<void>;
+  resetPassword(token: string, newPassword: string): Promise<void>;
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
   getUser(): User | null;
   getTokens(): Tokens | null;
@@ -89,6 +91,31 @@ export function createAuthClient(opts: AuthClientOptions): AuthClient {
       if (t) await post("/auth/logout", { refreshToken: t.refreshToken }).catch(() => undefined);
       storage.clear();
       currentUser = null;
+    },
+    async forgotPassword(email) {
+      // Auth returns 204 regardless of whether the email exists (enumeration-safe).
+      // Network/server errors still surface to the caller so they can retry.
+      const res = await fetch(`${opts.baseUrl}/auth/password/forgot`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok && res.status !== 204) throw await toAuthError(res);
+    },
+    async resetPassword(token, newPassword) {
+      const res = await fetch(`${opts.baseUrl}/auth/password/reset`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token, newPassword }),
+      });
+      if (!res.ok) {
+        // 410 = token expired/used; 400 = invalid (e.g. weak password).
+        let code: AuthError["code"] = "unknown";
+        if (res.status === 410) code = "reset_token_invalid";
+        else if (res.status === 400) code = "weak_password";
+        const msg = await res.text().catch(() => res.statusText);
+        throw new AuthError(msg || res.statusText, code, res.status);
+      }
     },
     ssoUrl(provider, params) {
       const u = new URL(`${opts.baseUrl}/auth/oauth/${provider}/url`, window.location.origin);

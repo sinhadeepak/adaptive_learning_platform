@@ -113,6 +113,30 @@ test("/verify with userId renders 6 OTP cells", () => {
   }
 });
 
+test("/forgot-password renders form (Sprint 3)", () => {
+  renderAt("/forgot-password");
+  expect(screen.getByRole("heading", { name: /forgot your password/i })).toBeInTheDocument();
+  expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /send reset link/i })).toBeInTheDocument();
+});
+
+test("/reset-password missing token surfaces guidance", () => {
+  renderAt("/reset-password");
+  expect(screen.getByRole("heading", { name: /set a new password/i })).toBeInTheDocument();
+  expect(screen.getByText(/missing reset token/i)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /update password/i })).toBeDisabled();
+});
+
+test("/reset-password with token enables submission", () => {
+  renderAt("/reset-password?token=abcdef0123456789abcdef");
+  expect(screen.getByRole("heading", { name: /set a new password/i })).toBeInTheDocument();
+  // Both password fields render.
+  expect(screen.getByLabelText(/^new password$/i)).toBeInTheDocument();
+  expect(screen.getByLabelText(/confirm new password/i)).toBeInTheDocument();
+  // Submit is enabled with a valid token (form-level validation gates further).
+  expect(screen.getByRole("button", { name: /update password/i })).toBeEnabled();
+});
+
 test("/onboarding/exam without auth redirects to /login", () => {
   renderAt("/onboarding/exam");
   expect(screen.getByRole("heading", { name: /log in/i })).toBeInTheDocument();

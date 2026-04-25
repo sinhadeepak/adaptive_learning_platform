@@ -39,7 +39,15 @@ export type SsoProvider = "google" | "apple";
 export class AuthError extends Error {
   constructor(
     message: string,
-    public readonly code: "invalid_credentials" | "locked" | "rate_limited" | "network" | "refresh_failed" | "unknown",
+    public readonly code:
+      | "invalid_credentials"
+      | "locked"
+      | "rate_limited"
+      | "network"
+      | "refresh_failed"
+      | "reset_token_invalid"
+      | "weak_password"
+      | "unknown",
     public readonly status?: number
   ) {
     super(message);

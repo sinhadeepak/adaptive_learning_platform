@@ -2,12 +2,14 @@ import { Navigate, type RouteObject } from "react-router-dom";
 import { GuestOnlyRoute, ProtectedRoute } from "./lib/protected-route";
 import { Catalog } from "./pages/Catalog";
 import { CatalogExam } from "./pages/CatalogExam";
+import { ForgotPassword } from "./pages/ForgotPassword";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { Placeholder } from "./pages/Placeholder";
 import { Quiz } from "./pages/Quiz";
 import { QuizResult } from "./pages/QuizResult";
 import { Register } from "./pages/Register";
+import { ResetPassword } from "./pages/ResetPassword";
 import { Search } from "./pages/Search";
 import { TopicDetail } from "./pages/TopicDetail";
 import { Verify } from "./pages/Verify";
@@ -52,7 +54,7 @@ export const routes: RouteObject[] = [
     path: "/forgot-password",
     element: (
       <GuestOnlyRoute>
-        <Placeholder title="Forgot password" wireframeRef="Pass 1 §4" storyRef="ST-02-04-01" />
+        <ForgotPassword />
       </GuestOnlyRoute>
     ),
   },
@@ -60,7 +62,7 @@ export const routes: RouteObject[] = [
     path: "/reset-password",
     element: (
       <GuestOnlyRoute>
-        <Placeholder title="Reset password" wireframeRef="Pass 1 §4" storyRef="ST-02-04-01" />
+        <ResetPassword />
       </GuestOnlyRoute>
     ),
   },
