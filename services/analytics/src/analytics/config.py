@@ -10,7 +10,9 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO")
     port: int = Field(default=38006)
 
-    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:35432/analytics")
+    database_url: str = Field(
+        default="postgresql+asyncpg://postgres:postgres@localhost:35432/analytics"
+    )
     redis_url: str = Field(default="redis://localhost:36379/0")
     nats_url: str = Field(default="nats://localhost:34222")
 
