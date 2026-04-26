@@ -402,3 +402,75 @@ test("/quiz/:id/result shows score + per-item review", async () => {
   expect(screen.getByText("Q1")).toBeInTheDocument();
   expect(screen.getByText("Q5")).toBeInTheDocument();
 });
+
+// ---- Onboarding flow (PR #52) ----
+
+test("/onboarding/exam renders the radio-card list when authenticated", async () => {
+  asAuthenticated({ onboardingState: "NEW" });
+  renderAt("/onboarding/exam");
+  // Step indicator caption + question heading
+  expect(await screen.findByText(/step 1 of 4/i)).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /which exam are you preparing for/i }))
+    .toBeInTheDocument();
+  // The two seeded exams from asAuthenticated() show up as radio options
+  expect(await screen.findByRole("radio", { name: /JEE Main/ })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /NEET/ })).toBeInTheDocument();
+  // Continue is disabled until a card is selected
+  expect(screen.getByRole("button", { name: /^continue$/i })).toBeDisabled();
+});
+
+test("/onboarding/language renders three language cards + skip button", async () => {
+  asAuthenticated({ onboardingState: "EXAM_SELECTED" });
+  renderAt("/onboarding/language");
+  expect(await screen.findByText(/step 2 of 4/i)).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /what language do you want to learn in/i }))
+    .toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /English/i })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /हिन्दी/ })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /Hinglish/i })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /skip \(defaults to english\)/i }))
+    .toBeInTheDocument();
+});
+
+test("/onboarding/target-date renders date input + 4 month presets", async () => {
+  asAuthenticated({ onboardingState: "EXAM_SELECTED" });
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+    async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/api/v1/profile/me")) {
+        return new Response(
+          JSON.stringify({
+            user: { firstName: "Test", role: "STUDENT", onboardingState: "EXAM_SELECTED" },
+            preferences: { language: "en", dailyGoalMinutes: 30 },
+            exams: [{ examId: "e1", targetDate: null }],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    },
+  );
+  renderAt("/onboarding/target-date");
+  expect(await screen.findByText(/step 3 of 4/i)).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /when is your exam/i })).toBeInTheDocument();
+  expect(screen.getByLabelText(/target date/i)).toBeInTheDocument();
+  // The 4 preset chips
+  expect(screen.getByRole("button", { name: /^3 mos$/i })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^6 mos$/i })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^9 mos$/i })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^12 mos$/i })).toBeInTheDocument();
+  // Continue + Not sure yet
+  expect(screen.getByRole("button", { name: /^continue$/i })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /not sure yet/i })).toBeInTheDocument();
+});
+
+test("/onboarding/daily-goal renders 4 cadence options + start button", async () => {
+  asAuthenticated({ onboardingState: "EXAM_SELECTED" });
+  renderAt("/onboarding/daily-goal");
+  expect(await screen.findByText(/step 4 of 4/i)).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /set your daily goal/i })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /15 min\/day/i })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /30 min\/day/i })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /60 min\/day/i })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /120 min\/day/i })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /start learning/i })).toBeInTheDocument();
+});
