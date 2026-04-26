@@ -161,6 +161,8 @@ export function Quiz() {
   const remaining = Math.max(0, counts.target - counts.served);
   const progressPct = counts.target > 0 ? Math.min(100, Math.round((counts.served / counts.target) * 100)) : 0;
 
+  const accuracyPct = counts.served > 0 ? Math.round((counts.correct / counts.served) * 100) : null;
+
   return (
     <AppShell
       title={`Question ${questionNumber} of ${counts.target}`}
@@ -169,6 +171,17 @@ export function Quiz() {
         { label: remaining > 0 ? `${remaining} left` : "Final question" },
       ]}
     >
+      <div className="quiz-eyebrow">
+        <span className="ai-pill">◈ AI ADAPTIVE SESSION</span>
+        <span className="quiz-difficulty">
+          item #{item.itemIdx + 1} · {item.questionId.slice(0, 6)}
+        </span>
+        {accuracyPct !== null ? (
+          <span className="quiz-theta-tracker">
+            ◆ {accuracyPct}% accuracy this session
+          </span>
+        ) : null}
+      </div>
       <div className="quiz-progress-bar" aria-label={`Progress ${progressPct}%`}>
         <div className="quiz-progress-track">
           <div className="quiz-progress-fill" style={{ width: `${progressPct}%` }} />
