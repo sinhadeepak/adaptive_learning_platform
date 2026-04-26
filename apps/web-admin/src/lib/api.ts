@@ -95,4 +95,8 @@ export const flags = {
     });
     return asJson<FlagSummary>(res);
   },
+  async listAudit(limit = 200): Promise<FlagAuditEntry[]> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/flags/audit?limit=${limit}`);
+    return asJson<FlagAuditEntry[]>(res);
+  },
 };

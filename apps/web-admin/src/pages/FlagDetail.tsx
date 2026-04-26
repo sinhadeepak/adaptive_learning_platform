@@ -230,11 +230,21 @@ export function FlagDetail() {
                   <tr key={i}>
                     <td className="meta">{new Date(a.ts).toLocaleString()}</td>
                     <td>
-                      <span
-                        className={`scope-chip ${a.scope === "platform" ? "scope-chip-platform" : "scope-chip-tenant"}`}
-                      >
-                        {a.scope}
-                      </span>
+                      {(() => {
+                        // Backend emits scope as GLOBAL/TENANT; the original
+                        // shipped frontend assumed lowercase platform/tenant.
+                        // Accept both so the chip is correct in either shape.
+                        const isGlobal = ["GLOBAL", "PLATFORM"].includes(a.scope.toUpperCase());
+                        return (
+                          <span
+                            className={`scope-chip ${
+                              isGlobal ? "scope-chip-platform" : "scope-chip-tenant"
+                            }`}
+                          >
+                            {isGlobal ? "global" : "tenant"}
+                          </span>
+                        );
+                      })()}
                       {a.tenantId ? (
                         <span className="meta" style={{ marginLeft: 6 }}>
                           {a.tenantId.slice(0, 8)}

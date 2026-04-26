@@ -179,6 +179,58 @@ async def test_unknown_flag_returns_404(client: AsyncClient, reset_overrides: No
     assert r.json()["detail"]["code"] == "flag_not_found"
 
 
+async def test_global_audit_endpoint_returns_rows_across_flags(
+    client: AsyncClient, reset_overrides: None
+) -> None:
+    """GET /flags/audit returns audit rows across every flag (global view)."""
+    admin_hdr = _hdr(_token(ADMIN_ID, admin_level="PLATFORM"))
+
+    # Generate audit activity on TWO different flags so we can prove the
+    # endpoint isn't filtering to one.
+    await client.put(
+        "/flags/irt_model_enabled", headers=admin_hdr,
+        json={"value": True, "rationale": "ml run a"},
+    )
+    await client.put(
+        "/flags/checkout_enabled", headers=admin_hdr,
+        json={"value": True, "rationale": "stripe live"},
+    )
+    await client.put(
+        f"/flags/checkout_enabled/tenants/{TENANT_ID}", headers=admin_hdr,
+        json={"value": False, "rationale": "pilot rollback"},
+    )
+
+    r = await client.get("/flags/audit", headers=_hdr(_token(STUDENT_ID)))
+    assert r.status_code == 200
+    rows = r.json()
+    # 3 audit entries: 2 GLOBAL flips + 1 TENANT override.
+    assert len(rows) == 3
+    # Newest first.
+    flag_names = [r["flagName"] for r in rows]
+    assert "checkout_enabled" in flag_names
+    assert "irt_model_enabled" in flag_names
+    # Scope mix.
+    scopes = {r["scope"] for r in rows}
+    assert scopes == {"GLOBAL", "TENANT"}
+
+
+async def test_global_audit_does_not_route_to_get_flag(
+    client: AsyncClient, reset_overrides: None
+) -> None:
+    """Regression: GET /flags/audit must not match the /flags/{name} route."""
+    r = await client.get("/flags/audit", headers=_hdr(_token(STUDENT_ID)))
+    assert r.status_code == 200
+    body = r.json()
+    # If /{name} were matching, response would be either a 404 or a single
+    # FlagDetail object (a dict), not a list.
+    assert isinstance(body, list)
+
+
+async def test_global_audit_rejects_unauthenticated(client: AsyncClient) -> None:
+    r = await client.get("/flags/audit")
+    assert r.status_code == 401
+
+
 async def test_put_unknown_flag_404(client: AsyncClient, reset_overrides: None) -> None:
     r = await client.put(
         "/flags/nope",

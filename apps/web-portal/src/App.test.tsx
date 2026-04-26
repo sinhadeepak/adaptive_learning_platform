@@ -28,6 +28,12 @@ afterEach(() => {
   } catch {
     /* ignore */
   }
+  // asAuthenticated() mutates the auth singleton — reset to unauth defaults
+  // so the next test starts clean (mirrors web-admin's afterEach).
+  Object.assign(auth, {
+    getUser: () => null,
+    isAuthenticated: () => false,
+  });
 });
 
 interface TestUser {

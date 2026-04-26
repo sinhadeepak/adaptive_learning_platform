@@ -62,6 +62,31 @@ async def list_flags(session: SessionDep) -> list[Flag]:
     return [_flag_summary(r) for r in rows]
 
 
+# Declared BEFORE /{name} so FastAPI matches the literal "/audit" first
+# instead of routing GET /flags/audit to get_flag(name="audit").
+@router.get("/audit", response_model=list[FlagAuditEntry])
+async def list_audit(
+    session: SessionDep,
+    _: PrincipalDep,
+    limit: Annotated[int, Query(ge=1, le=500)] = 200,
+) -> list[FlagAuditEntry]:
+    """Global audit log across every flag — backs the admin /audit screen."""
+    rows = await FlagRepo(session).audit_all(limit=limit)
+    return [
+        FlagAuditEntry(
+            ts=r["ts"],
+            flagName=r["flag_name"],
+            scope=r["scope"],
+            tenantId=str(r["tenant_id"]) if r.get("tenant_id") else None,
+            oldValue=r.get("old_value"),
+            newValue=r.get("new_value"),
+            actorUserId=str(r["actor_user_id"]) if r.get("actor_user_id") else None,
+            rationale=r.get("rationale"),
+        )
+        for r in rows
+    ]
+
+
 @router.get("/{name}", response_model=FlagDetail)
 async def get_flag(name: str, session: SessionDep) -> FlagDetail:
     repo = FlagRepo(session)
