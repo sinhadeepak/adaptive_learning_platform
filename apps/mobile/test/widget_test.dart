@@ -32,7 +32,12 @@ void main() {
 
   test('alp_design_tokens path dep is wired (smoke)', () {
     expect(AlpSpacing.s4, 16);
-    expect(AlpColors.brandPrimary.toARGB32(), 0xFF2563EB);
+    // brandPrimary is the canonical student-blue from docs/ui (PR #41 flipped
+    // it to #4F87F6 — the value used across all design-system surfaces).
+    expect(AlpColors.brandPrimary.toARGB32(), 0xFF4F87F6);
+    // Direct token also available via the new accent-* names.
+    expect(AlpColors.colorBlue.toARGB32(), 0xFF4F87F6);
+    expect(AlpColors.colorAi.toARGB32(), 0xFF22D4EE);
   });
 
   testWidgets('login screen renders email + password fields', (tester) async {

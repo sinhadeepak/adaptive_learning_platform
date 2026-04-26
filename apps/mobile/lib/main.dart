@@ -174,10 +174,25 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Adaptive Learning Platform',
+      // Dark theme per docs/ui/02_MobileApp/. Brand seed is the student-blue
+      // accent; scaffold uses the canonical bg-base. Surface defaults switch
+      // to bgSurface1 so cards/dialogs sit on the correct shade.
       theme: ThemeData(
         useMaterial3: true,
+        brightness: Brightness.dark,
         colorSchemeSeed: AlpColors.brandPrimary,
-        scaffoldBackgroundColor: AlpColors.surfaceSecondary,
+        scaffoldBackgroundColor: AlpColors.bgBase,
+        canvasColor: AlpColors.bgBase,
+        cardColor: AlpColors.bgSurface2,
+        dialogBackgroundColor: AlpColors.bgSurface1,
+        dividerColor: AlpColors.borderDefault,
+        textTheme: const TextTheme(
+          bodyLarge: AlpTextStyles.body,
+          bodyMedium: AlpTextStyles.body,
+          titleLarge: AlpTextStyles.pageTitle,
+          titleMedium: AlpTextStyles.sectionHeading,
+          labelLarge: AlpTextStyles.label,
+        ),
       ),
       home: !_bootstrapped
           ? const _Splash()
