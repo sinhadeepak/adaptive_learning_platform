@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { content, type Question } from "../lib/api";
-import { useAuth } from "../lib/auth-provider";
-import { StatusBadge } from "./MyQuestions";
+import { AppShell } from "../components/AppShell";
+import { Banner, SkeletonRows } from "../components/primitives";
+import { StatusPill } from "./MyQuestions";
 
 export function ReviewQueue() {
-  const { user, logout } = useAuth();
   const [items, setItems] = useState<Question[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
@@ -37,55 +37,59 @@ export function ReviewQueue() {
   }
 
   return (
-    <main style={{ maxWidth: 920, margin: "2rem auto", padding: "0 1.5rem", fontFamily: "system-ui" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1 style={{ fontSize: 22 }}>Review queue</h1>
-        <nav style={{ display: "flex", gap: 12, alignItems: "center", fontSize: 14 }}>
-          <span style={{ color: "#666" }}>
-            {user?.firstName} ({user?.role})
-          </span>
-          <Link to="/questions">My questions</Link>
-          <button onClick={() => void logout()} style={{ fontSize: 13 }}>
-            Sign out
-          </button>
-        </nav>
-      </header>
-
-      {error && (
-        <div role="alert" style={{ color: "#a51c30", fontSize: 13, margin: "1rem 0" }}>
+    <AppShell
+      title="Review queue"
+      chips={items ? [{ label: `${items.length} pending` }] : []}
+      actions={
+        <Link to="/questions" className="btn btn-ghost">
+          ← My questions
+        </Link>
+      }
+    >
+      {error ? (
+        <Banner tone="danger" role="alert">
           {error}
-        </div>
-      )}
+        </Banner>
+      ) : null}
 
       {items === null ? (
-        <p>Loading…</p>
+        <SkeletonRows count={2} />
       ) : items.length === 0 ? (
-        <p style={{ color: "#666" }}>Nothing in review right now.</p>
+        <div className="card empty-state">
+          <div className="empty-state-title">All clear</div>
+          <p>Nothing in review right now. Approved questions land in the catalog.</p>
+        </div>
       ) : (
-        <ul style={{ listStyle: "none", padding: 0, marginTop: 16 }}>
+        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
           {items.map((q) => (
-            <li
-              key={q.id}
-              style={{ border: "1px solid #ddd", padding: 16, borderRadius: 6, marginBottom: 12 }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <strong style={{ fontSize: 14 }}>{q.stem}</strong>
-                <StatusBadge status={q.status} />
-              </div>
-              <ol type="A" style={{ marginTop: 8, fontSize: 14, paddingLeft: 18 }}>
+            <li key={q.id} className="card review-card">
+              <header className="review-card-header">
+                <h2 className="review-card-stem">{q.stem}</h2>
+                <StatusPill status={q.status} />
+              </header>
+
+              <ol className="review-choices">
                 {q.choices.map((c, i) => (
                   <li
                     key={i}
-                    style={{ color: i === q.correctIdx ? "#2a7a2a" : "#222", marginBottom: 4 }}
+                    className={`review-choice ${i === q.correctIdx ? "review-choice-correct" : ""}`}
                   >
-                    {c} {i === q.correctIdx && <strong>(correct)</strong>}
+                    <span className="quiz-choice-letter">{String.fromCharCode(65 + i)}</span>
+                    <span className="quiz-choice-text">{c}</span>
+                    {i === q.correctIdx ? (
+                      <span style={{ color: "var(--color-green)", fontWeight: 600, fontSize: 11 }}>
+                        ✓ correct
+                      </span>
+                    ) : null}
                   </li>
                 ))}
               </ol>
-              <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>
-                Author: {q.createdBy.slice(0, 8)}… · Difficulty b={q.difficultyB.toFixed(2)} ·{" "}
+
+              <p className="row-link-meta">
+                Author <code>{q.createdBy.slice(0, 8)}…</code> · b={q.difficultyB.toFixed(2)} ·{" "}
                 {q.language.toUpperCase()}
-              </div>
+              </p>
+
               <textarea
                 placeholder="Optional review notes (shown to the author if rejected)"
                 rows={2}
@@ -93,20 +97,24 @@ export function ReviewQueue() {
                 onChange={(e) =>
                   setNotesById((cur) => ({ ...cur, [q.id]: e.target.value }))
                 }
-                style={{ width: "100%", marginTop: 8, padding: 6, fontSize: 13 }}
+                className="form-input"
+                style={{ marginTop: "var(--sp-3)" }}
               />
-              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+
+              <div style={{ display: "flex", gap: 8, marginTop: "var(--sp-3)" }}>
                 <button
+                  type="button"
                   onClick={() => void decide(q.id, true)}
                   disabled={actingId === q.id}
-                  style={{ padding: "8px 12px", fontSize: 13 }}
+                  className="btn btn-primary"
                 >
-                  {actingId === q.id ? "…" : "Approve & Publish"}
+                  {actingId === q.id ? "Working…" : "Approve & publish"}
                 </button>
                 <button
+                  type="button"
                   onClick={() => void decide(q.id, false)}
                   disabled={actingId === q.id}
-                  style={{ padding: "8px 12px", fontSize: 13 }}
+                  className="btn btn-ghost"
                 >
                   Reject
                 </button>
@@ -115,6 +123,6 @@ export function ReviewQueue() {
           ))}
         </ul>
       )}
-    </main>
+    </AppShell>
   );
 }

@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { content } from "../lib/api";
+import { AppShell } from "../components/AppShell";
+import { Banner } from "../components/primitives";
 
 export function NewQuestion() {
   const navigate = useNavigate();
@@ -49,8 +51,6 @@ export function NewQuestion() {
         choices: trimmedChoices,
         correctIdx,
         difficultyB,
-        // Only forward a/c when the author opened the advanced panel —
-        // otherwise the server's defaults (1.0, 0.0) apply.
         ...(showAdvanced ? { discriminationA, guessingC } : {}),
         language,
       });
@@ -63,26 +63,33 @@ export function NewQuestion() {
   }
 
   return (
-    <main style={{ maxWidth: 720, margin: "2rem auto", padding: "0 1.5rem", fontFamily: "system-ui" }}>
-      <h1 style={{ fontSize: 22 }}>New question</h1>
-      <p style={{ color: "#666", fontSize: 14 }}>
+    <AppShell
+      title="New question"
+      actions={
+        <Link to="/questions" className="btn btn-ghost">
+          ← Cancel
+        </Link>
+      }
+    >
+      <p className="page-subhead">
         Saved as DRAFT. Submit it from “My questions” when you’re ready for peer review.
       </p>
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16, marginTop: 24 }}>
-        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-          Topic ID (UUID)
+      <form onSubmit={handleSubmit} className="form-stack">
+        <label className="form-field">
+          <span className="form-label">Topic ID (UUID)</span>
           <input
             required
             placeholder="e.g. 11111111-1111-1111-1111-111111111111"
             value={topicId}
             onChange={(e) => setTopicId(e.target.value)}
-            style={{ padding: 8, fontFamily: "ui-monospace, monospace", fontSize: 13 }}
+            className="form-input"
+            style={{ fontFamily: "var(--font-mono)" }}
           />
         </label>
 
-        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-          Stem
+        <label className="form-field">
+          <span className="form-label">Stem</span>
           <textarea
             required
             minLength={8}
@@ -90,46 +97,50 @@ export function NewQuestion() {
             rows={4}
             value={stem}
             onChange={(e) => setStem(e.target.value)}
-            style={{ padding: 8, fontSize: 14 }}
+            className="form-input"
           />
         </label>
 
-        <fieldset style={{ border: "1px solid #ddd", padding: 12 }}>
-          <legend style={{ fontSize: 13 }}>Choices (mark the correct one)</legend>
+        <fieldset className="form-fieldset">
+          <legend className="form-label">Choices · pick the correct one</legend>
           {choices.map((c, idx) => (
-            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <div key={idx} className="form-choice-row">
               <input
                 type="radio"
                 name="correctIdx"
                 checked={correctIdx === idx}
                 onChange={() => setCorrectIdx(idx)}
+                aria-label={`Mark choice ${String.fromCharCode(65 + idx)} correct`}
               />
-              <span style={{ width: 16, fontSize: 13, color: "#666" }}>
-                {String.fromCharCode(65 + idx)}.
-              </span>
+              <span className="form-choice-letter">{String.fromCharCode(65 + idx)}.</span>
               <input
                 required
                 value={c}
                 onChange={(e) => setChoice(idx, e.target.value)}
-                style={{ flex: 1, padding: 6, fontSize: 14 }}
+                className="form-input"
+                style={{ flex: 1 }}
               />
-              {choices.length > 2 && (
-                <button type="button" onClick={() => removeChoice(idx)} style={{ fontSize: 12 }}>
-                  remove
+              {choices.length > 2 ? (
+                <button
+                  type="button"
+                  onClick={() => removeChoice(idx)}
+                  className="link-button"
+                >
+                  Remove
                 </button>
-              )}
+              ) : null}
             </div>
           ))}
-          {choices.length < 8 && (
-            <button type="button" onClick={addChoice} style={{ marginTop: 4, fontSize: 13 }}>
+          {choices.length < 8 ? (
+            <button type="button" onClick={addChoice} className="btn btn-ghost">
               + Add choice
             </button>
-          )}
+          ) : null}
         </fieldset>
 
-        <div style={{ display: "flex", gap: 16 }}>
-          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-            Difficulty (b, IRT scale)
+        <div className="form-row">
+          <label className="form-field">
+            <span className="form-label">Difficulty (b, IRT scale)</span>
             <input
               type="number"
               min={-4}
@@ -137,15 +148,17 @@ export function NewQuestion() {
               step={0.1}
               value={difficultyB}
               onChange={(e) => setDifficultyB(parseFloat(e.target.value))}
-              style={{ width: 100, padding: 8, fontSize: 14 }}
+              className="form-input"
+              style={{ width: 120 }}
             />
           </label>
-          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-            Language
+          <label className="form-field">
+            <span className="form-label">Language</span>
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as "en" | "hi")}
-              style={{ padding: 8, fontSize: 14 }}
+              className="form-input"
+              style={{ width: 160 }}
             >
               <option value="en">English</option>
               <option value="hi">Hindi</option>
@@ -156,20 +169,19 @@ export function NewQuestion() {
         <details
           open={showAdvanced}
           onToggle={(e) => setShowAdvanced((e.target as HTMLDetailsElement).open)}
-          style={{ border: "1px solid #ddd", padding: 12 }}
+          className="form-fieldset"
         >
-          <summary style={{ fontSize: 13, cursor: "pointer" }}>
+          <summary className="form-label" style={{ cursor: "pointer" }}>
             Advanced — IRT calibration (only set if you have data)
           </summary>
-          <p style={{ fontSize: 12, color: "#666", margin: "8px 0" }}>
-            Defaults <code>a=1.0</code>, <code>c=0.0</code> reduce to 2PL with
-            no guessing floor. Increase <code>a</code> for sharper items;
-            increase <code>c</code> for easy-to-guess items (typical 0.20–0.25
-            for 4-choice MCQs).
+          <p className="page-subhead" style={{ margin: "var(--sp-2) 0" }}>
+            Defaults a=1.0, c=0.0 reduce to 2PL with no guessing floor. Increase
+            a for sharper items; increase c for easy-to-guess items (typical
+            0.20–0.25 for 4-choice MCQs).
           </p>
-          <div style={{ display: "flex", gap: 16 }}>
-            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-              Discrimination (a)
+          <div className="form-row">
+            <label className="form-field">
+              <span className="form-label">Discrimination (a)</span>
               <input
                 type="number"
                 min={0.1}
@@ -177,11 +189,12 @@ export function NewQuestion() {
                 step={0.05}
                 value={discriminationA}
                 onChange={(e) => setDiscriminationA(parseFloat(e.target.value))}
-                style={{ width: 100, padding: 8, fontSize: 14 }}
+                className="form-input"
+                style={{ width: 120 }}
               />
             </label>
-            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-              Guessing (c)
+            <label className="form-field">
+              <span className="form-label">Guessing (c)</span>
               <input
                 type="number"
                 min={0}
@@ -189,27 +202,28 @@ export function NewQuestion() {
                 step={0.01}
                 value={guessingC}
                 onChange={(e) => setGuessingC(parseFloat(e.target.value))}
-                style={{ width: 100, padding: 8, fontSize: 14 }}
+                className="form-input"
+                style={{ width: 120 }}
               />
             </label>
           </div>
         </details>
 
-        {error && (
-          <div role="alert" style={{ color: "#a51c30", fontSize: 13 }}>
+        {error ? (
+          <Banner tone="danger" role="alert">
             {error}
-          </div>
-        )}
+          </Banner>
+        ) : null}
 
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="submit" disabled={submitting} style={{ padding: 10, fontSize: 14 }}>
+          <button type="submit" disabled={submitting} className="btn btn-primary">
             {submitting ? "Saving…" : "Save draft"}
           </button>
-          <button type="button" onClick={() => navigate(-1)} style={{ padding: 10, fontSize: 14 }}>
+          <button type="button" onClick={() => navigate(-1)} className="btn btn-ghost">
             Cancel
           </button>
         </div>
       </form>
-    </main>
+    </AppShell>
   );
 }
