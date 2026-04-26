@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Button, tokens } from "@alp/design-system";
 import { auth } from "../../lib/api";
 import { useAuth } from "../../lib/auth-provider";
 import { OnboardingShell } from "./OnboardingShell";
+import { Banner, SkeletonRows } from "../../components/dashboard";
 
 interface Exam {
   id: string;
@@ -45,7 +45,11 @@ export function ExamSelect() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const profile = (await res.json()) as { user: { onboardingState: string } };
-      if (user) setUser({ ...user, onboardingState: profile.user.onboardingState as typeof user.onboardingState });
+      if (user)
+        setUser({
+          ...user,
+          onboardingState: profile.user.onboardingState as typeof user.onboardingState,
+        });
       navigate("/onboarding/language", { replace: true });
     } catch {
       setError("We couldn't save your selection. Try again.");
@@ -55,20 +59,23 @@ export function ExamSelect() {
   }
 
   return (
-    <OnboardingShell step={1} title="Which exam are you preparing for?" description="Pick one to get started. You can add more later.">
+    <OnboardingShell
+      step={1}
+      title="Which exam are you preparing for?"
+      description="Pick one to get started. You can add more later."
+    >
       {error ? (
-        <div role="alert" style={styles.errorBanner}>
-          <Badge tone="danger">Error</Badge>
-          <span>{error}</span>
-        </div>
+        <Banner tone="danger" role="alert">
+          {error}
+        </Banner>
       ) : null}
 
       {exams === null ? (
-        <ExamSkeleton />
+        <SkeletonRows count={4} />
       ) : exams.length === 0 ? (
-        <p style={{ color: tokens.colors.text.muted }}>No exams available yet.</p>
+        <p style={{ color: "var(--text-muted)", fontSize: 13 }}>No exams available yet.</p>
       ) : (
-        <div role="radiogroup" aria-labelledby="exam-q" style={styles.list}>
+        <div role="radiogroup" aria-label="Exam" className="option-list">
           {exams.map((exam) => {
             const isSelected = selected === exam.id;
             return (
@@ -78,79 +85,28 @@ export function ExamSelect() {
                 role="radio"
                 aria-checked={isSelected}
                 onClick={() => setSelected(exam.id)}
-                style={cardStyle(isSelected)}
+                className={`option-card ${isSelected ? "option-card-selected" : ""}`.trim()}
               >
-                <div style={styles.cardHead}>
-                  <span style={styles.examName}>{exam.name}</span>
-                  {isSelected ? <span style={styles.checkMark}>✓</span> : null}
+                <div className="option-card-head">
+                  <span className="option-card-title">{exam.name}</span>
+                  {isSelected ? <span className="option-check">✓</span> : null}
                 </div>
-                {exam.subtitle ? <p style={styles.examSubtitle}>{exam.subtitle}</p> : null}
+                {exam.subtitle ? <p className="option-card-sub">{exam.subtitle}</p> : null}
               </button>
             );
           })}
         </div>
       )}
 
-      <Button
-        size="lg"
+      <button
+        type="button"
+        className="btn btn-primary btn-block"
+        style={{ marginTop: "var(--sp-5)" }}
         disabled={!selected || submitting}
-        isLoading={submitting}
         onClick={onContinue}
-        style={{ width: "100%", marginTop: tokens.spacing[5] }}
       >
-        Continue
-      </Button>
+        {submitting ? "Saving…" : "Continue"}
+      </button>
     </OnboardingShell>
   );
 }
-
-function ExamSkeleton() {
-  return (
-    <div style={styles.list}>
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} style={{ ...cardStyle(false), height: 64, opacity: 0.5 }} />
-      ))}
-    </div>
-  );
-}
-
-function cardStyle(selected: boolean): React.CSSProperties {
-  return {
-    width: "100%",
-    textAlign: "left",
-    padding: tokens.spacing[4],
-    border: `${selected ? 2 : 1}px solid ${selected ? tokens.colors.brand.primary : tokens.colors.border.default}`,
-    borderRadius: tokens.radius.card,
-    background: selected ? tokens.colors.brand.tint : tokens.colors.surface.primary,
-    cursor: "pointer",
-    fontFamily: tokens.typography.family.ui,
-    color: tokens.colors.text.primary,
-  };
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  list: { display: "flex", flexDirection: "column", gap: tokens.spacing[3] },
-  cardHead: { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  examName: { fontSize: tokens.typography.scale.subheading.size, fontWeight: tokens.typography.scale.subheading.weight },
-  examSubtitle: {
-    margin: `${tokens.spacing[1]}px 0 0 0`,
-    fontSize: tokens.typography.scale.hint.size,
-    color: tokens.colors.text.secondary,
-  },
-  checkMark: {
-    color: tokens.colors.brand.primary,
-    fontSize: 18,
-    fontWeight: 600,
-  },
-  errorBanner: {
-    display: "flex",
-    alignItems: "center",
-    gap: tokens.spacing[2],
-    padding: tokens.spacing[3],
-    borderRadius: tokens.radius.panel,
-    background: tokens.colors.semantic.danger.bg,
-    color: tokens.colors.semantic.danger.fg,
-    marginBottom: tokens.spacing[4],
-    fontSize: tokens.typography.scale.body.size,
-  },
-};

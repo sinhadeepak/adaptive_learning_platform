@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Button, tokens } from "@alp/design-system";
 import { auth } from "../../lib/api";
 import { useAuth } from "../../lib/auth-provider";
 import { OnboardingShell } from "./OnboardingShell";
+import { Banner } from "../../components/dashboard";
 
 const OPTIONS = [
   { minutes: 15, label: "Chill — 15 min/day" },
@@ -30,8 +30,11 @@ export function DailyGoal() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const profile = (await res.json()) as { user: { onboardingState: string } };
-      if (user) setUser({ ...user, onboardingState: profile.user.onboardingState as typeof user.onboardingState });
-      // Profile FSM: EXAM_SELECTED + dailyGoal → ONBOARDED
+      if (user)
+        setUser({
+          ...user,
+          onboardingState: profile.user.onboardingState as typeof user.onboardingState,
+        });
       navigate("/home", { replace: true });
     } catch {
       setError("We couldn't save your goal. Try again.");
@@ -48,13 +51,12 @@ export function DailyGoal() {
       backTo="/onboarding/target-date"
     >
       {error ? (
-        <div role="alert" style={styles.errorBanner}>
-          <Badge tone="danger">Error</Badge>
-          <span>{error}</span>
-        </div>
+        <Banner tone="danger" role="alert">
+          {error}
+        </Banner>
       ) : null}
 
-      <div role="radiogroup" aria-label="Daily goal" style={styles.list}>
+      <div role="radiogroup" aria-label="Daily goal" className="option-list">
         {OPTIONS.map((opt) => {
           const isSelected = selected === opt.minutes;
           return (
@@ -64,59 +66,37 @@ export function DailyGoal() {
               role="radio"
               aria-checked={isSelected}
               onClick={() => setSelected(opt.minutes)}
-              style={cardStyle(isSelected)}
+              className={`option-card ${isSelected ? "option-card-selected" : ""}`.trim()}
             >
-              <span style={styles.label}>{opt.label}</span>
-              {isSelected ? <span style={styles.checkMark}>✓</span> : null}
+              <div className="option-card-head">
+                <span className="option-card-title">{opt.label}</span>
+                {isSelected ? <span className="option-check">✓</span> : null}
+              </div>
             </button>
           );
         })}
       </div>
 
-      <p style={styles.note}>You'll get a streak for hitting this 4 days/week.</p>
+      <p
+        style={{
+          fontSize: 12,
+          color: "var(--text-muted)",
+          margin: "var(--sp-3) 0 0",
+          textAlign: "center",
+        }}
+      >
+        You'll get a streak for hitting this 4 days/week.
+      </p>
 
-      <Button size="lg" isLoading={submitting} onClick={onStart} style={{ width: "100%", marginTop: tokens.spacing[5] }}>
+      <button
+        type="button"
+        className="btn btn-primary btn-block"
+        style={{ marginTop: "var(--sp-5)" }}
+        disabled={submitting}
+        onClick={onStart}
+      >
         {submitting ? "Setting up…" : "Start learning"}
-      </Button>
+      </button>
     </OnboardingShell>
   );
 }
-
-function cardStyle(selected: boolean): React.CSSProperties {
-  return {
-    width: "100%",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: tokens.spacing[4],
-    border: `${selected ? 2 : 1}px solid ${selected ? tokens.colors.brand.primary : tokens.colors.border.default}`,
-    borderRadius: tokens.radius.card,
-    background: selected ? tokens.colors.brand.tint : tokens.colors.surface.primary,
-    cursor: "pointer",
-    fontFamily: tokens.typography.family.ui,
-    color: tokens.colors.text.primary,
-  };
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  list: { display: "flex", flexDirection: "column", gap: tokens.spacing[3] },
-  label: { fontSize: tokens.typography.scale.subheading.size, fontWeight: tokens.typography.scale.subheading.weight },
-  checkMark: { color: tokens.colors.brand.primary, fontSize: 18, fontWeight: 600 },
-  note: {
-    fontSize: tokens.typography.scale.hint.size,
-    color: tokens.colors.text.muted,
-    margin: `${tokens.spacing[3]}px 0 0 0`,
-    textAlign: "center",
-  },
-  errorBanner: {
-    display: "flex",
-    alignItems: "center",
-    gap: tokens.spacing[2],
-    padding: tokens.spacing[3],
-    borderRadius: tokens.radius.panel,
-    background: tokens.colors.semantic.danger.bg,
-    color: tokens.colors.semantic.danger.fg,
-    marginBottom: tokens.spacing[4],
-    fontSize: tokens.typography.scale.body.size,
-  },
-};
