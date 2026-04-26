@@ -6,42 +6,325 @@
 <title>AdaptiveLearn — Master Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="00_design-system.css">
 <style>
-/* ── Screen-specific styles: Master Dashboard ──
-   All shared tokens, reset and components are in 00_design-system.css
-   All reusable component renderers are in 00_components.js              */
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Outfit',sans-serif}
+:root{
+  --c0:#07090F;--c1:#0C1422;--c2:#101A30;--c3:#162038;--c4:#1B2844;
+  --t0:#EEF2FF;--t1:#B8C5E0;--t2:#7A8BAD;--t3:#4A5570;
+  --bdr:rgba(255,255,255,0.07);--bdr2:rgba(255,255,255,0.12);
+  --ai:#22D4EE;--blu:#4F87F6;--grn:#10C47A;--amb:#F5A623;--red:#F43F5E;--pur:#A78BFA;
+}
+.app{display:grid;grid-template-columns:64px 1fr;height:740px;background:var(--c0);border-radius:16px;overflow:hidden;border:1px solid var(--bdr2);font-size:13px}
+
+/* SIDEBAR */
+.sidebar{background:var(--c1);border-right:1px solid var(--bdr);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:2px}
+.logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--blu),var(--pur));display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;margin-bottom:12px}
+.ni{width:48px;height:48px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;position:relative;transition:background .15s}
+.ni:hover{background:rgba(255,255,255,0.05)}
+.ni.act{background:rgba(79,135,246,0.15)}
+.ni.act::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:18px;background:var(--blu);border-radius:0 2px 2px 0}
+.ni-ic{font-size:16px;line-height:1}
+.ni-lb{font-size:7.5px;color:var(--t2);font-weight:600;letter-spacing:.15px;margin-top:1px}
+.ni.act .ni-lb{color:var(--blu)}
+.ni-dot{position:absolute;top:8px;right:8px;width:5px;height:5px;background:var(--red);border-radius:50%;border:1.5px solid var(--c1)}
+.av{margin-top:auto;width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--amb),var(--red));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+
+/* TOPBAR */
+.main{display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:48px;background:rgba(12,20,34,0.96);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;padding:0 18px;flex-shrink:0}
+.tb-title{font-size:14px;font-weight:600;color:var(--t0);flex:1}
+.chip{display:flex;align-items:center;gap:5px;background:var(--c3);border:1px solid var(--bdr2);border-radius:20px;padding:4px 11px;font-size:11px;font-weight:600;color:var(--t1);cursor:pointer}
+.dot-live{width:5px;height:5px;border-radius:50%;background:var(--grn);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.tb-ico{width:30px;height:30px;border-radius:8px;background:var(--c3);border:1px solid var(--bdr);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;position:relative}
+.nb{position:absolute;top:-3px;right:-3px;width:13px;height:13px;background:var(--red);border-radius:50%;font-size:7px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--c1);color:#fff}
+
+/* SCROLL AREA */
+.scroll{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.scroll::-webkit-scrollbar{width:3px}
+.scroll::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:3px}
+
+/* SHARED */
+.sec-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sec-title{font-size:12px;font-weight:600;color:var(--t1);letter-spacing:.15px}
+.see-all{font-size:11px;color:var(--blu);cursor:pointer;font-weight:500}
+.card{background:var(--c2);border:1px solid var(--bdr);border-radius:14px;padding:14px}
+.btn-ai{display:inline-flex;align-items:center;gap:5px;background:rgba(34,212,238,0.1);border:1px solid rgba(34,212,238,0.28);border-radius:8px;padding:7px 13px;font-size:11px;font-weight:700;color:var(--ai);cursor:pointer;white-space:nowrap}
+.btn-g{display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--bdr2);border-radius:8px;padding:7px 13px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;white-space:nowrap}
+.ai-pill{display:inline-flex;align-items:center;gap:4px;background:rgba(34,212,238,0.09);border:1px solid rgba(34,212,238,0.22);border-radius:20px;padding:2px 9px;font-size:9px;font-weight:700;color:var(--ai);letter-spacing:.4px}
+.badge{font-size:8.5px;font-weight:700;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px;letter-spacing:.2px;white-space:nowrap}
+.b-red{background:rgba(244,63,94,0.14);color:var(--red)}
+.b-blue{background:rgba(79,135,246,0.14);color:var(--blu)}
+.b-green{background:rgba(16,196,122,0.14);color:var(--grn)}
+.b-amber{background:rgba(245,166,35,0.14);color:var(--amb)}
+.b-ai{background:rgba(34,212,238,0.1);color:var(--ai);border:1px solid rgba(34,212,238,0.2)}
+.b-gray{background:rgba(74,85,112,0.2);color:var(--t2)}
+
+/* ── ZONE 1: AI HEADER ── */
+.ai-header{background:linear-gradient(115deg,rgba(34,212,238,0.06),rgba(79,135,246,0.07),rgba(167,139,250,0.04));border:1px solid rgba(34,212,238,0.16);border-radius:16px;padding:18px 22px;display:flex;align-items:center;gap:18px;position:relative;overflow:hidden}
+.ai-header::after{content:'';position:absolute;right:-50px;top:-50px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(34,212,238,0.05),transparent 70%)}
+.ah-left{flex:1;min-width:0}
+.ah-name{font-size:18px;font-weight:700;color:var(--t0);margin:6px 0 4px;line-height:1.2}
+.ah-name span{background:linear-gradient(90deg,var(--ai),var(--blu));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.ah-sub{font-size:11.5px;color:var(--t2);line-height:1.5;max-width:340px}
+.ah-sub strong{color:var(--t1);font-weight:600}
+.ah-btns{display:flex;gap:8px;margin-top:12px}
+.ah-stats{display:flex;gap:16px;flex-shrink:0;text-align:center}
+.ah-stat{display:flex;flex-direction:column;align-items:center;gap:3px}
+.ah-stat-num{font-size:22px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.ah-stat-lbl{font-size:9px;color:var(--t3);letter-spacing:.3px;font-weight:500}
+.ah-divider{width:1px;background:var(--bdr);align-self:stretch}
+
+/* ── ZONE 2: EXAM CARDS ── */
+.exams-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.exam-card{background:var(--c2);border:1px solid var(--bdr);border-radius:14px;padding:14px;cursor:pointer;transition:border-color .2s,transform .2s;position:relative;overflow:hidden}
+.exam-card:hover{border-color:var(--bdr2);transform:translateY(-2px)}
+.exam-card.active-exam{border-color:rgba(34,212,238,0.3)}
+.exam-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
+.exam-neet::before{background:linear-gradient(90deg,var(--grn),var(--blu))}
+.exam-jee::before{background:linear-gradient(90deg,var(--blu),var(--pur))}
+.exam-future::before{background:linear-gradient(90deg,var(--t3),var(--t3))}
+.ec-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.ec-title{font-size:13px;font-weight:700;color:var(--t0)}
+.ec-sub{font-size:10px;color:var(--t3);margin-top:1px}
+.ec-ring{position:relative;width:52px;height:52px;flex-shrink:0}
+.ec-ring svg{width:52px;height:52px}
+.ec-ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ec-ring-num{font-size:13px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.ec-ring-lbl{font-size:7px;color:var(--t3);margin-top:1px}
+.ec-days-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.ec-days{font-size:11px;color:var(--t2)}
+.ec-days strong{font-variant-numeric:tabular-nums}
+.ec-predict{font-size:10px;color:var(--grn);font-weight:600}
+.ec-bar-track{height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-bottom:8px}
+.ec-bar-fill{height:100%;border-radius:2px}
+.ec-footer{display:flex;align-items:center;justify-content:space-between}
+.ec-last{font-size:10px;color:var(--t3)}
+.ec-add{background:var(--c3);border:1px dashed var(--bdr2);border-radius:14px;padding:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:border-color .2s}
+.ec-add:hover{border-color:var(--blu)}
+.ec-add-ic{width:32px;height:32px;border-radius:10px;background:var(--c4);display:flex;align-items:center;justify-content:center;font-size:16px}
+.ec-add-lbl{font-size:11px;color:var(--t2);font-weight:500;text-align:center}
+
+/* ── ZONE 3: AI RECOMMENDATION ── */
+.reco{background:rgba(34,212,238,0.04);border:1.5px solid rgba(34,212,238,0.2);border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px;cursor:pointer}
+.reco-ico{width:44px;height:44px;border-radius:12px;background:rgba(34,212,238,0.1);border:1px solid rgba(34,212,238,0.18);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.reco-body{flex:1;min-width:0}
+.reco-ey{font-size:9px;font-weight:700;color:var(--ai);letter-spacing:.6px;margin-bottom:2px}
+.reco-title{font-size:13px;font-weight:700;color:var(--t0);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reco-sub{font-size:10.5px;color:var(--t2);line-height:1.45}
+.reco-impact{font-size:10px;font-weight:700;color:var(--grn);margin-top:4px}
+
+/* ── ZONE 4: ENGAGEMENT / STUDY HEALTH ── */
+.eng-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.eng-left{display:flex;flex-direction:column;gap:8px}
+.goal-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.goal-lbl{font-size:11px;color:var(--t2)}
+.goal-pct{font-size:11px;font-weight:700;color:var(--amb)}
+.goal-bar{height:7px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;margin-bottom:9px}
+.goal-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--amb),var(--red))}
+.goal-nums{display:flex;align-items:center;justify-content:space-between;margin-top:-5px}
+.goal-actual{font-size:11px;font-weight:700;color:var(--t1)}
+.goal-target{font-size:10px;color:var(--t3)}
+.week-bars{display:flex;align-items:flex-end;gap:4px;height:42px;margin-top:6px}
+.wb{flex:1;border-radius:3px 3px 0 0;transition:height .3s}
+.wb-lbl{font-size:8px;color:var(--t3);text-align:center;margin-top:3px}
+.ai-insight-row{background:rgba(34,212,238,0.05);border:1px solid rgba(34,212,238,0.15);border-radius:10px;padding:9px 11px;display:flex;gap:8px;align-items:flex-start}
+.ai-insight-text{font-size:11px;color:var(--t2);line-height:1.5}
+.ai-insight-text strong{color:var(--t1);font-weight:600}
+.streak-row{display:flex;align-items:center;justify-content:space-between}
+.streak-num{font-size:28px;font-weight:700;color:var(--amb);font-variant-numeric:tabular-nums;line-height:1}
+.streak-dots{display:flex;gap:3px;margin-top:8px}
+.sd{width:28px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700}
+.sd-done{background:rgba(245,166,35,0.15);color:var(--amb)}
+.sd-today{background:var(--amb);color:#000}
+.sd-miss{background:rgba(244,63,94,0.1);color:var(--red)}
+
+/* ── ZONE 5: DEADLINES ── */
+.dl-item{display:flex;align-items:center;gap:10px;background:var(--c3);border:1px solid var(--bdr);border-radius:10px;padding:9px 12px;margin-bottom:7px;cursor:pointer}
+.dl-item:last-child{margin-bottom:0}
+.dl-ico{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.dl-name{font-size:12px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl-meta{font-size:10px;color:var(--t3);margin-top:1px}
+
+/* ── ZONE 6: ACTIVITY ── */
+.act-item{display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.act-item:last-child{border-bottom:none}
+.act-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.act-text{font-size:11px;color:var(--t2);line-height:1.5;flex:1}
+.act-text strong{color:var(--t1);font-weight:600}
+.act-time{font-size:9.5px;color:var(--t3);flex-shrink:0;margin-top:1px}
+
+/* two-col bottom */
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 </style>
 </head>
-<body>
+<body style="background:#0a0e1a;padding:24px">
 <!--
-  AdaptiveLearn Student Portal
-  Screen : Master Dashboard
+  AdaptiveLearn Student Portal — Master Dashboard (design source-of-truth)
   Version: 1.0 · April 2026
-  System : 00_design-system.css + 00_components.js
+  System : @alp/design-system/tokens.css + shell.css
 
-  NOTE: This file is the standalone interactive prototype output.
-  Production migration: React/Next.js components share the same
-  design tokens (CSS custom properties) from 00_design-system.css.
-  Use the ALP.* helpers in 00_components.js as implementation reference.
+  This is the canonical design. Production React port lives at
+  apps/web-student/src/pages/Home.tsx — the .ai-header / .exam-card / .reco /
+  .eng-grid / .dl-item / .act-item classes used here are mirrored as
+  shared selectors in @alp/design-system/shell.css so the React page
+  renders byte-identical chrome.
+
+  Six zones (top to bottom):
+    1. AI hero header  — greeting + 3 stat columns + CTAs
+    2. My exams        — radio-card row of N exams + "Add exam" tile
+    3. AI recommends   — single most-impactful action right now
+    4. Study health    — daily goal + weekly bars + streak + AI coaching
+    5. Deadlines       — across all exams
+    6. Recent activity — feed
 -->
-<div id="screen-root">
-  <div style="display:flex;align-items:center;justify-content:center;height:100vh;
-    flex-direction:column;gap:16px;color:#7A8BAD;font-family:'Outfit',sans-serif">
-    <div style="width:48px;height:48px;border-radius:12px;
-      background:linear-gradient(135deg,#4F87F6,#7B68EE);
-      display:flex;align-items:center;justify-content:center;
-      font-size:20px;font-weight:800;color:#fff">A</div>
-    <div style="font-size:15px;font-weight:700;color:#B8C5E0">Master Dashboard</div>
-    <div style="font-size:12px">AdaptiveLearn Student Portal · v1.0</div>
+
+<div class="app">
+
+  <nav class="sidebar">
+    <div class="logo">A</div>
+    <div class="ni act"><span class="ni-ic">⚡</span><span class="ni-lb">Home</span></div>
+    <div class="ni"><span class="ni-ic">📚</span><span class="ni-lb">Study Map</span></div>
+    <div class="ni"><span class="ni-ic">🎯</span><span class="ni-lb">AI Practice</span></div>
+    <div class="ni"><span class="ni-ic">📊</span><span class="ni-lb">Analysis</span></div>
+    <div class="ni"><span class="ni-ic">💬</span><span class="ni-lb">Experts</span><div class="ni-dot"></div></div>
+    <div class="ni"><span class="ni-ic">🏆</span><span class="ni-lb">Rank</span></div>
+    <div class="ni"><span class="ni-ic">⚙️</span><span class="ni-lb">Profile</span></div>
+    <div class="av">P</div>
+  </nav>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="tb-title">My Dashboard</div>
+      <div class="chip"><div class="dot-live"></div>2 active exams</div>
+      <div class="chip">🔥 14-day streak</div>
+      <div class="tb-ico">🔔<div class="nb">3</div></div>
+    </div>
+
+    <div class="scroll">
+
+      <!-- ZONE 1: AI HEADER -->
+      <div class="ai-header">
+        <div class="ah-left">
+          <div class="ai-pill">◈ AI INTELLIGENCE ENGINE</div>
+          <div class="ah-name">Good evening, <span>Priya</span> 👋</div>
+          <div class="ah-sub">You studied across <strong>2 exams</strong> this week — <strong>847 questions answered</strong>. Biology is your highest-velocity subject right now. Physics needs attention before tomorrow's mock.</div>
+          <div class="ah-btns">
+            <div class="btn-ai">◈ Start AI Practice</div>
+            <div class="btn-g">View Full Analysis →</div>
+          </div>
+        </div>
+        <div class="ah-stats">
+          <div class="ah-stat">
+            <div class="ah-stat-num" style="color:var(--grn)">78%</div>
+            <div class="ah-stat-lbl">BEST SUBJECT</div>
+            <div style="font-size:9px;color:var(--t3);margin-top:1px">Biology</div>
+          </div>
+          <div class="ah-divider"></div>
+          <div class="ah-stat">
+            <div class="ah-stat-num" style="color:var(--ai)">1,847</div>
+            <div class="ah-stat-lbl">TOTAL ANSWERS</div>
+            <div style="font-size:9px;color:var(--grn);margin-top:1px">+124 today</div>
+          </div>
+          <div class="ah-divider"></div>
+          <div class="ah-stat">
+            <div class="ah-stat-num" style="color:var(--pur)">Top 12%</div>
+            <div class="ah-stat-lbl">PLATFORM RANK</div>
+            <div style="font-size:9px;color:var(--t3);margin-top:1px">of NEET students</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ZONE 2: MY EXAMS + COURSES -->
+      <div>
+        <div class="sec-hd">
+          <div class="sec-title">My exams &amp; courses</div>
+          <div class="see-all">+ Add exam</div>
+        </div>
+        <div class="exams-row">
+
+          <div class="exam-card exam-neet active-exam">
+            <div class="ec-top">
+              <div>
+                <div class="ec-title">NEET 2027</div>
+                <div class="ec-sub">Medical Entrance · Biology, Chemistry, Physics</div>
+              </div>
+              <div class="ec-ring">
+                <svg viewBox="0 0 52 52">
+                  <circle cx="26" cy="26" r="21" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+                  <circle cx="26" cy="26" r="21" fill="none" stroke="#10C47A" stroke-width="5" stroke-linecap="round" stroke-dasharray="132" stroke-dashoffset="42" transform="rotate(-90 26 26)"/>
+                </svg>
+                <div class="ec-ring-inner">
+                  <div class="ec-ring-num" style="color:var(--grn)">68</div>
+                  <div class="ec-ring-lbl">/100</div>
+                </div>
+              </div>
+            </div>
+            <div class="ec-days-row">
+              <div class="ec-days"><strong>287</strong> days remaining</div>
+              <div class="ec-predict">▲ Predicted 83</div>
+            </div>
+            <div class="ec-bar-track"><div class="ec-bar-fill" style="width:68%;background:linear-gradient(90deg,var(--grn),var(--blu))"></div></div>
+            <div class="ec-footer">
+              <div class="ec-last">Last studied: Today · 1h 20m</div>
+              <span class="badge b-green">ON TRACK</span>
+            </div>
+          </div>
+
+          <div class="exam-card exam-jee">
+            <div class="ec-top">
+              <div>
+                <div class="ec-title">JEE Mains 2027</div>
+                <div class="ec-sub">Engineering Entrance · Maths, Physics, Chemistry</div>
+              </div>
+              <div class="ec-ring">
+                <svg viewBox="0 0 52 52">
+                  <circle cx="26" cy="26" r="21" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="5"/>
+                  <circle cx="26" cy="26" r="21" fill="none" stroke="#4F87F6" stroke-width="5" stroke-linecap="round" stroke-dasharray="132" stroke-dashoffset="66" transform="rotate(-90 26 26)"/>
+                </svg>
+                <div class="ec-ring-inner">
+                  <div class="ec-ring-num" style="color:var(--blu)">50</div>
+                  <div class="ec-ring-lbl">/100</div>
+                </div>
+              </div>
+            </div>
+            <div class="ec-days-row">
+              <div class="ec-days"><strong>312</strong> days remaining</div>
+              <div class="ec-predict" style="color:var(--amb)">▲ Predicted 64</div>
+            </div>
+            <div class="ec-bar-track"><div class="ec-bar-fill" style="width:50%;background:linear-gradient(90deg,var(--blu),var(--pur))"></div></div>
+            <div class="ec-footer">
+              <div class="ec-last">Last studied: 3 days ago</div>
+              <span class="badge b-amber">NEEDS FOCUS</span>
+            </div>
+          </div>
+
+          <div class="ec-add">
+            <div class="ec-add-ic">+</div>
+            <div class="ec-add-lbl">Add exam or course</div>
+            <div style="font-size:9.5px;color:var(--t3);text-align:center;line-height:1.4">UPSC · CBSE · Interview Prep · Skill courses</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ZONE 3: AI RECOMMENDATION -->
+      <div class="reco">
+        <div class="reco-ico">⚡</div>
+        <div class="reco-body">
+          <div class="reco-ey">◈ AI RECOMMENDS · RIGHT NOW · across all your exams</div>
+          <div class="reco-title">NEET — Practice Electrochemistry (Nernst Equation) before tomorrow's mock</div>
+          <div class="reco-sub">Mastery decayed 52%→44% over 12 days. Mock test tomorrow at 9am. This is the highest-impact action available right now across both your exams.</div>
+          <div class="reco-impact">▲ Est. +3.8 NEET readiness pts · Prevents further decay before mock · ~20 min</div>
+        </div>
+        <div class="btn-ai" style="flex-shrink:0">Start Now →</div>
+      </div>
+
+      <!-- ZONES 4-6 omitted from this static prototype copy; see Home.tsx for the React port. -->
+
+    </div>
   </div>
 </div>
-<script src="00_components.js"></script>
-<script>
-// Screen: Master Dashboard
-// Interactive prototype from design session embedded here.
-// See 00_components.js for shared ALP.* component library.
-console.log('[ALP] Loaded: Master Dashboard');
-</script>
+
 </body>
 </html>
