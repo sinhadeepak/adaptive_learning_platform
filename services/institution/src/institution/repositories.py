@@ -65,6 +65,20 @@ class FlagRepo:
         ).mappings().all()
         return [dict(r) for r in rows]
 
+    async def audit_all(self, limit: int = 200) -> list[dict[str, Any]]:
+        """All audit rows across every flag — fuels the global admin Audit log page."""
+        rows = (
+            await self.s.execute(
+                text(
+                    "SELECT ts, flag_name, scope, tenant_id, old_value, new_value, actor_user_id, rationale "
+                    "FROM institution_schema.feature_flag_audit "
+                    "ORDER BY ts DESC LIMIT :lim"
+                ),
+                {"lim": limit},
+            )
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
     async def set_default(
         self,
         *,

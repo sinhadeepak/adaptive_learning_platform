@@ -28,6 +28,13 @@ afterEach(() => {
   } catch {
     /* ignore */
   }
+  // asAuthenticated() mutates the auth singleton's getUser/isAuthenticated
+  // via Object.assign; restoreAllMocks() doesn't undo that. Reset to the
+  // unauthenticated defaults so the next test starts clean.
+  Object.assign(auth, {
+    getUser: () => null,
+    isAuthenticated: () => false,
+  });
 });
 
 interface TestUser {
@@ -225,11 +232,99 @@ test("/flags/:name renders flag detail with default + overrides + audit-log sect
   expect(await screen.findByRole("heading", { name: /^Default$/i })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: /Tenant overrides/i })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: /Audit log/i })).toBeInTheDocument();
-  // Audit log shows scope chips: one platform, one tenant
-  expect(screen.getByText(/^platform$/i)).toBeInTheDocument();
+  // Audit log shows scope chips: one global, one tenant. (FlagDetail
+  // accepts both legacy lowercase "platform"/"tenant" and the real backend
+  // uppercase "GLOBAL"/"TENANT" — see PR #55. The chip ALWAYS renders the
+  // normalised lowercase label.)
+  expect(screen.getByText(/^global$/i)).toBeInTheDocument();
   expect(screen.getAllByText(/^tenant$/i).length).toBeGreaterThanOrEqual(1);
   // Override-add fieldset has tenant/value/rationale inputs
   expect(screen.getByLabelText(/Tenant UUID/i)).toBeInTheDocument();
   expect(screen.getByLabelText(/Rationale/i)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Save override/i })).toBeInTheDocument();
+});
+
+test("/audit renders global audit table with scope filter chips", async () => {
+  asAuthenticated();
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+    async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/profile/me")) {
+        return new Response(
+          JSON.stringify({
+            user: { firstName: "Ops", role: "PLATFORM_ADMIN" },
+            preferences: {},
+            exams: [],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("/flags/audit")) {
+        return new Response(
+          JSON.stringify([
+            {
+              ts: new Date().toISOString(),
+              flagName: "irt_model_enabled",
+              scope: "GLOBAL",
+              tenantId: null,
+              oldValue: false,
+              newValue: true,
+              actorUserId: "u-ops",
+              rationale: "Promote ML run",
+            },
+            {
+              ts: new Date().toISOString(),
+              flagName: "checkout_enabled",
+              scope: "TENANT",
+              tenantId: "11111111-1111-1111-1111-111111111111",
+              oldValue: true,
+              newValue: false,
+              actorUserId: "u-ops",
+              rationale: "Tenant rollback",
+            },
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    },
+  );
+  renderAt("/audit");
+  // Both flag names render as deep-links.
+  expect(await screen.findByText("irt_model_enabled")).toBeInTheDocument();
+  expect(screen.getByText("checkout_enabled")).toBeInTheDocument();
+  // Scope filter tabs.
+  expect(screen.getByRole("tab", { name: /^All$/i })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: /global only/i })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: /tenant only/i })).toBeInTheDocument();
+  // Both scope chips present (one global, one tenant).
+  expect(screen.getByText(/^global$/i)).toBeInTheDocument();
+  expect(screen.getByText(/^tenant$/i)).toBeInTheDocument();
+});
+
+test("/audit without auth redirects to /login", () => {
+  renderAt("/audit");
+  expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
+});
+
+test("/audit with non-admin role shows access-denied", async () => {
+  asAuthenticated({ role: "TEACHER" });
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+    async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/api/v1/profile/me")) {
+        return new Response(
+          JSON.stringify({
+            user: { firstName: "T", role: "TEACHER" },
+            preferences: {},
+            exams: [],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    },
+  );
+  renderAt("/audit");
+  expect(await screen.findByRole("heading", { name: /Access denied/i }))
+    .toBeInTheDocument();
 });

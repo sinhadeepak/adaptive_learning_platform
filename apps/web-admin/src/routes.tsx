@@ -3,6 +3,7 @@ import { AdminGate, GuestOnlyRoute, ProtectedRoute } from "./lib/protected-route
 import { Login } from "./pages/Login";
 import { FlagDetail } from "./pages/FlagDetail";
 import { Flags } from "./pages/Flags";
+import { Audit } from "./pages/Audit";
 
 export const routes: RouteObject[] = [
   { path: "/", element: <Navigate to="/flags" replace /> },
@@ -30,6 +31,16 @@ export const routes: RouteObject[] = [
       <ProtectedRoute>
         <AdminGate>
           <FlagDetail />
+        </AdminGate>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/audit",
+    element: (
+      <ProtectedRoute>
+        <AdminGate>
+          <Audit />
         </AdminGate>
       </ProtectedRoute>
     ),
