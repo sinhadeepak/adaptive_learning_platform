@@ -1,5 +1,6 @@
 import { Navigate, type RouteObject } from "react-router-dom";
 import { GuestOnlyRoute, ProtectedRoute } from "./lib/protected-route";
+import { AddExam } from "./pages/AddExam";
 import { Catalog } from "./pages/Catalog";
 import { CatalogExam } from "./pages/CatalogExam";
 import { ExamDetail } from "./pages/ExamDetail";
@@ -111,6 +112,16 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <Home />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    // Static path must come BEFORE the dynamic :examId route so
+    // "add" doesn't get captured as an exam ID.
+    path: "/exams/add",
+    element: (
+      <ProtectedRoute>
+        <AddExam />
       </ProtectedRoute>
     ),
   },

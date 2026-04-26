@@ -297,7 +297,7 @@ export function Home() {
       <section style={{ marginTop: "var(--sp-5)" }}>
         <div className="sec-row">
           <h2 className="section-heading">My exams &amp; courses</h2>
-          <Link to="/onboarding/exam" className="auth-link" style={{ fontSize: 11 }}>
+          <Link to="/exams/add" className="auth-link" style={{ fontSize: 11 }}>
             + Add exam
           </Link>
         </div>
@@ -371,7 +371,7 @@ export function Home() {
                 </Link>
               );
             })}
-            <Link to="/onboarding/exam" className="exam-add-card">
+            <Link to="/exams/add" className="exam-add-card">
               <div className="exam-add-icon">+</div>
               <div className="exam-add-label">Add exam or course</div>
               <div className="exam-add-sub">UPSC · CBSE · Skill courses</div>
