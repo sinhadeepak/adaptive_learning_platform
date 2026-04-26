@@ -2,6 +2,8 @@ import { useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthError } from "@alp/auth-client";
 import { useAuth } from "../lib/auth-provider";
+import { Banner } from "../components/primitives";
+import "../styles/shell.css";
 
 export function Login() {
   const { login } = useAuth();
@@ -35,41 +37,56 @@ export function Login() {
   }
 
   return (
-    <main style={{ maxWidth: 380, margin: "5rem auto", padding: "2rem", fontFamily: "system-ui" }}>
-      <h1 style={{ fontSize: 22 }}>Admin sign-in</h1>
-      <p style={{ color: "#555", fontSize: 14 }}>
-        Restricted to institution and platform admins.
-      </p>
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12, marginTop: 24 }}>
-        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-          Email
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{ padding: 8, fontSize: 14 }}
-          />
-        </label>
-        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-          Password
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{ padding: 8, fontSize: 14 }}
-          />
-        </label>
-        {error && (
-          <div role="alert" style={{ color: "#a51c30", fontSize: 13 }}>
-            {error}
-          </div>
-        )}
-        <button type="submit" disabled={submitting} style={{ padding: 10, fontSize: 14 }}>
-          {submitting ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
-    </main>
+    <div className="auth-page app-shell">
+      <main className="auth-card">
+        <div className="auth-mark">
+          <div className="sidebar-mark">A</div>
+          <span className="sidebar-mark-text">Admin</span>
+        </div>
+        <h1 className="page-greeting" style={{ marginBottom: "var(--sp-1)" }}>
+          Admin sign-in
+        </h1>
+        <p className="page-subhead">
+          Restricted to institution and platform admins.
+        </p>
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <label className="form-field">
+            <span className="form-label">Email</span>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="form-input"
+            />
+          </label>
+          <label className="form-field">
+            <span className="form-label">Password</span>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="form-input"
+            />
+          </label>
+
+          {error ? (
+            <Banner tone="danger" role="alert">
+              {error}
+            </Banner>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="btn btn-primary btn-block"
+          >
+            {submitting ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+      </main>
+    </div>
   );
 }
