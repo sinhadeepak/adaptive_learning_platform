@@ -243,6 +243,94 @@ test("/catalog lists exams when authenticated", async () => {
   expect(await screen.findByText(/NEET/)).toBeInTheDocument();
 });
 
+test("/exams/:examId renders the per-exam dashboard with hero + subject mastery", async () => {
+  asAuthenticated({ id: "u-exam", firstName: "Priya", onboardingState: "ONBOARDED" });
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/v1/profile/me")) {
+      return new Response(
+        JSON.stringify({
+          user: { firstName: "Priya" },
+          preferences: { language: "en", dailyGoalMinutes: 30 },
+          exams: [{ examId: "e1", targetDate: "2027-05-04" }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.endsWith("/api/v1/catalog/exams")) {
+      return new Response(
+        JSON.stringify([
+          {
+            id: "e1",
+            code: "JEE_MAIN",
+            name: "JEE Main",
+            subtitle: "Engineering entrance",
+          },
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.endsWith("/api/v1/catalog/exams/e1/subjects")) {
+      return new Response(
+        JSON.stringify([
+          { id: "s-physics", examId: "e1", name: "Physics", topicCount: 2 },
+          { id: "s-chem", examId: "e1", name: "Chemistry", topicCount: 1 },
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.endsWith("/api/v1/catalog/subjects/s-physics/topics")) {
+      return new Response(
+        JSON.stringify([
+          { id: "t-mech", subjectId: "s-physics", title: "Mechanics", questionCount: 48, tier: "FREE" },
+          { id: "t-thermo", subjectId: "s-physics", title: "Thermodynamics", questionCount: 30, tier: "FREE" },
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.endsWith("/api/v1/catalog/subjects/s-chem/topics")) {
+      return new Response(
+        JSON.stringify([
+          { id: "t-org", subjectId: "s-chem", title: "Organic Chemistry", questionCount: 25, tier: "FREE" },
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.includes("/api/v1/analytics/mastery/u-exam")) {
+      return new Response(
+        JSON.stringify({
+          userId: "u-exam",
+          topics: [
+            { topicId: "t-mech", ewa: 0.8, n: 4 },
+            { topicId: "t-thermo", ewa: 0.35, n: 2 },
+            // t-org left out → "not started"
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    return new Response("not found", { status: 404 });
+  });
+  renderAt("/exams/e1");
+  // "JEE Main" appears in both topbar title (.topbar-title span) and hero
+  // h1 — findAllByText handles both. Hero h1 has class "eh-title".
+  const titleHits = await screen.findAllByText(/JEE Main/i);
+  expect(titleHits.length).toBeGreaterThanOrEqual(1);
+  // Subject mastery section title.
+  expect(screen.getByRole("heading", { name: /Subject mastery/i })).toBeInTheDocument();
+  // Both subjects render in the mastery list.
+  expect(await screen.findByText("Physics")).toBeInTheDocument();
+  expect(screen.getByText("Chemistry")).toBeInTheDocument();
+  // Topic mastery matrix has all three topic cards. Topic names also leak
+  // into the AI-recommends banner + insight items, so allow >=1.
+  expect(screen.getByRole("heading", { name: /Topic mastery matrix/i })).toBeInTheDocument();
+  expect(screen.getAllByText(/Mechanics/).length).toBeGreaterThanOrEqual(1);
+  expect(screen.getAllByText(/Thermodynamics/).length).toBeGreaterThanOrEqual(1);
+  expect(screen.getByText(/Organic Chemistry/)).toBeInTheDocument();
+  // Back to dashboard action exists.
+  expect(screen.getByRole("link", { name: /Back to dashboard/i })).toBeInTheDocument();
+});
+
 test("/catalog/exam/:id lists subjects + topics", async () => {
   asAuthenticated({ onboardingState: "ONBOARDED" });
   (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL) => {
