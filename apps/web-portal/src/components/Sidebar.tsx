@@ -14,9 +14,9 @@ interface NavEntry {
 // the same tooltip pattern the student app uses (consistency across portals).
 const NAV: NavEntry[] = [
   { id: "dashboard", to: "/dashboard", icon: "⚡", label: "Dashboard" },
-  { id: "students", to: null, icon: "🎓", label: "Students" },
-  { id: "doubts", to: null, icon: "💬", label: "Doubts" },
-  { id: "assignments", to: null, icon: "📝", label: "Assignments" },
+  { id: "students", to: "/students", icon: "🎓", label: "Students" },
+  { id: "doubts", to: "/doubts", icon: "💬", label: "Doubts" },
+  { id: "assignments", to: "/assignments", icon: "📝", label: "Assignments" },
   {
     id: "questions",
     to: "/questions",
@@ -25,7 +25,7 @@ const NAV: NavEntry[] = [
     match: (p) => p === "/questions" || p === "/questions/new",
   },
   { id: "review", to: "/review", icon: "🔎", label: "Review" },
-  { id: "analytics", to: null, icon: "📊", label: "Analytics" },
+  { id: "analytics", to: "/analytics", icon: "📊", label: "Analytics" },
 ];
 
 export function Sidebar({

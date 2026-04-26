@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { Navigate, type RouteObject } from "react-router-dom";
 import { AdminGate, GuestOnlyRoute, ProtectedRoute } from "./lib/protected-route";
 import { Login } from "./pages/Login";
@@ -5,19 +6,22 @@ import { Dashboard } from "./pages/Dashboard";
 import { FlagDetail } from "./pages/FlagDetail";
 import { Flags } from "./pages/Flags";
 import { Audit } from "./pages/Audit";
+import { Users } from "./pages/Users";
+import { Tenants } from "./pages/Tenants";
+import { Ops } from "./pages/Ops";
+
+const adminRoute = (path: string, element: ReactElement): RouteObject => ({
+  path,
+  element: (
+    <ProtectedRoute>
+      <AdminGate>{element}</AdminGate>
+    </ProtectedRoute>
+  ),
+});
 
 export const routes: RouteObject[] = [
   { path: "/", element: <Navigate to="/dashboard" replace /> },
-  {
-    path: "/dashboard",
-    element: (
-      <ProtectedRoute>
-        <AdminGate>
-          <Dashboard />
-        </AdminGate>
-      </ProtectedRoute>
-    ),
-  },
+  adminRoute("/dashboard", <Dashboard />),
   {
     path: "/login",
     element: (
@@ -26,35 +30,11 @@ export const routes: RouteObject[] = [
       </GuestOnlyRoute>
     ),
   },
-  {
-    path: "/flags",
-    element: (
-      <ProtectedRoute>
-        <AdminGate>
-          <Flags />
-        </AdminGate>
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/flags/:name",
-    element: (
-      <ProtectedRoute>
-        <AdminGate>
-          <FlagDetail />
-        </AdminGate>
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/audit",
-    element: (
-      <ProtectedRoute>
-        <AdminGate>
-          <Audit />
-        </AdminGate>
-      </ProtectedRoute>
-    ),
-  },
-  { path: "*", element: <Navigate to="/flags" replace /> },
+  adminRoute("/flags", <Flags />),
+  adminRoute("/flags/:name", <FlagDetail />),
+  adminRoute("/audit", <Audit />),
+  adminRoute("/users", <Users />),
+  adminRoute("/tenants", <Tenants />),
+  adminRoute("/ops", <Ops />),
+  { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];

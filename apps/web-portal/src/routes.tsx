@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { Navigate, type RouteObject } from "react-router-dom";
 import { GuestOnlyRoute, ProtectedRoute, RoleGate } from "./lib/protected-route";
 import { canAuthor, canReview } from "./lib/auth-provider";
@@ -6,6 +7,15 @@ import { Login } from "./pages/Login";
 import { MyQuestions } from "./pages/MyQuestions";
 import { NewQuestion } from "./pages/NewQuestion";
 import { ReviewQueue } from "./pages/ReviewQueue";
+import { Students } from "./pages/Students";
+import { Doubts } from "./pages/Doubts";
+import { Assignments } from "./pages/Assignments";
+import { Analytics } from "./pages/Analytics";
+
+const protectedRoute = (path: string, element: ReactElement): RouteObject => ({
+  path,
+  element: <ProtectedRoute>{element}</ProtectedRoute>,
+});
 
 export const routes: RouteObject[] = [
   { path: "/", element: <Navigate to="/dashboard" replace /> },
@@ -17,22 +27,8 @@ export const routes: RouteObject[] = [
       </GuestOnlyRoute>
     ),
   },
-  {
-    path: "/dashboard",
-    element: (
-      <ProtectedRoute>
-        <Dashboard />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/questions",
-    element: (
-      <ProtectedRoute>
-        <MyQuestions />
-      </ProtectedRoute>
-    ),
-  },
+  protectedRoute("/dashboard", <Dashboard />),
+  protectedRoute("/questions", <MyQuestions />),
   {
     path: "/questions/new",
     element: (
@@ -53,5 +49,9 @@ export const routes: RouteObject[] = [
       </ProtectedRoute>
     ),
   },
+  protectedRoute("/students", <Students />),
+  protectedRoute("/doubts", <Doubts />),
+  protectedRoute("/assignments", <Assignments />),
+  protectedRoute("/analytics", <Analytics />),
   { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];
