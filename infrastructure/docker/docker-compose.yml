@@ -103,6 +103,10 @@ services:
       AUTH_INSTITUTION_BASE_URL: http://institution:8000
       AUTH_SMTP_HOST: mailpit
       AUTH_SMTP_PORT: "1025"
+      # Local-only seed: enables migration 004 to insert four known test
+      # accounts (student@/teacher@/moderator@/admin@alp.dev, password
+      # `Password123!`). Absent in staging/prod.
+      AUTH_SEED_LOCAL: "1"
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
