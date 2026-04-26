@@ -1,10 +1,12 @@
 import 'package:flutter/painting.dart';
 import 'colors.dart';
 
-/// Typeface is TBD (Designer locks in Sprint 0). `-apple-system` / `Roboto` fall back.
+/// Source of truth: docs/ui/01_StudentPortal_Web/00_design-system.css.
+/// `Outfit` is the canonical UI font; falls back to system + Roboto.
+/// `Space Mono` for code / numerics.
 class AlpFontFamily {
-  static const String ui = 'Inter';
-  static const String mono = 'JetBrainsMono';
+  static const String ui = 'Outfit';
+  static const String mono = 'SpaceMono';
 }
 
 class AlpTextStyles {
@@ -31,9 +33,10 @@ class AlpTextStyles {
     color: AlpColors.textPrimary,
   );
 
+  // Base body is 13px in design-system.css (was 14 in legacy mobile theme).
   static const TextStyle body = TextStyle(
     fontFamily: AlpFontFamily.ui,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AlpColors.textSecondary,
   );
@@ -65,6 +68,14 @@ class AlpTextStyles {
     color: AlpColors.textMuted,
   );
 
+  // AI-feature styling — paired with the ◈ glyph at every callsite.
+  static const TextStyle aiAccent = TextStyle(
+    fontFamily: AlpFontFamily.ui,
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: AlpColors.colorAi,
+  );
+
   static const TextStyle buttonSm = TextStyle(
     fontFamily: AlpFontFamily.ui,
     fontSize: 12,
@@ -72,12 +83,12 @@ class AlpTextStyles {
   );
   static const TextStyle buttonMd = TextStyle(
     fontFamily: AlpFontFamily.ui,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: FontWeight.w500,
   );
   static const TextStyle buttonLg = TextStyle(
     fontFamily: AlpFontFamily.ui,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: FontWeight.w500,
   );
 }
