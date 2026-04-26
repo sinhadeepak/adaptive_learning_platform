@@ -18,6 +18,8 @@ const NAV: NavEntry[] = [
   { id: "users", to: "/users", icon: "👤", label: "Users" },
   { id: "audit", to: "/audit", icon: "📜", label: "Audit log" },
   { id: "ops", to: "/ops", icon: "⚙", label: "Ops dashboard" },
+  { id: "profile", to: "/profile", icon: "🪪", label: "Profile" },
+  { id: "settings", to: "/settings", icon: "⚙️", label: "Settings" },
 ];
 
 export function Sidebar({
@@ -66,11 +68,22 @@ export function Sidebar({
       <div className="sidebar-spacer" />
 
       <div className="sidebar-footer">
-        <div className="avatar">{initial}</div>
-        <span className="avatar-name">
+        <Link
+          to="/profile"
+          className="avatar"
+          aria-label="Open profile"
+          style={{ textDecoration: "none" }}
+        >
+          {initial}
+        </Link>
+        <Link
+          to="/profile"
+          className="avatar-name"
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
           {user?.firstName ?? "Guest"}
           {user?.role ? <span className="avatar-role"> · {user.role}</span> : null}
-        </span>
+        </Link>
         <button
           type="button"
           className="signout-btn"
