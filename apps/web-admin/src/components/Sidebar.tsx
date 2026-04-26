@@ -12,7 +12,7 @@ interface NavEntry {
 // Only the Flags + audit routes are wired today; the rest are
 // disabled stubs (Phase 2 sprints land them).
 const NAV: NavEntry[] = [
-  { id: "console", to: null, icon: "⚡", label: "Console" },
+  { id: "console", to: "/dashboard", icon: "⚡", label: "Console" },
   { id: "flags", to: "/flags", icon: "⚑", label: "Feature flags" },
   { id: "tenants", to: null, icon: "🏛", label: "Tenants" },
   { id: "users", to: null, icon: "👤", label: "Users" },

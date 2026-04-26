@@ -328,3 +328,97 @@ test("/audit with non-admin role shows access-denied", async () => {
   expect(await screen.findByRole("heading", { name: /Access denied/i }))
     .toBeInTheDocument();
 });
+
+test("/dashboard renders Platform Dashboard with KPI tiles + recent audit", async () => {
+  asAuthenticated();
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+    async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/profile/me")) {
+        return new Response(
+          JSON.stringify({
+            user: { firstName: "Ops", role: "PLATFORM_ADMIN" },
+            preferences: {},
+            exams: [],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.endsWith("/flags")) {
+        return new Response(
+          JSON.stringify([
+            {
+              name: "irt_model_enabled",
+              description: "IRT scoring",
+              defaultValue: true,
+              dangerCritical: true,
+              owner: "ml-team",
+              blastRadius: "global",
+              overrideCount: 0,
+              updatedAt: new Date().toISOString(),
+            },
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("/flags/audit")) {
+        return new Response(
+          JSON.stringify([
+            {
+              ts: new Date().toISOString(),
+              flagName: "irt_model_enabled",
+              scope: "GLOBAL",
+              tenantId: null,
+              oldValue: false,
+              newValue: true,
+              actorUserId: "u-ops",
+              rationale: "Promote ML run",
+            },
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    },
+  );
+  renderAt("/dashboard");
+  // Hero
+  expect(await screen.findByText(/AdaptiveLearn/)).toBeInTheDocument();
+  expect(screen.getByText(/ops console/i)).toBeInTheDocument();
+  // KPI label
+  expect(screen.getByText(/^Active flags$/i)).toBeInTheDocument();
+  expect(screen.getByText(/^Danger-critical$/i)).toBeInTheDocument();
+  // Recent audit table renders the seeded flag
+  expect((await screen.findAllByText(/irt_model_enabled/)).length).toBeGreaterThanOrEqual(1);
+  // SLO health section
+  expect(screen.getByRole("heading", { name: /SLO health/i })).toBeInTheDocument();
+});
+
+test("/ on web-admin redirects to /dashboard when authenticated", async () => {
+  asAuthenticated();
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+    async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/api/v1/profile/me")) {
+        return new Response(
+          JSON.stringify({
+            user: { firstName: "Ops", role: "PLATFORM_ADMIN" },
+            preferences: {},
+            exams: [],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      const u = String(input);
+      if (u.endsWith("/flags") || u.includes("/flags/audit")) {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    },
+  );
+  renderAt("/");
+  // Lands on Dashboard
+  expect(await screen.findByText(/ops console/i)).toBeInTheDocument();
+});

@@ -13,7 +13,7 @@ interface NavEntry {
 // currently exist in this app are linked; the rest are shown disabled with
 // the same tooltip pattern the student app uses (consistency across portals).
 const NAV: NavEntry[] = [
-  { id: "dashboard", to: null, icon: "⚡", label: "Dashboard" },
+  { id: "dashboard", to: "/dashboard", icon: "⚡", label: "Dashboard" },
   { id: "students", to: null, icon: "🎓", label: "Students" },
   { id: "doubts", to: null, icon: "💬", label: "Doubts" },
   { id: "assignments", to: null, icon: "📝", label: "Assignments" },
