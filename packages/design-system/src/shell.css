@@ -1661,3 +1661,357 @@
   margin-bottom: 10px;
 }
 .sec-row .section-heading { margin: 0; }
+
+/* ── Exam Dashboard chrome — mirrors docs/ui/01_StudentPortal_Web/06_exam-dashboard.html ── */
+
+/* Zone 1: Topbar back-link + breadcrumb */
+.topbar-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-surface3);
+  cursor: pointer;
+}
+.topbar-back:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.topbar-crumb { font-size: 12px; color: var(--text-faint); margin: 0 4px; }
+
+/* Zone 2: Exam hero */
+.exam-hero {
+  background: linear-gradient(115deg, rgba(16,196,122,0.07), rgba(79,135,246,0.07), rgba(34,212,238,0.04));
+  border: 1px solid rgba(16,196,122,0.2);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.exam-hero::after {
+  content: '';
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(16,196,122,0.06), transparent 70%);
+  pointer-events: none;
+}
+.eh-left { flex: 1; min-width: 0; position: relative; z-index: 1; }
+.eh-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.eh-tag-meta { font-size: 10px; color: var(--text-faint); }
+.eh-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+  line-height: 1.2;
+}
+.eh-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 480px;
+}
+.eh-sub strong { color: var(--text-primary); font-weight: 600; }
+.eh-btns { display: flex; gap: 8px; margin-top: 13px; flex-wrap: wrap; }
+.eh-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+.eh-ring {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  flex-shrink: 0;
+}
+.eh-ring svg { width: 90px; height: 90px; }
+.eh-ring-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.eh-ring-num {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+  background: linear-gradient(135deg, var(--color-green), var(--color-blue));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-variant-numeric: tabular-nums;
+}
+.eh-ring-lbl { font-size: 8.5px; color: var(--text-faint); margin-top: 1px; letter-spacing: 0.3px; }
+.eh-stats { display: flex; flex-direction: column; gap: 8px; }
+.eh-stat {
+  background: var(--bg-surface3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  text-align: center;
+  min-width: 90px;
+}
+.eh-stat-num {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.eh-stat-lbl { font-size: 9px; color: var(--text-faint); margin-top: 2px; letter-spacing: 0.2px; }
+
+/* Zone 4: Subject mastery list */
+.subj-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 11px;
+}
+.subj-row:last-of-type { margin-bottom: 0; }
+.subj-emoji {
+  font-size: 15px;
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.subj-body { flex: 1; min-width: 0; }
+.subj-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.subj-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.subj-right { display: flex; align-items: center; gap: 6px; }
+.str-bucket {
+  font-size: 8.5px;
+  font-weight: 800;
+  padding: 1.5px 7px;
+  border-radius: 20px;
+  letter-spacing: 0.4px;
+}
+.str-strong { background: rgba(16,196,122,0.14); color: var(--color-green); }
+.str-developing, .str-dev { background: rgba(79,135,246,0.14); color: var(--color-blue); }
+.str-weak { background: rgba(244,63,94,0.14); color: var(--color-red); }
+.str-not-started, .str-new { background: rgba(74,85,112,0.2); color: var(--text-muted); }
+.subj-pct { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.subj-drill {
+  font-size: 10px;
+  color: var(--color-blue);
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border: 1px solid rgba(79,135,246,0.2);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+}
+.subj-drill:hover { background: rgba(79,135,246,0.08); }
+.subj-meta { font-size: 9.5px; color: var(--text-faint); margin-top: 3px; }
+.bar-track {
+  height: 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.bar-fill { height: 100%; border-radius: 3px; }
+
+/* Decay warning callout */
+.decay-warn {
+  background: rgba(244,63,94,0.05);
+  border: 1px solid rgba(244,63,94,0.18);
+  border-radius: var(--radius-md);
+  padding: 9px 11px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+.decay-warn-text { font-size: 11px; color: var(--text-secondary); line-height: 1.4; flex: 1; }
+.decay-warn-text strong { color: var(--color-red); font-weight: 600; }
+
+/* Zone 5: Trajectory chart wrapper */
+.chart-wrap {
+  height: 130px;
+  position: relative;
+  margin-top: 6px;
+}
+.chart-wrap svg { width: 100%; height: 100%; }
+.chart-legend {
+  display: flex;
+  gap: 14px;
+  margin-top: 4px;
+  font-size: 10px;
+}
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-faint);
+}
+.mock-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.mock-row:last-child { border-bottom: none; }
+.mock-date { font-size: 10px; color: var(--text-faint); width: 60px; flex-shrink: 0; }
+.mock-name { font-size: 11.5px; font-weight: 600; color: var(--text-primary); flex: 1; }
+.mock-score {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.mock-delta {
+  font-size: 10px;
+  font-weight: 600;
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Zone 6: Topic mastery matrix */
+.topic-matrix {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+@media (max-width: 700px) {
+  .topic-matrix { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.tm-cell {
+  border-radius: var(--radius-md);
+  padding: 10px 9px;
+  cursor: pointer;
+  transition: var(--trans-fast);
+  text-decoration: none;
+  display: block;
+}
+.tm-cell:hover { transform: scale(1.04); }
+.tm-topic {
+  font-size: 10px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+.tm-pct {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.tm-lbl {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  margin-top: 2px;
+}
+.tm-strong { background: rgba(16,196,122,0.11); border: 1px solid rgba(16,196,122,0.18); }
+.tm-strong .tm-topic, .tm-strong .tm-pct, .tm-strong .tm-lbl { color: var(--color-green); }
+.tm-developing, .tm-dev { background: rgba(79,135,246,0.09); border: 1px solid rgba(79,135,246,0.16); }
+.tm-developing .tm-topic, .tm-developing .tm-pct, .tm-developing .tm-lbl,
+.tm-dev .tm-topic, .tm-dev .tm-pct, .tm-dev .tm-lbl { color: var(--color-blue); }
+.tm-weak { background: rgba(244,63,94,0.09); border: 1px solid rgba(244,63,94,0.16); }
+.tm-weak .tm-topic, .tm-weak .tm-pct, .tm-weak .tm-lbl { color: var(--color-red); }
+.tm-not-started, .tm-new { background: rgba(74,85,112,0.1); border: 1px solid rgba(74,85,112,0.15); }
+.tm-not-started .tm-topic, .tm-not-started .tm-pct, .tm-not-started .tm-lbl,
+.tm-new .tm-topic, .tm-new .tm-pct, .tm-new .tm-lbl { color: var(--text-muted); }
+
+/* Zone 7: AI insights */
+.insight-card {
+  background: rgba(34,212,238,0.04);
+  border: 1px solid rgba(34,212,238,0.14);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+}
+.ins-eyebrow {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-ai);
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.ins-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+.ins-item:last-child { margin-bottom: 0; }
+.ins-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: rgba(16,196,122,0.15);
+  color: var(--color-green);
+  font-size: 9.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.ins-text { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+.ins-text strong { color: var(--text-primary); font-weight: 600; }
+
+/* Zone 8: Assignments list (exam-scoped) */
+.asgn-list { display: flex; flex-direction: column; gap: 7px; }
+.asgn-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-surface3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 9px 11px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+.asgn-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.asgn-icon-warn { background: rgba(244,63,94,0.1); }
+.asgn-icon-good { background: rgba(16,196,122,0.1); }
+.asgn-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asgn-meta { font-size: 10px; color: var(--text-faint); margin-top: 1px; }

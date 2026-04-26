@@ -2,6 +2,7 @@ import { Navigate, type RouteObject } from "react-router-dom";
 import { GuestOnlyRoute, ProtectedRoute } from "./lib/protected-route";
 import { Catalog } from "./pages/Catalog";
 import { CatalogExam } from "./pages/CatalogExam";
+import { ExamDetail } from "./pages/ExamDetail";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
@@ -107,6 +108,14 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <Home />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/exams/:examId",
+    element: (
+      <ProtectedRoute>
+        <ExamDetail />
       </ProtectedRoute>
     ),
   },

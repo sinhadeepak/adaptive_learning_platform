@@ -321,7 +321,7 @@ export function Home() {
               return (
                 <Link
                   key={e.examId}
-                  to="/catalog"
+                  to={`/exams/${e.examId}`}
                   className={`exam-card ${variantClass} ${idx === 0 ? "exam-card-active" : ""}`.trim()}
                   style={{ textDecoration: "none", color: "inherit" }}
                 >
