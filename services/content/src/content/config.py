@@ -17,5 +17,14 @@ class Settings(BaseSettings):
     nats_url: str = Field(default="nats://localhost:34222")
     jwt_secret: str = Field(default="dev-only-change-me-in-staging-at-least-32-bytes-long")
 
+    # Catalog service — POST /content/questions calls catalog's
+    # /catalog/educators/me/topics/{id}/authorize before persisting,
+    # closing the gap where a hand-crafted request could write into
+    # any topic regardless of educator scope. Forward the inbound
+    # bearer token; catalog enforces PLATFORM_ADMIN bypass + 404 on
+    # missing topic.
+    catalog_base_url: str = Field(default="http://localhost:38004")
+    catalog_authorize_timeout_seconds: float = Field(default=2.0)
+
 
 settings = Settings()

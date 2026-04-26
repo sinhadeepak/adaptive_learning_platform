@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from catalog.db import get_session
@@ -141,6 +141,50 @@ async def list_my_subjects(
         )
         for r in rows
     ]
+
+
+@router.get(
+    "/educators/me/topics/{topic_id}/authorize",
+    status_code=204,
+    responses={
+        403: {"model": Problem},
+        404: {"model": Problem},
+    },
+)
+async def authorize_topic(
+    topic_id: str,
+    session: SessionDep,
+    principal: Annotated[JwtPrincipal, Depends(current_principal)],
+) -> Response:
+    """204 if the calling educator can author against this topic.
+
+    Used by content service's POST /content/questions to enforce the
+    same scope server-side that the cascading-dropdown UI presents to
+    the user. Without this, a hand-crafted request with any topic_id
+    would bypass the picker entirely.
+
+    PLATFORM_ADMIN bypasses the assignment check (still 404s on a
+    missing topic). Anyone else gets 403 if their assignments don't
+    cover the topic's exam.
+    """
+    repo = CatalogRepo(session)
+    if principal.is_platform_admin:
+        topic = await repo.topic(topic_id)
+        if topic is None:
+            raise _not_found(f"Topic {topic_id} not found")
+        return Response(status_code=204)
+    can = await repo.can_author_topic(principal.user_id, topic_id)
+    if can is None:
+        raise _not_found(f"Topic {topic_id} not found")
+    if not can:
+        raise HTTPException(
+            status_code=403,
+            detail=Problem(
+                code="not_assigned",
+                message="You are not assigned to author for this topic.",
+            ).model_dump(),
+        )
+    return Response(status_code=204)
 
 
 def _assignment_to_schema(row: dict) -> EducatorAssignment:

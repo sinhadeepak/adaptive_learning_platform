@@ -133,6 +133,56 @@ class CatalogRepo:
         ).mappings().all()
         return [dict(r) for r in rows]
 
+    async def can_author_topic(
+        self, educator_id: str, topic_id: str
+    ) -> bool | None:
+        """Three-state authorization check used by content's POST hook.
+
+        Returns:
+          None  — topic_id is missing or unpublished (caller maps to 404)
+          True  — educator has an assignment to the topic's exam, either
+                  exam-wide (subject_id IS NULL) or pinned to the topic's
+                  subject
+          False — topic exists but educator isn't assigned to its exam
+
+        Single query joins topic → subject → exam → assignments. EXISTS
+        short-circuits as soon as any matching grant is found.
+        """
+        row = (
+            await self.s.execute(
+                text(
+                    """
+                    SELECT s.exam_id AS exam_id, t.subject_id AS subject_id
+                    FROM catalog_schema.topics t
+                    JOIN catalog_schema.subjects s ON s.id = t.subject_id
+                    WHERE t.id = :tid AND t.is_published = TRUE
+                    """
+                ),
+                {"tid": topic_id},
+            )
+        ).mappings().first()
+        if row is None:
+            return None
+        auth_row = (
+            await self.s.execute(
+                text(
+                    """
+                    SELECT 1 FROM catalog_schema.educator_assignments
+                    WHERE educator_id = :uid
+                      AND exam_id = :eid
+                      AND (subject_id IS NULL OR subject_id = :sid)
+                    LIMIT 1
+                    """
+                ),
+                {
+                    "uid": educator_id,
+                    "eid": row["exam_id"],
+                    "sid": row["subject_id"],
+                },
+            )
+        ).first()
+        return auth_row is not None
+
     async def list_assignments_for_educator(
         self, educator_id: str
     ) -> list[dict[str, Any]]:

@@ -13,10 +13,11 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from content import events
+from content.catalog_client import authorize_topic
 from content.db import sessionmaker
 from content.repositories import (
     get_question,
@@ -89,12 +90,37 @@ async def create_question(
     body: QuestionCreate,
     session: SessionDep,
     principal: PrincipalDep,
+    authorization: Annotated[str | None, Header()] = None,
 ) -> QuestionDetail:
     _require_role(
         principal, "TEACHER", "EXPERT", "MODERATOR", "INSTITUTION_ADMIN", "PLATFORM_ADMIN"
     )
     if body.correctIdx >= len(body.choices):
         raise _problem("invalid_correct_idx", "correctIdx out of range", http_status=400)
+
+    # Topic scope check — catalog is the source of truth for educator
+    # assignments. Forward the inbound bearer so catalog can identify
+    # the same principal we just verified. PLATFORM_ADMIN bypass is
+    # handled on catalog's side; we don't branch here.
+    bearer = ""
+    if authorization and authorization.lower().startswith("bearer "):
+        bearer = authorization.split(" ", 1)[1].strip()
+    auth_result = await authorize_topic(
+        bearer_token=bearer, topic_id=body.topicId
+    )
+    if auth_result.not_found:
+        raise _problem(
+            "topic_not_found",
+            f"Topic {body.topicId} does not exist or is unpublished.",
+            http_status=400,
+        )
+    if not auth_result.allowed:
+        raise _problem(
+            "not_assigned",
+            "You are not assigned to author for this topic.",
+            http_status=status.HTTP_403_FORBIDDEN,
+        )
+
     row = await insert_question(
         session,
         question_id=str(uuid4()),
