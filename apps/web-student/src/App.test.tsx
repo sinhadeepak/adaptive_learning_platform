@@ -173,8 +173,13 @@ test("/home shows empty readiness state for fresh user (nTopics=0)", async () =>
     return new Response("not found", { status: 404 });
   });
   renderAt("/home");
+  // New shell shows the empty-state copy for fresh users + a "Browse subjects"
+  // primary action; both the hero copy and the empty-readiness ring (score 0)
+  // are visible. Old assertion looked for the legacy ScoreRing aria-label
+  // which was removed when the canonical ReadinessRing took over.
   expect(await screen.findByText(/take your first quiz/i)).toBeInTheDocument();
-  expect(screen.getByLabelText(/no data yet/i)).toBeInTheDocument();
+  expect(await screen.findByRole("img", { name: /readiness 0%/i })).toBeInTheDocument();
+  expect(await screen.findByText(/browse subjects/i)).toBeInTheDocument();
 });
 
 test("/home renders readiness percent + per-topic mastery bars when user has activity", async () => {
@@ -214,7 +219,9 @@ test("/home renders readiness percent + per-topic mastery bars when user has act
     return new Response("not found", { status: 404 });
   });
   renderAt("/home");
-  expect(await screen.findByText(/Readiness 72%/)).toBeInTheDocument();
+  // New shell renders readiness as a SVG ring + a 72% KPI tile rather than a
+  // "Readiness 72%" sentence. Score is also accessible via the ring's role=img.
+  expect(await screen.findByRole("img", { name: /readiness 72%/i })).toBeInTheDocument();
   // Sorted highest-first: Mechanics 85% before Thermodynamics 60%.
   const mechanics = await screen.findByText("Mechanics");
   const thermo = await screen.findByText("Thermodynamics");
@@ -222,8 +229,10 @@ test("/home renders readiness percent + per-topic mastery bars when user has act
   expect(thermo).toBeInTheDocument();
   expect(screen.getByText("85%")).toBeInTheDocument();
   expect(screen.getByText("60%")).toBeInTheDocument();
-  // n=3 + n=1
-  expect(screen.getByText(/3 sessions/)).toBeInTheDocument();
+  // n=3 + n=1 — meta string formats vary slightly under the new SubjectRow;
+  // assert the digit + "session(s)" substring without locking the surrounding
+  // markup.
+  expect(screen.getByText(/3 sessions?/)).toBeInTheDocument();
   expect(screen.getByText(/1 session\b/)).toBeInTheDocument();
 });
 
