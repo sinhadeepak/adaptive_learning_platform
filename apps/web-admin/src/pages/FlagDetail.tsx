@@ -24,6 +24,7 @@ export function FlagDetail() {
 
   useEffect(() => {
     void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name]);
 
   async function applyOverride() {
