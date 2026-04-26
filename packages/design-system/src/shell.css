@@ -77,6 +77,14 @@
 }
 
 .nav-item {
+  /* Explicit overrides so tokens.css's icon-rail defaults
+     (width 46px / height 44px / flex-direction column) don't leak
+     into the labelled sidebar. tokens.css loads BEFORE shell.css and
+     CSS only inherits properties shell.css doesn't redefine. */
+  width: 100%;
+  height: auto;
+  flex-direction: row;
+
   display: flex;
   align-items: center;
   gap: var(--sp-3);
