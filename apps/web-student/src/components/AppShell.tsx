@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
 import { Topbar, type TopbarChip } from "./Topbar";
 import { useAuth } from "../lib/auth-provider";
-import "../styles/shell.css";
+import "@alp/design-system/shell.css";
 
 export function AppShell({
   title,

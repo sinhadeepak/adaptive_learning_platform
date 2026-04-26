@@ -1,6 +1,14 @@
 /* ============================================================
-   web-student app shell — student portal layout
-   Mirrors docs/ui/01_StudentPortal_Web/05_master-dashboard.html
+   ALP shared app shell — chrome + primitives for all 3 web apps
+   (web-student, web-portal, web-admin).
+
+   Apps that need a different accent re-alias --color-blue inside
+   their .app-shell scope (web-portal → green, web-admin → red);
+   all gradient / border / accent rules in this stylesheet read
+   var(--color-blue), so a single declaration at the .app-shell
+   level retokens the whole UI.
+
+   Source-of-truth: docs/ui/01_StudentPortal_Web/05_master-dashboard.html
    plus the components.js helpers (sidebar, topbar, kpiTile,
    subjectRow, insightList, readinessRing).
    ============================================================ */
@@ -910,4 +918,110 @@
   color: var(--text-faint);
   font-family: var(--font-mono);
   font-size: 11px;
+}
+
+/* ── Avatar role caption (sidebar footer) ──────────────────── */
+.avatar-role { color: var(--text-muted); font-weight: 400; font-size: 11px; }
+
+/* ── Standalone row-list (not just .section-group nested) ── */
+.row-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Auth (Login) surface — used by all 3 apps ─────────── */
+.auth-page {
+  min-height: 100vh;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-6);
+}
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-6);
+}
+.auth-mark {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+}
+
+/* ── Form primitives — used by all 3 apps ──────────────── */
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+}
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+.form-input {
+  background: var(--bg-surface3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 10px 12px;
+  transition: var(--trans-fast);
+}
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-blue);
+  background: var(--bg-surface2);
+}
+.form-fieldset {
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.form-fieldset > legend {
+  padding: 0 6px;
+}
+.form-row {
+  display: flex;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+.form-choice-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.form-choice-letter {
+  width: 22px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
 }
