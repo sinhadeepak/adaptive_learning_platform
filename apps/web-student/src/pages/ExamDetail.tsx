@@ -374,7 +374,7 @@ export function ExamDetail() {
                 EWA model · recency-weighted · updates after every session
               </div>
             </div>
-            <Link to={`/catalog/exam/${examId}`} className="see-all">
+            <Link to={`/study/${examId}`} className="see-all">
               Drill into topics ›
             </Link>
           </div>
@@ -410,7 +410,13 @@ export function ExamDetail() {
                       ? "var(--color-blue)"
                       : "var(--color-red)";
                 return (
-                  <div key={s.subjectId} className="subj-row">
+                  <Link
+                    key={s.subjectId}
+                    to={`/study/${examId}/${s.subjectId}`}
+                    className="subj-row"
+                    style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
+                    aria-label={`Open ${s.name} in Study Map`}
+                  >
                     <span className="subj-emoji">
                       {SUBJECT_EMOJI[s.name] ?? "📚"}
                     </span>
@@ -440,7 +446,7 @@ export function ExamDetail() {
                         {s.buckets.weak} Weak · {s.buckets.notStarted} Not started
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
 

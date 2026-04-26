@@ -331,6 +331,88 @@ test("/exams/:examId renders the per-exam dashboard with hero + subject mastery"
   expect(screen.getByRole("link", { name: /Back to dashboard/i })).toBeInTheDocument();
 });
 
+test("/study/:examId/:subjectId renders subject nav + sorted topic list", async () => {
+  asAuthenticated({ id: "u-study", firstName: "Priya", onboardingState: "ONBOARDED" });
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/v1/profile/me")) {
+      return new Response(
+        JSON.stringify({
+          user: { firstName: "Priya" },
+          preferences: { language: "en", dailyGoalMinutes: 30 },
+          exams: [{ examId: "e1", targetDate: "2027-05-04" }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.endsWith("/api/v1/catalog/exams")) {
+      return new Response(
+        JSON.stringify([
+          { id: "e1", code: "JEE_MAIN", name: "JEE Main", subtitle: "Engineering entrance" },
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.endsWith("/api/v1/catalog/exams/e1/subjects")) {
+      return new Response(
+        JSON.stringify([
+          { id: "s-physics", examId: "e1", name: "Physics", topicCount: 2 },
+          { id: "s-chem", examId: "e1", name: "Chemistry", topicCount: 1 },
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.endsWith("/api/v1/catalog/subjects/s-physics/topics")) {
+      return new Response(
+        JSON.stringify([
+          { id: "t-mech", subjectId: "s-physics", title: "Mechanics", questionCount: 48, tier: "FREE" },
+          { id: "t-thermo", subjectId: "s-physics", title: "Thermodynamics", questionCount: 30, tier: "FREE" },
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.endsWith("/api/v1/catalog/subjects/s-chem/topics")) {
+      return new Response(
+        JSON.stringify([
+          { id: "t-org", subjectId: "s-chem", title: "Organic Chemistry", questionCount: 25, tier: "FREE" },
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.includes("/api/v1/analytics/mastery/u-study")) {
+      return new Response(
+        JSON.stringify({
+          userId: "u-study",
+          topics: [
+            { topicId: "t-mech", ewa: 0.8, n: 4 },
+            { topicId: "t-thermo", ewa: 0.35, n: 2 },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    return new Response("not found", { status: 404 });
+  });
+  renderAt("/study/e1/s-physics");
+  // "Physics" appears in both left-nav (subject row) and main heading —
+  // findAllByText handles both.
+  const physicsHits = await screen.findAllByText(/Physics/);
+  expect(physicsHits.length).toBeGreaterThanOrEqual(2);
+  expect(screen.getByText(/Chemistry/)).toBeInTheDocument();
+  // Active subject's topic list renders both topics with their strength bucket
+  // pills. Sorted by AI priority — Thermodynamics (35%, weak) first.
+  const tagsWeak = await screen.findAllByText("WEAK");
+  expect(tagsWeak.length).toBeGreaterThanOrEqual(1);
+  expect(screen.getByText(/Mechanics/)).toBeInTheDocument();
+  expect(screen.getByText(/Thermodynamics/)).toBeInTheDocument();
+  // Topics from the OTHER subject (Chemistry) should not be in the topic list.
+  expect(screen.queryByText(/Organic Chemistry/)).toBeNull();
+  // Back to ExamDetail action present.
+  expect(
+    screen.getByRole("link", { name: /Back to exam dashboard/i }),
+  ).toBeInTheDocument();
+});
+
 test("/catalog/exam/:id lists subjects + topics", async () => {
   asAuthenticated({ onboardingState: "ONBOARDED" });
   (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL) => {
