@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Badge, Button, tokens } from "@alp/design-system";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
+import { AppShell } from "../components/AppShell";
+import { Banner, Pill, SkeletonRows } from "../components/dashboard";
 
 interface Topic {
   id: string;
@@ -64,143 +65,131 @@ export function TopicDetail() {
     }
   }
 
-  if (error) {
+  const backAction = (
+    <Link to="/catalog" className="btn btn-ghost">
+      ← Catalog
+    </Link>
+  );
+
+  if (error && !topic) {
     return (
-      <main style={styles.page}>
-        <header style={styles.header}>
-          <Link to="/catalog" style={styles.backLink}>‹ Catalog</Link>
-        </header>
-        <section style={styles.section}>
-          <div role="alert" style={styles.errorBanner}>
-            <Badge tone="danger">Error</Badge>
-            <span>{error}</span>
-          </div>
-        </section>
-      </main>
+      <AppShell title="Topic" actions={backAction}>
+        <Banner tone="danger" role="alert">
+          {error}
+        </Banner>
+      </AppShell>
     );
   }
 
   if (!topic) {
     return (
-      <main style={styles.page}>
-        <header style={styles.header}>
-          <Link to="/catalog" style={styles.backLink}>‹ Catalog</Link>
-        </header>
-        <section style={styles.section}>
-          <p style={{ color: tokens.colors.text.muted }}>Loading…</p>
-        </section>
-      </main>
+      <AppShell title="Topic" actions={backAction}>
+        <SkeletonRows count={3} />
+      </AppShell>
     );
   }
 
   return (
-    <main style={styles.page}>
-      <header style={styles.header}>
-        <Link to="/catalog" style={styles.backLink}>‹ Catalog</Link>
-      </header>
+    <AppShell title={topic.title} actions={backAction}>
+      <div className="hero">
+        <h1>{topic.title}</h1>
+        <Pill tone={topic.tier === "PREMIUM" ? "warning" : "muted"}>
+          {topic.tier === "PREMIUM" ? "Premium" : "Free"}
+        </Pill>
+      </div>
+      <p className="hero-meta">
+        {topic.questionCount} question{topic.questionCount === 1 ? "" : "s"}
+      </p>
 
-      <section style={styles.section}>
-        <div style={styles.titleRow}>
-          <h1 style={styles.title}>{topic.title}</h1>
-          {topic.tier === "PREMIUM" ? <Badge tone="warning">Premium</Badge> : <Badge>Free</Badge>}
-        </div>
-        <p style={styles.meta}>{topic.questionCount} questions</p>
+      {error ? (
+        <Banner tone="warning" role="alert">
+          {error}
+        </Banner>
+      ) : null}
 
-        <div style={styles.actions}>
-          <Button size="lg" isLoading={starting} onClick={startQuiz}>
-            {starting ? "Starting…" : "Start practice quiz"}
-          </Button>
-          <Button variant="secondary" size="lg" disabled title="Lessons land in Sprint 4">
-            Read lesson notes
-          </Button>
-        </div>
-        <p style={styles.disabledNote}>Practice quiz is live (Sprint 3). Lesson notes ship in Sprint 4.</p>
+      <div className="hero-actions">
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={startQuiz}
+          disabled={starting}
+        >
+          {starting ? "Starting…" : "Start practice quiz"}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled
+          title="Lessons land in a future sprint"
+        >
+          Read lesson notes
+        </button>
+      </div>
+      <p className="hero-note">
+        Practice quiz is live. Lesson notes ship in a future sprint.
+      </p>
 
-        {topic.description ? (
-          <>
-            <h2 style={styles.h2}>About</h2>
-            <p style={styles.bodyText}>{topic.description}</p>
-          </>
-        ) : null}
+      {topic.description ? (
+        <section className="section-group">
+          <h2 className="section-heading">About</h2>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, margin: 0 }}>
+            {topic.description}
+          </p>
+        </section>
+      ) : null}
 
-        {topic.prerequisites.length > 0 ? (
-          <>
-            <h2 style={styles.h2}>Prerequisites</h2>
-            <ul style={styles.prereqList}>
-              {topic.prerequisites.map((p) => (
-                <li key={p.topicId}>
-                  <Link to={`/catalog/topic/${p.topicId}`} style={styles.prereqLink}>{p.title}</Link>
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : null}
+      {topic.prerequisites.length > 0 ? (
+        <section className="section-group">
+          <h2 className="section-heading">Prerequisites</h2>
+          <ul className="row-list">
+            {topic.prerequisites.map((p) => (
+              <li key={p.topicId}>
+                <Link
+                  to={`/catalog/topic/${p.topicId}`}
+                  className="row-link"
+                  aria-label={`Open prerequisite ${p.title}`}
+                >
+                  <div className="row-link-body">
+                    <p className="row-link-title">{p.title}</p>
+                  </div>
+                  <span className="chevron" aria-hidden>
+                    ›
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
-        {topic.objectives.length > 0 ? (
-          <>
-            <h2 style={styles.h2}>Learning objectives</h2>
-            <ol style={styles.objectivesList}>
-              {topic.objectives.map((o, i) => (
-                <li key={i} style={styles.objective}>{o}</li>
-              ))}
-            </ol>
-          </>
-        ) : null}
+      {topic.objectives.length > 0 ? (
+        <section className="section-group">
+          <h2 className="section-heading">Learning objectives</h2>
+          <ol
+            style={{
+              paddingLeft: 20,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              margin: 0,
+              color: "var(--text-primary)",
+              fontSize: 13,
+              lineHeight: 1.5,
+            }}
+          >
+            {topic.objectives.map((o, i) => (
+              <li key={i}>{o}</li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
 
-        <h2 style={styles.h2}>Recent activity</h2>
-        <p style={{ color: tokens.colors.text.muted, fontSize: tokens.typography.scale.body.size }}>
+      <section className="section-group">
+        <h2 className="section-heading">Recent activity</h2>
+        <p style={{ color: "var(--text-muted)", fontSize: 13, margin: 0 }}>
           No attempts yet — your first quiz attempt will appear here.
         </p>
       </section>
-    </main>
+    </AppShell>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: { minHeight: "100vh", background: tokens.colors.surface.secondary, fontFamily: tokens.typography.family.ui },
-  header: {
-    background: tokens.colors.surface.primary,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
-    height: 56,
-    display: "flex",
-    alignItems: "center",
-    padding: `0 ${tokens.spacing[6]}px`,
-  },
-  backLink: { color: tokens.colors.text.secondary, textDecoration: "none", fontSize: tokens.typography.scale.body.size },
-  section: { maxWidth: 720, margin: "0 auto", padding: tokens.spacing[5], boxSizing: "border-box" },
-  titleRow: { display: "flex", alignItems: "center", gap: tokens.spacing[3] },
-  title: {
-    margin: 0,
-    fontSize: tokens.typography.scale.pageTitle.size,
-    fontWeight: tokens.typography.scale.pageTitle.weight,
-    color: tokens.colors.text.primary,
-  },
-  meta: { color: tokens.colors.text.secondary, fontSize: tokens.typography.scale.body.size, marginTop: tokens.spacing[1] },
-  actions: { display: "flex", flexDirection: "column", gap: tokens.spacing[2], marginTop: tokens.spacing[5] },
-  disabledNote: {
-    margin: `${tokens.spacing[2]}px 0 ${tokens.spacing[5]}px 0`,
-    color: tokens.colors.text.muted,
-    fontSize: tokens.typography.scale.hint.size,
-  },
-  h2: {
-    margin: `${tokens.spacing[5]}px 0 ${tokens.spacing[2]}px 0`,
-    fontSize: tokens.typography.scale.sectionHeading.size,
-    fontWeight: tokens.typography.scale.sectionHeading.weight,
-    color: tokens.colors.text.primary,
-  },
-  bodyText: { fontSize: tokens.typography.scale.body.size, color: tokens.colors.text.secondary, lineHeight: 1.5 },
-  prereqList: { paddingLeft: tokens.spacing[5], display: "flex", flexDirection: "column", gap: tokens.spacing[1] },
-  prereqLink: { color: tokens.colors.brand.primary, textDecoration: "none", fontSize: tokens.typography.scale.body.size },
-  objectivesList: { paddingLeft: tokens.spacing[5], display: "flex", flexDirection: "column", gap: tokens.spacing[2] },
-  objective: { fontSize: tokens.typography.scale.body.size, color: tokens.colors.text.primary },
-  errorBanner: {
-    display: "flex",
-    alignItems: "center",
-    gap: tokens.spacing[2],
-    padding: tokens.spacing[3],
-    borderRadius: tokens.radius.panel,
-    background: tokens.colors.semantic.danger.bg,
-    color: tokens.colors.semantic.danger.fg,
-    fontSize: tokens.typography.scale.body.size,
-  },
-};

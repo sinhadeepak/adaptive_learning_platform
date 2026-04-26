@@ -239,7 +239,9 @@ test("/home renders readiness percent + per-topic mastery bars when user has act
 test("/catalog lists exams when authenticated", async () => {
   asAuthenticated({ onboardingState: "ONBOARDED" });
   renderAt("/catalog");
-  expect(screen.getByRole("heading", { name: /^catalog$/i })).toBeInTheDocument();
+  // PR #43 swapped the page title to "Browse exams" with "Catalog" living
+  // in the topbar instead. Both should appear on the page.
+  expect(screen.getByRole("heading", { name: /browse exams/i })).toBeInTheDocument();
   expect(await screen.findByText(/JEE Main/)).toBeInTheDocument();
   expect(await screen.findByText(/NEET/)).toBeInTheDocument();
 });

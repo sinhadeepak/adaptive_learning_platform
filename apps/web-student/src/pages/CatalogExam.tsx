@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Badge, tokens } from "@alp/design-system";
 import { auth } from "../lib/api";
+import { AppShell } from "../components/AppShell";
+import { Banner, Pill, SkeletonRows } from "../components/dashboard";
 
 interface Subject {
   id: string;
@@ -40,7 +41,7 @@ export function CatalogExam() {
             const r = await auth.fetch(`/api/v1/catalog/subjects/${s.id}/topics`);
             const topics = r.ok ? ((await r.json()) as Topic[]) : [];
             return { ...s, topics };
-          })
+          }),
         );
         setData(enriched);
       } catch {
@@ -50,99 +51,62 @@ export function CatalogExam() {
   }, [examId]);
 
   return (
-    <main style={styles.page}>
-      <header style={styles.header}>
-        <Link to="/catalog" style={styles.backLink}>‹ Catalog</Link>
-      </header>
+    <AppShell
+      title="Exam"
+      actions={
+        <Link to="/catalog" className="btn btn-ghost">
+          ← All exams
+        </Link>
+      }
+    >
+      {error ? (
+        <Banner tone="danger" role="alert">
+          {error}
+        </Banner>
+      ) : null}
 
-      <section style={styles.section}>
-        {error ? (
-          <div role="alert" style={styles.errorBanner}>
-            <Badge tone="danger">Error</Badge>
-            <span>{error}</span>
-          </div>
-        ) : null}
-
-        {data === null ? (
-          <p style={{ color: tokens.colors.text.muted }}>Loading…</p>
-        ) : data.length === 0 ? (
-          <p style={{ color: tokens.colors.text.muted }}>No subjects yet for this exam.</p>
-        ) : (
-          data.map((subject) => (
-            <section key={subject.id} style={{ marginBottom: tokens.spacing[6] }}>
-              <h2 style={styles.subjectHeading}>{subject.name}</h2>
-              {subject.topics.length === 0 ? (
-                <p style={{ color: tokens.colors.text.muted, fontSize: tokens.typography.scale.body.size }}>
-                  No topics yet.
-                </p>
-              ) : (
-                <ul style={styles.topicList}>
-                  {subject.topics.map((t) => (
-                    <li key={t.id} style={{ listStyle: "none" }}>
-                      <Link to={`/catalog/topic/${t.id}`} style={styles.topicLink}>
-                        <div>
-                          <div style={styles.topicTitle}>{t.title}</div>
-                          <p style={styles.topicMeta}>{t.questionCount} questions</p>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: tokens.spacing[3] }}>
-                          {t.tier === "PREMIUM" ? <Badge tone="warning">Premium</Badge> : <Badge>Free</Badge>}
-                          <span style={styles.chevron}>›</span>
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          ))
-        )}
-      </section>
-    </main>
+      {data === null ? (
+        <SkeletonRows count={3} />
+      ) : data.length === 0 ? (
+        <div className="card empty-state">
+          <div className="empty-state-title">Nothing here yet</div>
+          <p>This exam has no subjects in the catalog.</p>
+        </div>
+      ) : (
+        data.map((subject) => (
+          <section key={subject.id} className="section-group">
+            <h2 className="section-heading">{subject.name}</h2>
+            {subject.topics.length === 0 ? (
+              <p style={{ color: "var(--text-muted)", fontSize: 13 }}>No topics yet.</p>
+            ) : (
+              <ul className="row-list">
+                {subject.topics.map((t) => (
+                  <li key={t.id}>
+                    <Link
+                      to={`/catalog/topic/${t.id}`}
+                      className="row-link"
+                      aria-label={`Open ${t.title}`}
+                    >
+                      <div className="row-link-body">
+                        <p className="row-link-title">{t.title}</p>
+                        <p className="row-link-meta">{t.questionCount} questions</p>
+                      </div>
+                      <div className="row-link-trail">
+                        <Pill tone={t.tier === "PREMIUM" ? "warning" : "muted"}>
+                          {t.tier === "PREMIUM" ? "Premium" : "Free"}
+                        </Pill>
+                        <span className="chevron" aria-hidden>
+                          ›
+                        </span>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ))
+      )}
+    </AppShell>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: { minHeight: "100vh", background: tokens.colors.surface.secondary, fontFamily: tokens.typography.family.ui },
-  header: {
-    background: tokens.colors.surface.primary,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
-    height: 56,
-    display: "flex",
-    alignItems: "center",
-    padding: `0 ${tokens.spacing[6]}px`,
-  },
-  backLink: { color: tokens.colors.text.secondary, textDecoration: "none", fontSize: tokens.typography.scale.body.size },
-  section: { maxWidth: 720, margin: "0 auto", padding: tokens.spacing[5], boxSizing: "border-box" },
-  subjectHeading: {
-    margin: `0 0 ${tokens.spacing[3]}px 0`,
-    fontSize: tokens.typography.scale.sectionHeading.size,
-    fontWeight: tokens.typography.scale.sectionHeading.weight,
-    color: tokens.colors.text.primary,
-  },
-  topicList: { listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: tokens.spacing[2] },
-  topicLink: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: tokens.spacing[3],
-    background: tokens.colors.surface.primary,
-    border: `1px solid ${tokens.colors.border.default}`,
-    borderRadius: tokens.radius.card,
-    textDecoration: "none",
-    color: tokens.colors.text.primary,
-  },
-  topicTitle: { fontWeight: 500, fontSize: tokens.typography.scale.body.size },
-  topicMeta: { margin: `${tokens.spacing[1]}px 0 0 0`, color: tokens.colors.text.muted, fontSize: tokens.typography.scale.hint.size },
-  chevron: { color: tokens.colors.text.muted, fontSize: 20 },
-  errorBanner: {
-    display: "flex",
-    alignItems: "center",
-    gap: tokens.spacing[2],
-    padding: tokens.spacing[3],
-    borderRadius: tokens.radius.panel,
-    background: tokens.colors.semantic.danger.bg,
-    color: tokens.colors.semantic.danger.fg,
-    marginBottom: tokens.spacing[4],
-    fontSize: tokens.typography.scale.body.size,
-  },
-};
