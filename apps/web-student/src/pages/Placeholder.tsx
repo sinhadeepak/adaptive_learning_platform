@@ -1,4 +1,4 @@
-import { tokens } from "@alp/design-system";
+import "@alp/design-system/shell.css";
 
 interface PlaceholderProps {
   title: string;
@@ -10,24 +10,21 @@ export function Placeholder({ title, wireframeRef, storyRef }: PlaceholderProps)
   return (
     <main
       style={{
-        fontFamily: tokens.typography.family.ui,
-        color: tokens.colors.text.primary,
-        padding: tokens.spacing[6],
+        padding: "var(--sp-6)",
         maxWidth: 720,
         margin: "0 auto",
+        color: "var(--text-primary)",
       }}
     >
-      <h1 style={{ fontSize: tokens.typography.scale.pageTitle.size, fontWeight: tokens.typography.scale.pageTitle.weight }}>
-        {title}
-      </h1>
-      <p style={{ color: tokens.colors.text.secondary }}>Not yet implemented.</p>
+      <h1 className="page-greeting">{title}</h1>
+      <p className="page-subhead">Not yet implemented.</p>
       {wireframeRef ? (
-        <p style={{ color: tokens.colors.text.muted, fontSize: tokens.typography.scale.hint.size }}>
+        <p style={{ color: "var(--text-muted)", fontSize: 12 }}>
           Wireframe: <code>{wireframeRef}</code>
         </p>
       ) : null}
       {storyRef ? (
-        <p style={{ color: tokens.colors.text.muted, fontSize: tokens.typography.scale.hint.size }}>
+        <p style={{ color: "var(--text-muted)", fontSize: 12 }}>
           User story: <code>{storyRef}</code>
         </p>
       ) : null}
