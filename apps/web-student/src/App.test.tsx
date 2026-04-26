@@ -28,6 +28,14 @@ afterEach(() => {
   } catch {
     // ignore
   }
+  // asAuthenticated() mutates the auth singleton via Object.assign;
+  // restoreAllMocks() doesn't undo that. Reset to unauth defaults so
+  // subsequent "without auth" tests start clean. (Mirrors PR #55 fix
+  // applied to web-portal + web-admin.)
+  Object.assign(auth, {
+    getUser: () => null,
+    isAuthenticated: () => false,
+  });
 });
 
 interface TestUser {
@@ -575,6 +583,95 @@ test("/quiz/:id/result shows score + per-item review", async () => {
   // 5 items rendered as cards (Q1 through Q5 labels).
   expect(screen.getByText("Q1")).toBeInTheDocument();
   expect(screen.getByText("Q5")).toBeInTheDocument();
+});
+
+// ---- Profile + Settings (PR #62) ----
+
+test("/profile renders user profile with hero + stats + sections", async () => {
+  asAuthenticated({ id: "u-prof", firstName: "Priya", onboardingState: "ONBOARDED" });
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/v1/profile/me")) {
+      return new Response(
+        JSON.stringify({
+          user: {
+            id: "u-prof",
+            email: "priya@example.com",
+            firstName: "Priya",
+            lastName: "Sharma",
+            phone: "+91 99999 88888",
+            role: "STUDENT",
+            locale: "en-IN",
+            onboardingState: "ONBOARDED",
+            emailVerifiedAt: "2026-04-21T00:00:00Z",
+            createdAt: "2026-04-01T00:00:00Z",
+          },
+          preferences: { language: "en", dailyGoalMinutes: 30 },
+          exams: [{ examId: "e1", targetDate: "2027-05-04" }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.endsWith("/api/v1/catalog/exams")) {
+      return new Response(
+        JSON.stringify([{ id: "e1", code: "JEE_MAIN", name: "JEE Main", subtitle: "Engineering" }]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    return new Response("not found", { status: 404 });
+  });
+  renderAt("/profile");
+  // Hero name
+  expect((await screen.findAllByText(/Priya Sharma/)).length).toBeGreaterThanOrEqual(1);
+  // Email shows in hero subtitle + Account section
+  expect((await screen.findAllByText(/priya@example\.com/)).length).toBeGreaterThanOrEqual(1);
+  // Section headings
+  expect(screen.getByRole("heading", { name: /^Account$/i })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /My exams/i })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /Preferences/i })).toBeInTheDocument();
+  // Settings link appears in both sidebar nav + hero CTA — findAllByRole handles both.
+  const settingsLinks = screen.getAllByRole("link", { name: /Settings/i });
+  expect(settingsLinks.length).toBeGreaterThanOrEqual(1);
+});
+
+test("/settings renders preferences form + account actions", async () => {
+  asAuthenticated({ id: "u-set", firstName: "Priya", onboardingState: "ONBOARDED" });
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL) => {
+    if (String(input).endsWith("/api/v1/profile/me")) {
+      return new Response(
+        JSON.stringify({
+          user: { id: "u-set", email: "x@y.com", firstName: "Priya" },
+          preferences: { language: "en", dailyGoalMinutes: 30 },
+          exams: [{ examId: "e1", targetDate: null }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    return new Response("not found", { status: 404 });
+  });
+  renderAt("/settings");
+  // Hero
+  expect(await screen.findByRole("heading", { name: /^Settings$/i })).toBeInTheDocument();
+  // Section headings
+  expect(screen.getByRole("heading", { name: /Study language/i })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /Daily goal/i })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /^Account$/i })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /Sign out/i })).toBeInTheDocument();
+  // Three language radio cards
+  expect(screen.getByRole("radio", { name: /English/i })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /हिन्दी/ })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /Hinglish/i })).toBeInTheDocument();
+  // Goal cadence cards
+  expect(screen.getByRole("radio", { name: /15 min\/day/i })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /120 min\/day/i })).toBeInTheDocument();
+  // Save (initially disabled because nothing dirty) + sign-out
+  expect(screen.getByRole("button", { name: /save preferences/i })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /sign out of this device/i })).toBeInTheDocument();
+});
+
+test("/profile without auth redirects to /login", () => {
+  renderAt("/profile");
+  expect(screen.getByRole("heading", { name: /log in/i })).toBeInTheDocument();
 });
 
 // ---- Onboarding flow (PR #52) ----
