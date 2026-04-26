@@ -1,5 +1,11 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+
+// Shared design system — dark theme + brand-blue accent (student is the
+// default student-portal accent so no per-portal override needed here).
+// Source: docs/ui/01_StudentPortal_Web/00_design-system.css
+import "@alp/design-system/tokens.css";
+
 import { App } from "./App";
 
 // Surface fatal errors to the page so a blank-screen failure isn't silent.
