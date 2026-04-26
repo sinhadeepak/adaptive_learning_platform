@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AdaptiveLearn Admin — Create Institution — Plan, Seats, Billing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="00_design-system.css">
+<link rel="stylesheet" href="00_admin-tokens.css">
+<style>
+/* Screen-specific styles: Create Institution — Plan, Seats, Billing
+   Inherits from 00_design-system.css + 00_admin-tokens.css
+   Layout: 220px sidebar + flex main area
+   Access: PLATFORM admin only                                  */
+</style>
+</head>
+<body>
+<!--
+  AdaptiveLearn Admin Portal
+  Screen : Create Institution — Plan, Seats, Billing
+  Version: 1.0 · April 2026
+  Access : Platform admin only — do not share externally
+  Design : 00_design-system.css + 00_admin-tokens.css
+  Components: 00_components.js (ALP.* helpers)
+
+  SECURITY NOTES:
+  - All sensitive actions write to audit_log before executing
+  - Impersonation is read-only · max 15-minute session · every session logged
+  - User suspensions require written reason stored immutably
+  - Financial operations require admin confirmation + audit entry
+  - Role changes are logged with actor, target, old/new values, timestamp
+-->
+<div style="display:grid;grid-template-columns:220px 1fr;height:100vh;background:#07090F;color:#EEF2FF;font-family:'Outfit',system-ui,sans-serif">
+
+  <!-- Admin Sidebar -->
+  <div class="admin-sidebar">
+    <div class="admin-logo-bar">
+      <div class="admin-logo-mark">A</div>
+      <div class="admin-logo-text">Admin Portal</div>
+      <div class="admin-logo-badge">PLATFORM</div>
+    </div>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#3E4D6A;font-size:11px;text-align:center;padding:20px">
+      Create Institution — Plan, Seats, Billing
+    </div>
+  </div>
+
+  <!-- Main content area -->
+  <div style="display:flex;flex-direction:column;overflow:hidden">
+    <div class="admin-topbar">
+      <div class="admin-topbar-title">Create Institution — Plan, Seats, Billing</div>
+      <div class="admin-live-indicator"><div class="admin-live-dot"></div>Live</div>
+    </div>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;color:#3E4D6A;padding:40px">
+      <div style="font-size:13px;font-weight:600;color:#B8C5E0">Create Institution — Plan, Seats, Billing</div>
+      <div style="font-size:11px">AdaptiveLearn Admin Portal · v1.0 · Full prototype in design session</div>
+    </div>
+  </div>
+
+</div>
+<script src="00_components.js"></script>
+</body>
+</html>
