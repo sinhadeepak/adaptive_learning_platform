@@ -5,6 +5,7 @@ import { CatalogExam } from "./pages/CatalogExam";
 import { ExamDetail } from "./pages/ExamDetail";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { Home } from "./pages/Home";
+import { StudyMap } from "./pages/StudyMap";
 import { Login } from "./pages/Login";
 import { Placeholder } from "./pages/Placeholder";
 import { Quiz } from "./pages/Quiz";
@@ -116,6 +117,22 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <ExamDetail />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/study/:examId",
+    element: (
+      <ProtectedRoute>
+        <StudyMap />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/study/:examId/:subjectId",
+    element: (
+      <ProtectedRoute>
+        <StudyMap />
       </ProtectedRoute>
     ),
   },
