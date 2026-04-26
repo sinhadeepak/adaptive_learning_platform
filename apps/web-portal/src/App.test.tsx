@@ -252,3 +252,96 @@ test("/review with MODERATOR role shows the review queue", async () => {
   expect(screen.getByRole("button", { name: /Approve & publish/i })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Reject$/i })).toBeInTheDocument();
 });
+
+test("/dashboard renders Educator Dashboard with KPIs + recent activity", async () => {
+  asAuthenticated();
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL) => {
+    const u = String(input);
+    if (u.endsWith("/api/v1/profile/me")) {
+      return new Response(
+        JSON.stringify({
+          user: { firstName: "Anika", role: "TEACHER" },
+          preferences: {},
+          exams: [],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (u.includes("/content/questions") && !u.includes("scope=all")) {
+      return new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "q-d",
+              topicId: "t-1",
+              stem: "What is Newton's second law?",
+              choices: ["F=ma", "E=mc²", "PV=nRT", "v=u+at"],
+              correctIdx: 0,
+              difficultyB: 0,
+              discriminationA: 1,
+              guessingC: 0,
+              language: "en",
+              status: "DRAFT",
+              createdBy: "u-1",
+              createdAt: new Date().toISOString(),
+            },
+            {
+              id: "q-p",
+              topicId: "t-1",
+              stem: "Define entropy.",
+              choices: ["Disorder", "Energy", "Force", "Mass"],
+              correctIdx: 0,
+              difficultyB: 0.4,
+              discriminationA: 1,
+              guessingC: 0,
+              language: "en",
+              status: "PUBLISHED",
+              createdBy: "u-1",
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    return new Response("not found", { status: 404 });
+  });
+  renderAt("/dashboard");
+  // Hero greeting carries the user name
+  expect((await screen.findAllByText(/Anika/)).length).toBeGreaterThanOrEqual(1);
+  // KPI labels (Drafts is unique; Published leaks across KPI + row pill)
+  expect(screen.getByText(/^Drafts$/i)).toBeInTheDocument();
+  expect(screen.getAllByText(/^Published$/i).length).toBeGreaterThanOrEqual(1);
+  // In-flight + Published section headings
+  expect(screen.getByRole("heading", { name: /In flight/i })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /Recently published/i })).toBeInTheDocument();
+  // Quick actions section
+  expect(screen.getByRole("heading", { name: /Quick actions/i })).toBeInTheDocument();
+});
+
+test("/ on web-portal redirects to /dashboard when authenticated", async () => {
+  asAuthenticated();
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL) => {
+    const u = String(input);
+    if (u.endsWith("/api/v1/profile/me")) {
+      return new Response(
+        JSON.stringify({
+          user: { firstName: "Anika", role: "TEACHER" },
+          preferences: {},
+          exams: [],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (u.includes("/content/questions")) {
+      return new Response(JSON.stringify({ items: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return new Response("not found", { status: 404 });
+  });
+  renderAt("/");
+  // Lands on Dashboard
+  expect((await screen.findAllByText(/Anika/)).length).toBeGreaterThanOrEqual(1);
+});
