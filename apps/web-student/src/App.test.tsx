@@ -566,11 +566,13 @@ test("/quiz/:id/result shows score + per-item review", async () => {
     return new Response("not found", { status: 404 });
   });
   renderAt("/quiz/sid-9/result");
-  // Score number "4/5" — split across spans, so test by text portion.
-  expect(await screen.findByText("4")).toBeInTheDocument();
+  // PR #61 rewrote QuizResult onto AI-first hero. Score appears in
+  // multiple places (ring + stat tile) — findAllByText handles both.
+  expect((await screen.findAllByText("80%")).length).toBeGreaterThanOrEqual(1);
+  // The "4" + "/5" pattern still renders inside the Correct stat tile.
+  expect(screen.getAllByText(/^4$/).length).toBeGreaterThanOrEqual(1);
   expect(screen.getByText("/5")).toBeInTheDocument();
-  expect(screen.getByText("80%")).toBeInTheDocument();
-  // 5 items rendered.
+  // 5 items rendered as cards (Q1 through Q5 labels).
   expect(screen.getByText("Q1")).toBeInTheDocument();
   expect(screen.getByText("Q5")).toBeInTheDocument();
 });

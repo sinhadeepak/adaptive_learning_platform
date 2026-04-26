@@ -3058,3 +3058,140 @@
   box-shadow: 0 8px 24px rgba(79,135,246,0.35);
 }
 .btn-q-primary:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Practice Results — mirrors docs/ui/01_StudentPortal_Web/09_practice-results.html ── */
+
+/* Item review grid (compact cards) */
+.item-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.item-review-card {
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.item-review-card-correct {
+  border-color: rgba(16,196,122,0.22);
+  background: rgba(16,196,122,0.05);
+}
+.item-review-card-wrong {
+  border-color: rgba(244,63,94,0.22);
+  background: rgba(244,63,94,0.05);
+}
+.item-review-card-skipped {
+  border-color: var(--border);
+  opacity: 0.7;
+}
+.item-review-num {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-surface3);
+  color: var(--text-secondary);
+}
+.item-review-card-correct .item-review-num {
+  background: rgba(16,196,122,0.18);
+  color: var(--color-green);
+}
+.item-review-card-wrong .item-review-num {
+  background: rgba(244,63,94,0.16);
+  color: var(--color-red);
+}
+.item-review-body {
+  flex: 1;
+  min-width: 0;
+}
+.item-review-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.item-review-meta {
+  font-size: 10px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+}
+
+/* Mastery delta strip — shows pre→post EWA bump */
+.mastery-delta-card {
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+.md-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-faint);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.md-pair {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.md-was {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.md-arrow {
+  color: var(--text-faint);
+  font-size: 14px;
+}
+.md-now {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--color-green);
+}
+.md-delta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.md-delta-up {
+  background: rgba(16,196,122,0.14);
+  color: var(--color-green);
+}
+.md-delta-flat {
+  background: rgba(74,85,112,0.18);
+  color: var(--text-muted);
+}
+.md-delta-down {
+  background: rgba(244,63,94,0.14);
+  color: var(--color-red);
+}
+.md-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 200px;
+}
+.md-text strong { color: var(--text-primary); font-weight: 600; }
