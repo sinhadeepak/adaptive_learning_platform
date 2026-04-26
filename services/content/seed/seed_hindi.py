@@ -65,8 +65,12 @@ def main() -> int:
             )
         return 0
 
-    teacher_token = _mint_token(args.jwt_secret, "TEACHER")
-    moderator_token = _mint_token(args.jwt_secret, "MODERATOR")
+    # Mint as PLATFORM_ADMIN so the seed bypasses the educator-assignment
+    # scope check on POST /content/questions (catalog migration 005 +
+    # content's authorize_topic round-trip). Seeding is conceptually an
+    # admin/ops action — a real teacher uses the cascading-dropdown UI.
+    teacher_token = _mint_token(args.jwt_secret, "PLATFORM_ADMIN")
+    moderator_token = _mint_token(args.jwt_secret, "PLATFORM_ADMIN")
     teacher_h = {"authorization": f"Bearer {teacher_token}", "content-type": "application/json"}
     moderator_h = {"authorization": f"Bearer {moderator_token}"}
 

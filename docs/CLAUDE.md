@@ -1,6 +1,6 @@
 # AdaptiveLearn Platform — Claude Project Context
 
-**Last refresh**: 2026-04-25 — reconciled against actual shipped code after Sprints 0–4.
+**Last refresh**: 2026-04-26 — reconciled after end-to-end smoke of S4 deliverables on the running stack (bridge, Hindi seed, drift recovery all verified live).
 **Authoritative cross-link**: [`docs/02_planning/00_MasterPhaseIndex.md`](02_planning/00_MasterPhaseIndex.md) — phase + sprint state.
 **For UI/design work**: [`docs/ui/00_MASTER_README.md`](ui/00_MASTER_README.md) — design tokens, 109 screens, ALP.* component library.
 
@@ -21,10 +21,10 @@ Full-stack AI developer. I own the entire codebase — backend services, three w
 | Phase | Sprints | Status |
 |---|---|---|
 | Phase 0 — Foundation | 1 | ✅ done |
-| Phase 1 — India launch | 4 | S1+S2 done, S3 ~50%, S4 not started (AWS-blocked) |
+| Phase 1 — India launch | 4 | ✅ S1+S2+S3+S4 closed; **S5 = staging deploy + remaining carry-overs (AWS-blocked)** |
 | Phase 2 — Global expansion (Q4 2026) | 5 | ❌ all pending |
 | Phase 3 — Platform evolution (2027) | 6 | ❌ all pending |
-| **Total** | **16** | **~12.5 pending** |
+| **Total** | **16** | **~11 pending** (Phase 1 complete bar staging-deploy carry-over) |
 
 Master index: [`docs/02_planning/00_MasterPhaseIndex.md`](02_planning/00_MasterPhaseIndex.md). Per-PR map of what shipped lives in that index too.
 
@@ -185,6 +185,18 @@ The gating P1 today is **AWS staging access**, not any code-side blocker. Phase 
 - **List endpoints**: paginated, max 100 per page (Catalog + Search enforce; Analytics/Notification list endpoints have soft caps).
 
 ---
+
+## Sprint 4 — verified live on local Docker Compose (2026-04-26)
+
+Each S4 exit criterion smoke-tested end-to-end against the running stack:
+
+1. **IRT triple flows author → bridge → Quiz**: `POST /content/questions {a:1.4, b:0.3, c:0.22}` → submit → moderator approve → `quiz_schema.questions` row appears with the same triple byte-for-byte. Subscriber log line: `quiz subscribed to content.question.published stream=CONTENT_EVENTS durable=quiz-content-published`.
+2. **`make seed-hindi`** runs the full author → submit → review pipeline for 15 Devanagari MCQs (5 each MECH/THERMO/CALC). All 15 land in Quiz bank with `language='hi'` within ~1s.
+3. **JetStream drift recovery — three-layer defence**: stop `analytics` + `notification` containers, submit a quiz session during the outage, restart. Live durable consumer replays the queued message; subsequent `make analytics-backfill` and `make notification-backfill` scan the source-of-truth and idempotently skip (counter `skipped=1`). Both layers active.
+4. **alp_telemetry / alptelemetry** middlewares wired into all 11 services (Py + Go); request-scope `trace_id` visible in structured logs.
+5. **Mobile reset-password deep-link parser** — `apps/mobile/lib/auth/deep_link.dart` shipped; platform-plugin wiring deferred to S5 (needs device).
+
+Take this as the truth-source. If a future audit doubts S4 closure, re-run the three smoke tests above (bridge, hindi seed, drift recovery); they're the actual exit criteria.
 
 ## What CHANGED in this refresh
 
