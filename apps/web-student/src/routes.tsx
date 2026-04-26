@@ -8,11 +8,13 @@ import { Home } from "./pages/Home";
 import { StudyMap } from "./pages/StudyMap";
 import { Login } from "./pages/Login";
 import { Placeholder } from "./pages/Placeholder";
+import { Profile } from "./pages/Profile";
 import { Quiz } from "./pages/Quiz";
 import { QuizResult } from "./pages/QuizResult";
 import { Register } from "./pages/Register";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Search } from "./pages/Search";
+import { Settings } from "./pages/Settings";
 import { TopicDetail } from "./pages/TopicDetail";
 import { Verify } from "./pages/Verify";
 import { DailyGoal } from "./pages/onboarding/DailyGoal";
@@ -165,6 +167,22 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <Search />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/profile",
+    element: (
+      <ProtectedRoute>
+        <Profile />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/settings",
+    element: (
+      <ProtectedRoute>
+        <Settings />
       </ProtectedRoute>
     ),
   },
