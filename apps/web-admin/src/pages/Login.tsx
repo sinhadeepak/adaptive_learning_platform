@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { AuthError } from "@alp/auth-client";
 import { useAuth } from "../lib/auth-provider";
 import { Banner } from "../components/primitives";
+import "@alp/design-system/shell.css";
 import "../styles/shell.css";
 
 export function Login() {
