@@ -1100,3 +1100,114 @@
   color: var(--text-muted);
   margin-left: var(--sp-2);
 }
+
+/* ── Onboarding step indicator ─────────────────────────────── */
+.stepper {
+  display: flex;
+  align-items: center;
+}
+.stepper-row { display: flex; align-items: center; flex: 1; }
+.stepper-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+  background: var(--bg-surface3);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  transition: var(--trans-fast);
+}
+.stepper-dot-active {
+  background: var(--color-blue);
+  color: #fff;
+  border-color: var(--color-blue);
+  box-shadow: 0 0 0 4px rgba(79, 135, 246, 0.18);
+}
+.stepper-dot-complete {
+  background: rgba(16, 196, 122, 0.18);
+  color: var(--color-green);
+  border-color: var(--color-green);
+}
+.stepper-connector {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  margin: 0 4px;
+}
+.stepper-connector-complete { background: var(--color-green); }
+.stepper-caption {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: var(--sp-2) 0 var(--sp-5);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Option cards (radio buttons as cards) ─────────────────── */
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.option-card {
+  width: 100%;
+  text-align: left;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface2);
+  color: var(--text-primary);
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--trans-fast);
+}
+.option-card:hover { border-color: rgba(79, 135, 246, 0.4); background: var(--bg-surface3); }
+.option-card-selected {
+  border-color: var(--color-blue);
+  border-width: 2px;
+  background: rgba(79, 135, 246, 0.10);
+  padding: calc(var(--sp-4) - 1px);
+}
+.option-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.option-card-title { font-size: 14px; font-weight: 600; }
+.option-card-sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.option-check { color: var(--color-blue); font-size: 18px; font-weight: 700; }
+
+/* ── Preset chips (e.g. 3/6/9/12 months) ───────────────────── */
+.preset-row {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+.preset-chip {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface3);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: var(--trans-fast);
+}
+.preset-chip:hover { border-color: rgba(79, 135, 246, 0.4); }
+.preset-chip-selected {
+  border-color: var(--color-blue);
+  background: rgba(79, 135, 246, 0.10);
+  color: var(--color-blue);
+  font-weight: 600;
+}

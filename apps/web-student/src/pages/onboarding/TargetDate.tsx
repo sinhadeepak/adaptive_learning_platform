@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Button, Input, tokens } from "@alp/design-system";
 import { auth } from "../../lib/api";
 import { OnboardingShell } from "./OnboardingShell";
+import { Banner } from "../../components/dashboard";
 
 interface ProfileExam {
   examId: string;
@@ -26,7 +26,6 @@ export function TargetDate() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch the user's primary exam from profile.
   useEffect(() => {
     (async () => {
       try {
@@ -83,91 +82,71 @@ export function TargetDate() {
       backTo="/onboarding/language"
     >
       {error ? (
-        <div role="alert" style={styles.errorBanner}>
-          <Badge tone="danger">Error</Badge>
-          <span>{error}</span>
-        </div>
+        <Banner tone="danger" role="alert">
+          {error}
+        </Banner>
       ) : null}
 
-      <Input
-        label="Target date"
-        type="date"
-        value={date}
-        min={todayPlus(0)}
-        onChange={(e) => setDate(e.target.value)}
-      />
+      <label className="form-field">
+        <span className="form-label">Target date</span>
+        <input
+          type="date"
+          value={date}
+          min={todayPlus(0)}
+          onChange={(e) => setDate(e.target.value)}
+          className="form-input"
+        />
+      </label>
 
-      <div style={styles.presetRow}>
-        {[3, 6, 9, 12].map((months) => (
-          <button
-            key={months}
-            type="button"
-            onClick={() => setDate(todayPlus(months))}
-            style={presetStyle(date === todayPlus(months))}
-          >
-            {months} mos
-          </button>
-        ))}
+      <div className="preset-row">
+        {[3, 6, 9, 12].map((months) => {
+          const isSelected = date === todayPlus(months);
+          return (
+            <button
+              key={months}
+              type="button"
+              onClick={() => setDate(todayPlus(months))}
+              className={`preset-chip ${isSelected ? "preset-chip-selected" : ""}`.trim()}
+            >
+              {months} mos
+            </button>
+          );
+        })}
       </div>
 
       {daysRemaining !== null ? (
-        <p style={styles.daysRemaining} aria-live="polite">
-          {daysRemaining > 0 ? `Days remaining: ${daysRemaining}` : "That's in the past — pick a future date."}
+        <p
+          aria-live="polite"
+          style={{
+            fontSize: 13,
+            color: "var(--text-secondary)",
+            margin: "var(--sp-3) 0 0",
+          }}
+        >
+          {daysRemaining > 0
+            ? `Days remaining: ${daysRemaining}`
+            : "That's in the past — pick a future date."}
         </p>
       ) : null}
 
-      <Button
-        size="lg"
-        isLoading={submitting}
+      <button
+        type="button"
+        className="btn btn-primary btn-block"
+        style={{ marginTop: "var(--sp-5)" }}
         disabled={!date || submitting || (daysRemaining !== null && daysRemaining < 0)}
         onClick={() => onContinue(false)}
-        style={{ width: "100%", marginTop: tokens.spacing[5] }}
       >
-        Continue
-      </Button>
-      <Button
-        variant="ghost"
-        size="lg"
+        {submitting ? "Saving…" : "Continue"}
+      </button>
+      <button
+        type="button"
+        className="btn btn-ghost btn-block"
+        style={{ marginTop: "var(--sp-2)" }}
         disabled={submitting}
         onClick={() => onContinue(true)}
-        style={{ width: "100%", marginTop: tokens.spacing[2] }}
       >
         Not sure yet
-      </Button>
+      </button>
     </OnboardingShell>
   );
 }
-
-function presetStyle(selected: boolean): React.CSSProperties {
-  return {
-    flex: 1,
-    padding: `${tokens.spacing[2]}px ${tokens.spacing[3]}px`,
-    border: `1px solid ${selected ? tokens.colors.brand.primary : tokens.colors.border.default}`,
-    borderRadius: tokens.radius.button,
-    background: selected ? tokens.colors.brand.tint : tokens.colors.surface.primary,
-    color: selected ? tokens.colors.brand.primary : tokens.colors.text.secondary,
-    fontFamily: tokens.typography.family.ui,
-    fontSize: tokens.typography.scale.body.size,
-    cursor: "pointer",
-  };
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  presetRow: { display: "flex", gap: tokens.spacing[2], marginTop: tokens.spacing[3] },
-  daysRemaining: {
-    fontSize: tokens.typography.scale.body.size,
-    color: tokens.colors.text.secondary,
-    margin: `${tokens.spacing[3]}px 0 0 0`,
-  },
-  errorBanner: {
-    display: "flex",
-    alignItems: "center",
-    gap: tokens.spacing[2],
-    padding: tokens.spacing[3],
-    borderRadius: tokens.radius.panel,
-    background: tokens.colors.semantic.danger.bg,
-    color: tokens.colors.semantic.danger.fg,
-    marginBottom: tokens.spacing[4],
-    fontSize: tokens.typography.scale.body.size,
-  },
-};
