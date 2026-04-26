@@ -164,6 +164,11 @@ services:
       # educator is assigned to the topic's exam (defence-in-depth
       # behind the cascading-dropdown UI).
       CONTENT_CATALOG_BASE_URL: http://catalog:8000
+      # Local-only seed: enables migration 003 to insert 20 PUBLISHED
+      # questions per topic across every exam, so /questions/new and
+      # the student topic-detail screens have realistic data on a
+      # fresh stack. Absent in staging/prod.
+      CONTENT_SEED_LOCAL: "1"
     depends_on:
       postgres: { condition: service_healthy }
       nats: { condition: service_healthy }
