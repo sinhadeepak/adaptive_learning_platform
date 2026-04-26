@@ -11,6 +11,7 @@ from catalog.db import get_session
 from catalog.flags import premium_enforced
 from catalog.repositories import CatalogRepo
 from catalog.schemas import Exam, Problem, Subject, Topic, TopicDetail
+from catalog.security import JwtPrincipal, current_principal
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 
@@ -64,6 +65,67 @@ async def list_topics(subject_id: str, session: SessionDep) -> list[Topic]:
             titleHi=r.get("title_hi"),
             questionCount=int(r["question_count"]),
             tier=_projected_tier(r["tier"], enforce),
+        )
+        for r in rows
+    ]
+
+
+@router.get("/educators/me/exams", response_model=list[Exam])
+async def list_my_exams(
+    session: SessionDep,
+    principal: Annotated[JwtPrincipal, Depends(current_principal)],
+) -> list[Exam]:
+    """Exams the calling educator can author questions for.
+
+    PLATFORM_ADMIN sees the full published set (mirrors `/catalog/exams`).
+    Anyone else gets only the exams they have an `educator_assignments`
+    row for. Roles outside the authoring set (e.g. STUDENT) end up with
+    an empty list, which the UI renders as "no exams available".
+    """
+    repo = CatalogRepo(session)
+    rows = (
+        await repo.list_exams()
+        if principal.is_platform_admin
+        else await repo.exams_for_educator(principal.user_id)
+    )
+    return [
+        Exam(
+            id=str(r["id"]),
+            code=r["code"],
+            name=r["name"],
+            subtitle=r.get("subtitle"),
+            iconKey=r.get("icon_key"),
+        )
+        for r in rows
+    ]
+
+
+@router.get(
+    "/educators/me/exams/{exam_id}/subjects",
+    response_model=list[Subject],
+)
+async def list_my_subjects(
+    exam_id: str,
+    session: SessionDep,
+    principal: Annotated[JwtPrincipal, Depends(current_principal)],
+) -> list[Subject]:
+    """Subjects under `exam_id` the calling educator can author for.
+
+    PLATFORM_ADMIN bypasses the assignment filter and gets every
+    published subject under the exam.
+    """
+    repo = CatalogRepo(session)
+    rows = (
+        await repo.subjects_for_exam(exam_id)
+        if principal.is_platform_admin
+        else await repo.subjects_for_educator_exam(principal.user_id, exam_id)
+    )
+    return [
+        Subject(
+            id=str(r["id"]),
+            examId=str(r["exam_id"]),
+            name=r["name"],
+            topicCount=int(r["topic_count"]),
         )
         for r in rows
     ]

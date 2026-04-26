@@ -62,6 +62,56 @@ async function asJson<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
+export interface CatalogExam {
+  id: string;
+  code: string;
+  name: string;
+  subtitle?: string | null;
+  iconKey?: string | null;
+}
+
+export interface CatalogSubject {
+  id: string;
+  examId: string;
+  name: string;
+  topicCount: number;
+}
+
+export interface CatalogTopic {
+  id: string;
+  subjectId: string;
+  title: string;
+  titleHi?: string | null;
+  questionCount: number;
+  tier: "FREE" | "PREMIUM";
+}
+
+export const catalog = {
+  /** Exams the current educator is assigned to (PLATFORM_ADMIN sees all). */
+  async myExams(): Promise<CatalogExam[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/catalog/educators/me/exams`,
+    );
+    return asJson<CatalogExam[]>(res);
+  },
+
+  /** Subjects under `examId` the current educator can author for. */
+  async mySubjects(examId: string): Promise<CatalogSubject[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/catalog/educators/me/exams/${encodeURIComponent(examId)}/subjects`,
+    );
+    return asJson<CatalogSubject[]>(res);
+  },
+
+  /** Topics under a subject — public endpoint, no scoping. */
+  async topics(subjectId: string): Promise<CatalogTopic[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/catalog/subjects/${encodeURIComponent(subjectId)}/topics`,
+    );
+    return asJson<CatalogTopic[]>(res);
+  },
+};
+
 export const content = {
   async create(input: CreateQuestionInput): Promise<Question> {
     const res = await auth.fetch(`${env.apiBaseUrl}/content/questions`, {

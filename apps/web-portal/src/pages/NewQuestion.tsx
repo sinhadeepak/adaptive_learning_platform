@@ -1,12 +1,25 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { content } from "../lib/api";
+import {
+  catalog,
+  content,
+  type CatalogExam,
+  type CatalogSubject,
+  type CatalogTopic,
+} from "../lib/api";
 import { AppShell } from "../components/AppShell";
 import { Banner } from "../components/primitives";
 
 export function NewQuestion() {
   const navigate = useNavigate();
+  const [exams, setExams] = useState<CatalogExam[]>([]);
+  const [subjects, setSubjects] = useState<CatalogSubject[]>([]);
+  const [topics, setTopics] = useState<CatalogTopic[]>([]);
+  const [examId, setExamId] = useState("");
+  const [subjectId, setSubjectId] = useState("");
   const [topicId, setTopicId] = useState("");
+  const [scopeError, setScopeError] = useState<string | null>(null);
+  const [scopeLoading, setScopeLoading] = useState(true);
   const [stem, setStem] = useState("");
   const [choices, setChoices] = useState<string[]>(["", "", "", ""]);
   const [correctIdx, setCorrectIdx] = useState(0);
@@ -17,6 +30,85 @@ export function NewQuestion() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await catalog.myExams();
+        if (cancelled) return;
+        setExams(list);
+      } catch (err) {
+        if (cancelled) return;
+        setScopeError(
+          err instanceof Error
+            ? err.message
+            : "Could not load your exam assignments.",
+        );
+      } finally {
+        if (!cancelled) setScopeLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!examId) {
+      setSubjects([]);
+      setSubjectId("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await catalog.mySubjects(examId);
+        if (cancelled) return;
+        setSubjects(list);
+        setSubjectId("");
+        setTopics([]);
+        setTopicId("");
+      } catch (err) {
+        if (cancelled) return;
+        setScopeError(
+          err instanceof Error
+            ? err.message
+            : "Could not load subjects for that exam.",
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [examId]);
+
+  useEffect(() => {
+    if (!subjectId) {
+      setTopics([]);
+      setTopicId("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await catalog.topics(subjectId);
+        if (cancelled) return;
+        setTopics(list);
+        setTopicId("");
+      } catch (err) {
+        if (cancelled) return;
+        setScopeError(
+          err instanceof Error
+            ? err.message
+            : "Could not load topics for that subject.",
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [subjectId]);
 
   function setChoice(idx: number, val: string) {
     setChoices((cur) => cur.map((c, i) => (i === idx ? val : c)));
@@ -38,6 +130,10 @@ export function NewQuestion() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!topicId) {
+      setError("Pick an exam, subject, and topic before saving.");
+      return;
+    }
     const trimmedChoices = choices.map((c) => c.trim());
     if (trimmedChoices.some((c) => c === "")) {
       setError("All choices must be non-empty.");
@@ -75,18 +171,92 @@ export function NewQuestion() {
         Saved as DRAFT. Submit it from “My questions” when you’re ready for peer review.
       </p>
 
+      {scopeError ? (
+        <Banner tone="danger" role="alert">
+          {scopeError}
+        </Banner>
+      ) : null}
+
+      {!scopeLoading && exams.length === 0 && !scopeError ? (
+        <Banner tone="warning">
+          You have not been assigned to any exams yet. Ask a platform
+          admin to grant you authoring scope before drafting questions.
+        </Banner>
+      ) : null}
+
       <form onSubmit={handleSubmit} className="form-stack">
-        <label className="form-field">
-          <span className="form-label">Topic ID (UUID)</span>
-          <input
-            required
-            placeholder="e.g. 11111111-1111-1111-1111-111111111111"
-            value={topicId}
-            onChange={(e) => setTopicId(e.target.value)}
-            className="form-input"
-            style={{ fontFamily: "var(--font-mono)" }}
-          />
-        </label>
+        <fieldset className="form-fieldset">
+          <legend className="form-label">
+            Where this question lives · Exam → Subject → Topic
+          </legend>
+          <div className="form-row">
+            <label className="form-field" style={{ flex: 1 }}>
+              <span className="form-label">Exam</span>
+              <select
+                required
+                value={examId}
+                onChange={(e) => setExamId(e.target.value)}
+                className="form-input"
+                disabled={scopeLoading || exams.length === 0}
+              >
+                <option value="">
+                  {scopeLoading ? "Loading…" : "Select an exam"}
+                </option>
+                {exams.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-field" style={{ flex: 1 }}>
+              <span className="form-label">Subject</span>
+              <select
+                required
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+                className="form-input"
+                disabled={!examId || subjects.length === 0}
+              >
+                <option value="">
+                  {!examId
+                    ? "Pick an exam first"
+                    : subjects.length === 0
+                      ? "No subjects available"
+                      : "Select a subject"}
+                </option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-field" style={{ flex: 1 }}>
+              <span className="form-label">Topic</span>
+              <select
+                required
+                value={topicId}
+                onChange={(e) => setTopicId(e.target.value)}
+                className="form-input"
+                disabled={!subjectId || topics.length === 0}
+              >
+                <option value="">
+                  {!subjectId
+                    ? "Pick a subject first"
+                    : topics.length === 0
+                      ? "No topics yet"
+                      : "Select a topic"}
+                </option>
+                {topics.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </fieldset>
 
         <label className="form-field">
           <span className="form-label">Stem</span>
@@ -216,7 +386,11 @@ export function NewQuestion() {
         ) : null}
 
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="submit" disabled={submitting} className="btn btn-primary">
+          <button
+            type="submit"
+            disabled={submitting || !topicId}
+            className="btn btn-primary"
+          >
             {submitting ? "Saving…" : "Save draft"}
           </button>
           <button type="button" onClick={() => navigate(-1)} className="btn btn-ghost">

@@ -137,6 +137,13 @@ services:
       CATALOG_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/catalog
       CATALOG_NATS_URL: nats://nats:4222
       CATALOG_INSTITUTION_BASE_URL: http://institution:8000
+      # Must match auth's JWT_SECRET so tokens issued by Auth verify on
+      # the educator-scoped endpoints (/catalog/educators/me/*).
+      CATALOG_JWT_SECRET: dev-only-change-me-in-staging-at-least-32-bytes-long
+      # Local-only seed: enables migration 006 to insert assignments
+      # for teacher@/moderator@alp.dev against every published exam so
+      # the cascading dropdown on /questions/new works on a fresh stack.
+      CATALOG_SEED_LOCAL: "1"
     depends_on:
       postgres: { condition: service_healthy }
       nats: { condition: service_healthy }

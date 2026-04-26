@@ -13,6 +13,7 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0",
     "alembic>=1.13",
     "asyncpg>=0.29",
+    "pyjwt>=2.9",
     "alp-flags",
     "alp-telemetry",
 ]

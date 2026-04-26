@@ -68,6 +68,71 @@ class CatalogRepo:
         ).mappings().first()
         return dict(row) if row else None
 
+    async def exams_for_educator(self, educator_id: str) -> list[dict[str, Any]]:
+        """Exams the given educator is assigned to (either exam-wide or via
+        any subject under that exam). Subject-level grants surface here too —
+        listing the subject_id NULL pre-condition would hide them, defeating
+        the cascading dropdown."""
+        rows = (
+            await self.s.execute(
+                text(
+                    """
+                    SELECT DISTINCT e.id, e.code, e.name, e.subtitle,
+                                    e.icon_key, e.sort_order
+                    FROM catalog_schema.exams e
+                    JOIN catalog_schema.educator_assignments ea
+                      ON ea.exam_id = e.id
+                    WHERE ea.educator_id = :eid
+                      AND e.is_published = TRUE
+                    ORDER BY e.sort_order, e.name
+                    """
+                ),
+                {"eid": educator_id},
+            )
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
+    async def subjects_for_educator_exam(
+        self, educator_id: str, exam_id: str
+    ) -> list[dict[str, Any]]:
+        """Subjects within `exam_id` that this educator can author for.
+
+        An exam-wide grant (subject_id IS NULL) opens up all published
+        subjects under that exam; a subject-level grant only that one.
+        """
+        rows = (
+            await self.s.execute(
+                text(
+                    """
+                    SELECT s.id, s.exam_id, s.name,
+                      (SELECT COUNT(*) FROM catalog_schema.topics t
+                       WHERE t.subject_id = s.id AND t.is_published = TRUE)
+                       AS topic_count
+                    FROM catalog_schema.subjects s
+                    WHERE s.exam_id = :eid
+                      AND s.is_published = TRUE
+                      AND (
+                        EXISTS (
+                          SELECT 1 FROM catalog_schema.educator_assignments ea
+                          WHERE ea.educator_id = :uid
+                            AND ea.exam_id = :eid
+                            AND ea.subject_id IS NULL
+                        )
+                        OR EXISTS (
+                          SELECT 1 FROM catalog_schema.educator_assignments ea
+                          WHERE ea.educator_id = :uid
+                            AND ea.exam_id = :eid
+                            AND ea.subject_id = s.id
+                        )
+                      )
+                    ORDER BY s.sort_order, s.name
+                    """
+                ),
+                {"uid": educator_id, "eid": exam_id},
+            )
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
     async def topics_for_reindex(self) -> list[dict[str, Any]]:
         """Bulk read used by Search service reindex pipeline. Joins through to
         subject + exam so every doc carries the human-readable subtitle.
