@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Badge, Button, Input, tokens } from "@alp/design-system";
 import { AuthError } from "@alp/auth-client";
 import { auth } from "../lib/api";
+import { Banner } from "../components/dashboard";
+import "@alp/design-system/shell.css";
 
 export function ResetPassword() {
   const [params] = useSearchParams();
@@ -46,69 +47,90 @@ export function ResetPassword() {
 
   if (done) {
     return (
-      <main style={styles.page}>
-        <div style={styles.card}>
-          <h1 style={styles.title}>Password updated</h1>
-          <p style={styles.body}>
-            You can now log in with your new password. All previous sessions have been signed out.
+      <div className="auth-page">
+        <main className="auth-card">
+          <h1 className="page-greeting" style={{ marginBottom: "var(--sp-3)" }}>
+            Password updated
+          </h1>
+          <p style={{ color: "var(--text-primary)", fontSize: 13, lineHeight: 1.5 }}>
+            You can now log in with your new password. All previous sessions have
+            been signed out.
           </p>
-          <Button size="lg" onClick={() => navigate("/login", { replace: true })} style={{ width: "100%" }}>
+          <button
+            type="button"
+            className="btn btn-primary btn-block"
+            style={{ marginTop: "var(--sp-4)" }}
+            onClick={() => navigate("/login", { replace: true })}
+          >
             Go to log in
-          </Button>
-        </div>
-      </main>
+          </button>
+        </main>
+      </div>
     );
   }
 
   return (
-    <main style={styles.page}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Set a new password</h1>
-        <p style={styles.subtitle}>Pick a password you haven't used here before.</p>
+    <div className="auth-page">
+      <main className="auth-card">
+        <h1 className="page-greeting" style={{ marginBottom: "var(--sp-1)" }}>
+          Set a new password
+        </h1>
+        <p className="page-subhead">Pick a password you haven't used here before.</p>
 
         {error ? (
-          <div role="alert" style={styles.errorBanner}>
-            <Badge tone="danger">Error</Badge>
-            <span>{error}</span>
-          </div>
+          <Banner tone="danger" role="alert">
+            {error}
+          </Banner>
         ) : null}
 
-        <form onSubmit={onSubmit} style={styles.form} aria-label="Reset password">
-          <Input
-            label="New password"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            required
-            minLength={12}
-            onChange={(e) => setPassword(e.target.value)}
-            hint="At least 12 characters."
-          />
-          <Input
-            label="Confirm new password"
-            type="password"
-            autoComplete="new-password"
-            value={confirm}
-            required
-            minLength={12}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-          <Button
+        <form onSubmit={onSubmit} className="auth-form" aria-label="Reset password">
+          <div className="form-field">
+            <label className="form-field" style={{ gap: 6 }}>
+              <span className="form-label">New password</span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                required
+                minLength={12}
+                onChange={(e) => setPassword(e.target.value)}
+                className="form-input"
+              />
+            </label>
+            <span style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+              At least 12 characters.
+            </span>
+          </div>
+
+          <label className="form-field">
+            <span className="form-label">Confirm new password</span>
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={confirm}
+              required
+              minLength={12}
+              onChange={(e) => setConfirm(e.target.value)}
+              className="form-input"
+            />
+          </label>
+
+          <button
             type="submit"
-            size="lg"
-            isLoading={submitting}
+            className="btn btn-primary btn-block"
             disabled={!token || submitting}
-            style={{ width: "100%" }}
           >
             {submitting ? "Updating…" : "Update password"}
-          </Button>
+          </button>
         </form>
 
-        <div style={styles.footer}>
-          <Link to="/login" style={styles.link}>← Back to log in</Link>
-        </div>
-      </div>
-    </main>
+        <p className="auth-footer">
+          <Link to="/login" className="auth-link">
+            ← Back to log in
+          </Link>
+        </p>
+      </main>
+    </div>
   );
 }
 
@@ -125,63 +147,3 @@ function friendlyError(err: unknown): string {
       return "We couldn't update your password. Please try again.";
   }
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: tokens.spacing[4],
-    background: tokens.colors.surface.secondary,
-    fontFamily: tokens.typography.family.ui,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 480,
-    background: tokens.colors.surface.primary,
-    borderRadius: tokens.radius.card,
-    border: `1px solid ${tokens.colors.border.default}`,
-    padding: tokens.spacing[6],
-  },
-  title: {
-    margin: 0,
-    fontSize: tokens.typography.scale.pageTitle.size,
-    fontWeight: tokens.typography.scale.pageTitle.weight,
-    color: tokens.colors.text.primary,
-  },
-  subtitle: {
-    marginTop: tokens.spacing[2],
-    marginBottom: tokens.spacing[5],
-    color: tokens.colors.text.secondary,
-    fontSize: tokens.typography.scale.body.size,
-  },
-  body: {
-    marginTop: tokens.spacing[2],
-    marginBottom: tokens.spacing[5],
-    color: tokens.colors.text.primary,
-    fontSize: tokens.typography.scale.body.size,
-    lineHeight: 1.5,
-  },
-  form: { display: "flex", flexDirection: "column", gap: tokens.spacing[4] },
-  errorBanner: {
-    display: "flex",
-    alignItems: "center",
-    gap: tokens.spacing[2],
-    padding: tokens.spacing[3],
-    borderRadius: tokens.radius.panel,
-    background: tokens.colors.semantic.danger.bg,
-    color: tokens.colors.semantic.danger.fg,
-    marginBottom: tokens.spacing[4],
-  },
-  footer: {
-    marginTop: tokens.spacing[5],
-    textAlign: "center",
-    fontSize: tokens.typography.scale.body.size,
-  },
-  link: {
-    color: tokens.colors.brand.primary,
-    textDecoration: "none",
-    fontWeight: 500,
-  },
-};

@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
-import { Badge, Button, Input, tokens } from "@alp/design-system";
 import { AuthError } from "@alp/auth-client";
 import { useAuth } from "../lib/auth-provider";
+import { Banner } from "../components/dashboard";
+import "@alp/design-system/shell.css";
 
 interface LocationState {
   returnTo?: string;
@@ -19,8 +20,9 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // If /login?reason=expired, surface a banner once.
-  const [sessionExpired] = useState(() => new URLSearchParams(location.search).get("reason") === "expired");
+  const [sessionExpired] = useState(
+    () => new URLSearchParams(location.search).get("reason") === "expired",
+  );
 
   useEffect(() => {
     if (sessionExpired) setError("Your session expired. Please log in again.");
@@ -32,7 +34,10 @@ export function Login() {
     setSubmitting(true);
     try {
       const session = await login(email, password, remember);
-      const returnTo = (location.state as LocationState | null)?.returnTo ?? sessionStorage.getItem("alp.auth.returnTo") ?? "/home";
+      const returnTo =
+        (location.state as LocationState | null)?.returnTo ??
+        sessionStorage.getItem("alp.auth.returnTo") ??
+        "/home";
       sessionStorage.removeItem("alp.auth.returnTo");
       if (session.user.onboardingState !== "ONBOARDED") {
         navigate("/onboarding/exam", { replace: true });
@@ -47,55 +52,92 @@ export function Login() {
   }
 
   return (
-    <main style={styles.page}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Log in</h1>
-        <p style={styles.subtitle}>Welcome back, learner.</p>
+    <div className="auth-page">
+      <main className="auth-card">
+        <div className="auth-mark">
+          <div className="sidebar-mark">A</div>
+          <span className="sidebar-mark-text">AdaptiveLearn</span>
+        </div>
+        <h1 className="page-greeting" style={{ marginBottom: "var(--sp-1)" }}>
+          Log in
+        </h1>
+        <p className="page-subhead">Welcome back, learner.</p>
 
         {error ? (
-          <div role="alert" style={styles.errorBanner}>
-            <Badge tone="danger">Error</Badge>
-            <span>{error}</span>
-          </div>
+          <Banner tone="danger" role="alert">
+            {error}
+          </Banner>
         ) : null}
 
-        <form onSubmit={onSubmit} style={styles.form} aria-label="Log in">
-          <Input
-            label="Email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            required
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <Input
-            label="Password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            required
-            onChange={(e) => setPassword(e.target.value)}
-          />
+        <form onSubmit={onSubmit} className="auth-form" aria-label="Log in">
+          <label className="form-field">
+            <span className="form-label">Email</span>
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              required
+              onChange={(e) => setEmail(e.target.value)}
+              className="form-input"
+            />
+          </label>
+          <label className="form-field">
+            <span className="form-label">Password</span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              required
+              onChange={(e) => setPassword(e.target.value)}
+              className="form-input"
+            />
+          </label>
 
-          <div style={styles.row}>
-            <label style={styles.checkboxRow}>
-              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-              <span style={{ color: tokens.colors.text.secondary }}>Remember me</span>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontSize: 13,
+            }}
+          >
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--sp-2)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              Remember me
             </label>
-            <Link to="/forgot-password" style={styles.link}>Forgot?</Link>
+            <Link to="/forgot-password" className="auth-link">
+              Forgot?
+            </Link>
           </div>
 
-          <Button type="submit" size="lg" isLoading={submitting} style={{ width: "100%" }}>
+          <button
+            type="submit"
+            className="btn btn-primary btn-block"
+            disabled={submitting}
+          >
             {submitting ? "Logging in…" : "Log in"}
-          </Button>
+          </button>
         </form>
 
-        <div style={styles.footer}>
-          <span style={{ color: tokens.colors.text.secondary }}>New here?</span>{" "}
-          <Link to="/register" style={styles.link}>Sign up</Link>
-        </div>
-      </div>
-    </main>
+        <p className="auth-footer">
+          New here?{" "}
+          <Link to="/register" className="auth-link">
+            Sign up
+          </Link>
+        </p>
+      </main>
+    </div>
   );
 }
 
@@ -114,73 +156,3 @@ function friendlyError(err: unknown): string {
       return "Something went wrong. Please try again.";
   }
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: tokens.spacing[4],
-    background: tokens.colors.surface.secondary,
-    fontFamily: tokens.typography.family.ui,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 480,
-    background: tokens.colors.surface.primary,
-    borderRadius: tokens.radius.card,
-    border: `1px solid ${tokens.colors.border.default}`,
-    padding: tokens.spacing[6],
-  },
-  title: {
-    margin: 0,
-    fontSize: tokens.typography.scale.pageTitle.size,
-    fontWeight: tokens.typography.scale.pageTitle.weight,
-    color: tokens.colors.text.primary,
-  },
-  subtitle: {
-    marginTop: tokens.spacing[2],
-    marginBottom: tokens.spacing[5],
-    color: tokens.colors.text.secondary,
-    fontSize: tokens.typography.scale.body.size,
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: tokens.spacing[4],
-  },
-  row: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  checkboxRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: tokens.spacing[2],
-    fontSize: tokens.typography.scale.body.size,
-  },
-  link: {
-    color: tokens.colors.brand.primary,
-    textDecoration: "none",
-    fontSize: tokens.typography.scale.body.size,
-    fontWeight: 500,
-  },
-  errorBanner: {
-    display: "flex",
-    alignItems: "center",
-    gap: tokens.spacing[2],
-    padding: tokens.spacing[3],
-    borderRadius: tokens.radius.panel,
-    background: tokens.colors.semantic.danger.bg,
-    color: tokens.colors.semantic.danger.fg,
-    marginBottom: tokens.spacing[4],
-    fontSize: tokens.typography.scale.body.size,
-  },
-  footer: {
-    marginTop: tokens.spacing[5],
-    textAlign: "center",
-    fontSize: tokens.typography.scale.body.size,
-  },
-};

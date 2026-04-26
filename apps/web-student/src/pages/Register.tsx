@@ -1,7 +1,8 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Badge, Button, Input, tokens } from "@alp/design-system";
 import { auth } from "../lib/api";
+import { Banner } from "../components/dashboard";
+import "@alp/design-system/shell.css";
 
 interface ApiProblem {
   code?: string;
@@ -42,11 +43,7 @@ export function Register() {
         phone: phone || undefined,
         locale: "en-IN",
       });
-      const params = new URLSearchParams({
-        userId: result.userId,
-        email,
-        kind: "email",
-      });
+      const params = new URLSearchParams({ userId: result.userId, email, kind: "email" });
       navigate(`/verify?${params.toString()}`, { replace: true });
     } catch (err) {
       setError(friendlyError(err));
@@ -56,82 +53,127 @@ export function Register() {
   }
 
   return (
-    <main style={styles.page}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Create account</h1>
+    <div className="auth-page">
+      <main className="auth-card">
+        <div className="auth-mark">
+          <div className="sidebar-mark">A</div>
+          <span className="sidebar-mark-text">AdaptiveLearn</span>
+        </div>
+        <h1 className="page-greeting" style={{ marginBottom: "var(--sp-5)" }}>
+          Create account
+        </h1>
 
         {error ? (
-          <div role="alert" style={styles.errorBanner}>
-            <Badge tone="danger">Error</Badge>
-            <span>{error}</span>
-          </div>
+          <Banner tone="danger" role="alert">
+            {error}
+          </Banner>
         ) : null}
 
-        <form onSubmit={onSubmit} style={styles.form} aria-label="Create account">
-          <div style={styles.row2}>
-            <Input
-              label="First name"
-              value={firstName}
-              required
-              onChange={(e) => setFirstName(e.target.value)}
-            />
-            <Input
-              label="Last name"
-              value={lastName}
-              required
-              onChange={(e) => setLastName(e.target.value)}
-            />
+        <form onSubmit={onSubmit} className="auth-form" aria-label="Create account">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--sp-3)" }}>
+            <label className="form-field">
+              <span className="form-label">First name</span>
+              <input
+                value={firstName}
+                required
+                onChange={(e) => setFirstName(e.target.value)}
+                className="form-input"
+              />
+            </label>
+            <label className="form-field">
+              <span className="form-label">Last name</span>
+              <input
+                value={lastName}
+                required
+                onChange={(e) => setLastName(e.target.value)}
+                className="form-input"
+              />
+            </label>
           </div>
 
-          <Input
-            label="Email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            required
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          <label className="form-field">
+            <span className="form-label">Email</span>
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              required
+              onChange={(e) => setEmail(e.target.value)}
+              className="form-input"
+            />
+          </label>
 
-          <Input
-            label="Phone (optional — for SMS OTP)"
-            type="tel"
-            value={phone}
-            placeholder="+91 ..."
-            onChange={(e) => setPhone(e.target.value)}
-          />
+          <label className="form-field">
+            <span className="form-label">Phone (optional — for SMS OTP)</span>
+            <input
+              type="tel"
+              value={phone}
+              placeholder="+91 ..."
+              onChange={(e) => setPhone(e.target.value)}
+              className="form-input"
+            />
+          </label>
 
           <div>
-            <Input
-              label="Password (min 12 characters)"
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              required
-              onChange={(e) => setPassword(e.target.value)}
-              hint={password ? undefined : "At least 12 characters"}
-              error={password && password.length < 12 ? "Too short" : undefined}
-            />
+            <label className="form-field">
+              <span className="form-label">Password (min 12 characters)</span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                required
+                onChange={(e) => setPassword(e.target.value)}
+                className="form-input"
+              />
+            </label>
             {password ? <StrengthMeter score={strength.score} label={strength.label} /> : null}
           </div>
 
-          <label style={styles.checkboxRow}>
-            <input type="checkbox" checked={tos} onChange={(e) => setTos(e.target.checked)} required />
-            <span style={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.scale.body.size }}>
-              I agree to the <a href="/terms" style={styles.link}>Terms</a> and <a href="/privacy" style={styles.link}>Privacy</a>.
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "var(--sp-2)",
+              fontSize: 13,
+              color: "var(--text-secondary)",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={tos}
+              onChange={(e) => setTos(e.target.checked)}
+              required
+            />
+            <span>
+              I agree to the{" "}
+              <a href="/terms" className="auth-link">
+                Terms
+              </a>{" "}
+              and{" "}
+              <a href="/privacy" className="auth-link">
+                Privacy
+              </a>
+              .
             </span>
           </label>
 
-          <Button type="submit" size="lg" isLoading={submitting} disabled={!canSubmit} style={{ width: "100%" }}>
+          <button
+            type="submit"
+            className="btn btn-primary btn-block"
+            disabled={!canSubmit}
+          >
             {submitting ? "Creating account…" : "Create account"}
-          </Button>
+          </button>
         </form>
 
-        <div style={styles.footer}>
-          <span style={{ color: tokens.colors.text.secondary }}>Have an account?</span>{" "}
-          <Link to="/login" style={styles.link}>Log in</Link>
-        </div>
-      </div>
-    </main>
+        <p className="auth-footer">
+          Have an account?{" "}
+          <Link to="/login" className="auth-link">
+            Log in
+          </Link>
+        </p>
+      </main>
+    </div>
   );
 }
 
@@ -154,41 +196,26 @@ function passwordStrength(pw: string): StrengthResult {
 
 function StrengthMeter({ score, label }: StrengthResult) {
   const segmentColor = (i: number): string => {
-    if (i >= score) return tokens.colors.surface.tertiary;
-    if (score <= 1) return tokens.colors.semantic.danger.fg;
-    if (score === 2) return tokens.colors.semantic.warning.fg;
-    return tokens.colors.semantic.success.fg;
+    if (i >= score) return "var(--bg-surface3)";
+    if (score <= 1) return "var(--color-red)";
+    if (score === 2) return "var(--color-amber)";
+    return "var(--color-green)";
   };
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: tokens.spacing[1],
-        alignItems: "center",
-        marginTop: tokens.spacing[1],
-      }}
-      aria-live="polite"
-    >
+    <div className="strength-meter" aria-live="polite">
       {[0, 1, 2, 3].map((i) => (
         <div
           key={i}
-          style={{
-            height: 4,
-            flex: 1,
-            background: segmentColor(i),
-            borderRadius: tokens.radius.pill,
-          }}
+          className="strength-meter-seg"
+          style={{ background: segmentColor(i) }}
         />
       ))}
-      <span style={{ fontSize: tokens.typography.scale.hint.size, color: tokens.colors.text.muted, marginLeft: tokens.spacing[2] }}>
-        {label}
-      </span>
+      <span className="strength-meter-label">{label}</span>
     </div>
   );
 }
 
 function friendlyError(err: unknown): string {
-  // The auth-client rethrows AuthError on 409 with the body. Try to read a code if present.
   if (err && typeof err === "object" && "status" in err) {
     const status = (err as { status?: number }).status;
     if (status === 409) return "Email is already registered. Try logging in instead.";
@@ -200,59 +227,3 @@ function friendlyError(err: unknown): string {
   }
   return "We couldn't create your account. Please try again.";
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: tokens.spacing[4],
-    background: tokens.colors.surface.secondary,
-    fontFamily: tokens.typography.family.ui,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 480,
-    background: tokens.colors.surface.primary,
-    borderRadius: tokens.radius.card,
-    border: `1px solid ${tokens.colors.border.default}`,
-    padding: tokens.spacing[6],
-  },
-  title: {
-    margin: 0,
-    marginBottom: tokens.spacing[5],
-    fontSize: tokens.typography.scale.pageTitle.size,
-    fontWeight: tokens.typography.scale.pageTitle.weight,
-    color: tokens.colors.text.primary,
-  },
-  form: { display: "flex", flexDirection: "column", gap: tokens.spacing[4] },
-  row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: tokens.spacing[3] },
-  checkboxRow: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: tokens.spacing[2],
-    fontSize: tokens.typography.scale.body.size,
-  },
-  link: {
-    color: tokens.colors.brand.primary,
-    textDecoration: "none",
-    fontWeight: 500,
-  },
-  errorBanner: {
-    display: "flex",
-    alignItems: "center",
-    gap: tokens.spacing[2],
-    padding: tokens.spacing[3],
-    borderRadius: tokens.radius.panel,
-    background: tokens.colors.semantic.danger.bg,
-    color: tokens.colors.semantic.danger.fg,
-    marginBottom: tokens.spacing[4],
-    fontSize: tokens.typography.scale.body.size,
-  },
-  footer: {
-    marginTop: tokens.spacing[5],
-    textAlign: "center",
-    fontSize: tokens.typography.scale.body.size,
-  },
-};

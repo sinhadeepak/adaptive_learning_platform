@@ -1025,3 +1025,78 @@
   color: var(--text-muted);
   font-weight: 600;
 }
+
+/* ── Auth-card link / footer / OTP cells ──────────────────── */
+.auth-link {
+  color: var(--color-blue);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 13px;
+}
+.auth-link:hover { text-decoration: underline; }
+.auth-footer {
+  margin-top: var(--sp-5);
+  margin-bottom: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.auth-back {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 12px;
+  display: inline-block;
+  margin-bottom: var(--sp-3);
+}
+.auth-back:hover { color: var(--text-primary); }
+.auth-link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-blue);
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+}
+.otp-cells {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.otp-cell {
+  width: 48px;
+  height: 56px;
+  font-size: 24px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  background: var(--bg-surface3);
+  outline: none;
+  transition: var(--trans-fast);
+}
+.otp-cell:focus {
+  border-color: var(--color-blue);
+  background: var(--bg-surface2);
+}
+.strength-meter {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 6px;
+}
+.strength-meter-seg {
+  height: 4px;
+  flex: 1;
+  border-radius: 9999px;
+  background: var(--bg-surface3);
+  transition: background 200ms ease;
+}
+.strength-meter-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: var(--sp-2);
+}
