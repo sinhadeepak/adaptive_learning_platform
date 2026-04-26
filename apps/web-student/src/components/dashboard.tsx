@@ -3,7 +3,7 @@
    wrapper that emits the same DOM shape the canonical .html screens use,
    so the shared shell.css styling cascades correctly. */
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 // ── Strength bucket: EWA in [0, 1] → token bucket name ──────────────────
 export type Strength = "STRONG" | "DEVELOPING" | "WEAK" | "NOT_STARTED";
@@ -120,6 +120,68 @@ export function AiInsightPanel({ items }: { items: InsightItem[] }): ReactNode {
           />
           <span>{item.text}</span>
         </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Pill (tier / status chip) ───────────────────────────────────────────
+export type PillTone = "info" | "warning" | "success" | "danger" | "muted";
+
+export function Pill({
+  tone = "muted",
+  children,
+}: {
+  tone?: PillTone;
+  children: ReactNode;
+}): ReactNode {
+  return <span className={`pill pill-${tone}`}>{children}</span>;
+}
+
+// ── Banner (info / warning / danger / success) ──────────────────────────
+export function Banner({
+  tone = "info",
+  icon,
+  children,
+  role,
+}: {
+  tone?: PillTone;
+  icon?: ReactNode;
+  children: ReactNode;
+  role?: "alert" | "status";
+}): ReactNode {
+  const fallbackIcon: Record<PillTone, string> = {
+    info: "ℹ︎",
+    warning: "⚠︎",
+    danger: "⚠︎",
+    success: "✓",
+    muted: "•",
+  };
+  return (
+    <div className={`banner banner-${tone}`} role={role}>
+      <span className="banner-icon" aria-hidden>
+        {icon ?? fallbackIcon[tone]}
+      </span>
+      <span className="banner-body">{children}</span>
+    </div>
+  );
+}
+
+// ── Skeleton row (loading state) ────────────────────────────────────────
+export function SkeletonRows({
+  count = 3,
+  style,
+}: {
+  count?: number;
+  style?: CSSProperties;
+}): ReactNode {
+  return (
+    <div
+      style={{ display: "flex", flexDirection: "column", gap: 8, ...style }}
+      aria-hidden
+    >
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="skeleton-row" />
       ))}
     </div>
   );
