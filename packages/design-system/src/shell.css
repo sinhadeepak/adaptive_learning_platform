@@ -2374,3 +2374,152 @@
 }
 .ma-text { font-size: 11px; color: var(--text-secondary); line-height: 1.45; }
 .ma-text strong { color: var(--text-primary); font-weight: 600; }
+
+/* ── Topic detail hero (AI Practice prep) ─────────────────── */
+/* Used by /catalog/topic/:topicId. Mirrors the AI-first dashboards
+   (master, exam, study-map) for visual consistency. */
+.topic-hero {
+  background: linear-gradient(115deg, rgba(34,212,238,0.06), rgba(79,135,246,0.07), rgba(167,139,250,0.04));
+  border: 1px solid rgba(34,212,238,0.16);
+  border-radius: var(--radius-lg);
+  padding: 22px 26px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.topic-hero::after {
+  content: '';
+  position: absolute;
+  right: -50px;
+  top: -50px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(34,212,238,0.05), transparent 70%);
+  pointer-events: none;
+}
+.topic-hero-left { flex: 1; min-width: 0; position: relative; z-index: 1; }
+.topic-hero-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.topic-hero-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 4px 0 6px;
+  line-height: 1.2;
+}
+.topic-hero-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 520px;
+}
+.topic-hero-sub strong { color: var(--text-primary); font-weight: 600; }
+.topic-hero-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+/* Topic stats row — mirrors exam-hero stat tiles */
+.topic-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: var(--sp-4);
+}
+.topic-stat {
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+.topic-stat-num {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.topic-stat-lbl {
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 0.3px;
+  margin-top: 4px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.topic-stat-foot {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* About / Objectives / Prerequisites cards on topic-detail */
+.topic-section {
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-5);
+  margin-bottom: var(--sp-3);
+}
+.topic-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 var(--sp-3);
+}
+.topic-section-body {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+.topic-objectives {
+  list-style: decimal;
+  padding-left: 22px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Quiz — AI Practice eyebrow (PR #44 polish) ───────────── */
+.quiz-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--sp-3);
+  flex-wrap: wrap;
+}
+.quiz-eyebrow .ai-pill {
+  /* uses existing .ai-pill from earlier */
+}
+.quiz-difficulty {
+  font-size: 10px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+}
+.quiz-theta-tracker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(167,139,250,0.10);
+  border: 1px solid rgba(167,139,250,0.22);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-purple);
+  letter-spacing: 0.3px;
+}

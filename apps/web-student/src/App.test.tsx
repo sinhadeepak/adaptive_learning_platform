@@ -458,10 +458,15 @@ test("/catalog/topic/:id renders topic detail with active quiz CTA (Sprint 3)", 
     return new Response("not found", { status: 404 });
   });
   renderAt("/catalog/topic/t1");
-  expect(await screen.findByRole("heading", { name: /Mechanics/ })).toBeInTheDocument();
-  expect(await screen.findByText(/Motion, forces, and energy/)).toBeInTheDocument();
-  // Sprint 3: button is now active. Lessons remain disabled (Sprint 4).
-  const quizBtn = screen.getByRole("button", { name: /start practice quiz/i });
+  // PR #59 rewrote TopicDetail with the AI-first hero. "Mechanics" heading
+  // appears in both topbar (.topbar-title) and the hero h1 (.topic-hero-title);
+  // description leaks into hero subtitle + About section card.
+  const headings = await screen.findAllByRole("heading", { name: /Mechanics/ });
+  expect(headings.length).toBeGreaterThanOrEqual(1);
+  expect((await screen.findAllByText(/Motion, forces, and energy/)).length).toBeGreaterThanOrEqual(1);
+  // PR #59 renamed the primary CTA from "Start practice quiz" to
+  // "◈ Start AI practice" to match the dashboards' AI-Adaptive language.
+  const quizBtn = screen.getByRole("button", { name: /start ai practice/i });
   expect(quizBtn).toBeEnabled();
   const lessonsBtn = screen.getByRole("button", { name: /read lesson notes/i });
   expect(lessonsBtn).toBeDisabled();
