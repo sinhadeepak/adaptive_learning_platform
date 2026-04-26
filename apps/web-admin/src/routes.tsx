@@ -9,6 +9,8 @@ import { Audit } from "./pages/Audit";
 import { Users } from "./pages/Users";
 import { Tenants } from "./pages/Tenants";
 import { Ops } from "./pages/Ops";
+import { Profile } from "./pages/Profile";
+import { Settings } from "./pages/Settings";
 
 const adminRoute = (path: string, element: ReactElement): RouteObject => ({
   path,
@@ -36,5 +38,7 @@ export const routes: RouteObject[] = [
   adminRoute("/users", <Users />),
   adminRoute("/tenants", <Tenants />),
   adminRoute("/ops", <Ops />),
+  adminRoute("/profile", <Profile />),
+  adminRoute("/settings", <Settings />),
   { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];

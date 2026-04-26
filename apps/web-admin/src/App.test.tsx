@@ -422,3 +422,71 @@ test("/ on web-admin redirects to /dashboard when authenticated", async () => {
   // Lands on Dashboard
   expect(await screen.findByText(/ops console/i)).toBeInTheDocument();
 });
+
+test("/profile renders admin profile with role + access pills", async () => {
+  asAuthenticated();
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+    async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/api/v1/profile/me")) {
+        return new Response(
+          JSON.stringify({
+            user: {
+              id: "u-admin",
+              email: "ops@alp.dev",
+              firstName: "Ops",
+              lastName: "Admin",
+              role: "PLATFORM_ADMIN",
+              adminAccessLevel: "PLATFORM",
+              emailVerifiedAt: "2026-04-21T00:00:00Z",
+              createdAt: "2026-04-01T00:00:00Z",
+            },
+            preferences: { language: "en", dailyGoalMinutes: null },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    },
+  );
+  renderAt("/profile");
+  expect((await screen.findAllByText(/Ops Admin/)).length).toBeGreaterThanOrEqual(1);
+  expect((await screen.findAllByText(/ops@alp\.dev/)).length).toBeGreaterThanOrEqual(1);
+  expect(screen.getByRole("heading", { name: /^Account$/i })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /Access.*permissions/i }))
+    .toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /Audit footprint/i })).toBeInTheDocument();
+});
+
+test("/settings renders admin settings with language radios + sign-out", async () => {
+  asAuthenticated();
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+    async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/api/v1/profile/me")) {
+        return new Response(
+          JSON.stringify({
+            user: {
+              id: "u-admin",
+              email: "ops@alp.dev",
+              firstName: "Ops",
+              role: "PLATFORM_ADMIN",
+              adminAccessLevel: "PLATFORM",
+            },
+            preferences: { language: "en", dailyGoalMinutes: null },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    },
+  );
+  renderAt("/settings");
+  expect(await screen.findByRole("heading", { name: /^Settings$/i }))
+    .toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /UI language/i })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /Sign out/i })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /English/i })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /हिन्दी/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /save preferences/i })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /sign out of this device/i }))
+    .toBeInTheDocument();
+});
