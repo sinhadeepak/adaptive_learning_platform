@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Badge, Button, tokens } from "@alp/design-system";
 import { auth } from "../lib/api";
+import { AppShell } from "../components/AppShell";
+import { Banner, Pill, SkeletonRows } from "../components/dashboard";
 
 interface ItemSummary {
   itemIdx: number;
@@ -43,16 +44,19 @@ export function QuizResult() {
       try {
         const r = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}`);
         if (!r.ok) {
-          setError(r.status === 404 ? "Session not found." : "We couldn't load your results.");
+          setError(
+            r.status === 404 ? "Session not found." : "We couldn't load your results.",
+          );
           return;
         }
         const body = (await r.json()) as SessionDetail;
         setSession(body);
-        // Topic title for context — best-effort, ignore failures.
         try {
           const t = await auth.fetch(`/api/v1/catalog/topics/${body.topicId}`);
           if (t.ok) setTopic((await t.json()) as Topic);
-        } catch { /* swallow */ }
+        } catch {
+          /* swallow */
+        }
       } catch {
         setError("We couldn't load your results.");
       }
@@ -61,161 +65,135 @@ export function QuizResult() {
 
   if (error) {
     return (
-      <main style={styles.page}>
-        <section style={styles.card}>
-          <div role="alert" style={styles.errorBanner}>
-            <Badge tone="danger">Error</Badge>
-            <span>{error}</span>
-          </div>
-          <Button onClick={() => navigate("/catalog")}>Back to catalog</Button>
-        </section>
-      </main>
+      <AppShell title="Result">
+        <Banner tone="danger" role="alert">
+          {error}
+        </Banner>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => navigate("/catalog")}
+        >
+          Back to catalog
+        </button>
+      </AppShell>
     );
   }
 
   if (!session) {
     return (
-      <main style={styles.page}>
-        <section style={styles.card}>
-          <p style={{ color: tokens.colors.text.muted }}>Loading…</p>
-        </section>
-      </main>
+      <AppShell title="Result">
+        <SkeletonRows count={2} />
+      </AppShell>
     );
   }
 
   const total = session.servedCount;
   const correct = session.correctCount;
   const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
-  const scoreTone: "success" | "warning" | "danger" =
-    pct >= 80 ? "success" : pct >= 50 ? "warning" : "danger";
+  const pctTone =
+    pct >= 80 ? "result-score-pct-success" : pct >= 50 ? "result-score-pct-warning" : "result-score-pct-danger";
+  const pillTone = pct >= 80 ? "success" : pct >= 50 ? "warning" : "danger";
   const headline =
     session.status === "EXPIRED"
       ? "Session expired"
       : pct >= 80
-      ? "Strong run."
-      : pct >= 50
-      ? "Decent — room to push."
-      : "Keep going — these will click.";
+        ? "Strong run."
+        : pct >= 50
+          ? "Decent — room to push."
+          : "Keep going — these will click.";
 
   return (
-    <main style={styles.page}>
-      <section style={styles.card}>
-        <header style={styles.header}>
-          <Badge tone={scoreTone}>{session.status === "EXPIRED" ? "Expired" : "Submitted"}</Badge>
+    <AppShell
+      title="Quiz result"
+      actions={
+        <Link to="/catalog" className="btn btn-ghost">
+          ← Catalog
+        </Link>
+      }
+    >
+      <section className="result-card">
+        <header className="result-header">
+          <Pill tone={pillTone}>
+            {session.status === "EXPIRED" ? "Expired" : "Submitted"}
+          </Pill>
           {topic ? (
-            <Link to={`/catalog/topic/${topic.id}`} style={styles.topicLink}>
+            <Link
+              to={`/catalog/topic/${topic.id}`}
+              style={{
+                color: "var(--color-blue)",
+                textDecoration: "none",
+                fontSize: 13,
+                fontWeight: 500,
+              }}
+            >
               {topic.title}
             </Link>
           ) : null}
         </header>
 
-        <h1 style={styles.headline}>{headline}</h1>
+        <h1 className="result-headline">{headline}</h1>
 
-        <div style={styles.scoreRow}>
-          <div style={styles.scoreNumber}>
+        <div className="result-score-row">
+          <div className="result-score-number">
             {correct}
-            <span style={styles.scoreDenom}>/{total}</span>
+            <span className="result-score-denom">/{total}</span>
           </div>
-          <div style={styles.scoreMeta}>
-            <div style={styles.scorePct}>{pct}%</div>
-            <div style={styles.scoreLabel}>{session.mode === "MOCK" ? "Mock" : "Practice"} · {session.strategy === "irt" ? "Adaptive" : "Linear"}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span className={`result-score-pct ${pctTone}`}>{pct}%</span>
+            <span className="result-score-label">
+              {session.mode === "MOCK" ? "Mock" : "Practice"} ·{" "}
+              {session.strategy === "irt" ? "Adaptive" : "Linear"}
+            </span>
           </div>
         </div>
 
-        <h2 style={styles.h2}>Item review</h2>
-        <ol style={styles.review}>
+        <h2 className="section-heading">Item review</h2>
+        <ol className="result-review">
           {session.items.map((it) => (
-            <li key={it.itemIdx} style={styles.reviewRow}>
-              <span style={styles.reviewIdx}>Q{it.itemIdx + 1}</span>
-              <span style={styles.reviewStatus}>
+            <li key={it.itemIdx} className="result-review-row">
+              <span className="result-review-idx">Q{it.itemIdx + 1}</span>
+              <span className="result-review-status">
                 {it.answered ? (
-                  it.isCorrect ? <Badge tone="success">Correct</Badge> : <Badge tone="danger">Incorrect</Badge>
+                  it.isCorrect ? (
+                    <Pill tone="success">Correct</Pill>
+                  ) : (
+                    <Pill tone="danger">Incorrect</Pill>
+                  )
                 ) : (
-                  <Badge>Skipped</Badge>
+                  <Pill tone="muted">Skipped</Pill>
                 )}
               </span>
-              <span style={styles.reviewQid}>#{it.questionId.slice(0, 8)}</span>
+              <span className="result-review-qid">#{it.questionId.slice(0, 8)}</span>
             </li>
           ))}
         </ol>
 
-        <div style={styles.actions}>
-          <Button onClick={() => topic && navigate(`/catalog/topic/${topic.id}`)} disabled={!topic} size="lg">
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginTop: "var(--sp-6)",
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => topic && navigate(`/catalog/topic/${topic.id}`)}
+            disabled={!topic}
+          >
             Practice this topic again
-          </Button>
-          <Button variant="secondary" onClick={() => navigate("/catalog")} size="lg">
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => navigate("/catalog")}
+          >
             Back to catalog
-          </Button>
+          </button>
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: "100vh",
-    background: tokens.colors.surface.secondary,
-    fontFamily: tokens.typography.family.ui,
-    padding: tokens.spacing[5],
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  card: {
-    width: "100%",
-    maxWidth: 720,
-    background: tokens.colors.surface.primary,
-    borderRadius: tokens.radius.card,
-    border: `1px solid ${tokens.colors.border.default}`,
-    padding: tokens.spacing[6],
-  },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: tokens.spacing[4] },
-  topicLink: { color: tokens.colors.brand.primary, textDecoration: "none", fontSize: tokens.typography.scale.body.size, fontWeight: 500 },
-  headline: {
-    margin: 0,
-    fontSize: tokens.typography.scale.pageTitle.size,
-    fontWeight: tokens.typography.scale.pageTitle.weight,
-    color: tokens.colors.text.primary,
-  },
-  scoreRow: { display: "flex", alignItems: "baseline", gap: tokens.spacing[5], margin: `${tokens.spacing[5]}px 0` },
-  scoreNumber: {
-    fontSize: 56,
-    fontWeight: 700,
-    color: tokens.colors.text.primary,
-    lineHeight: 1,
-  },
-  scoreDenom: { fontSize: 28, color: tokens.colors.text.muted, fontWeight: 500 },
-  scoreMeta: { display: "flex", flexDirection: "column", gap: tokens.spacing[1] },
-  scorePct: { fontSize: tokens.typography.scale.sectionHeading.size, fontWeight: 600, color: tokens.colors.text.primary },
-  scoreLabel: { fontSize: tokens.typography.scale.body.size, color: tokens.colors.text.secondary },
-  h2: {
-    margin: `${tokens.spacing[5]}px 0 ${tokens.spacing[2]}px 0`,
-    fontSize: tokens.typography.scale.sectionHeading.size,
-    fontWeight: tokens.typography.scale.sectionHeading.weight,
-    color: tokens.colors.text.primary,
-  },
-  review: { listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: tokens.spacing[1] },
-  reviewRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: tokens.spacing[3],
-    padding: `${tokens.spacing[2]}px 0`,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
-    fontSize: tokens.typography.scale.body.size,
-  },
-  reviewIdx: { fontWeight: 600, color: tokens.colors.text.primary, minWidth: 36 },
-  reviewStatus: { flex: 1 },
-  reviewQid: { color: tokens.colors.text.muted, fontFamily: tokens.typography.family.mono, fontSize: tokens.typography.scale.label.size },
-  actions: { display: "flex", flexDirection: "column", gap: tokens.spacing[2], marginTop: tokens.spacing[5] },
-  errorBanner: {
-    display: "flex",
-    alignItems: "center",
-    gap: tokens.spacing[2],
-    padding: tokens.spacing[3],
-    borderRadius: tokens.radius.panel,
-    background: tokens.colors.semantic.danger.bg,
-    color: tokens.colors.semantic.danger.fg,
-    marginBottom: tokens.spacing[4],
-  },
-};

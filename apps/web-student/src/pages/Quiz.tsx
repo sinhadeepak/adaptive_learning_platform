@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Badge, Button, tokens } from "@alp/design-system";
 import { auth } from "../lib/api";
+import { AppShell } from "../components/AppShell";
+import { Banner, Pill, SkeletonRows } from "../components/dashboard";
 
 interface QuizItem {
   itemIdx: number;
@@ -46,7 +47,6 @@ export function Quiz() {
     try {
       const r = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/next`);
       if (r.status === 409) {
-        // Session is SUBMITTED or EXPIRED — go review.
         navigate(`/quiz/${sessionId}/result`, { replace: true });
         return;
       }
@@ -67,8 +67,6 @@ export function Quiz() {
     }
   }, [sessionId, navigate]);
 
-  // Pull the session's running counts on mount + after each answer so the
-  // header bar always reflects truth even if the user reloaded mid-quiz.
   const fetchSession = useCallback(async () => {
     if (!sessionId) return;
     try {
@@ -85,7 +83,7 @@ export function Quiz() {
         navigate(`/quiz/${sessionId}/result`, { replace: true });
       }
     } catch {
-      // ignore — header is best-effort
+      /* header is best-effort */
     }
   }, [sessionId, navigate]);
 
@@ -127,7 +125,6 @@ export function Quiz() {
     }
   }
 
-  // Done state: target reached or bank exhausted — auto-submit + go to result.
   useEffect(() => {
     if (done) {
       finishSession();
@@ -136,63 +133,79 @@ export function Quiz() {
 
   if (error) {
     return (
-      <main style={styles.page}>
-        <section style={styles.card}>
-          <div role="alert" style={styles.errorBanner}>
-            <Badge tone="danger">Error</Badge>
-            <span>{error}</span>
-          </div>
-          <Button onClick={() => navigate("/catalog")}>Back to catalog</Button>
-        </section>
-      </main>
+      <AppShell title="Quiz">
+        <Banner tone="danger" role="alert">
+          {error}
+        </Banner>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => navigate("/catalog")}
+        >
+          Back to catalog
+        </button>
+      </AppShell>
     );
   }
 
   if (done || !item) {
     return (
-      <main style={styles.page}>
-        <section style={styles.card}>
-          <p style={{ color: tokens.colors.text.muted }}>Wrapping up…</p>
-        </section>
-      </main>
+      <AppShell title="Quiz">
+        <SkeletonRows count={2} />
+      </AppShell>
     );
   }
 
   const showFeedback = verdict !== null;
+  const questionNumber = counts.served + (showFeedback ? 0 : 1);
+  const remaining = Math.max(0, counts.target - counts.served);
+  const progressPct = counts.target > 0 ? Math.min(100, Math.round((counts.served / counts.target) * 100)) : 0;
 
   return (
-    <main style={styles.page}>
-      <header style={styles.progress}>
-        <span style={styles.progressMeta}>
-          Question {counts.served + (showFeedback ? 0 : 1)} of {counts.target}
+    <AppShell
+      title={`Question ${questionNumber} of ${counts.target}`}
+      chips={[
+        { label: `${counts.correct} correct` },
+        { label: remaining > 0 ? `${remaining} left` : "Final question" },
+      ]}
+    >
+      <div className="quiz-progress-bar" aria-label={`Progress ${progressPct}%`}>
+        <div className="quiz-progress-track">
+          <div className="quiz-progress-fill" style={{ width: `${progressPct}%` }} />
+        </div>
+        <span className="quiz-progress-meta">
+          {counts.served} / {counts.target}
         </span>
-        <span style={styles.progressMeta}>
-          {counts.correct} correct
-        </span>
-      </header>
+      </div>
 
-      <section style={styles.card}>
-        <h1 style={styles.stem}>{item.stem}</h1>
+      <section className="quiz-card">
+        <h1 className="quiz-stem">{item.stem}</h1>
 
-        <ol style={styles.choices}>
+        <ol className="quiz-choices">
           {item.choices.map((choice, idx) => {
             const isSelected = selectedIdx === idx;
             const isCorrectAnswer = showFeedback && idx === verdict!.correctIdx;
             const isWrongPick = showFeedback && idx === selectedIdx && !verdict!.isCorrect;
-            const tone = isCorrectAnswer ? "success" : isWrongPick ? "danger" : isSelected ? "selected" : "default";
+            const variant = isCorrectAnswer
+              ? "quiz-choice-correct"
+              : isWrongPick
+                ? "quiz-choice-wrong"
+                : isSelected
+                  ? "quiz-choice-selected"
+                  : "";
             return (
               <li key={idx}>
                 <button
                   type="button"
                   onClick={() => !showFeedback && setSelectedIdx(idx)}
                   disabled={showFeedback}
-                  style={{ ...styles.choice, ...styles[`choice_${tone}`] }}
+                  className={`quiz-choice ${variant}`.trim()}
                   aria-pressed={isSelected}
                 >
-                  <span style={styles.choiceLetter}>{String.fromCharCode(65 + idx)}</span>
-                  <span style={styles.choiceText}>{choice}</span>
-                  {tone === "success" ? <Badge tone="success">Correct</Badge> : null}
-                  {tone === "danger" ? <Badge tone="danger">Your answer</Badge> : null}
+                  <span className="quiz-choice-letter">{String.fromCharCode(65 + idx)}</span>
+                  <span className="quiz-choice-text">{choice}</span>
+                  {isCorrectAnswer ? <Pill tone="success">Correct</Pill> : null}
+                  {isWrongPick ? <Pill tone="danger">Your answer</Pill> : null}
                 </button>
               </li>
             );
@@ -200,18 +213,24 @@ export function Quiz() {
         </ol>
 
         {showFeedback ? (
-          <div role="status" style={verdict!.isCorrect ? styles.feedbackOk : styles.feedbackKo}>
-            <strong>{verdict!.isCorrect ? "Nice — that's right." : "Not quite."}</strong>{" "}
-            {verdict!.isCorrect
-              ? "Keep going."
-              : `The correct answer is ${String.fromCharCode(65 + verdict!.correctIdx)}.`}
+          <div
+            role="status"
+            className={`quiz-feedback ${verdict!.isCorrect ? "quiz-feedback-correct" : "quiz-feedback-wrong"}`}
+          >
+            <strong>{verdict!.isCorrect ? "Nice — that's right." : "Not quite."}</strong>
+            <span>
+              {verdict!.isCorrect
+                ? "Keep going."
+                : `The correct answer is ${String.fromCharCode(65 + verdict!.correctIdx)}.`}
+            </span>
           </div>
         ) : null}
 
-        <div style={styles.actions}>
+        <div className="quiz-actions">
           {showFeedback ? (
-            <Button
-              size="lg"
+            <button
+              type="button"
+              className="btn btn-primary btn-block"
               onClick={() => {
                 if (counts.served >= counts.target) {
                   setDone(true);
@@ -219,149 +238,24 @@ export function Quiz() {
                   fetchNext();
                 }
               }}
-              style={{ width: "100%" }}
             >
               {counts.served >= counts.target ? "Finish quiz" : "Next question"}
-            </Button>
+            </button>
           ) : (
-            <Button
-              size="lg"
-              isLoading={submitting}
+            <button
+              type="button"
+              className="btn btn-primary btn-block"
+              disabled={selectedIdx === null || submitting}
               onClick={submitAnswer}
-              disabled={selectedIdx === null}
-              style={{ width: "100%" }}
             >
               {submitting ? "Submitting…" : "Submit answer"}
-            </Button>
+            </button>
           )}
-          <button type="button" onClick={finishSession} style={styles.linkButton}>
+          <button type="button" className="link-button" onClick={finishSession}>
             End quiz now
           </button>
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: "100vh",
-    background: tokens.colors.surface.secondary,
-    fontFamily: tokens.typography.family.ui,
-    padding: tokens.spacing[5],
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  progress: {
-    width: "100%",
-    maxWidth: 720,
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: tokens.spacing[3],
-    color: tokens.colors.text.secondary,
-    fontSize: tokens.typography.scale.body.size,
-  },
-  progressMeta: { fontWeight: 500 },
-  card: {
-    width: "100%",
-    maxWidth: 720,
-    background: tokens.colors.surface.primary,
-    borderRadius: tokens.radius.card,
-    border: `1px solid ${tokens.colors.border.default}`,
-    padding: tokens.spacing[6],
-  },
-  stem: {
-    margin: 0,
-    fontSize: tokens.typography.scale.pageTitle.size,
-    fontWeight: tokens.typography.scale.pageTitle.weight,
-    color: tokens.colors.text.primary,
-    lineHeight: 1.4,
-  },
-  choices: {
-    listStyle: "none",
-    padding: 0,
-    margin: `${tokens.spacing[5]}px 0`,
-    display: "flex",
-    flexDirection: "column",
-    gap: tokens.spacing[2],
-  },
-  choice: {
-    width: "100%",
-    display: "flex",
-    alignItems: "center",
-    gap: tokens.spacing[3],
-    padding: tokens.spacing[3],
-    borderRadius: tokens.radius.panel,
-    border: `1px solid ${tokens.colors.border.default}`,
-    background: tokens.colors.surface.primary,
-    color: tokens.colors.text.primary,
-    fontFamily: "inherit",
-    fontSize: tokens.typography.scale.body.size,
-    textAlign: "left",
-    cursor: "pointer",
-  },
-  choice_default: {},
-  choice_selected: {
-    borderColor: tokens.colors.brand.primary,
-    background: "rgba(96, 110, 234, 0.08)",
-  },
-  choice_success: {
-    borderColor: tokens.colors.semantic.success.fg,
-    background: tokens.colors.semantic.success.bg,
-  },
-  choice_danger: {
-    borderColor: tokens.colors.semantic.danger.fg,
-    background: tokens.colors.semantic.danger.bg,
-  },
-  choiceLetter: {
-    width: 28,
-    height: 28,
-    borderRadius: "50%",
-    background: tokens.colors.surface.secondary,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: 600,
-    fontSize: tokens.typography.scale.label.size,
-    color: tokens.colors.text.secondary,
-    flexShrink: 0,
-  },
-  choiceText: { flex: 1 },
-  feedbackOk: {
-    padding: tokens.spacing[3],
-    borderRadius: tokens.radius.panel,
-    background: tokens.colors.semantic.success.bg,
-    color: tokens.colors.semantic.success.fg,
-    fontSize: tokens.typography.scale.body.size,
-    marginBottom: tokens.spacing[3],
-  },
-  feedbackKo: {
-    padding: tokens.spacing[3],
-    borderRadius: tokens.radius.panel,
-    background: tokens.colors.semantic.danger.bg,
-    color: tokens.colors.semantic.danger.fg,
-    fontSize: tokens.typography.scale.body.size,
-    marginBottom: tokens.spacing[3],
-  },
-  actions: { display: "flex", flexDirection: "column", alignItems: "center", gap: tokens.spacing[2] },
-  linkButton: {
-    background: "none",
-    border: "none",
-    color: tokens.colors.text.muted,
-    cursor: "pointer",
-    fontSize: tokens.typography.scale.hint.size,
-    padding: tokens.spacing[1],
-  },
-  errorBanner: {
-    display: "flex",
-    alignItems: "center",
-    gap: tokens.spacing[2],
-    padding: tokens.spacing[3],
-    borderRadius: tokens.radius.panel,
-    background: tokens.colors.semantic.danger.bg,
-    color: tokens.colors.semantic.danger.fg,
-    marginBottom: tokens.spacing[4],
-  },
-};
