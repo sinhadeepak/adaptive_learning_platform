@@ -6,6 +6,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { FlagDetail } from "./pages/FlagDetail";
 import { Flags } from "./pages/Flags";
 import { Audit } from "./pages/Audit";
+import { EducatorScope } from "./pages/EducatorScope";
 import { Users } from "./pages/Users";
 import { Tenants } from "./pages/Tenants";
 import { Ops } from "./pages/Ops";
@@ -36,6 +37,7 @@ export const routes: RouteObject[] = [
   adminRoute("/flags/:name", <FlagDetail />),
   adminRoute("/audit", <Audit />),
   adminRoute("/users", <Users />),
+  adminRoute("/educator-scope", <EducatorScope />),
   adminRoute("/tenants", <Tenants />),
   adminRoute("/ops", <Ops />),
   adminRoute("/profile", <Profile />),

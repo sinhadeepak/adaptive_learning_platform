@@ -10,8 +10,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from catalog.db import get_session
 from catalog.flags import premium_enforced
 from catalog.repositories import CatalogRepo
-from catalog.schemas import Exam, Problem, Subject, Topic, TopicDetail
-from catalog.security import JwtPrincipal, current_principal
+from catalog.schemas import (
+    CreateAssignmentRequest,
+    EducatorAssignment,
+    Exam,
+    Problem,
+    Subject,
+    Topic,
+    TopicDetail,
+)
+from catalog.security import (
+    JwtPrincipal,
+    current_principal,
+    require_platform_admin,
+)
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 
@@ -129,6 +141,74 @@ async def list_my_subjects(
         )
         for r in rows
     ]
+
+
+def _assignment_to_schema(row: dict) -> EducatorAssignment:
+    return EducatorAssignment(
+        id=str(row["id"]),
+        educatorId=str(row["educator_id"]),
+        examId=str(row["exam_id"]),
+        subjectId=str(row["subject_id"]) if row.get("subject_id") else None,
+        createdAt=row["created_at"].isoformat() if row.get("created_at") else "",
+        createdBy=str(row["created_by"]) if row.get("created_by") else None,
+    )
+
+
+@router.get(
+    "/admin/educators/{educator_id}/assignments",
+    response_model=list[EducatorAssignment],
+)
+async def admin_list_assignments(
+    educator_id: str,
+    session: SessionDep,
+    _admin: Annotated[JwtPrincipal, Depends(require_platform_admin)],
+) -> list[EducatorAssignment]:
+    rows = await CatalogRepo(session).list_assignments_for_educator(educator_id)
+    return [_assignment_to_schema(r) for r in rows]
+
+
+@router.post(
+    "/admin/educators/{educator_id}/assignments",
+    response_model=EducatorAssignment,
+    status_code=201,
+    responses={409: {"model": Problem}},
+)
+async def admin_create_assignment(
+    educator_id: str,
+    body: CreateAssignmentRequest,
+    session: SessionDep,
+    admin: Annotated[JwtPrincipal, Depends(require_platform_admin)],
+) -> EducatorAssignment:
+    row = await CatalogRepo(session).insert_assignment(
+        educator_id=educator_id,
+        exam_id=body.examId,
+        subject_id=body.subjectId,
+        created_by=admin.user_id,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=409,
+            detail=Problem(
+                code="duplicate_assignment",
+                message="This educator already has that grant.",
+            ).model_dump(),
+        )
+    return _assignment_to_schema(row)
+
+
+@router.delete(
+    "/admin/educators/assignments/{assignment_id}",
+    status_code=204,
+    responses={404: {"model": Problem}},
+)
+async def admin_delete_assignment(
+    assignment_id: str,
+    session: SessionDep,
+    _admin: Annotated[JwtPrincipal, Depends(require_platform_admin)],
+) -> None:
+    deleted = await CatalogRepo(session).delete_assignment(assignment_id)
+    if not deleted:
+        raise _not_found(f"Assignment {assignment_id} not found")
 
 
 @router.get("/topics/{topic_id}", response_model=TopicDetail)

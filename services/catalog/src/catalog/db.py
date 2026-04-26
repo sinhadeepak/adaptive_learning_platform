@@ -23,5 +23,14 @@ def sessionmaker() -> async_sessionmaker[AsyncSession]:
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
+    """Yield a session that auto-commits on a clean handler exit and
+    rolls back on error. Catalog routes were read-only until the
+    educator-assignment admin endpoints landed; without an explicit
+    commit, write paths (POST/DELETE) silently no-op."""
     async with sessionmaker()() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

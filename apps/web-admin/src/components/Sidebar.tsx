@@ -16,6 +16,7 @@ const NAV: NavEntry[] = [
   { id: "flags", to: "/flags", icon: "⚑", label: "Feature flags" },
   { id: "tenants", to: "/tenants", icon: "🏛", label: "Tenants" },
   { id: "users", to: "/users", icon: "👤", label: "Users" },
+  { id: "educator-scope", to: "/educator-scope", icon: "🎓", label: "Educator scope" },
   { id: "audit", to: "/audit", icon: "📜", label: "Audit log" },
   { id: "ops", to: "/ops", icon: "⚙", label: "Ops dashboard" },
   { id: "profile", to: "/profile", icon: "🪪", label: "Profile" },

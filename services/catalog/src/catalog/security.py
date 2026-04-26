@@ -65,3 +65,19 @@ async def current_principal(
         tenant_id=claims.get("tenant_id"),
         claims=claims,
     )
+
+
+async def require_platform_admin(
+    authorization: str | None = Header(default=None),
+) -> JwtPrincipal:
+    """Like current_principal but also enforces role == PLATFORM_ADMIN."""
+    principal = await current_principal(authorization)
+    if not principal.is_platform_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "forbidden",
+                "message": "PLATFORM_ADMIN role required",
+            },
+        )
+    return principal

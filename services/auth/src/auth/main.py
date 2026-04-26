@@ -13,6 +13,7 @@ from auth.lockout import close as close_lockout
 from auth.lockout import connect as connect_lockout
 from auth.logging import configure_logging
 from auth.middleware import ClientVersionLogMiddleware
+from auth.admin_routes import router as auth_admin_router
 from auth.routes import router as auth_router
 
 
@@ -47,6 +48,7 @@ app.add_middleware(TraceContextMiddleware)
 app.add_middleware(ClientVersionLogMiddleware)
 
 app.include_router(auth_router)
+app.include_router(auth_admin_router)
 
 
 @app.get("/health")

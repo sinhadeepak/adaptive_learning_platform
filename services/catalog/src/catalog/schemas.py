@@ -41,3 +41,17 @@ class TopicDetail(Topic):
 class Problem(BaseModel):
     code: str
     message: str
+
+
+class EducatorAssignment(BaseModel):
+    id: str
+    educatorId: str
+    examId: str
+    subjectId: str | None = None
+    createdAt: str
+    createdBy: str | None = None
+
+
+class CreateAssignmentRequest(BaseModel):
+    examId: str
+    subjectId: str | None = None

@@ -133,6 +133,74 @@ class CatalogRepo:
         ).mappings().all()
         return [dict(r) for r in rows]
 
+    async def list_assignments_for_educator(
+        self, educator_id: str
+    ) -> list[dict[str, Any]]:
+        rows = (
+            await self.s.execute(
+                text(
+                    """
+                    SELECT id, educator_id, exam_id, subject_id,
+                           created_at, created_by
+                    FROM catalog_schema.educator_assignments
+                    WHERE educator_id = :eid
+                    ORDER BY created_at
+                    """
+                ),
+                {"eid": educator_id},
+            )
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
+    async def insert_assignment(
+        self,
+        *,
+        educator_id: str,
+        exam_id: str,
+        subject_id: str | None,
+        created_by: str,
+    ) -> dict[str, Any] | None:
+        """Insert one assignment row. Returns the row, or None if a
+        duplicate (the partial unique indexes catch dupes per
+        granularity)."""
+        sql = (
+            """
+            INSERT INTO catalog_schema.educator_assignments
+              (educator_id, exam_id, subject_id, created_by)
+            VALUES (
+              CAST(:educator_id AS uuid),
+              CAST(:exam_id AS uuid),
+              CAST(:subject_id AS uuid),
+              CAST(:created_by AS uuid)
+            )
+            ON CONFLICT DO NOTHING
+            RETURNING id, educator_id, exam_id, subject_id,
+                      created_at, created_by
+            """
+        )
+        row = (
+            await self.s.execute(
+                text(sql),
+                {
+                    "educator_id": educator_id,
+                    "exam_id": exam_id,
+                    "subject_id": subject_id,
+                    "created_by": created_by,
+                },
+            )
+        ).mappings().first()
+        return dict(row) if row else None
+
+    async def delete_assignment(self, assignment_id: str) -> bool:
+        result = await self.s.execute(
+            text(
+                "DELETE FROM catalog_schema.educator_assignments "
+                "WHERE id = CAST(:aid AS uuid)"
+            ),
+            {"aid": assignment_id},
+        )
+        return (result.rowcount or 0) > 0
+
     async def topics_for_reindex(self) -> list[dict[str, Any]]:
         """Bulk read used by Search service reindex pipeline. Joins through to
         subject + exam so every doc carries the human-readable subtitle.

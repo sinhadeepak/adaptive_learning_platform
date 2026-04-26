@@ -55,6 +55,42 @@ class UserRepo:
         assert row is not None
         return dict(row)
 
+    async def list_by_roles(
+        self,
+        roles: list[str],
+        *,
+        q: str | None,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Bare list endpoint for the educator-scope admin UI.
+
+        Filters out is_deleted users. q is a case-insensitive substring
+        match against email + full_name. Limit is hard-capped by the
+        caller; we trust it here.
+        """
+        params: dict[str, Any] = {"limit": limit}
+        sql = (
+            "SELECT id, email, full_name, role, admin_access_level, "
+            "       account_status "
+            "FROM auth_schema.users "
+            "WHERE is_deleted = FALSE "
+        )
+        if roles:
+            placeholders = ",".join(f":r{i}" for i in range(len(roles)))
+            sql += (
+                f"  AND role IN ({placeholders}) "
+            )
+            for i, r in enumerate(roles):
+                params[f"r{i}"] = r
+        if q:
+            sql += (
+                "  AND (LOWER(email) LIKE :q OR LOWER(full_name) LIKE :q) "
+            )
+            params["q"] = f"%{q.lower()}%"
+        sql += "ORDER BY email LIMIT :limit"
+        rows = (await self.s.execute(text(sql), params)).mappings().all()
+        return [dict(r) for r in rows]
+
     async def activate(self, user_id: UUID | str) -> None:
         await self.s.execute(
             text(
