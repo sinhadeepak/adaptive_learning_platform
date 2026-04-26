@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, development]
   push:
-    branches: [main]
+    branches: [main, development]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -133,6 +133,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build design-system + auth-client + api-client first (apps depend on these)
         run: pnpm -r --filter=@alp/design-system --filter=@alp/auth-client --filter=@alp/api-client build
+      - name: Lint (web apps — zero warnings enforced per PR #49)
+        run: pnpm -r --filter='./apps/web-*' lint
       - name: Type-check + test + build all @alp/* packages + apps
         run: |
           pnpm -r --filter=@alp/* test
