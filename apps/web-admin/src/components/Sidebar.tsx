@@ -14,10 +14,10 @@ interface NavEntry {
 const NAV: NavEntry[] = [
   { id: "console", to: "/dashboard", icon: "⚡", label: "Console" },
   { id: "flags", to: "/flags", icon: "⚑", label: "Feature flags" },
-  { id: "tenants", to: null, icon: "🏛", label: "Tenants" },
-  { id: "users", to: null, icon: "👤", label: "Users" },
+  { id: "tenants", to: "/tenants", icon: "🏛", label: "Tenants" },
+  { id: "users", to: "/users", icon: "👤", label: "Users" },
   { id: "audit", to: "/audit", icon: "📜", label: "Audit log" },
-  { id: "ops", to: null, icon: "⚙", label: "Ops dashboard" },
+  { id: "ops", to: "/ops", icon: "⚙", label: "Ops dashboard" },
 ];
 
 export function Sidebar({
