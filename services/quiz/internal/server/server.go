@@ -28,10 +28,13 @@ func Router(logger *slog.Logger, sess *SessionService, flags FlagEvaluator) http
 	mux.HandleFunc("GET /ready", ready)
 	if sess != nil {
 		mux.HandleFunc("POST /quiz/sessions/start", sess.Start(logger))
+		mux.HandleFunc("GET /quiz/sessions", sess.ListSessions(logger))
 		mux.HandleFunc("GET /quiz/sessions/{id}", sess.Get(logger))
 		mux.HandleFunc("GET /quiz/sessions/{id}/next", sess.Next(logger))
 		mux.HandleFunc("POST /quiz/sessions/{id}/answers", sess.Answer(logger))
 		mux.HandleFunc("POST /quiz/sessions/{id}/submit", sess.Submit(logger))
+		mux.HandleFunc("GET /quiz/questions", sess.ListQuestions(logger))
+		mux.HandleFunc("GET /quiz/users/{userId}/answered-items", sess.UserAnsweredItems(logger))
 	} else {
 		mux.HandleFunc("POST /quiz/sessions/start", legacyStartSession(logger, flags))
 	}

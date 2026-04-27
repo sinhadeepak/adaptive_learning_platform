@@ -17,5 +17,10 @@ class Settings(BaseSettings):
     # Shared JWT secret with Auth service (Sprint 1 HS256). Sprint 2: JWKS from Auth.
     jwt_secret: str = Field(default="dev-only-change-me-in-staging-at-least-32-bytes-long")
 
+    # Notification service — used to fire `achievement.unlocked` inbox
+    # notifications when a brand-new badge is awarded (post-grant). Empty
+    # string disables the integration.
+    notification_base_url: str = Field(default="http://notification:8000")
+
 
 settings = Settings()

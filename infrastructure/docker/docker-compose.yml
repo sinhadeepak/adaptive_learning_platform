@@ -14,7 +14,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_MULTIPLE_DATABASES: auth,user_profile,content,catalog,search,analytics,payment,institution,notification,adaptive_engine,quiz
+      POSTGRES_MULTIPLE_DATABASES: auth,user_profile,content,catalog,search,analytics,payment,institution,notification,adaptive_engine,quiz,doubts
     ports: ["35432:5432"]
     volumes:
       - pg-data:/var/lib/postgresql/data
@@ -260,8 +260,27 @@ services:
     environment:
       ADAPTIVE_ENGINE_NATS_URL: nats://nats:4222
       ADAPTIVE_ENGINE_INSTITUTION_BASE_URL: http://institution:8000
+      ADAPTIVE_ENGINE_CATALOG_BASE_URL: http://catalog:8000
+      ADAPTIVE_ENGINE_ANALYTICS_BASE_URL: http://analytics:8000
+      ADAPTIVE_ENGINE_QUIZ_BASE_URL: http://quiz:8000
+      # AI layer — empty key means the LLM is disabled and endpoints fall back to heuristics.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ADAPTIVE_ENGINE_OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
     depends_on:
       nats: { condition: service_healthy }
+
+  doubts:
+    build:
+      <<: *py-build
+      args: { SERVICE: doubts, MODULE: doubts.main }
+    image: alp/doubts:local
+    ports: ["38012:8000"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/doubts
+      DOUBTS_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/doubts
+      DOUBTS_JWT_SECRET: dev-only-change-me-in-staging-at-least-32-bytes-long
+    depends_on:
+      postgres: { condition: service_healthy }
 
   # ---- Backend services (Go) ----
   quiz:

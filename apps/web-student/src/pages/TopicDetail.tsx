@@ -4,6 +4,7 @@ import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill, SkeletonRows } from "../components/dashboard";
+import { AITutorChat } from "../components/AITutorChat";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Topic Detail — AI Practice prep page.
@@ -42,6 +43,9 @@ export function TopicDetail() {
   const [mastery, setMastery] = useState<{ ewa: number; n: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [savedHere, setSavedHere] = useState<
+    Array<{ questionId: string; stem: string | null; createdAt: string }>
+  >([]);
 
   useEffect(() => {
     if (!topicId) return;
@@ -75,6 +79,43 @@ export function TopicDetail() {
       }
     })();
   }, [user, topicId]);
+
+  // Filter the user's bookmarks to this topic so the page can surface a
+  // "Saved questions for this topic" section without a dedicated endpoint.
+  useEffect(() => {
+    if (!user || !topicId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await auth.fetch(`/api/v1/profile/bookmarks`);
+        if (!r.ok) return;
+        const body = (await r.json()) as {
+          items: Array<{
+            questionId: string;
+            topicId: string | null;
+            stem: string | null;
+            createdAt: string;
+          }>;
+        };
+        if (!alive) return;
+        setSavedHere(
+          body.items
+            .filter((b) => b.topicId === topicId)
+            .map((b) => ({ questionId: b.questionId, stem: b.stem, createdAt: b.createdAt })),
+        );
+      } catch {
+        /* swallow */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [user, topicId]);
+
+  async function removeSaved(questionId: string) {
+    setSavedHere((prev) => prev.filter((b) => b.questionId !== questionId));
+    await auth.fetch(`/api/v1/profile/bookmarks/${questionId}`, { method: "DELETE" });
+  }
 
   async function startQuiz() {
     if (!topicId || !user || starting) return;
@@ -351,7 +392,92 @@ export function TopicDetail() {
           </section>
         ) : null}
 
+        {/* Saved questions for this topic — pulled from /profile/bookmarks
+            and filtered client-side. Only renders when the student has at
+            least one saved question on this topic. */}
+        {savedHere.length > 0 ? (
+          <section className="topic-section">
+            <h2 className="topic-section-title">
+              ★ Saved questions on this topic
+            </h2>
+            <ol
+              style={{
+                listStyle: "none",
+                margin: 0,
+                padding: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              {savedHere.slice(0, 5).map((b) => (
+                <li
+                  key={b.questionId}
+                  style={{
+                    background: "var(--bg-surface-1)",
+                    border: "1px solid var(--border-default)",
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                  }}
+                >
+                  <span style={{ color: "var(--color-amber)", fontSize: 16, lineHeight: "20px" }}>★</span>
+                  <span
+                    style={{
+                      flex: 1,
+                      color: "var(--text-primary)",
+                      fontSize: 13,
+                      lineHeight: 1.45,
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {b.stem ?? `Question #${b.questionId.slice(0, 8)}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeSaved(b.questionId)}
+                    aria-label="Remove bookmark"
+                    title="Remove bookmark"
+                    style={{
+                      background: "transparent",
+                      border: 0,
+                      cursor: "pointer",
+                      color: "var(--text-muted)",
+                      fontSize: 14,
+                      padding: 0,
+                      lineHeight: "20px",
+                    }}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ol>
+            {savedHere.length > 5 ? (
+              <div style={{ marginTop: 10, fontSize: 12 }}>
+                <Link to="/bookmarks" className="auth-link">
+                  View all {savedHere.length} saved →
+                </Link>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
         {/* Zone 5: Recent activity — empty state until per-topic attempt history exists */}
+        <section className="topic-section">
+          <h2 className="topic-section-title">Stuck on something?</h2>
+          <p className="topic-section-body">
+            Ask the AI tutor a free-form question about {topic.title}. Replies
+            are grounded in the topic + your current mastery level.
+          </p>
+          <AITutorChat topicId={topic.id} topicTitle={topic.title} />
+        </section>
+
         <section className="topic-section">
           <h2 className="topic-section-title">Recent activity</h2>
           {mastery && mastery.n > 0 ? (

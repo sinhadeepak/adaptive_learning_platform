@@ -28,18 +28,67 @@ interface TypeaheadHit {
   path?: string | null;
 }
 
+const RECENTS_KEY = "alp.search.recents";
+const RECENTS_MAX = 10;
+
+function loadRecents(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((s) => typeof s === "string").slice(0, RECENTS_MAX);
+  } catch {
+    return [];
+  }
+}
+
+function saveRecents(list: string[]) {
+  try {
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, RECENTS_MAX)));
+  } catch {
+    /* quota exceeded — silent */
+  }
+}
+
 export function Search() {
   const [query, setQuery] = useState("");
   const [committed, setCommitted] = useState<string | null>(null);
   const [results, setResults] = useState<SearchResults | null>(null);
   const [suggestions, setSuggestions] = useState<TypeaheadHit[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [recents, setRecents] = useState<string[]>(loadRecents);
   const debounceRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  function pushRecent(q: string) {
+    const trimmed = q.trim();
+    if (trimmed.length < 2) return;
+    setRecents((prev) => {
+      // Move-to-front; dedupe case-insensitively.
+      const next = [trimmed, ...prev.filter((r) => r.toLowerCase() !== trimmed.toLowerCase())]
+        .slice(0, RECENTS_MAX);
+      saveRecents(next);
+      return next;
+    });
+  }
+
+  function removeRecent(q: string) {
+    setRecents((prev) => {
+      const next = prev.filter((r) => r !== q);
+      saveRecents(next);
+      return next;
+    });
+  }
+
+  function clearRecents() {
+    setRecents([]);
+    saveRecents([]);
+  }
 
   // Typeahead — debounce 300ms.
   useEffect(() => {
@@ -82,6 +131,14 @@ export function Search() {
   function submit() {
     setCommitted(query);
     setSuggestions([]);
+    pushRecent(query);
+  }
+
+  function searchFor(q: string) {
+    setQuery(q);
+    setCommitted(q);
+    setSuggestions([]);
+    pushRecent(q);
   }
 
   function clear() {
@@ -161,6 +218,108 @@ export function Search() {
               {s.title}
             </Link>
           ))}
+        </div>
+      ) : null}
+
+      {/* Recent searches — localStorage-backed, device-specific. Only shown
+          when the input is empty (no typeahead, no committed query) so they
+          don't clutter the active search experience. */}
+      {!query && !committed && recents.length > 0 ? (
+        <div style={{ marginTop: "var(--sp-4)" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              marginBottom: "var(--sp-2)",
+            }}
+          >
+            <span
+              style={{
+                fontSize: 11,
+                color: "var(--text-muted)",
+                fontWeight: 700,
+                letterSpacing: 0.6,
+                textTransform: "uppercase",
+              }}
+            >
+              Recent searches
+            </span>
+            <span style={{ flex: 1 }} />
+            <button
+              type="button"
+              onClick={clearRecents}
+              style={{
+                background: "transparent",
+                border: 0,
+                color: "var(--text-muted)",
+                fontSize: 11,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Clear
+            </button>
+          </div>
+          <ul
+            style={{
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            {recents.map((r) => (
+              <li
+                key={r}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: "1px solid var(--border-default)",
+                  background: "var(--bg-surface-1)",
+                }}
+              >
+                <span aria-hidden style={{ color: "var(--text-muted)", fontSize: 14 }}>
+                  ↺
+                </span>
+                <button
+                  type="button"
+                  onClick={() => searchFor(r)}
+                  style={{
+                    flex: 1,
+                    background: "transparent",
+                    border: 0,
+                    color: "var(--text-primary)",
+                    fontSize: 13,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    textAlign: "left",
+                  }}
+                >
+                  {r}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeRecent(r)}
+                  aria-label={`Remove "${r}" from recent searches`}
+                  style={{
+                    background: "transparent",
+                    border: 0,
+                    color: "var(--text-muted)",
+                    fontSize: 14,
+                    cursor: "pointer",
+                    padding: 4,
+                  }}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
 

@@ -20,9 +20,14 @@
     "@alp/api-client": "workspace:*",
     "@alp/auth-client": "workspace:*",
     "@alp/design-system": "workspace:*",
+    "katex": "^0.16.45",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.27.0"
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^6.27.0",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",

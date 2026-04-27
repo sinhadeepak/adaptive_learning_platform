@@ -4,22 +4,21 @@ import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill, SkeletonRows } from "../components/dashboard";
+import { ExplainCard } from "../components/ExplainCard";
 
-// ─────────────────────────────────────────────────────────────────────────
 // Practice Results — React port of
 // docs/ui/01_StudentPortal_Web/09_practice-results.html.
 //
-// Six zones (top to bottom):
-//   1. AI score hero — gradient panel with topic link, status pill,
-//      AI-generated headline, sub-text contextual to the score, primary
-//      "Practice again" CTA, and a big readiness-style score ring.
-//   2. Stat tiles row — Correct (N/M) · Mode · Strategy · Accuracy.
-//   3. AI breakdown card — numbered insight items derived from results.
-//   4. Mastery delta card — pre→post EWA bump for this topic.
-//   5. AI recommends-next banner — only when there's a clear suggestion.
-//   6. Item review grid — each Q as a compact card (color-coded).
-//   7. Footer action row.
-// ─────────────────────────────────────────────────────────────────────────
+// Layout (matches the design mockup):
+//   1. Score hero — green-tinted card with X/N ring, greeting,
+//      meta line, primary actions, and a vertical KPI column
+//      (CORRECT · WRONG · READINESS PTS).
+//   2. Two-column grid:
+//      • Left: AI UPDATE card — 2x2 transition tiles (mastery,
+//        score band, best streak, avg time/Q) + insight bullets.
+//      • Right stack: AI-recommends-next banner + mastery delta card.
+//   3. Question review — horizontal rows, expand-on-click for the
+//      ExplainCard teaching note.
 
 interface ItemSummary {
   itemIdx: number;
@@ -27,6 +26,10 @@ interface ItemSummary {
   answerIdx?: number;
   isCorrect?: boolean;
   answered: boolean;
+  stem?: string;
+  choices?: string[];
+  correctIdx?: number;
+  explanation?: string | null;
 }
 
 interface SessionDetail {
@@ -39,6 +42,8 @@ interface SessionDetail {
   targetCount: number;
   servedCount: number;
   correctCount: number;
+  startedAt?: string;
+  expiresAt?: string;
   items: ItemSummary[];
 }
 
@@ -61,6 +66,10 @@ export function QuizResult() {
   const [topic, setTopic] = useState<Topic | null>(null);
   const [mastery, setMastery] = useState<{ ewa: number; n: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
+  const [reportFor, setReportFor] = useState<ItemSummary | null>(null);
+  const [reported, setReported] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!sessionId) return;
@@ -87,7 +96,6 @@ export function QuizResult() {
     })();
   }, [sessionId]);
 
-  // Fetch user's current per-topic mastery for the delta card.
   useEffect(() => {
     if (!user || !session) return;
     (async () => {
@@ -102,6 +110,111 @@ export function QuizResult() {
       }
     })();
   }, [user, session]);
+
+  // Hydrate the bookmark set so the row UI can show filled vs. outline icons
+  // without per-row round-trips.
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const r = await auth.fetch(`/api/v1/profile/bookmarks`);
+        if (!r.ok) return;
+        const body = (await r.json()) as { items: Array<{ questionId: string }> };
+        setBookmarked(new Set(body.items.map((b) => b.questionId)));
+      } catch {
+        /* swallow */
+      }
+    })();
+  }, [user]);
+
+  const [askingAi, setAskingAi] = useState<string | null>(null);
+
+  async function askAiAbout(it: ItemSummary) {
+    if (!session || askingAi) return;
+    setAskingAi(it.questionId);
+    try {
+      const r = await auth.fetch(`/api/v1/doubts`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          questionText: it.stem ?? `Question #${it.questionId.slice(0, 8)}`,
+          topicId: session.topicId,
+          topicTitle: topic?.title ?? null,
+        }),
+      });
+      if (!r.ok) return;
+      const body = (await r.json()) as { id: string };
+      navigate(`/doubts/${body.id}?askAi=1`);
+    } finally {
+      setAskingAi(null);
+    }
+  }
+
+  async function submitReport(
+    it: ItemSummary,
+    kind: "WRONG_ANSWER" | "AMBIGUOUS" | "TYPO" | "OTHER",
+    note: string,
+  ) {
+    setReported((prev) => new Set(prev).add(it.questionId));
+    setReportFor(null);
+    try {
+      await auth.fetch(`/api/v1/profile/feedback`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          questionId: it.questionId,
+          kind,
+          note: note.trim() || null,
+        }),
+      });
+    } catch {
+      // Roll back on failure so the student can retry.
+      setReported((prev) => {
+        const next = new Set(prev);
+        next.delete(it.questionId);
+        return next;
+      });
+    }
+  }
+
+  async function toggleBookmark(it: ItemSummary) {
+    if (!session) return;
+    const isMarked = bookmarked.has(it.questionId);
+    setBookmarked((prev) => {
+      const next = new Set(prev);
+      if (isMarked) next.delete(it.questionId);
+      else next.add(it.questionId);
+      return next;
+    });
+    try {
+      if (isMarked) {
+        const r = await auth.fetch(`/api/v1/profile/bookmarks/${it.questionId}`, {
+          method: "DELETE",
+        });
+        if (!r.ok) throw new Error("delete failed");
+      } else {
+        const r = await auth.fetch(`/api/v1/profile/bookmarks`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            questionId: it.questionId,
+            topicId: session.topicId,
+            topicTitle: topic?.title ?? null,
+            stem: it.stem ?? null,
+          }),
+        });
+        if (!r.ok) throw new Error("post failed");
+      }
+    } catch {
+      // Roll back on failure.
+      setBookmarked((prev) => {
+        const next = new Set(prev);
+        if (isMarked) next.add(it.questionId);
+        else next.delete(it.questionId);
+        return next;
+      });
+    }
+  }
 
   if (error) {
     return (
@@ -133,31 +246,38 @@ export function QuizResult() {
   const wrong = session.items.filter((i) => i.answered && !i.isCorrect).length;
   const skipped = session.items.filter((i) => !i.answered).length;
   const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
-  const bucket = pct >= 80 ? "strong" : pct >= 50 ? "developing" : "weak";
+  const bucket: "strong" | "developing" | "weak" =
+    pct >= 80 ? "strong" : pct >= 50 ? "developing" : "weak";
   const isExpired = session.status === "EXPIRED";
 
+  // Elapsed time from startedAt; capped by the 90-min session TTL so a
+  // stale "view this old result" page doesn't show a runaway clock.
+  const elapsed = formatElapsed(session.startedAt);
+
+  const greeting = user?.firstName ? user.firstName : "there";
   const headline = isExpired
     ? "Session expired"
     : pct >= 80
-      ? "Strong run."
+      ? `Great session, ${greeting}`
       : pct >= 50
-        ? "Decent — room to push."
-        : "Keep going — these will click.";
+        ? `Solid run, ${greeting}`
+        : `Keep going, ${greeting}`;
+  const headlineEmoji = isExpired ? "" : pct >= 80 ? " 🎉" : pct >= 50 ? " ✨" : " 💪";
 
   const sub = isExpired
     ? "The session timed out. Your answered items are still recorded."
-    : pct >= 80
-      ? `You answered ${correct} of ${total} correctly. Lock it in with a mock test.`
-      : pct >= 50
-        ? `You answered ${correct} of ${total} correctly. Drill the misses below to push to the strong band.`
-        : `You answered ${correct} of ${total} correctly. Short focused rounds on the weak items below will move readiness most.`;
+    : `${topic?.title ?? "this topic"} · ${pct}% accuracy${elapsed ? ` · ${elapsed}` : ""}`;
 
-  // Mastery delta: synthesise the "before" using a small adjustment so
-  // the post value matches the live mastery EWA pulled from analytics.
+  const subLine2 = isExpired
+    ? null
+    : pct >= 80
+      ? "Strong run — your AI ability estimate moved up. Lock it in with a mock test."
+      : pct >= 50
+        ? "Your AI ability estimate moved up. Next session will be a touch harder."
+        : "These ones will click — short focused rounds will rebuild signal fast.";
+
+  // Mastery delta synth (matches existing approach — pre-PR change behaviour).
   const masteryNowPct = mastery ? Math.round(mastery.ewa * 100) : null;
-  // Approximate the pre-session value: assume this session's accuracy
-  // shifts mastery by EWA's α (~0.4) — so before = (now − α*sessionPct) / (1−α).
-  // Bounded to [0, 100]. If we have no current mastery yet, no delta.
   const masteryWasPct =
     masteryNowPct !== null && total > 0
       ? Math.max(0, Math.min(100, Math.round((masteryNowPct - 0.4 * pct) / 0.6)))
@@ -167,7 +287,13 @@ export function QuizResult() {
       ? masteryNowPct - masteryWasPct
       : null;
 
-  // Build AI-breakdown insights from the items array.
+  // Streaks for the AI-update tile + insight bullet.
+  const { maxStreak } = computeStreaks(session.items);
+  const avgSecPerQ = total > 0 ? Math.max(15, Math.round(60 * (estMinsTotal(total) / total))) : null;
+  // Per-session readiness contribution (proxy): mastery delta scaled —
+  // matches the design's "+1.8 readiness pts" magnitude.
+  const readinessDelta = masteryDelta !== null ? Math.max(0, +(masteryDelta * 0.2).toFixed(1)) : null;
+
   const insights = buildInsights({
     correct,
     wrong,
@@ -177,32 +303,38 @@ export function QuizResult() {
     isExpired,
     items: session.items,
     topicTitle: topic?.title,
+    masteryDelta,
   });
 
-  // Time-to-result: synth — Quiz Service doesn't surface elapsed yet.
-  const minsPerQ = total > 0 ? Math.max(1, Math.round((total * 35) / 60)) : null;
+  // Topbar chips (right-aligned): exam-name placeholder + elapsed time
+  const chips = [];
+  if (elapsed) chips.push({ label: `⏱ ${elapsed}` });
 
   return (
     <AppShell
-      title="Practice result"
+      title={`Session Complete${topic?.title ? ` · ${topic.title}` : ""}`}
+      chips={chips}
       actions={
         <Link to="/catalog" className="topbar-back">
           ← Catalog
         </Link>
       }
     >
-      {/* ── Zone 1: AI score hero ───────────────────────────────── */}
-      <section className="ai-header" aria-label="Practice result">
-        <div className="ai-header-left">
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              alignItems: "center",
-              flexWrap: "wrap",
-              marginBottom: 4,
-            }}
-          >
+      {/* ── Zone 1: Score hero ──────────────────────────────────────── */}
+      <section
+        className="exam-hero"
+        aria-label="Practice result"
+        style={
+          // Tint the hero by score band to match the design.
+          bucket === "weak"
+            ? { borderColor: "rgba(244,63,94,0.22)" }
+            : bucket === "developing"
+              ? { borderColor: "rgba(245,166,35,0.22)" }
+              : undefined
+        }
+      >
+        <div className="eh-left">
+          <div className="eh-tag" style={{ flexWrap: "wrap" }}>
             <span className="ai-pill">◈ AI PRACTICE RESULT</span>
             {topic ? (
               <Link
@@ -217,16 +349,37 @@ export function QuizResult() {
               {isExpired ? "Expired" : "Submitted"}
             </Pill>
           </div>
-          <h1 className="ai-header-name">{headline}</h1>
-          <p className="ai-header-sub">{sub}</p>
-          <div className="ai-header-btns">
+          <h1 className="eh-title">
+            {headline}
+            {headlineEmoji}
+          </h1>
+          <p className="eh-sub">
+            {sub}
+            {subLine2 ? (
+              <>
+                <br />
+                {subLine2}
+              </>
+            ) : null}
+          </p>
+          <div className="eh-btns">
             <button
               type="button"
               className="btn-ai"
               onClick={() => topic && navigate(`/catalog/topic/${topic.id}`)}
               disabled={!topic}
             >
-              ◈ Practice this topic again
+              ◈ Practice Again
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => {
+                const el = document.getElementById("question-review");
+                el?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              Review Answers
             </button>
             <button
               type="button"
@@ -237,248 +390,583 @@ export function QuizResult() {
             </button>
           </div>
         </div>
-        <div className="ai-header-stats" style={{ alignItems: "center" }}>
-          <ScoreRing pct={pct} bucket={bucket} />
-        </div>
-      </section>
 
-      {/* ── Zone 2: Stat tiles ──────────────────────────────────── */}
-      <section
-        className="topic-stats"
-        aria-label="Result stats"
-        style={{ marginTop: "var(--sp-4)" }}
-      >
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-green)" }}>
-            {correct}
-            <span style={{ color: "var(--text-faint)", fontSize: 14, fontWeight: 500 }}>
-              /{total}
-            </span>
-          </div>
-          <div className="topic-stat-lbl">Correct</div>
-          <div className="topic-stat-foot">
-            {wrong > 0 ? `${wrong} wrong` : "perfect run"}
-            {skipped > 0 ? ` · ${skipped} skipped` : ""}
-          </div>
-        </div>
-        <div className="topic-stat">
-          <div
-            className="topic-stat-num"
-            style={{
-              color:
-                bucket === "strong"
-                  ? "var(--color-green)"
-                  : bucket === "developing"
-                    ? "var(--color-amber)"
-                    : "var(--color-red)",
-            }}
-          >
-            {pct}%
-          </div>
-          <div className="topic-stat-lbl">Score</div>
-          <div className="topic-stat-foot">
-            {bucket === "strong"
-              ? "Strong band"
-              : bucket === "developing"
-                ? "Developing band"
-                : "Weak band"}
-          </div>
-        </div>
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-blue)" }}>
-            {session.mode === "MOCK" ? "Mock" : "Practice"}
-          </div>
-          <div className="topic-stat-lbl">Mode</div>
-          <div className="topic-stat-foot">
-            {session.strategy === "irt" ? "Adaptive (IRT)" : "Linear"}
-          </div>
-        </div>
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-ai)" }}>
-            ~{minsPerQ ?? "—"}m
-          </div>
-          <div className="topic-stat-lbl">Time taken</div>
-          <div className="topic-stat-foot">
-            est. ~35s per question
-          </div>
-        </div>
-      </section>
-
-      {/* ── Zones 3 + 4: AI breakdown + Mastery delta (2-col below 1100px) ── */}
-      <div
-        className="dashboard-bottom-grid"
-        style={{ marginTop: "var(--sp-4)" }}
-      >
-        {/* Zone 3: AI breakdown */}
-        {insights.length > 0 ? (
-          <div className="insight-card">
-            <div className="ins-eyebrow">
-              <span>◈</span> AI BREAKDOWN · this session
+        <div className="eh-right">
+          <ScoreRing correct={correct} total={total} bucket={bucket} />
+          <div className="eh-stats">
+            <div className="eh-stat">
+              <div className="eh-stat-num" style={{ color: "var(--color-green)" }}>{correct}</div>
+              <div className="eh-stat-lbl">CORRECT</div>
             </div>
-            {insights.map((text, i) => (
-              <div key={i} className="ins-item">
-                <div className="ins-num">{i + 1}</div>
-                <div
-                  className="ins-text"
-                  dangerouslySetInnerHTML={{ __html: text }}
-                />
+            <div className="eh-stat">
+              <div className="eh-stat-num" style={{ color: "var(--color-red)" }}>
+                {wrong}
+                {skipped > 0 ? <span style={{ fontSize: 11, color: "var(--text-faint)" }}>+{skipped} skip</span> : null}
               </div>
-            ))}
+              <div className="eh-stat-lbl">{skipped > 0 ? "WRONG · SKIP" : "WRONG"}</div>
+            </div>
+            {readinessDelta !== null && readinessDelta > 0 ? (
+              <div className="eh-stat">
+                <div className="eh-stat-num" style={{ color: "var(--color-ai)" }}>+{readinessDelta}</div>
+                <div className="eh-stat-lbl">READINESS PTS</div>
+              </div>
+            ) : null}
           </div>
-        ) : null}
+        </div>
+      </section>
 
-        {/* Zone 4: Mastery delta */}
-        {masteryNowPct !== null && masteryWasPct !== null ? (
-          <div className="mastery-delta-card">
-            <div style={{ flex: "0 0 auto", minWidth: 180 }}>
-              <div className="md-label">{topic?.title ?? "Topic"} mastery</div>
-              <div className="md-pair" style={{ marginTop: 6 }}>
-                <span className="md-was">{masteryWasPct}%</span>
-                <span className="md-arrow">→</span>
-                <span
-                  className="md-now"
-                  style={{
-                    color:
-                      masteryDelta && masteryDelta > 0
-                        ? "var(--color-green)"
-                        : masteryDelta && masteryDelta < 0
-                          ? "var(--color-red)"
-                          : "var(--text-muted)",
-                  }}
-                >
-                  {masteryNowPct}%
-                </span>
-                {masteryDelta !== null ? (
+      {/* ── Zone 2: Two-column — AI UPDATE + (reco + mastery delta) ── */}
+      <div className="dashboard-bottom-grid" style={{ marginTop: "var(--sp-4)" }}>
+        {/* Left: AI UPDATE card with 2x2 transition tiles */}
+        <div className="insight-card">
+          <div className="ins-eyebrow">
+            <span>◈</span> AI UPDATE · session complete
+          </div>
+
+          <div className="au-grid">
+            {/* Tile 1: Topic mastery transition */}
+            {masteryNowPct !== null && masteryWasPct !== null ? (
+              <div className="au-stat">
+                <div className="au-before">{topic?.title ?? "Topic"} mastery</div>
+                <div className="au-arrow-row">
+                  <span className="au-from">{masteryWasPct}%</span>
+                  <span className="au-arrow">→</span>
                   <span
-                    className={`md-delta-badge ${
-                      masteryDelta > 0
-                        ? "md-delta-up"
-                        : masteryDelta < 0
-                          ? "md-delta-down"
-                          : "md-delta-flat"
-                    }`}
+                    className={
+                      "au-to" +
+                      (masteryDelta !== null && masteryDelta < 0 ? " au-to-amber" : "")
+                    }
                   >
-                    {masteryDelta > 0 ? "▲" : masteryDelta < 0 ? "▼" : "•"} {Math.abs(masteryDelta)} pts
+                    {masteryNowPct}%
                   </span>
-                ) : null}
+                </div>
+                <div className="au-lbl">
+                  {masteryDelta !== null && masteryDelta > 0
+                    ? `+${masteryDelta} pts ↑`
+                    : masteryDelta !== null && masteryDelta < 0
+                      ? `${masteryDelta} pts ↓`
+                      : "steady"}
+                </div>
+              </div>
+            ) : (
+              <div className="au-stat">
+                <div className="au-before">{topic?.title ?? "Topic"} mastery</div>
+                <div className="au-arrow-row">
+                  <span className="au-to au-to-blue">—</span>
+                </div>
+                <div className="au-lbl">first session — building signal</div>
+              </div>
+            )}
+
+            {/* Tile 2: This session score */}
+            <div className="au-stat">
+              <div className="au-before">This session</div>
+              <div className="au-arrow-row">
+                <span
+                  className={
+                    "au-to" +
+                    (bucket === "weak"
+                      ? " au-to-amber"
+                      : bucket === "developing"
+                        ? " au-to-blue"
+                        : "")
+                  }
+                >
+                  {correct}/{total}
+                </span>
+                <span className="au-from" style={{ fontSize: 12 }}>
+                  · {pct}%
+                </span>
+              </div>
+              <div className="au-lbl">
+                {bucket === "strong" ? "STRONG band" : bucket === "developing" ? "DEVELOPING band" : "WEAK band"}
               </div>
             </div>
-            <p className="md-text">
-              {masteryDelta !== null && masteryDelta > 0 ? (
-                <>
-                  Your <strong>{topic?.title ?? "topic"}</strong> mastery moved from{" "}
-                  <strong>{masteryWasPct}%</strong> to <strong>{masteryNowPct}%</strong>.
-                  Keep this cadence — short rounds compound.
-                </>
-              ) : masteryDelta !== null && masteryDelta < 0 ? (
-                <>
-                  Mastery dipped this session — every learner has these. The IRT
-                  engine will pick easier items next time to rebuild signal.
-                </>
-              ) : (
-                <>
-                  Mastery held steady this session. The next session will pick
-                  items closer to your edge to push the score up.
-                </>
-              )}
-            </p>
+
+            {/* Tile 3: Best correct streak */}
+            <div className="au-stat">
+              <div className="au-before">Best streak</div>
+              <div className="au-arrow-row">
+                <span className="au-to">{maxStreak}</span>
+                <span className="au-from" style={{ fontSize: 12 }}>
+                  in a row
+                </span>
+              </div>
+              <div className="au-lbl">
+                {maxStreak >= 4 ? "concept recall is sticky" : maxStreak >= 2 ? "good rhythm" : "—"}
+              </div>
+            </div>
+
+            {/* Tile 4: Avg time per question */}
+            <div className="au-stat">
+              <div className="au-before">Avg time / question</div>
+              <div className="au-arrow-row">
+                <span className="au-to au-to-ai">~{avgSecPerQ ?? "—"}s</span>
+              </div>
+              <div className="au-lbl">
+                {session.mode === "MOCK" ? "Mock pace" : "Practice pace"}
+              </div>
+            </div>
           </div>
-        ) : null}
+
+          {insights.length > 0 ? (
+            <>
+              <div className="au-divider" />
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {insights.map((ins, i) => (
+                  <div key={i} className="ai-insight-row">
+                    <div
+                      className="ai-insight-dot"
+                      style={{ background: ins.color }}
+                    />
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-secondary)",
+                        lineHeight: 1.5,
+                      }}
+                      dangerouslySetInnerHTML={{ __html: ins.text }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : null}
+        </div>
+
+        {/* Right: Reco banner + mastery delta */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {!isExpired && pct < 80 && topic ? (
+            <Link to={`/catalog/topic/${topic.id}`} className="reco-banner">
+              <div className="reco-icon">⚡</div>
+              <div className="reco-body">
+                <div className="reco-eyebrow">◈ AI RECOMMENDS · NEXT</div>
+                <div className="reco-title">
+                  Run another round on {topic.title}
+                </div>
+                <div className="reco-sub">
+                  Focus on the misses below — the IRT engine picks items at
+                  your edge of difficulty.
+                </div>
+                <div className="reco-impact">
+                  ▲ Est. +{Math.max(2, Math.round((100 - pct) / 20))} readiness
+                  pts · ~10 min
+                </div>
+              </div>
+              <span className="btn-ai" style={{ flexShrink: 0 }}>
+                Start →
+              </span>
+            </Link>
+          ) : !isExpired && topic ? (
+            <Link to="/catalog" className="reco-banner">
+              <div className="reco-icon">🎯</div>
+              <div className="reco-body">
+                <div className="reco-eyebrow">◈ AI RECOMMENDS · NEXT</div>
+                <div className="reco-title">Try a mock to lock it in</div>
+                <div className="reco-sub">
+                  You hit the strong band — a timed mock will surface anything
+                  shaky under pressure.
+                </div>
+                <div className="reco-impact">▲ Picks weak topics next · ~25 min</div>
+              </div>
+              <span className="btn-ai" style={{ flexShrink: 0 }}>
+                Browse →
+              </span>
+            </Link>
+          ) : null}
+
+          {masteryNowPct !== null && masteryWasPct !== null ? (
+            <div className="mastery-delta-card">
+              <div style={{ flex: "0 0 auto", minWidth: 160 }}>
+                <div className="md-label">{topic?.title ?? "Topic"} mastery</div>
+                <div className="md-pair" style={{ marginTop: 6 }}>
+                  <span className="md-was">{masteryWasPct}%</span>
+                  <span className="md-arrow">→</span>
+                  <span
+                    className="md-now"
+                    style={{
+                      color:
+                        masteryDelta && masteryDelta > 0
+                          ? "var(--color-green)"
+                          : masteryDelta && masteryDelta < 0
+                            ? "var(--color-red)"
+                            : "var(--text-muted)",
+                    }}
+                  >
+                    {masteryNowPct}%
+                  </span>
+                  {masteryDelta !== null ? (
+                    <span
+                      className={`md-delta-badge ${
+                        masteryDelta > 0
+                          ? "md-delta-up"
+                          : masteryDelta < 0
+                            ? "md-delta-down"
+                            : "md-delta-flat"
+                      }`}
+                    >
+                      {masteryDelta > 0 ? "▲" : masteryDelta < 0 ? "▼" : "•"}{" "}
+                      {Math.abs(masteryDelta)} pts
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <p className="md-text">
+                {masteryDelta !== null && masteryDelta > 0 ? (
+                  <>
+                    Mastery moved <strong>+{masteryDelta} pts</strong> this
+                    session — keep cadence to push the next band.
+                  </>
+                ) : masteryDelta !== null && masteryDelta < 0 ? (
+                  <>
+                    Mastery dipped this session — the IRT engine will pick
+                    easier items next time to rebuild signal.
+                  </>
+                ) : (
+                  <>
+                    Mastery held steady. Next round will pick items closer to
+                    your edge.
+                  </>
+                )}
+              </p>
+            </div>
+          ) : null}
+        </div>
       </div>
 
-      {/* ── Zone 5: AI recommends next ──────────────────────────── */}
-      {!isExpired && pct < 80 && topic ? (
-        <Link
-          to={`/catalog/topic/${topic.id}`}
-          className="reco-banner"
-          style={{ marginTop: "var(--sp-4)" }}
-        >
-          <div className="reco-icon">⚡</div>
-          <div className="reco-body">
-            <div className="reco-eyebrow">◈ AI RECOMMENDS · NEXT</div>
-            <div className="reco-title">
-              Run another round on {topic.title} — focus on the misses below
-            </div>
-            <div className="reco-sub">
-              You hit {pct}% this session. The IRT engine will pick items at
-              your edge of difficulty so you stretch without thrashing.
-            </div>
-            <div className="reco-impact">
-              ▲ Est. +{Math.max(2, Math.round((100 - pct) / 20))} readiness pts ·
-              ~10 minutes
-            </div>
-          </div>
-          <span className="btn-ai" style={{ flexShrink: 0 }}>
-            Practice again →
-          </span>
-        </Link>
-      ) : null}
-
-      {/* ── Zone 6: Item review grid ────────────────────────────── */}
-      <section style={{ marginTop: "var(--sp-5)" }}>
+      {/* ── Zone 3: Question review (rows) ─────────────────────────── */}
+      <section id="question-review" style={{ marginTop: "var(--sp-5)" }}>
         <div className="sec-row">
-          <h2 className="section-heading">Item review</h2>
-          <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
-            tap any item to revisit (when content lands)
-          </span>
+          <h2 className="section-heading">
+            Question review · {session.items.length} questions
+          </h2>
+          <button
+            type="button"
+            className="see"
+            style={{
+              fontSize: 11,
+              color: "var(--color-blue)",
+              background: "transparent",
+              border: 0,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+            onClick={() => setOpenIdx(openIdx === -1 ? null : -1)}
+          >
+            {openIdx === -1 ? "Collapse all" : "Expand all"}
+          </button>
         </div>
-        <ol className="item-review-grid">
+
+        <ol className="item-review-rows">
           {session.items.map((it) => {
             const cls = it.answered
               ? it.isCorrect
-                ? "item-review-card item-review-card-correct"
-                : "item-review-card item-review-card-wrong"
-              : "item-review-card item-review-card-skipped";
+                ? "qr-row qr-correct"
+                : "qr-row qr-wrong"
+              : "qr-row qr-skipped";
+            const isOpen = openIdx === -1 || openIdx === it.itemIdx;
+            const stemPreview =
+              it.stem ?? `Question ${it.itemIdx + 1} · #${it.questionId.slice(0, 8)}`;
+            const isBookmarked = bookmarked.has(it.questionId);
             return (
               <li key={it.itemIdx} className={cls}>
-                <span className="item-review-num">Q{it.itemIdx + 1}</span>
-                <div className="item-review-body">
-                  <div className="item-review-title">
-                    {it.answered ? (
-                      it.isCorrect ? (
-                        <Pill tone="success">Correct</Pill>
-                      ) : (
-                        <Pill tone="danger">Incorrect</Pill>
-                      )
-                    ) : (
-                      <Pill tone="muted">Skipped</Pill>
-                    )}
-                  </div>
-                  <div className="item-review-meta">
-                    {it.answered && it.answerIdx !== undefined
-                      ? `Picked ${String.fromCharCode(65 + it.answerIdx)} · `
-                      : ""}
-                    #{it.questionId.slice(0, 8)}
-                  </div>
+                <div
+                  className="qr-head"
+                  style={{ display: "flex", alignItems: "center", gap: 8 }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenIdx(isOpen ? null : it.itemIdx)}
+                    aria-expanded={isOpen}
+                    style={{
+                      display: "contents",
+                      background: "transparent",
+                      border: 0,
+                      cursor: "pointer",
+                      font: "inherit",
+                      color: "inherit",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span className="qr-num">{it.itemIdx + 1}</span>
+                    <div className="qr-body">
+                      <div className="qr-q">{stemPreview}</div>
+                      <div className="qr-meta">
+                        {it.answered ? (
+                          it.isCorrect ? (
+                            <Pill tone="success">✓ CORRECT</Pill>
+                          ) : (
+                            <Pill tone="danger">✗ WRONG</Pill>
+                          )
+                        ) : (
+                          <Pill tone="muted">SKIPPED</Pill>
+                        )}
+                        {it.answered && it.answerIdx !== undefined ? (
+                          <span className="qr-meta-text">
+                            Picked {String.fromCharCode(65 + it.answerIdx)}
+                            {it.isCorrect === false && it.correctIdx !== undefined
+                              ? ` · correct ${String.fromCharCode(65 + it.correctIdx)}`
+                              : ""}
+                          </span>
+                        ) : (
+                          <span className="qr-meta-text">#{it.questionId.slice(0, 8)}</span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="qr-toggle">{isOpen ? "Hide" : "Review"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleBookmark(it);
+                    }}
+                    aria-label={isBookmarked ? "Remove bookmark" : "Save question"}
+                    title={isBookmarked ? "Remove bookmark" : "Save question"}
+                    style={{
+                      background: "transparent",
+                      border: 0,
+                      cursor: "pointer",
+                      padding: 6,
+                      lineHeight: 0,
+                      color: isBookmarked ? "var(--color-amber)" : "var(--text-muted)",
+                      fontSize: 18,
+                    }}
+                  >
+                    {isBookmarked ? "★" : "☆"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!reported.has(it.questionId)) setReportFor(it);
+                    }}
+                    aria-label={
+                      reported.has(it.questionId)
+                        ? "Issue already reported"
+                        : "Report an issue with this question"
+                    }
+                    title={
+                      reported.has(it.questionId)
+                        ? "Issue reported · thanks"
+                        : "Report an issue"
+                    }
+                    disabled={reported.has(it.questionId)}
+                    style={{
+                      background: "transparent",
+                      border: 0,
+                      cursor: reported.has(it.questionId) ? "default" : "pointer",
+                      padding: 6,
+                      lineHeight: 0,
+                      color: reported.has(it.questionId)
+                        ? "var(--color-green)"
+                        : "var(--text-muted)",
+                      fontSize: 16,
+                    }}
+                  >
+                    {reported.has(it.questionId) ? "✓" : "⚑"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      askAiAbout(it);
+                    }}
+                    aria-label="Ask AI Tutor about this question"
+                    title="Ask AI Tutor"
+                    disabled={askingAi !== null}
+                    style={{
+                      background: "transparent",
+                      border: 0,
+                      cursor: askingAi ? "wait" : "pointer",
+                      padding: 6,
+                      lineHeight: 0,
+                      color: askingAi === it.questionId
+                        ? "var(--color-ai)"
+                        : "var(--text-muted)",
+                      fontSize: 14,
+                    }}
+                  >
+                    {askingAi === it.questionId ? "…" : "◈"}
+                  </button>
                 </div>
+
+                {isOpen ? (
+                  <div className="qr-expand">
+                    <ExplainCard
+                      itemIdx={it.itemIdx}
+                      questionId={it.questionId}
+                      stem={it.stem}
+                      choices={it.choices}
+                      correctIdx={it.correctIdx}
+                      pickedIdx={it.answerIdx}
+                      answered={it.answered}
+                      isCorrect={it.isCorrect}
+                      storedExplanation={it.explanation}
+                      topicTitle={topic?.title}
+                    />
+                  </div>
+                ) : null}
               </li>
             );
           })}
         </ol>
       </section>
+
+      {reportFor ? (
+        <ReportIssueModal
+          item={reportFor}
+          onCancel={() => setReportFor(null)}
+          onSubmit={(kind, note) => submitReport(reportFor, kind, note)}
+        />
+      ) : null}
     </AppShell>
   );
 }
 
-// Big score ring (right side of hero).
-function ScoreRing({ pct, bucket }: { pct: number; bucket: "strong" | "developing" | "weak" }) {
+function ReportIssueModal({
+  item,
+  onCancel,
+  onSubmit,
+}: {
+  item: ItemSummary;
+  onCancel: () => void;
+  onSubmit: (
+    kind: "WRONG_ANSWER" | "AMBIGUOUS" | "TYPO" | "OTHER",
+    note: string,
+  ) => void;
+}) {
+  const [kind, setKind] = useState<"WRONG_ANSWER" | "AMBIGUOUS" | "TYPO" | "OTHER">("AMBIGUOUS");
+  const [note, setNote] = useState("");
+  const stemPreview =
+    (item.stem ?? `Question #${item.questionId.slice(0, 8)}`).slice(0, 200);
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onCancel}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 50,
+        padding: "var(--sp-4)",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--bg-surface-1)",
+          border: "1px solid var(--border-default)",
+          borderRadius: 14,
+          padding: "var(--sp-5)",
+          width: "min(480px, 100%)",
+          color: "var(--text-primary)",
+        }}
+      >
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>
+          Report an issue
+        </div>
+        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>
+          Q{item.itemIdx + 1} · {stemPreview}
+          {(item.stem ?? "").length > 200 ? "…" : ""}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+          {[
+            { id: "WRONG_ANSWER", label: "The marked answer is wrong" },
+            { id: "AMBIGUOUS", label: "Multiple answers seem valid" },
+            { id: "TYPO", label: "Typo or formatting issue" },
+            { id: "OTHER", label: "Something else" },
+          ].map((opt) => (
+            <label
+              key={opt.id}
+              style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: `1px solid ${kind === opt.id ? "var(--color-blue)" : "var(--border-default)"}`,
+                background: kind === opt.id ? "var(--bg-surface-2)" : "transparent",
+                cursor: "pointer",
+                fontSize: 13,
+              }}
+            >
+              <input
+                type="radio"
+                name="kind"
+                checked={kind === opt.id}
+                onChange={() => setKind(opt.id as typeof kind)}
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value.slice(0, 500))}
+          rows={3}
+          maxLength={500}
+          placeholder="Optional — what went wrong?"
+          style={{
+            width: "100%",
+            background: "var(--bg-surface-2)",
+            border: "1px solid var(--border-default)",
+            borderRadius: 8,
+            color: "var(--text-primary)",
+            padding: 10,
+            fontSize: 13,
+            fontFamily: "inherit",
+            resize: "vertical",
+            marginBottom: 8,
+          }}
+        />
+        <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 16 }}>
+          {note.length}/500
+        </div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button type="button" className="btn btn-ghost" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => onSubmit(kind, note)}
+          >
+            Submit report
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Score ring — shows correct/total in the centre, ring colour by band.
+function ScoreRing({
+  correct,
+  total,
+  bucket,
+}: {
+  correct: number;
+  total: number;
+  bucket: "strong" | "developing" | "weak";
+}) {
   const r = 38;
   const circ = 2 * Math.PI * r;
-  const offset = circ - (pct / 100) * circ;
+  const pct = total > 0 ? correct / total : 0;
+  const offset = circ - pct * circ;
   const stroke =
     bucket === "strong" ? "#10C47A" : bucket === "developing" ? "#F5A623" : "#F43F5E";
   return (
     <div
-      style={{
-        position: "relative",
-        width: 110,
-        height: 110,
-        flexShrink: 0,
-      }}
+      className="eh-ring"
       role="img"
-      aria-label={`Score ${pct}%`}
+      aria-label={`Score ${correct} out of ${total}`}
     >
-      <svg viewBox="0 0 100 100" width="110" height="110">
+      <svg viewBox="0 0 100 100">
         <defs>
           <linearGradient id="result-rg" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor={stroke} />
@@ -506,41 +994,76 @@ function ScoreRing({ pct, bucket }: { pct: number; bucket: "strong" | "developin
           transform="rotate(-90 50 50)"
         />
       </svg>
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
+      <div className="eh-ring-inner">
         <div
+          className="eh-ring-num"
           style={{
-            fontSize: 26,
-            fontWeight: 800,
-            color: stroke,
-            fontVariantNumeric: "tabular-nums",
-            lineHeight: 1,
+            // Override the green→blue gradient when in lower bands.
+            background:
+              bucket === "weak"
+                ? "linear-gradient(135deg,#F43F5E,#F5A623)"
+                : bucket === "developing"
+                  ? "linear-gradient(135deg,#F5A623,#4F87F6)"
+                  : undefined,
+            WebkitBackgroundClip: bucket === "strong" ? undefined : "text",
+            WebkitTextFillColor: bucket === "strong" ? undefined : "transparent",
           }}
         >
-          {pct}%
+          {correct}/{total}
         </div>
-        <div
-          style={{
-            fontSize: 9,
-            color: "var(--text-faint)",
-            letterSpacing: 0.4,
-            marginTop: 2,
-            textTransform: "uppercase",
-          }}
-        >
-          score
-        </div>
+        <div className="eh-ring-lbl">SCORE</div>
       </div>
     </div>
   );
+}
+
+// Format elapsed time as "X min Y sec" / "Y sec" given an ISO startedAt.
+// Returns null if no startedAt or elapsed > 90 minutes (session TTL — we
+// assume a stale view past that).
+function formatElapsed(startedAt?: string): string | null {
+  if (!startedAt) return null;
+  const t = Date.parse(startedAt);
+  if (Number.isNaN(t)) return null;
+  const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (sec === 0 || sec > 90 * 60) return null;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m > 0 ? `${m} min ${s} sec` : `${s} sec`;
+}
+
+// Estimate total minutes spent — fallback when startedAt is unavailable.
+function estMinsTotal(total: number): number {
+  return Math.max(1, Math.round((total * 35) / 60));
+}
+
+function computeStreaks(items: ItemSummary[]): {
+  maxStreak: number;
+  maxWrongStreak: number;
+} {
+  let cur = 0;
+  let max = 0;
+  let curW = 0;
+  let maxW = 0;
+  for (const it of items) {
+    if (it.answered && it.isCorrect) {
+      cur++;
+      curW = 0;
+      if (cur > max) max = cur;
+    } else if (it.answered && !it.isCorrect) {
+      curW++;
+      cur = 0;
+      if (curW > maxW) maxW = curW;
+    } else {
+      cur = 0;
+      curW = 0;
+    }
+  }
+  return { maxStreak: max, maxWrongStreak: maxW };
+}
+
+interface InsightLine {
+  text: string;
+  color: string; // CSS colour string for the dot
 }
 
 function buildInsights(args: {
@@ -552,73 +1075,51 @@ function buildInsights(args: {
   isExpired: boolean;
   items: ItemSummary[];
   topicTitle?: string;
-}): string[] {
-  const out: string[] = [];
-  const { correct, wrong, skipped, total, pct, isExpired, items, topicTitle } = args;
+  masteryDelta: number | null;
+}): InsightLine[] {
+  const out: InsightLine[] = [];
+  const { wrong, skipped, total, pct, isExpired, items, masteryDelta } = args;
 
   if (isExpired) {
-    out.push(
-      `<strong>Session expired</strong> with ${correct}/${total} answered. Start a fresh session to keep momentum — the IRT engine still has all your prior data.`,
-    );
+    out.push({
+      text: `<strong>Session expired</strong> — start a fresh round to keep momentum. The IRT engine still has all your prior data.`,
+      color: "var(--color-amber)",
+    });
     return out;
   }
 
-  // Streak detection — longest correct run.
-  let curStreak = 0;
-  let maxStreak = 0;
-  let curWrongStreak = 0;
-  let maxWrongStreak = 0;
-  items.forEach((it) => {
-    if (it.answered && it.isCorrect) {
-      curStreak++;
-      curWrongStreak = 0;
-      if (curStreak > maxStreak) maxStreak = curStreak;
-    } else if (it.answered && !it.isCorrect) {
-      curWrongStreak++;
-      curStreak = 0;
-      if (curWrongStreak > maxWrongStreak) maxWrongStreak = curWrongStreak;
-    } else {
-      curStreak = 0;
-      curWrongStreak = 0;
-    }
-  });
-
-  if (pct >= 80) {
-    out.push(
-      `<strong>Strong run on ${topicTitle ?? "this topic"}.</strong> You're in the top band — try a mock test to lock it in.`,
-    );
-  } else if (pct >= 50) {
-    out.push(
-      `<strong>${pct}% — developing band.</strong> A few focused rounds on the misses below will push you to the strong band.`,
-    );
-  } else {
-    out.push(
-      `<strong>${pct}% on ${topicTitle ?? "this topic"}.</strong> The misses below are the highest-leverage items right now.`,
-    );
+  if (masteryDelta !== null && masteryDelta > 0) {
+    out.push({
+      text: `Mastery moved <strong>+${masteryDelta} pts</strong> — decay recovered, signal building.`,
+      color: "var(--color-green)",
+    });
   }
 
-  if (maxStreak >= 3) {
-    out.push(
-      `<strong>${maxStreak}-question correct streak</strong> — your concept recall is sticky. Keep cadence to push mastery.`,
-    );
-  }
-
-  if (maxWrongStreak >= 3) {
-    out.push(
-      `<strong>${maxWrongStreak} wrong in a row</strong> — usually a concept gap, not noise. Worth a quick review of that section.`,
-    );
+  const { maxWrongStreak } = computeStreaks(items);
+  if (wrong >= 3 || maxWrongStreak >= 3) {
+    out.push({
+      text: `<strong>${wrong} wrong</strong> — usually a single concept gap. One focused round on the misses below tends to clear it.`,
+      color: "var(--color-amber)",
+    });
   }
 
   if (skipped > 0) {
-    out.push(
-      `<strong>${skipped} skipped item${skipped === 1 ? "" : "s"}</strong> — partial sessions don't build mastery as fast. Aim to finish the next round.`,
-    );
+    out.push({
+      text: `<strong>${skipped} skipped</strong> — partial sessions don't build mastery as fast. Aim to finish the next round.`,
+      color: "var(--color-amber)",
+    });
   }
 
-  if (wrong > 0 && pct < 80) {
-    out.push(
-      `<strong>Practice again with the IRT engine</strong> — items at your edge of difficulty move readiness most per minute.`,
-    );
+  if (pct >= 80 && total >= 5) {
+    out.push({
+      text: `Next session will start at <strong>Hard difficulty</strong> based on your updated ability estimate.`,
+      color: "var(--color-blue)",
+    });
+  } else if (pct < 50 && total >= 5) {
+    out.push({
+      text: `Next session will pick <strong>easier items</strong> to rebuild a clean signal before stretching again.`,
+      color: "var(--color-blue)",
+    });
   }
 
   return out.slice(0, 4);

@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 
+import '../api/api_client.dart';
 import 'quiz_client.dart';
 import 'quiz_result_screen.dart';
 
 /// One-question-at-a-time quiz play surface, mirror of web Quiz.tsx.
 class QuizScreen extends StatefulWidget {
-  const QuizScreen({super.key, required this.client, required this.sessionId});
+  const QuizScreen({super.key, required this.client, required this.sessionId, this.api});
 
   final QuizClient client;
   final String sessionId;
+  final ApiClient? api;
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -124,7 +126,11 @@ class _QuizScreenState extends State<QuizScreen> {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => QuizResultScreen(client: widget.client, sessionId: widget.sessionId),
+        builder: (_) => QuizResultScreen(
+          client: widget.client,
+          sessionId: widget.sessionId,
+          api: widget.api,
+        ),
       ),
     );
   }

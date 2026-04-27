@@ -207,15 +207,36 @@ class QuizSessionDetail {
 }
 
 class QuizItemSummary {
-  QuizItemSummary({required this.itemIdx, required this.questionId, this.isCorrect, required this.answered});
+  QuizItemSummary({
+    required this.itemIdx,
+    required this.questionId,
+    required this.answered,
+    this.isCorrect,
+    this.answerIdx,
+    this.correctIdx,
+    this.stem,
+    this.choices,
+    this.explanation,
+  });
   final int itemIdx;
   final String questionId;
   final bool? isCorrect;
   final bool answered;
+  final int? answerIdx;
+  final int? correctIdx;
+  final String? stem;
+  final List<String>? choices;
+  final String? explanation;
+
   factory QuizItemSummary.fromJson(Map<String, dynamic> j) => QuizItemSummary(
         itemIdx: (j['itemIdx'] as num).toInt(),
         questionId: j['questionId'] as String,
         isCorrect: j['isCorrect'] as bool?,
         answered: j['answered'] as bool,
+        answerIdx: (j['answerIdx'] as num?)?.toInt(),
+        correctIdx: (j['correctIdx'] as num?)?.toInt(),
+        stem: j['stem'] as String?,
+        choices: (j['choices'] as List?)?.cast<String>(),
+        explanation: j['explanation'] as String?,
       );
 }

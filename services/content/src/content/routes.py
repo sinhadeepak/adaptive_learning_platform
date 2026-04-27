@@ -67,6 +67,7 @@ def _to_detail(row: dict) -> QuestionDetail:
         guessingC=row["guessing_c"],
         language=row["language"],
         status=row["status"],
+        explanation=row.get("explanation"),
         createdBy=row["created_by"],
         createdAt=row["created_at"],
         submittedAt=row.get("submitted_at"),
@@ -133,6 +134,7 @@ async def create_question(
         guessing_c=body.guessingC,
         language=body.language,
         created_by=principal.user_id,
+        explanation=body.explanation,
     )
     await session.commit()
     return _to_detail(row)

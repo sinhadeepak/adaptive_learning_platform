@@ -116,6 +116,27 @@ async def close() -> None:
         _client = None
 
 
+def _derive_minutes(started_at: object, submitted_at: object) -> int:
+    """Compute session duration in minutes from ISO timestamps. Falls back to
+    0 when either is missing or unparseable so the upsert just doesn't bump
+    minutes — counters stay correct downstream."""
+    from datetime import datetime
+    if not isinstance(started_at, str) or not isinstance(submitted_at, str):
+        return 0
+    try:
+        # Quiz emits Z-suffixed RFC3339; Python 3.11 datetime.fromisoformat
+        # handles "+00:00" but we replace 'Z' for safety.
+        s = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+        t = datetime.fromisoformat(submitted_at.replace("Z", "+00:00"))
+    except ValueError:
+        return 0
+    delta = t - s
+    secs = max(0, int(delta.total_seconds()))
+    # Cap at 90 min (matches Quiz session TTL) so a stuck-tab session doesn't
+    # log 14 hours of phantom study.
+    return min(90, secs // 60)
+
+
 async def _on_session_completed(msg: Msg) -> None:
     """Re-derive mastery + readiness from a Quiz submit. JetStream-aware:
     explicit ack/nak/term so retries do the right thing."""
@@ -137,6 +158,10 @@ async def _on_session_completed(msg: Msg) -> None:
             await msg.term()
         return
 
+    # Quiz publishes served_count, started_at, submitted_at — derive minutes.
+    served_count = int(payload.get("served_count", 0) or 0)
+    minutes = _derive_minutes(payload.get("started_at"), payload.get("submitted_at"))
+
     try:
         async with sessionmaker()() as session:
             applied = await process_session(
@@ -145,6 +170,8 @@ async def _on_session_completed(msg: Msg) -> None:
                 user_id=user_id,
                 topic_id=topic_id,
                 score=float(score),
+                questions_answered=served_count,
+                study_minutes=minutes,
             )
             await session.commit()
         with contextlib.suppress(Exception):

@@ -1,4 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Network access for the API gateway over LAN. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- image_picker uses camera + photo library. CAMERA is the only one
+         we need to request explicitly; the plugin handles photo-library
+         permissions via Android 13+'s photo-picker bottom sheet which
+         doesn't require a manifest entry. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
         android:label="adaptive_learning_mobile"
         android:name="${applicationName}"

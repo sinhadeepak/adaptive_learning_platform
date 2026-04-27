@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from analytics.db import sessionmaker
-from analytics.repositories import get_mastery, get_readiness, get_streak, list_user_mastery
+from analytics.repositories import (
+    get_mastery,
+    get_readiness,
+    get_streak,
+    list_daily_activity,
+    list_user_mastery,
+)
 
 router = APIRouter()
 
@@ -43,6 +49,31 @@ async def readiness(user_id: str, scope: str = "GLOBAL") -> dict:
         "score": row["score"],
         "nTopics": row["n_topics"],
         "updatedAt": row["updated_at"],
+    }
+
+
+@router.get("/analytics/daily-activity/{user_id}")
+async def daily_activity(
+    user_id: str,
+    days: int = Query(default=30, ge=1, le=180),
+) -> dict:
+    """Per-day study activity for the trailing `days` days. Days with no
+    activity are absent from the response; UI fills zeros across the
+    full window."""
+    async with sessionmaker()() as session:
+        rows = await list_daily_activity(session, user_id, days=days)
+    return {
+        "userId": user_id,
+        "days": days,
+        "activity": [
+            {
+                "date": r["date"].isoformat(),
+                "sessions": r["sessions"],
+                "questions": r["questions"],
+                "minutes": r["minutes"],
+            }
+            for r in rows
+        ],
     }
 
 

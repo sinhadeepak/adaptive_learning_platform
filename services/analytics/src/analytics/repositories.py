@@ -150,6 +150,71 @@ async def get_streak(session: AsyncSession, user_id: str) -> StreakRow | None:
     )
 
 
+async def upsert_daily_activity(
+    session: AsyncSession,
+    *,
+    user_id: str,
+    activity_date: date,
+    sessions_inc: int = 1,
+    questions_inc: int = 0,
+    minutes_inc: int = 0,
+) -> None:
+    """Increment the per-day activity counters for a user. Idempotency comes
+    from the caller (process_session is gated by processed_sessions); each
+    session counts once toward the day it was submitted."""
+    await session.execute(
+        text(
+            f"""
+            INSERT INTO {SCHEMA}.daily_activity
+              (user_id, activity_date, sessions_count, questions_answered, study_minutes, updated_at)
+            VALUES (:uid, :dt, :sinc, :qinc, :minc, NOW())
+            ON CONFLICT (user_id, activity_date) DO UPDATE
+              SET sessions_count = {SCHEMA}.daily_activity.sessions_count + EXCLUDED.sessions_count,
+                  questions_answered = {SCHEMA}.daily_activity.questions_answered + EXCLUDED.questions_answered,
+                  study_minutes = {SCHEMA}.daily_activity.study_minutes + EXCLUDED.study_minutes,
+                  updated_at = NOW()
+            """
+        ),
+        {
+            "uid": user_id,
+            "dt": activity_date,
+            "sinc": sessions_inc,
+            "qinc": questions_inc,
+            "minc": minutes_inc,
+        },
+    )
+
+
+async def list_daily_activity(
+    session: AsyncSession,
+    user_id: str,
+    days: int = 30,
+) -> list[dict]:
+    """Returns rows for the user across the last `days` days (newest first).
+    Days with no activity are simply absent — callers fill zeros."""
+    res = await session.execute(
+        text(
+            f"""
+            SELECT activity_date, sessions_count, questions_answered, study_minutes
+              FROM {SCHEMA}.daily_activity
+             WHERE user_id = :uid
+               AND activity_date >= (CURRENT_DATE - CAST(:days AS INTEGER))
+          ORDER BY activity_date DESC
+            """
+        ),
+        {"uid": user_id, "days": days},
+    )
+    return [
+        {
+            "date": r["activity_date"],
+            "sessions": r["sessions_count"],
+            "questions": r["questions_answered"],
+            "minutes": r["study_minutes"],
+        }
+        for r in res.mappings()
+    ]
+
+
 async def upsert_streak(
     session: AsyncSession,
     *,

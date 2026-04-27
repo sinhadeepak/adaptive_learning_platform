@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'auth/auth_client.dart';
 import 'auth/deep_link.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_scaffold.dart';
 import 'screens/login_screen.dart';
 import 'screens/onboarding/daily_goal_screen.dart';
 import 'screens/onboarding/exam_select_screen.dart';
@@ -13,9 +13,18 @@ import 'screens/register_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/verify_screen.dart';
 
+// Single API base URL — points at the web-student nginx, which proxies
+// /api/v1/* to every backend service (auth, profile, quiz, catalog,
+// analytics, adaptive, etc.). One port to forward, one URL to configure.
+//
+// Defaults:
+//   Android emulator: 10.0.2.2 maps to the dev machine.
+//   iOS simulator:    use --dart-define=ALP_API_BASE_URL=http://localhost:35173/api/v1
+//   Real device:      use --dart-define=ALP_API_BASE_URL=http://<host-LAN-IP>:35173/api/v1
+//                     and ensure WSL→LAN forwarding (see docs/local-testing.md).
 const _apiBaseUrl = String.fromEnvironment(
   'ALP_API_BASE_URL',
-  defaultValue: 'http://10.0.2.2:38001',
+  defaultValue: 'http://10.0.2.2:35173/api/v1',
 );
 
 void main() {
@@ -155,7 +164,7 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
         );
       case _OnboardStep.done:
         // Refresh the session state with the now-onboarded user.
-        return HomeScreen(
+        return MainScaffold(
           auth: widget.auth,
           onSignOut: () async {
             await widget.auth.logout();
@@ -199,7 +208,7 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
           : _session == null
               ? _guestRoute()
               : _session!.user.onboardingState == 'ONBOARDED'
-                  ? HomeScreen(
+                  ? MainScaffold(
                       auth: widget.auth,
                       onSignOut: () async {
                         await widget.auth.logout();

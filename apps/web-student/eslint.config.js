@@ -40,10 +40,17 @@ const browserGlobals = {
   HTMLDetailsElement: "readonly",
   HTMLAnchorElement: "readonly",
   HTMLFormElement: "readonly",
+  HTMLDivElement: "readonly",
+  HTMLButtonElement: "readonly",
+  HTMLImageElement: "readonly",
   Event: "readonly",
   CustomEvent: "readonly",
   KeyboardEvent: "readonly",
   MouseEvent: "readonly",
+  TextDecoder: "readonly",
+  TextEncoder: "readonly",
+  FileReader: "readonly",
+  File: "readonly",
   // React UMD-style namespace usages (e.g. React.CSSProperties type cast).
   React: "readonly",
 };

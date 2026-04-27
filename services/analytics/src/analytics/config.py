@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     )
     redis_url: str = Field(default="redis://localhost:36379/0")
     nats_url: str = Field(default="nats://localhost:34222")
+    # Notification service base URL — used to POST inbox notifications when a
+    # milestone is crossed (streak threshold, daily goal reached). Empty
+    # string disables the integration so unit tests don't need a stub.
+    notification_base_url: str = Field(default="http://notification:8000")
+    # Profile service base URL — used to look up the daily goal so we can
+    # detect goal-reached crossings on a session-by-session basis.
+    user_profile_base_url: str = Field(default="http://user-profile:8000")
 
 
 settings = Settings()

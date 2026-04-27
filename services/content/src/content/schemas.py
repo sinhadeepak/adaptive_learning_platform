@@ -20,6 +20,9 @@ class QuestionCreate(BaseModel):
     discriminationA: float = Field(default=1.0, gt=0, le=4.0)
     guessingC: float = Field(default=0.0, ge=0.0, lt=1.0)
     language: Literal["en", "hi"] = "en"
+    # Optional teaching note shown alongside the correct answer in QuizResult.
+    # When omitted, the UI falls back to /adaptive/explain to generate one on demand.
+    explanation: str | None = Field(default=None, max_length=4000)
 
 
 class QuestionDetail(BaseModel):
@@ -33,6 +36,7 @@ class QuestionDetail(BaseModel):
     guessingC: float
     language: str
     status: str
+    explanation: str | None = None
     createdBy: str
     createdAt: datetime
     submittedAt: datetime | None = None

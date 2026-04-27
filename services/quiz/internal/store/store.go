@@ -47,7 +47,7 @@ func (s *Store) CountQuestions(ctx context.Context, topicID uuid.UUID) (int, err
 func (s *Store) ListUnservedCandidates(ctx context.Context, sessionID, topicID uuid.UUID) ([]domain.Question, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
-		       discrimination_a, guessing_c, language, status
+		       discrimination_a, guessing_c, language, status, explanation
 		FROM quiz_schema.questions
 		WHERE topic_id = $1 AND status = 'PUBLISHED'
 		  AND id NOT IN (
@@ -65,7 +65,7 @@ func (s *Store) ListUnservedCandidates(ctx context.Context, sessionID, topicID u
 		var choicesJSON []byte
 		if err := rows.Scan(&q.ID, &q.TopicID, &q.Stem, &choicesJSON,
 			&q.CorrectIdx, &q.DifficultyB, &q.DiscriminationA, &q.GuessingC,
-			&q.Language, &q.Status); err != nil {
+			&q.Language, &q.Status, &q.Explanation); err != nil {
 			return nil, err
 		}
 		_ = json.Unmarshal(choicesJSON, &q.Choices)
@@ -124,7 +124,7 @@ func (s *Store) PickNextQuestion(ctx context.Context, sess domain.Session) (doma
 	case domain.ModeMock:
 		query = `
 			SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
-			       discrimination_a, guessing_c, language, status
+			       discrimination_a, guessing_c, language, status, explanation
 			FROM quiz_schema.questions
 			WHERE topic_id = $1 AND status = 'PUBLISHED'
 			  AND id NOT IN (
@@ -135,7 +135,7 @@ func (s *Store) PickNextQuestion(ctx context.Context, sess domain.Session) (doma
 	default:
 		query = `
 			SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
-			       discrimination_a, guessing_c, language, status
+			       discrimination_a, guessing_c, language, status, explanation
 			FROM quiz_schema.questions
 			WHERE topic_id = $1 AND status = 'PUBLISHED'
 			  AND id NOT IN (
@@ -152,7 +152,7 @@ func (s *Store) PickNextQuestion(ctx context.Context, sess domain.Session) (doma
 		row = s.pool.QueryRow(ctx, query, sess.TopicID, sess.ID, sess.AbilityEstimate)
 	}
 	err := row.Scan(&q.ID, &q.TopicID, &q.Stem, &choicesJSON, &q.CorrectIdx, &q.DifficultyB,
-		&q.DiscriminationA, &q.GuessingC, &q.Language, &q.Status)
+		&q.DiscriminationA, &q.GuessingC, &q.Language, &q.Status, &q.Explanation)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return q, ErrQuestionNotFound
 	}
@@ -163,6 +163,148 @@ func (s *Store) PickNextQuestion(ctx context.Context, sess domain.Session) (doma
 		return q, fmt.Errorf("decode choices: %w", err)
 	}
 	return q, nil
+}
+
+// UserAnsweredItem joins a quiz_session_item with its question + parent session
+// for cross-topic analysis. Slimmed to the fields the LLM needs to find patterns.
+type UserAnsweredItem struct {
+	SessionID   uuid.UUID
+	ItemIdx     int16
+	QuestionID  uuid.UUID
+	TopicID     uuid.UUID
+	Stem        string
+	AnswerIdx   int16
+	CorrectIdx  int16
+	IsCorrect   bool
+	DifficultyB float32
+	AnsweredAt  *time.Time
+}
+
+// UserAnsweredItems returns the most recent answered items for a user across
+// all their sessions. Used by Adaptive Engine for cross-topic weakness
+// diagnosis. Items where answer_idx is NULL (not yet answered) are excluded.
+func (s *Store) UserAnsweredItems(ctx context.Context, userID uuid.UUID, limit int) ([]UserAnsweredItem, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT i.session_id, i.item_idx, i.question_id, s.topic_id,
+		       q.stem, COALESCE(i.answer_idx, -1) AS answer_idx, q.correct_idx,
+		       COALESCE(i.is_correct, false) AS is_correct,
+		       q.difficulty_b, i.answered_at
+		FROM quiz_schema.quiz_session_items i
+		JOIN quiz_schema.quiz_sessions s ON s.id = i.session_id
+		JOIN quiz_schema.questions q ON q.id = i.question_id
+		WHERE s.user_id = $1 AND i.answer_idx IS NOT NULL
+		ORDER BY i.answered_at DESC NULLS LAST, i.item_idx DESC
+		LIMIT $2`,
+		userID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("user answered items: %w", err)
+	}
+	defer rows.Close()
+	var out []UserAnsweredItem
+	for rows.Next() {
+		var ai UserAnsweredItem
+		if err := rows.Scan(
+			&ai.SessionID, &ai.ItemIdx, &ai.QuestionID, &ai.TopicID,
+			&ai.Stem, &ai.AnswerIdx, &ai.CorrectIdx, &ai.IsCorrect,
+			&ai.DifficultyB, &ai.AnsweredAt,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, ai)
+	}
+	return out, rows.Err()
+}
+
+// SessionListRow is a slim summary row for the user's session history page.
+// Topic title is left to the catalog service to resolve client-side; here we
+// only return the topic_id so the quiz service stays decoupled.
+type SessionListRow struct {
+	ID           uuid.UUID
+	TopicID      uuid.UUID
+	Mode         string
+	Strategy     string
+	Status       string
+	TargetCount  int16
+	ServedCount  int16
+	CorrectCount int16
+	StartedAt    time.Time
+	SubmittedAt  *time.Time
+}
+
+// ListSessionsForUser returns the user's most recent sessions, newest first.
+// Default limit 50, capped at 200 — pagination can land later if usage warrants.
+func (s *Store) ListSessionsForUser(ctx context.Context, userID uuid.UUID, limit int) ([]SessionListRow, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, topic_id, mode, strategy, status, target_count,
+		       served_count, correct_count, started_at, submitted_at
+		FROM quiz_schema.quiz_sessions
+		WHERE user_id = $1
+		ORDER BY started_at DESC
+		LIMIT $2`,
+		userID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list sessions: %w", err)
+	}
+	defer rows.Close()
+	out := make([]SessionListRow, 0, limit)
+	for rows.Next() {
+		var r SessionListRow
+		if err := rows.Scan(
+			&r.ID, &r.TopicID, &r.Mode, &r.Strategy, &r.Status,
+			&r.TargetCount, &r.ServedCount, &r.CorrectCount,
+			&r.StartedAt, &r.SubmittedAt,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// ListQuestionsByTopic returns up to `limit` PUBLISHED questions for a topic,
+// ordered by id so the result set is stable across calls. Used by Adaptive
+// Engine's photo-doubt flow to surface similar problems after OCR.
+func (s *Store) ListQuestionsByTopic(ctx context.Context, topicID uuid.UUID, limit int) ([]domain.Question, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
+		       discrimination_a, guessing_c, language, status, explanation
+		FROM quiz_schema.questions
+		WHERE topic_id = $1 AND status = 'PUBLISHED'
+		ORDER BY id ASC
+		LIMIT $2`,
+		topicID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list questions by topic: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.Question
+	for rows.Next() {
+		var q domain.Question
+		var choicesJSON []byte
+		if err := rows.Scan(&q.ID, &q.TopicID, &q.Stem, &choicesJSON,
+			&q.CorrectIdx, &q.DifficultyB, &q.DiscriminationA, &q.GuessingC,
+			&q.Language, &q.Status, &q.Explanation); err != nil {
+			return nil, err
+		}
+		_ = json.Unmarshal(choicesJSON, &q.Choices)
+		out = append(out, q)
+	}
+	return out, rows.Err()
 }
 
 // CreateSession persists a new session.
@@ -264,10 +406,10 @@ func (s *Store) GetQuestion(ctx context.Context, id uuid.UUID) (domain.Question,
 	var choicesJSON []byte
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
-		       discrimination_a, guessing_c, language, status
+		       discrimination_a, guessing_c, language, status, explanation
 		FROM quiz_schema.questions WHERE id = $1`, id,
 	).Scan(&q.ID, &q.TopicID, &q.Stem, &choicesJSON, &q.CorrectIdx, &q.DifficultyB,
-		&q.DiscriminationA, &q.GuessingC, &q.Language, &q.Status)
+		&q.DiscriminationA, &q.GuessingC, &q.Language, &q.Status, &q.Explanation)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return q, ErrQuestionNotFound
 	}

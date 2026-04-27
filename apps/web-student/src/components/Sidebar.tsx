@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
+import { useAvatar } from "../lib/avatar";
 
 interface NavEntry {
   id: string;
@@ -15,11 +16,14 @@ interface NavEntry {
 const NAV: NavEntry[] = [
   { id: "home", to: "/home", icon: "⚡", label: "Home" },
   { id: "study", to: "/catalog", icon: "📚", label: "Study" },
-  { id: "practice", to: null, icon: "🎯", label: "Practice" },
-  { id: "analysis", to: null, icon: "📊", label: "Analysis" },
-  { id: "experts", to: null, icon: "💬", label: "Experts" },
-  { id: "leaderboard", to: null, icon: "🏆", label: "Rank" },
+  { id: "practice", to: "/practice", icon: "🎯", label: "Practice" },
+  { id: "analysis", to: "/analysis", icon: "📊", label: "Analysis" },
+  { id: "experts", to: "/experts", icon: "💬", label: "AI Tutor" },
+  { id: "doubts", to: "/doubts", icon: "❓", label: "Doubts" },
+  { id: "leaderboard", to: "/rank", icon: "🏆", label: "Rank" },
   { id: "search", to: "/search", icon: "🔍", label: "Search" },
+  { id: "saved", to: "/bookmarks", icon: "★", label: "Saved" },
+  { id: "history", to: "/history", icon: "📜", label: "History" },
   { id: "profile", to: "/profile", icon: "👤", label: "Profile" },
   { id: "settings", to: "/settings", icon: "⚙️", label: "Settings" },
 ];
@@ -28,11 +32,12 @@ export function Sidebar({
   user,
   onSignOut,
 }: {
-  user: { firstName?: string } | null;
+  user: { id?: string; firstName?: string } | null;
   onSignOut: () => void;
 }): ReactNode {
   const { pathname } = useLocation();
   const initial = (user?.firstName ?? "?").slice(0, 1).toUpperCase();
+  const avatarUrl = useAvatar(user?.id ?? null);
 
   return (
     <aside className="sidebar" aria-label="Primary">
@@ -77,9 +82,17 @@ export function Sidebar({
           to="/profile"
           className="avatar"
           aria-label="Open profile"
-          style={{ textDecoration: "none" }}
+          style={{
+            textDecoration: "none",
+            ...(avatarUrl
+              ? {
+                  background: `center/cover url(${avatarUrl})`,
+                  color: "transparent",
+                }
+              : {}),
+          }}
         >
-          {initial}
+          {avatarUrl ? "" : initial}
         </Link>
         <Link
           to="/profile"

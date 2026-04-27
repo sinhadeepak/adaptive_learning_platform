@@ -3,6 +3,11 @@ import { Link } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
+import { Pill } from "../components/dashboard";
+import { GuidedNextSteps } from "../components/GuidedNextSteps";
+import { PhotoDoubt } from "../components/PhotoDoubt";
+import { RankTrajectoryCard } from "../components/RankTrajectoryCard";
+import { WeaknessDiagnosis } from "../components/WeaknessDiagnosis";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Master Dashboard — React port of docs/ui/01_StudentPortal_Web/05_master-dashboard.html.
@@ -62,6 +67,20 @@ export function Home() {
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
   const [streak, setStreak] = useState<StreakResponse | null>(null);
   const [mastery, setMastery] = useState<TopicCard[] | null>(null);
+  const [todayMinutes, setTodayMinutes] = useState<number>(0);
+  const [todaySessions, setTodaySessions] = useState<number>(0);
+  const [weekActivity, setWeekActivity] = useState<
+    Array<{ date: string; minutes: number; sessions: number }>
+  >([]);
+  const [inProgress, setInProgress] = useState<Array<{
+    sessionId: string;
+    topicId: string;
+    targetCount: number;
+    servedCount: number;
+    correctCount: number;
+    startedAt: string;
+  }>>([]);
+  const [inProgressTitles, setInProgressTitles] = useState<Map<string, string>>(new Map());
   const [examsMeta, setExamsMeta] = useState<Record<string, ExamMeta>>({});
 
   useEffect(() => {
@@ -106,6 +125,64 @@ export function Home() {
       try {
         const r = await auth.fetch(`/api/v1/analytics/streak/${user.id}`);
         if (r.ok) setStreak((await r.json()) as StreakResponse);
+      } catch {
+        /* swallow */
+      }
+      try {
+        // 7-day window — feeds the daily-goal card (today only) AND the
+        // weekly bars chart (full 7 days). Server returns rows for days
+        // with activity; missing days mean zero.
+        const r = await auth.fetch(`/api/v1/analytics/daily-activity/${user.id}?days=7`);
+        if (r.ok) {
+          const body = (await r.json()) as {
+            activity: Array<{ date: string; minutes: number; sessions: number; questions: number }>;
+          };
+          setWeekActivity(body.activity);
+          const todayKey = new Date().toISOString().slice(0, 10);
+          const today = body.activity.find((a) => a.date === todayKey) ?? null;
+          setTodayMinutes(today?.minutes ?? 0);
+          setTodaySessions(today?.sessions ?? 0);
+        }
+      } catch {
+        /* swallow */
+      }
+      try {
+        // Pull last 20 sessions so we can show resume-in-progress + the
+        // total in-progress count if there's more than one.
+        const r = await auth.fetch(
+          `/api/v1/quiz/sessions?userId=${user.id}&limit=20`,
+        );
+        if (r.ok) {
+          const body = (await r.json()) as {
+            items: Array<{
+              sessionId: string;
+              topicId: string;
+              status: string;
+              targetCount: number;
+              servedCount: number;
+              correctCount: number;
+              startedAt: string;
+            }>;
+          };
+          const ip = body.items.filter((i) => i.status === "IN_PROGRESS");
+          setInProgress(ip);
+          // Hydrate topic titles for the in-progress topics.
+          const titles = new Map<string, string>();
+          await Promise.all(
+            Array.from(new Set(ip.map((s) => s.topicId))).map(async (id) => {
+              try {
+                const t = await auth.fetch(`/api/v1/catalog/topics/${id}`);
+                if (t.ok) {
+                  const body2 = (await t.json()) as { title: string };
+                  titles.set(id, body2.title);
+                }
+              } catch {
+                /* swallow */
+              }
+            }),
+          );
+          setInProgressTitles(titles);
+        }
       } catch {
         /* swallow */
       }
@@ -192,21 +269,14 @@ export function Home() {
     0,
   ) : 0;
 
-  // Daily goal completion — derived from today's session count vs goal.
-  // We don't have per-day telemetry; estimate today's minutes as
-  // streak.lastActiveDate === today ? min(goal, sessions*10*1.5) : 0.
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const lastActive = streak?.lastActiveDate
-    ? new Date(streak.lastActiveDate)
-    : null;
-  const studiedToday =
-    lastActive && lastActive.getTime() >= today.getTime()
-      ? Math.min(goalMinutes ?? 60, totalSessions * 12)
-      : 0;
+  // Daily goal completion — fed by analytics_schema.daily_activity, which
+  // upsert_daily_activity() bumps on every processed session. The minutes
+  // figure is what the quiz client emits in study_minutes; falls back to 0
+  // when the user hasn't studied today.
+  const studiedToday = todayMinutes;
   const goalPct =
     goalMinutes && goalMinutes > 0
-      ? Math.round((studiedToday / goalMinutes) * 100)
+      ? Math.min(100, Math.round((studiedToday / goalMinutes) * 100))
       : 0;
   const goalToneClass =
     goalPct >= 80 ? "goal-pct-high" : goalPct >= 40 ? "goal-pct-mid" : "goal-pct-low";
@@ -292,6 +362,130 @@ export function Home() {
           </div>
         </div>
       </section>
+
+      {/* Resume in-progress — only shows when at least one session is mid-flight. */}
+      {/* Streak-in-danger nudge — only when the student has a live streak
+          but hasn't practiced today yet. Quiet otherwise (no banner when
+          practiced today, when streak is 0, or before first session). */}
+      {(() => {
+        if (!streak || streak.currentStreak <= 0 || !streak.lastActiveDate) return null;
+        const last = new Date(streak.lastActiveDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const lastMid = new Date(last);
+        lastMid.setHours(0, 0, 0, 0);
+        const dayDiff = Math.round(
+          (today.getTime() - lastMid.getTime()) / (24 * 60 * 60 * 1000),
+        );
+        if (dayDiff < 1) return null; // already practiced today
+        if (dayDiff > 1) return null; // already broken — different message would scope-creep
+        return (
+          <section style={{ marginTop: "var(--sp-4)" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--sp-3)",
+                padding: "var(--sp-3) var(--sp-4)",
+                borderRadius: 12,
+                background: "linear-gradient(135deg, #2C1F12 0%, #3A2A18 100%)",
+                border: "1px solid rgba(245,166,35,0.40)",
+              }}
+            >
+              <span style={{ fontSize: 26 }}>🔥</span>
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    color: "var(--text-primary)",
+                    fontSize: 14,
+                    fontWeight: 700,
+                  }}
+                >
+                  Don't lose your {streak.currentStreak}-day streak
+                </div>
+                <div style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 2 }}>
+                  Practice today to keep it alive — even one quick session counts.
+                </div>
+              </div>
+              <Link
+                to="/practice"
+                className="btn btn-primary"
+                style={{ minWidth: 120, textAlign: "center" }}
+              >
+                Start now →
+              </Link>
+            </div>
+          </section>
+        );
+      })()}
+
+      {inProgress.length > 0 ? (
+        <section style={{ marginTop: "var(--sp-4)" }}>
+          {(() => {
+            const r = inProgress[0];
+            const remaining = Math.max(0, r.targetCount - r.servedCount);
+            const title = inProgressTitles.get(r.topicId) ?? `Topic #${r.topicId.slice(0, 8)}`;
+            return (
+              <div
+                style={{
+                  background: "linear-gradient(135deg, #1A2540 0%, #1F2C4A 100%)",
+                  border: "1px solid rgba(99,102,241,0.30)",
+                  borderRadius: 14,
+                  padding: "var(--sp-4)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "var(--sp-4)",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 240 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>↩️</span>
+                    <span
+                      style={{
+                        color: "var(--text-primary)",
+                        fontSize: 15,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Resume practice
+                    </span>
+                    {inProgress.length > 1 ? (
+                      <Pill tone="warning">+{inProgress.length - 1} more</Pill>
+                    ) : null}
+                  </div>
+                  <div style={{ color: "var(--text-primary)", fontSize: 14 }}>
+                    {title}
+                  </div>
+                  <div style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 4 }}>
+                    {remaining} question{remaining === 1 ? "" : "s"} left ·{" "}
+                    {r.correctCount}/{r.servedCount} correct so far
+                  </div>
+                </div>
+                <Link
+                  to={`/quiz/${r.sessionId}`}
+                  className="btn btn-primary"
+                  style={{ minWidth: 140, textAlign: "center" }}
+                >
+                  ▶ Continue
+                </Link>
+                {inProgress.length > 1 ? (
+                  <Link to="/history" className="auth-link" style={{ fontSize: 12 }}>
+                    See all →
+                  </Link>
+                ) : null}
+              </div>
+            );
+          })()}
+        </section>
+      ) : null}
 
       {/* ── Zone 2: My exams + courses ─────────────────────────────── */}
       <section style={{ marginTop: "var(--sp-5)" }}>
@@ -380,7 +574,19 @@ export function Home() {
         )}
       </section>
 
-      {/* ── Zone 3: AI recommends ──────────────────────────────────── */}
+      {/* ── Zone 1.5: Predicted AIR for target exam ──────────────── */}
+      {user ? <RankTrajectoryCard userId={user.id} /> : null}
+
+      {/* ── Zone 2.5: Photo-doubt OCR + similar-problems retrieval ── */}
+      <PhotoDoubt />
+
+      {/* ── Zone 3a: Guided Next Steps (AI-driven 3-action panel) ──── */}
+      {user ? <GuidedNextSteps userId={user.id} /> : null}
+
+      {/* ── Zone 3b: Cross-topic weakness diagnosis ───────────────── */}
+      {user ? <WeaknessDiagnosis userId={user.id} /> : null}
+
+      {/* ── Zone 3b: AI recommends (single weakest-topic banner) ───── */}
       {weakest ? (
         <Link
           to={`/catalog/topic/${weakest.topicId}`}
@@ -437,7 +643,9 @@ export function Home() {
                       : "—"}
                   </span>
                   <span className="goal-target">
-                    {goalMinutes ? `${goalMinutes} min` : "set in onboarding"}
+                    {goalMinutes
+                      ? `${todaySessions} session${todaySessions === 1 ? "" : "s"} today`
+                      : "set in onboarding"}
                   </span>
                 </div>
               </div>
@@ -447,7 +655,7 @@ export function Home() {
                   This week (sessions per day)
                 </div>
                 <div className="week-bars">
-                  {weekDayMockBars(streak?.currentStreak ?? 0).map((b, i) => (
+                  {weekDayBars(weekActivity, goalMinutes ?? 0).map((b, i) => (
                     <div key={i} className="wb-col">
                       <div
                         className="wb"
@@ -767,30 +975,67 @@ function formatLastDate(iso: string): string {
 
 // Synthesize a 7-bar weekly chart from the streak. Until per-day session
 // telemetry exists, this conveys "consistency" via the streak shape.
-function weekDayMockBars(streak: number) {
+/**
+ * Real weekday bars: heights track sessions-per-day, colors track goal hit.
+ * Sourced from analytics_schema.daily_activity. Days with no row mean zero.
+ *
+ * - Hit goal (minutes ≥ goal): green, full height
+ * - Studied but missed goal: amber, partial height
+ * - No activity on a past day: red dim sliver
+ * - Future days: faint placeholder
+ */
+function weekDayBars(
+  activity: Array<{ date: string; minutes: number; sessions: number }>,
+  goalMinutes: number,
+) {
   const labels = ["M", "T", "W", "T", "F", "S", "S"];
-  const today = new Date().getDay(); // 0=Sun..6=Sat
-  // Convert to monday-anchored index (0=Mon..6=Sun)
-  const mondayIdx = (today + 6) % 7;
+  const now = new Date();
+  const todayIdx = (now.getDay() + 6) % 7; // 0=Mon..6=Sun
+
+  // Build a date→activity map so missing rows fall to zero.
+  const map = new Map<string, { minutes: number; sessions: number }>();
+  for (const a of activity) map.set(a.date, { minutes: a.minutes, sessions: a.sessions });
+
+  // Compute the Monday of this ISO week as the chart anchor.
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() - todayIdx);
+
+  // Max sessions in the visible window — used to scale heights so a heavy
+  // day fills the column and lighter days scale proportionally.
+  const visible = labels.map((_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const key = d.toISOString().slice(0, 10);
+    return map.get(key) ?? { minutes: 0, sessions: 0 };
+  });
+  const maxSessions = Math.max(1, ...visible.map((v) => v.sessions));
+
   return labels.map((label, i) => {
-    const isToday = i === mondayIdx;
-    const isPast = i < mondayIdx;
-    const inStreak = streak > 0 && i >= mondayIdx - streak + 1 && i <= mondayIdx;
-    let h = 12;
+    const isToday = i === todayIdx;
+    const isFuture = i > todayIdx;
+    const v = visible[i];
+    let h = 8;
     let color = "var(--bg-surface3)";
     let opacity = 1;
-    if (inStreak) {
-      h = 28 + ((i * 7) % 14);
-      color = isToday ? "var(--color-amber)" : "var(--color-blue)";
-      opacity = 0.8;
-    } else if (isPast) {
-      h = 14;
-      color = "var(--color-red)";
-      opacity = 0.5;
-    } else {
+
+    if (isFuture) {
       h = 8;
       color = "var(--bg-surface3)";
-      opacity = 1;
+      opacity = 0.4;
+    } else if (v.sessions === 0) {
+      h = 10;
+      color = "var(--color-red)";
+      opacity = 0.45;
+    } else if (goalMinutes > 0 && v.minutes >= goalMinutes) {
+      h = 36;
+      color = isToday ? "var(--color-green)" : "var(--color-green)";
+      opacity = isToday ? 1 : 0.85;
+    } else {
+      // Studied but didn't hit goal — height by sessions, color amber.
+      h = 14 + Math.round((v.sessions / maxSessions) * 22);
+      color = isToday ? "var(--color-amber)" : "var(--color-blue)";
+      opacity = isToday ? 1 : 0.7;
     }
     return { label, h, color, opacity };
   });

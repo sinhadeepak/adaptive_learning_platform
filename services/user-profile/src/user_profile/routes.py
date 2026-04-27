@@ -2,22 +2,46 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+log = logging.getLogger(__name__)
+
 from user_profile.db import get_session
-from user_profile.repositories import ExamRepo, ProfileRepo
+from user_profile.repositories import (
+    AchievementsRepo,
+    BookmarksRepo,
+    ExamRepo,
+    MockAttemptsRepo,
+    ProfileRepo,
+    QuestionFeedbackRepo,
+)
 from user_profile.schemas import (
+    Achievement,
+    AchievementGrant,
+    AchievementList,
+    AvatarUpdate,
+    Bookmark,
+    BookmarkCreate,
+    BookmarkList,
     ExamPatchRequest,
     ExamPutRequest,
     ExamSelection,
+    InternalProfile,
+    MockAttempt,
+    MockAttemptCreate,
+    MockAttemptList,
+    NotificationPrefsPatch,
     Preferences,
     PreferencesPatch,
     Problem,
     Profile,
     ProfileUpdate,
+    QuestionFeedback,
+    QuestionFeedbackCreate,
     UserIdentity,
 )
 from user_profile.security import JwtPrincipal, current_principal
@@ -75,6 +99,7 @@ async def _build_profile(
             dailyGoalMinutes=row.get("daily_goal_minutes"),
         ),
         exams=[ExamSelection(examId=str(e["exam_id"]), targetDate=e["target_date"]) for e in exams],
+        notificationPrefs=row.get("notification_prefs") or {},
     )
 
 
@@ -158,21 +183,303 @@ async def patch_preferences(
     return profile
 
 
+@router.put("/me/avatar", response_model=Profile)
+async def put_avatar(
+    body: AvatarUpdate,
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> Profile:
+    """Stash a base64 data URL avatar inline. Clients should downscale to
+    ~256×256 before upload (Pydantic caps at 400KB to keep the row size
+    sane). Real S3+CDN upload lands later — this gives the UI a working
+    surface without standing up that infra now."""
+    avatar = body.avatarUrl.strip()
+    if not avatar.startswith("data:image/"):
+        raise _problem("invalid_avatar", "Avatar must be a base64 image data URL", http_status=400)
+    profiles = ProfileRepo(session)
+    await profiles.ensure(
+        user_id=principal.user_id,
+        first_name=principal.claims.get("first_name", ""),
+        last_name=principal.claims.get("last_name", ""),
+    )
+    await profiles.set_avatar(principal.user_id, avatar)
+    profile = await _build_profile(session=session, principal=principal)
+    await session.commit()
+    return profile
+
+
 @router.delete("/me/avatar", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_avatar(session: SessionDep, principal: PrincipalDep) -> None:
-    # Stubbed until S3 avatar upload lands in Sprint 3.
+    profiles = ProfileRepo(session)
+    if await profiles.by_user_id(principal.user_id) is not None:
+        await profiles.set_avatar(principal.user_id, None)
     await session.commit()
     return None
+
+
+# ---- /profile/bookmarks — student-facing question bookmarks ----
+
+
+@router.post("/bookmarks", response_model=Bookmark, status_code=status.HTTP_201_CREATED)
+async def add_bookmark(
+    body: BookmarkCreate,
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> Bookmark:
+    repo = BookmarksRepo(session)
+    row = await repo.add(
+        user_id=principal.user_id,
+        question_id=body.questionId,
+        topic_id=body.topicId,
+        topic_title=body.topicTitle,
+        stem=body.stem,
+        note=body.note,
+    )
+    await session.commit()
+    return Bookmark(
+        userId=str(row["user_id"]),
+        questionId=str(row["question_id"]),
+        topicId=str(row["topic_id"]) if row.get("topic_id") else None,
+        topicTitle=row.get("topic_title"),
+        stem=row.get("stem"),
+        note=row.get("note"),
+        createdAt=row["created_at"],
+    )
+
+
+@router.get("/bookmarks", response_model=BookmarkList)
+async def list_bookmarks(session: SessionDep, principal: PrincipalDep) -> BookmarkList:
+    repo = BookmarksRepo(session)
+    rows = await repo.list_for_user(principal.user_id)
+    return BookmarkList(
+        items=[
+            Bookmark(
+                userId=str(r["user_id"]),
+                questionId=str(r["question_id"]),
+                topicId=str(r["topic_id"]) if r.get("topic_id") else None,
+                topicTitle=r.get("topic_title"),
+                stem=r.get("stem"),
+                note=r.get("note"),
+                createdAt=r["created_at"],
+            )
+            for r in rows
+        ]
+    )
+
+
+@router.delete("/bookmarks/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_bookmark(
+    question_id: str,
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> None:
+    repo = BookmarksRepo(session)
+    ok = await repo.remove(user_id=principal.user_id, question_id=question_id)
+    if not ok:
+        raise _problem("bookmark_not_found", "Bookmark not found", http_status=404)
+    await session.commit()
+    return None
+
+
+# ---- /profile/notification-prefs — per-type mute map ----
+
+
+@router.patch("/notification-prefs", response_model=Profile)
+async def patch_notification_prefs(
+    body: NotificationPrefsPatch,
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> Profile:
+    """Merge-update the user's notification mute map. Pass {type: false} to
+    mute, {type: true} to re-enable. Server-side filtering: producers consult
+    the user's prefs (via /internal/profile) before posting to the inbox, so
+    a muted type never shows up in the bell."""
+    profiles = ProfileRepo(session)
+    await profiles.ensure(
+        user_id=principal.user_id,
+        first_name=principal.claims.get("first_name", ""),
+        last_name=principal.claims.get("last_name", ""),
+    )
+    await profiles.patch_notification_prefs(principal.user_id, body.prefs)
+    profile = await _build_profile(session=session, principal=principal)
+    await session.commit()
+    return profile
+
+
+# ---- /profile/mock-attempts — durable mock test scoreboard ----
+
+
+def _mock_attempt_to_schema(row: dict) -> MockAttempt:
+    return MockAttempt(
+        id=str(row["id"]),
+        mockId=row.get("mock_id") if row.get("mock_id") else None,
+        examCode=row["exam_code"],
+        examName=row.get("exam_name"),
+        rawScore=int(row["raw_score"]),
+        maxMarks=int(row["max_marks"]),
+        accuracy=float(row["accuracy"]),
+        totalQuestions=int(row["total_questions"]),
+        nCorrect=int(row["n_correct"]),
+        nWrong=int(row["n_wrong"]),
+        nUnanswered=int(row["n_unanswered"]),
+        percentile=float(row["percentile"]) if row.get("percentile") is not None else None,
+        projectedRank=int(row["projected_rank"]) if row.get("projected_rank") is not None else None,
+        confidence=row.get("confidence"),
+        sections=row.get("sections") or [],
+        createdAt=row["created_at"],
+    )
+
+
+@router.get("/mock-attempts", response_model=MockAttemptList)
+async def list_mock_attempts(session: SessionDep, principal: PrincipalDep) -> MockAttemptList:
+    repo = MockAttemptsRepo(session)
+    rows = await repo.list_for_user(principal.user_id)
+    return MockAttemptList(items=[_mock_attempt_to_schema(r) for r in rows])
+
+
+# Service-to-service: adaptive-engine POSTs after /adaptive/mock/score finishes.
+# No JWT here — guarded by network reachability (compose network locally,
+# K8s NetworkPolicy in staging+prod). Kept separate from the JWT-gated
+# /profile/* surface so a stolen token can't manufacture mock results.
+@internal_router.get("/{user_id}/mock-attempts/count")
+async def get_mock_attempt_count_internal(user_id: str, session: SessionDep) -> dict:
+    """Service-to-service counter — adaptive-engine pings this after a
+    mock score to decide whether to award `mocks_5` / `mocks_10` / etc."""
+    repo = MockAttemptsRepo(session)
+    count = await repo.count_for_user(user_id)
+    return {"userId": user_id, "count": count}
+
+
+@internal_router.post("/mock-attempts", response_model=MockAttempt)
+async def post_mock_attempt_internal(
+    body: MockAttemptCreate,
+    session: SessionDep,
+) -> MockAttempt:
+    repo = MockAttemptsRepo(session)
+    row = await repo.insert(
+        user_id=body.userId,
+        mock_id=body.mockId,
+        exam_code=body.examCode,
+        exam_name=body.examName,
+        raw_score=body.rawScore,
+        max_marks=body.maxMarks,
+        accuracy=body.accuracy,
+        total_questions=body.totalQuestions,
+        n_correct=body.nCorrect,
+        n_wrong=body.nWrong,
+        n_unanswered=body.nUnanswered,
+        percentile=body.percentile,
+        projected_rank=body.projectedRank,
+        confidence=body.confidence,
+        sections=body.sections,
+    )
+    await session.commit()
+    return _mock_attempt_to_schema(row)
+
+
+# ---- /profile/achievements — gamification badges ----
+
+
+def _achievement_to_schema(row: dict) -> Achievement:
+    return Achievement(
+        id=str(row["id"]),
+        kind=row["kind"],
+        payload=row.get("payload") or {},
+        awardedAt=row["awarded_at"],
+    )
+
+
+@router.get("/achievements", response_model=AchievementList)
+async def list_achievements(session: SessionDep, principal: PrincipalDep) -> AchievementList:
+    repo = AchievementsRepo(session)
+    rows = await repo.list_for_user(principal.user_id)
+    return AchievementList(items=[_achievement_to_schema(r) for r in rows])
+
+
+# Service-to-service: analytics calls this when a streak threshold crosses,
+# adaptive-engine calls this on first mock completion, etc. Idempotent on
+# (user_id, kind) — re-emit is a no-op. Side-effect: when the grant
+# actually awards a NEW badge (vs duplicate), fires an inbox notification
+# so the bell pings the student.
+@internal_router.post("/achievements", response_model=Achievement)
+async def post_achievement_internal(
+    body: AchievementGrant, session: SessionDep
+) -> Achievement:
+    repo = AchievementsRepo(session)
+    row, created = await repo.grant(
+        user_id=body.userId, kind=body.kind, payload=body.payload
+    )
+    await session.commit()
+    if created:
+        try:
+            await _post_achievement_notification(
+                user_id=body.userId, kind=body.kind, payload=body.payload
+            )
+        except Exception:
+            log.exception("achievement.unlocked notification failed")
+    return _achievement_to_schema(row)
+
+
+async def _post_achievement_notification(
+    *, user_id: str, kind: str, payload: dict
+) -> None:
+    from user_profile.config import settings
+
+    base = (settings.notification_base_url or "").rstrip("/")
+    if not base:
+        return
+    import httpx
+
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        await client.post(
+            f"{base}/notifications/inbox",
+            json={
+                "userId": user_id,
+                "type": "achievement.unlocked",
+                "payload": {"kind": kind, **payload},
+            },
+        )
+
+
+# ---- /profile/feedback — student-reported question issues ----
+
+
+@router.post("/feedback", response_model=QuestionFeedback, status_code=status.HTTP_201_CREATED)
+async def post_feedback(
+    body: QuestionFeedbackCreate,
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> QuestionFeedback:
+    """Record a student's flag against a question (ambiguous / wrong / typo).
+    Idempotent on (user, question, kind) so a double-tap is a no-op rather
+    than two identical rows clogging the moderator queue."""
+    repo = QuestionFeedbackRepo(session)
+    row = await repo.create(
+        user_id=principal.user_id,
+        question_id=body.questionId,
+        kind=body.kind,
+        note=body.note,
+    )
+    await session.commit()
+    return QuestionFeedback(
+        id=str(row["id"]),
+        questionId=str(row["question_id"]),
+        kind=row["kind"],
+        note=row.get("note"),
+        createdAt=row["created_at"],
+    )
 
 
 # ---- /internal/profile/{user_id} — service-to-service lookup ----
 
 
-@internal_router.get("/{user_id}", response_model=UserIdentity)
-async def get_profile_internal(user_id: str, session: SessionDep) -> UserIdentity:
-    """Service-to-service lookup of the minimal user shape (id, names, email,
-    onboarding state). Used by Notification's outbound dispatcher to resolve
-    `to:` addresses without threading email through every event payload.
+@internal_router.get("/{user_id}", response_model=InternalProfile)
+async def get_profile_internal(user_id: str, session: SessionDep) -> InternalProfile:
+    """Service-to-service lookup of the user's identity + preferences.
+
+    Used by Notification's outbound dispatcher to resolve `to:` addresses
+    without threading email through every event payload, and by Analytics
+    to detect daily-goal crossings without bloating the quiz event payload.
 
     No JWT here — protected by network reachability (compose network in
     local, K8s NetworkPolicy in staging+prod). Sprint 4 hardens with
@@ -182,7 +489,7 @@ async def get_profile_internal(user_id: str, session: SessionDep) -> UserIdentit
     if row is None:
         raise _problem("profile_not_found", "Profile not found", http_status=404)
     await session.commit()
-    return UserIdentity(
+    return InternalProfile(
         id=user_id,
         email=row.get("email") or "",
         firstName=row["first_name"],
@@ -190,4 +497,7 @@ async def get_profile_internal(user_id: str, session: SessionDep) -> UserIdentit
         role="STUDENT",
         tenantId=row.get("tenant_id"),
         onboardingState=row["onboarding_state"],
+        language=row["language_pref"],
+        dailyGoalMinutes=row.get("daily_goal_minutes"),
+        notificationPrefs=row.get("notification_prefs") or {},
     )

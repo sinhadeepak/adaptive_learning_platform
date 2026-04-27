@@ -21,7 +21,52 @@ interface ProfileResponse {
   };
   preferences: { language: string; dailyGoalMinutes: number | null };
   exams: Array<{ examId: string; targetDate: string | null }>;
+  notificationPrefs?: Record<string, boolean>;
 }
+
+interface NotifKind {
+  id: string;
+  label: string;
+  description: string;
+}
+
+const NOTIF_KINDS: NotifKind[] = [
+  {
+    id: "quiz.completed",
+    label: "Practice results",
+    description: "Bell ping when a practice session is scored.",
+  },
+  {
+    id: "mock.completed",
+    label: "Mock test results",
+    description: "Bell ping when an AI mock test is scored, with projected AIR.",
+  },
+  {
+    id: "streak.milestone",
+    label: "Streak milestones",
+    description: "🔥 3 / 7 / 14 / 30 / 60 / 100 / 365-day streak hits.",
+  },
+  {
+    id: "streak.broken",
+    label: "Streak reset",
+    description: "When you return after missing a day and the streak resets.",
+  },
+  {
+    id: "goal.reached",
+    label: "Daily goal hit",
+    description: "When the day's study minutes cross your goal.",
+  },
+  {
+    id: "doubt.answered",
+    label: "Doubt replies",
+    description: "When an expert or AI tutor replies to a thread you started.",
+  },
+  {
+    id: "achievement.unlocked",
+    label: "Achievements",
+    description: "Bell ping the first time you unlock a new badge.",
+  },
+];
 
 type Language = "en" | "hi" | "hinglish";
 
@@ -48,6 +93,29 @@ export function Settings() {
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({});
+
+  function isMuted(type: string): boolean {
+    return notifPrefs[type] === false;
+  }
+
+  async function toggleNotifType(type: string) {
+    const next = !isMuted(type) ? false : true; // if muted, enable; else mute
+    const optimistic = { ...notifPrefs, [type]: next };
+    setNotifPrefs(optimistic);
+    const r = await auth.fetch(`/api/v1/profile/notification-prefs`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ prefs: { [type]: next } }),
+    });
+    if (!r.ok) {
+      // Roll back.
+      setNotifPrefs(notifPrefs);
+    } else {
+      const body = (await r.json()) as ProfileResponse;
+      setNotifPrefs(body.notificationPrefs ?? optimistic);
+    }
+  }
 
   useEffect(() => {
     (async () => {
@@ -61,6 +129,9 @@ export function Settings() {
         }
         if (body.preferences.dailyGoalMinutes) {
           setGoal(body.preferences.dailyGoalMinutes);
+        }
+        if (body.notificationPrefs) {
+          setNotifPrefs(body.notificationPrefs);
         }
       } catch {
         setError("We couldn't load your settings.");
@@ -217,6 +288,73 @@ export function Settings() {
               );
             })}
           </div>
+        </section>
+
+        {/* ── Notifications ────────────────────────────────────── */}
+        <section className="topic-section">
+          <h2 className="topic-section-title">Notifications</h2>
+          <p className="topic-section-body" style={{ marginBottom: "var(--sp-3)" }}>
+            Mute the categories you don't want pinging your inbox bell.
+            Changes take effect for future events; already-delivered
+            notifications stay in your inbox until you mark them read.
+          </p>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+            {NOTIF_KINDS.map((kind) => {
+              const muted = isMuted(kind.id);
+              return (
+                <li
+                  key={kind.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "var(--sp-3)",
+                    border: "1px solid var(--border-default)",
+                    borderRadius: 10,
+                    background: "var(--bg-surface-1)",
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
+                      {kind.label}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                      {kind.description}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void toggleNotifType(kind.id)}
+                    aria-pressed={!muted}
+                    style={{
+                      width: 44,
+                      height: 24,
+                      borderRadius: 999,
+                      background: muted ? "var(--bg-surface-3)" : "var(--color-blue)",
+                      border: "1px solid var(--border-default)",
+                      cursor: "pointer",
+                      position: "relative",
+                      transition: "background 0.15s",
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: 1,
+                        left: muted ? 1 : 21,
+                        width: 20,
+                        height: 20,
+                        borderRadius: "50%",
+                        background: "#fff",
+                        transition: "left 0.15s",
+                      }}
+                      aria-hidden
+                    />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </section>
 
         {/* ── Save bar ─────────────────────────────────────────── */}

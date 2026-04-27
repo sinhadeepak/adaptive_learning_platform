@@ -22,6 +22,7 @@ class NotificationRow:
     channel: str
     payload: dict[str, Any]
     created_at: datetime
+    read_at: datetime | None = None
 
 
 async def is_event_processed(session: AsyncSession, event_id: str) -> bool:
@@ -147,7 +148,7 @@ async def list_for_user(
     res = await session.execute(
         text(
             f"""
-            SELECT id, user_id, type, channel, payload, created_at
+            SELECT id, user_id, type, channel, payload, created_at, read_at
               FROM {SCHEMA}.notifications
              WHERE user_id = :uid
           ORDER BY created_at DESC
@@ -168,6 +169,45 @@ async def list_for_user(
                 channel=str(r[3]),
                 payload=p,
                 created_at=r[5],
+                read_at=r[6],
             )
         )
     return rows
+
+
+async def unread_count_for_user(session: AsyncSession, user_id: str) -> int:
+    res = await session.execute(
+        text(
+            f"SELECT count(*) FROM {SCHEMA}.notifications "
+            "WHERE user_id = :uid AND read_at IS NULL"
+        ),
+        {"uid": user_id},
+    )
+    row = res.first()
+    return int(row[0]) if row else 0
+
+
+async def mark_read(session: AsyncSession, *, user_id: str, notification_id: str) -> bool:
+    """Idempotent — second call is a no-op (UPDATE … WHERE read_at IS NULL).
+    Returns True if this call did the flip, False if it was already read or
+    the row doesn't belong to `user_id`."""
+    res = await session.execute(
+        text(
+            f"UPDATE {SCHEMA}.notifications SET read_at = now() "
+            "WHERE id = :id AND user_id = :uid AND read_at IS NULL"
+        ),
+        {"id": notification_id, "uid": user_id},
+    )
+    return bool(res.rowcount)
+
+
+async def mark_all_read(session: AsyncSession, user_id: str) -> int:
+    """Returns the number of rows flipped from unread → read."""
+    res = await session.execute(
+        text(
+            f"UPDATE {SCHEMA}.notifications SET read_at = now() "
+            "WHERE user_id = :uid AND read_at IS NULL"
+        ),
+        {"uid": user_id},
+    )
+    return res.rowcount or 0

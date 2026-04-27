@@ -40,6 +40,7 @@ type Question struct {
 	GuessingC       float32
 	Language        string
 	Status          string
+	Explanation     *string
 }
 
 type Session struct {

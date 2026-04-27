@@ -27,6 +27,7 @@ def _row_to_dict(r: Any) -> dict[str, Any]:
         "guessing_c": float(r["guessing_c"]),
         "language": r["language"],
         "status": r["status"],
+        "explanation": r["explanation"],
         "created_by": str(r["created_by"]),
         "created_at": r["created_at"],
         "submitted_at": r["submitted_at"],
@@ -49,6 +50,7 @@ async def insert_question(
     guessing_c: float,
     language: str,
     created_by: str,
+    explanation: str | None = None,
 ) -> dict[str, Any]:
     if correct_idx >= len(choices):
         raise ValueError("correctIdx out of range for choices")
@@ -57,11 +59,11 @@ async def insert_question(
             f"""
             INSERT INTO {SCHEMA}.questions
               (id, topic_id, stem, choices, correct_idx, difficulty_b,
-               discrimination_a, guessing_c, language, status, created_by)
+               discrimination_a, guessing_c, language, status, created_by, explanation)
             VALUES (:id, :tid, :stem, CAST(:choices AS JSONB), :ci, :db,
-                    :da, :gc, :lang, 'DRAFT', :cb)
+                    :da, :gc, :lang, 'DRAFT', :cb, :exp)
             RETURNING id, topic_id, stem, choices, correct_idx, difficulty_b,
-                      discrimination_a, guessing_c, language, status,
+                      discrimination_a, guessing_c, language, status, explanation,
                       created_by, created_at, submitted_at, reviewed_by, reviewed_at, review_notes
             """
         ),
@@ -76,6 +78,7 @@ async def insert_question(
             "gc": guessing_c,
             "lang": language,
             "cb": created_by,
+            "exp": explanation,
         },
     )
     return _row_to_dict(res.mappings().first())
@@ -101,7 +104,7 @@ async def list_questions(
         text(
             f"""
             SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
-                   discrimination_a, guessing_c, language, status,
+                   discrimination_a, guessing_c, language, status, explanation,
                    created_by, created_at, submitted_at, reviewed_by, reviewed_at, review_notes
               FROM {SCHEMA}.questions {where_clause}
           ORDER BY created_at DESC LIMIT :lim
@@ -116,7 +119,7 @@ async def get_question(session: AsyncSession, question_id: str) -> dict[str, Any
     res = await session.execute(
         text(
             f"SELECT id, topic_id, stem, choices, correct_idx, difficulty_b, "
-            f"discrimination_a, guessing_c, language, status, "
+            f"discrimination_a, guessing_c, language, status, explanation, "
             f"created_by, created_at, submitted_at, reviewed_by, reviewed_at, review_notes "
             f"FROM {SCHEMA}.questions WHERE id = :id"
         ),

@@ -1,19 +1,31 @@
 import { Navigate, type RouteObject } from "react-router-dom";
 import { GuestOnlyRoute, ProtectedRoute } from "./lib/protected-route";
 import { AddExam } from "./pages/AddExam";
+import { Analysis } from "./pages/Analysis";
+import { Bookmarks } from "./pages/Bookmarks";
+import { DoubtDetail } from "./pages/DoubtDetail";
+import { Doubts } from "./pages/Doubts";
 import { Catalog } from "./pages/Catalog";
 import { CatalogExam } from "./pages/CatalogExam";
 import { ExamDetail } from "./pages/ExamDetail";
+import { Experts } from "./pages/Experts";
 import { ForgotPassword } from "./pages/ForgotPassword";
+import { History } from "./pages/History";
 import { Home } from "./pages/Home";
+import { Inbox } from "./pages/Inbox";
 import { StudyMap } from "./pages/StudyMap";
 import { Login } from "./pages/Login";
 import { Placeholder } from "./pages/Placeholder";
+import { MockResult } from "./pages/MockResult";
+import { MockTest } from "./pages/MockTest";
+import { Practice } from "./pages/Practice";
 import { Profile } from "./pages/Profile";
 import { Quiz } from "./pages/Quiz";
 import { QuizResult } from "./pages/QuizResult";
+import { Rank } from "./pages/Rank";
 import { Register } from "./pages/Register";
 import { ResetPassword } from "./pages/ResetPassword";
+import { ScreeningExamSelect } from "./pages/screening/ScreeningExamSelect";
 import { Search } from "./pages/Search";
 import { Settings } from "./pages/Settings";
 import { TopicDetail } from "./pages/TopicDetail";
@@ -70,6 +82,15 @@ export const routes: RouteObject[] = [
         <ResetPassword />
       </GuestOnlyRoute>
     ),
+  },
+
+  // AI Screening Test — guest-accessible (no auth required). Lets a
+  // prospective student pick an exam and run a 10-question diagnostic
+  // before deciding to sign up.
+  { path: "/screening", element: <ScreeningExamSelect /> },
+  {
+    path: "/screening/quiz",
+    element: <Placeholder title="Screening test · coming soon" />,
   },
 
   // Onboarding (protected, gated by onboarding_state FSM)
@@ -182,10 +203,98 @@ export const routes: RouteObject[] = [
     ),
   },
   {
+    path: "/analysis",
+    element: (
+      <ProtectedRoute>
+        <Analysis />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/experts",
+    element: (
+      <ProtectedRoute>
+        <Experts />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/rank",
+    element: (
+      <ProtectedRoute>
+        <Rank />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/practice",
+    element: (
+      <ProtectedRoute>
+        <Practice />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/mock",
+    element: (
+      <ProtectedRoute>
+        <MockTest />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/mock/result",
+    element: (
+      <ProtectedRoute>
+        <MockResult />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: "/profile",
     element: (
       <ProtectedRoute>
         <Profile />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/bookmarks",
+    element: (
+      <ProtectedRoute>
+        <Bookmarks />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/history",
+    element: (
+      <ProtectedRoute>
+        <History />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/inbox",
+    element: (
+      <ProtectedRoute>
+        <Inbox />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/doubts",
+    element: (
+      <ProtectedRoute>
+        <Doubts />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/doubts/:doubtId",
+    element: (
+      <ProtectedRoute>
+        <DoubtDetail />
       </ProtectedRoute>
     ),
   },

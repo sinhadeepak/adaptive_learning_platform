@@ -98,6 +98,7 @@ async def publish_question_published(question: dict[str, Any]) -> None:
         "discrimination_a": question.get("discrimination_a", 1.0),
         "guessing_c": question.get("guessing_c", 0.0),
         "language": question["language"],
+        "explanation": question.get("explanation"),
         "reviewed_by": question["reviewed_by"],
         "reviewed_at": (
             question["reviewed_at"].isoformat() if question.get("reviewed_at") else None

@@ -46,6 +46,8 @@ export interface CreateQuestionInput {
   discriminationA?: number;
   guessingC?: number;
   language?: "en" | "hi";
+  // Teaching note shown alongside the correct answer in QuizResult.
+  explanation?: string | null;
 }
 
 async function asJson<T>(res: Response): Promise<T> {
@@ -156,5 +158,52 @@ export const content = {
       body: JSON.stringify({ approve, notes: notes ?? null }),
     });
     return asJson<Question>(res);
+  },
+};
+
+// AI-assisted authoring (calls adaptive-engine).
+export interface GeneratedQuestion {
+  stem: string;
+  choices: string[];
+  correctIdx: number;
+  difficultyB: number;
+  explanation: string;
+  tags: string[];
+  language: "en" | "hi";
+}
+
+export interface GenerateQuestionsResponse {
+  questions: GeneratedQuestion[];
+  topicId?: string;
+  topicTitle?: string;
+  subjectName?: string;
+  examName?: string;
+  source: "ai" | "stub";
+  message?: string;
+}
+
+export const adaptive = {
+  async generateQuestions(input: {
+    topicId: string;
+    count: number;
+    language: "en" | "hi";
+    difficulty: "easy" | "medium" | "hard" | "mixed";
+    brief?: string;
+  }): Promise<GenerateQuestionsResponse> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/adaptive/authoring/generate-questions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          topicId: input.topicId,
+          count: input.count,
+          language: input.language,
+          difficulty: input.difficulty,
+          brief: input.brief ?? "",
+        }),
+      },
+    );
+    return asJson<GenerateQuestionsResponse>(res);
   },
 };

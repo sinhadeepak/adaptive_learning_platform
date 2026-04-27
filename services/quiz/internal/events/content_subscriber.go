@@ -44,6 +44,7 @@ type QuestionPublished struct {
 	DiscriminationA *float32 `json:"discrimination_a,omitempty"`
 	GuessingC       *float32 `json:"guessing_c,omitempty"`
 	Language        string   `json:"language"`
+	Explanation     *string  `json:"explanation,omitempty"`
 }
 
 // ContentSubscriber owns the JetStream consumer that mirrors content.question.published
@@ -160,8 +161,8 @@ func (s *ContentSubscriber) handle(msg jetstream.Msg) {
 	_, err = s.pool.Exec(ctx, `
 		INSERT INTO quiz_schema.questions
 		  (id, topic_id, stem, choices, correct_idx, difficulty_b,
-		   discrimination_a, guessing_c, language, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PUBLISHED')
+		   discrimination_a, guessing_c, language, status, explanation)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PUBLISHED', $10)
 		ON CONFLICT (id) DO UPDATE SET
 		  stem = EXCLUDED.stem,
 		  choices = EXCLUDED.choices,
@@ -170,8 +171,9 @@ func (s *ContentSubscriber) handle(msg jetstream.Msg) {
 		  discrimination_a = EXCLUDED.discrimination_a,
 		  guessing_c = EXCLUDED.guessing_c,
 		  language = EXCLUDED.language,
+		  explanation = EXCLUDED.explanation,
 		  status = 'PUBLISHED'
-	`, ev.ID, ev.TopicID, ev.Stem, choicesJSON, ev.CorrectIdx, ev.DifficultyB, a, c, lang)
+	`, ev.ID, ev.TopicID, ev.Stem, choicesJSON, ev.CorrectIdx, ev.DifficultyB, a, c, lang, ev.Explanation)
 
 	if err != nil {
 		s.logger.Warn("content.question.published upsert failed", "id", ev.ID, "err", err)

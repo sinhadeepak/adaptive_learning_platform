@@ -481,11 +481,15 @@ type sessionResponse struct {
 }
 
 type itemSummary struct {
-	ItemIdx    int16  `json:"itemIdx"`
-	QuestionID string `json:"questionId"`
-	AnswerIdx  *int16 `json:"answerIdx,omitempty"`
-	IsCorrect  *bool  `json:"isCorrect,omitempty"`
-	Answered   bool   `json:"answered"`
+	ItemIdx     int16    `json:"itemIdx"`
+	QuestionID  string   `json:"questionId"`
+	AnswerIdx   *int16   `json:"answerIdx,omitempty"`
+	IsCorrect   *bool    `json:"isCorrect,omitempty"`
+	Answered    bool     `json:"answered"`
+	Stem        string   `json:"stem,omitempty"`
+	Choices     []string `json:"choices,omitempty"`
+	CorrectIdx  *int16   `json:"correctIdx,omitempty"`
+	Explanation *string  `json:"explanation,omitempty"`
 }
 
 // Get returns the full session state with served-item history (resume / review).
@@ -517,15 +521,31 @@ func (svc *SessionService) Get(logger *slog.Logger) http.HandlerFunc {
 			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load items")
 			return
 		}
+		// When the session is SUBMITTED, hydrate each item with the question
+		// content (stem + choices + correctIdx + explanation) so QuizResult can
+		// render a real teaching moment without N round-trips. For active
+		// sessions we still hide correctIdx/explanation to avoid leaking the
+		// answer mid-quiz.
+		hydrate := sess.Status == domain.StatusSubmitted
 		summaries := make([]itemSummary, 0, len(items))
 		for _, it := range items {
-			summaries = append(summaries, itemSummary{
+			s := itemSummary{
 				ItemIdx:    it.ItemIdx,
 				QuestionID: it.QuestionID.String(),
 				AnswerIdx:  it.AnswerIdx,
 				IsCorrect:  it.IsCorrect,
 				Answered:   it.IsAnswered(),
-			})
+			}
+			if hydrate {
+				if q, qerr := svc.store.GetQuestion(r.Context(), it.QuestionID); qerr == nil {
+					s.Stem = q.Stem
+					s.Choices = q.Choices
+					ci := q.CorrectIdx
+					s.CorrectIdx = &ci
+					s.Explanation = q.Explanation
+				}
+			}
+			summaries = append(summaries, s)
 		}
 		writeJSON(w, http.StatusOK, sessionResponse{
 			SessionID:    sess.ID.String(),
@@ -542,6 +562,89 @@ func (svc *SessionService) Get(logger *slog.Logger) http.HandlerFunc {
 			Items:        summaries,
 		})
 	}
+}
+
+type sessionListItem struct {
+	SessionID    string     `json:"sessionId"`
+	TopicID      string     `json:"topicId"`
+	Mode         string     `json:"mode"`
+	Strategy     string     `json:"strategy"`
+	Status       string     `json:"status"`
+	TargetCount  int16      `json:"targetCount"`
+	ServedCount  int16      `json:"servedCount"`
+	CorrectCount int16      `json:"correctCount"`
+	StartedAt    time.Time  `json:"startedAt"`
+	SubmittedAt  *time.Time `json:"submittedAt,omitempty"`
+}
+
+type sessionListResponse struct {
+	UserID string            `json:"userId"`
+	Items  []sessionListItem `json:"items"`
+}
+
+// ListSessions surfaces a user's quiz session history newest-first. The mobile
+// "History" screen and web's /history page render directly from this — the
+// endpoint stays slim (status counts + topic id) and the client resolves topic
+// titles from catalog. Local stack: no JWT enforcement to mirror the rest of
+// /quiz; production layers add scoping by reading user_id from the bearer.
+func (svc *SessionService) ListSessions(logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userIDStr := r.URL.Query().Get("userId")
+		if userIDStr == "" {
+			writeProblem(w, http.StatusBadRequest, "missing_field", "userId is required")
+			return
+		}
+		userID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			writeProblem(w, http.StatusBadRequest, "invalid_user_id", "userId must be a UUID")
+			return
+		}
+		limit := 50
+		if l := r.URL.Query().Get("limit"); l != "" {
+			if n, perr := parseLimit(l); perr == nil && n > 0 {
+				limit = n
+			}
+		}
+		rows, err := svc.store.ListSessionsForUser(r.Context(), userID, limit)
+		if err != nil {
+			logger.Error("list_sessions.failed", "err", err, "user", userID)
+			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to list sessions")
+			return
+		}
+		out := make([]sessionListItem, 0, len(rows))
+		for _, row := range rows {
+			out = append(out, sessionListItem{
+				SessionID:    row.ID.String(),
+				TopicID:      row.TopicID.String(),
+				Mode:         row.Mode,
+				Strategy:     row.Strategy,
+				Status:       row.Status,
+				TargetCount:  row.TargetCount,
+				ServedCount:  row.ServedCount,
+				CorrectCount: row.CorrectCount,
+				StartedAt:    row.StartedAt,
+				SubmittedAt:  row.SubmittedAt,
+			})
+		}
+		writeJSON(w, http.StatusOK, sessionListResponse{
+			UserID: userIDStr,
+			Items:  out,
+		})
+	}
+}
+
+func parseLimit(s string) (int, error) {
+	var n int
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return 0, errors.New("not a number")
+		}
+		n = n*10 + int(c-'0')
+		if n > 1000 {
+			return 1000, nil
+		}
+	}
+	return n, nil
 }
 
 // loadActive parses the session id, loads it, and refuses if it's not

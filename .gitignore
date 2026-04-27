@@ -100,3 +100,6 @@ infrastructure/k8s/charts/*/charts/
 # Reports / generated
 /reports/
 /tmp/
+
+# Local agent state (per-machine, not for the repo)
+.claude/

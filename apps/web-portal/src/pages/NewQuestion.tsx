@@ -9,6 +9,7 @@ import {
 } from "../lib/api";
 import { AppShell } from "../components/AppShell";
 import { Banner } from "../components/primitives";
+import { AIQuestionGenerator } from "../components/AIQuestionGenerator";
 
 export function NewQuestion() {
   const navigate = useNavigate();
@@ -398,6 +399,14 @@ export function NewQuestion() {
           </button>
         </div>
       </form>
+
+      <AIQuestionGenerator
+        topicId={topicId}
+        topicTitle={
+          topics.find((t) => t.id === topicId)?.title ?? ""
+        }
+        onSavedAll={() => navigate("/questions", { replace: true })}
+      />
     </AppShell>
   );
 }

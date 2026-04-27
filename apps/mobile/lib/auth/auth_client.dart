@@ -192,6 +192,10 @@ class AuthClient {
   void setUser(User u) {
     _user = u;
   }
+
+  /// Exposed for streaming endpoints (SSE) where ApiClient constructs its own
+  /// http.Request and needs the bearer token. Read-only.
+  Tokens? get tokens => _cachedTokens;
 }
 
 class Session {
