@@ -17,6 +17,7 @@ dependencies = [
     "opensearch-py[async]>=2.7",
     "redis>=5.0",
     "openai>=1.50",
+    "pyjwt>=2.9",
     "alp-flags",
     "alp-telemetry",
 ]

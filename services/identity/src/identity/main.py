@@ -33,7 +33,7 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
-app.add_middleware(TraceContextMiddleware, service_name="identity")
+app.add_middleware(TraceContextMiddleware)
 
 
 @app.get("/health")
