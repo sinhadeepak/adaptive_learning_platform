@@ -8,6 +8,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from notification import __version__
+from notification.assignment_subscriber import close as close_assignment_subscriber
+from notification.assignment_subscriber import connect as connect_assignment_subscriber
 from notification.config import settings
 from notification.db import dispose, sessionmaker
 from notification.dispatcher import start as start_dispatcher
@@ -30,11 +32,14 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     await connect_flags()
     await connect_events()
+    # Sprint 9 E-5 — subscribe to content.assignment.created for cohort fanout.
+    await connect_assignment_subscriber()
     await start_dispatcher()
     try:
         yield
     finally:
         await stop_dispatcher()
+        await close_assignment_subscriber()
         await close_events()
         await close_flags()
         await dispose()

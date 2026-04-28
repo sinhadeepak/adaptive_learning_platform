@@ -37,7 +37,15 @@ async def _truncate() -> None:
         database="content",
     )
     try:
-        await conn.execute("TRUNCATE content_schema.questions")
+        # Sprint 9 — assignment_progress + assignment_questions FK back to
+        # assignments; CASCADE handles the cleanup. questions table is
+        # the original Sprint 3 table.
+        await conn.execute(
+            "TRUNCATE content_schema.assignment_progress, "
+            "content_schema.assignment_questions, "
+            "content_schema.assignments, "
+            "content_schema.questions RESTART IDENTITY CASCADE"
+        )
     finally:
         await conn.close()
 

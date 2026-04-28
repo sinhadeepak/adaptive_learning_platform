@@ -8,6 +8,7 @@ from content import __version__, events
 from content.config import settings
 from content.db import dispose
 from content.logging import configure_logging
+from content.assignments_routes import router as assignments_router
 from content.routes import router as content_router
 
 
@@ -32,6 +33,7 @@ app = FastAPI(
 # carries a trace_id available to structlog (Sprint 4).
 app.add_middleware(TraceContextMiddleware)
 app.include_router(content_router)
+app.include_router(assignments_router)
 
 
 @app.get("/health")

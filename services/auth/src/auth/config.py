@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     #   - email_channel_enabled (default TRUE) — gates outbound OTP + password-reset emails.
     institution_base_url: str = Field(default="http://localhost:38008")
 
+    # Sprint 9 A-1 — Payment service base URL for the staleness fallback at JWT
+    # issuance. Catches the dropped-NATS-payment-success edge: user paid but
+    # `payment.subscription.changed` never landed, so users.premium_until still
+    # NULL. The fallback is only invoked when premium_until IS NULL (premium
+    # users stay on the fast path).
+    payment_base_url: str = Field(default="http://localhost:38007")
+    payment_fallback_timeout_seconds: float = Field(default=1.0)
+
     # Password reset
     password_reset_ttl_seconds: int = Field(default=60 * 60)  # 1 hour
     password_reset_url_template: str = Field(

@@ -103,6 +103,17 @@ def _row_to_user(row: dict) -> User:
 
 
 async def _issue_session(session: AsyncSession, row: dict, *, remember: bool) -> Session:
+    # Sprint 9 A-1 — staleness fallback: if `premium_until IS NULL` (the
+    # user looks free), check Payment service in case a NATS message was
+    # dropped. Premium users with a stored period stay on the fast path.
+    if row.get("premium_until") is None and row.get("role") == "STUDENT":
+        from auth.payment_fallback import fallback_premium_until
+
+        provisional = await fallback_premium_until(str(row["id"]))
+        if provisional is not None:
+            await UserRepo(session).set_premium_until(str(row["id"]), provisional)
+            await session.commit()
+            row = {**row, "premium_until": provisional}
     user = _row_to_user(row)
     access, expires_at = issue_access_token(
         user_id=user.id,

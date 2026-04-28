@@ -2,6 +2,8 @@ import { Navigate, type RouteObject } from "react-router-dom";
 import { GuestOnlyRoute, ProtectedRoute } from "./lib/protected-route";
 import { AddExam } from "./pages/AddExam";
 import { Analysis } from "./pages/Analysis";
+import { AssignmentDetail } from "./pages/AssignmentDetail";
+import { Assignments } from "./pages/Assignments";
 import { Billing } from "./pages/Billing";
 import { Bookmarks } from "./pages/Bookmarks";
 import { DoubtDetail } from "./pages/DoubtDetail";
@@ -313,6 +315,23 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <Billing />
+      </ProtectedRoute>
+    ),
+  },
+  // Sprint 9 F-1 — Educator Assignments inbox + detail.
+  {
+    path: "/assignments",
+    element: (
+      <ProtectedRoute>
+        <Assignments />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/assignments/:assignmentId",
+    element: (
+      <ProtectedRoute>
+        <AssignmentDetail />
       </ProtectedRoute>
     ),
   },

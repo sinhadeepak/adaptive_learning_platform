@@ -574,15 +574,18 @@ test("/quiz/:id/result shows score + per-item review", async () => {
     return new Response("not found", { status: 404 });
   });
   renderAt("/quiz/sid-9/result");
-  // PR #61 rewrote QuizResult onto AI-first hero. Score appears in
-  // multiple places (ring + stat tile) — findAllByText handles both.
-  expect((await screen.findAllByText("80%")).length).toBeGreaterThanOrEqual(1);
-  // The "4" + "/5" pattern still renders inside the Correct stat tile.
-  expect(screen.getAllByText(/^4$/).length).toBeGreaterThanOrEqual(1);
-  expect(screen.getByText("/5")).toBeInTheDocument();
-  // 5 items rendered as cards (Q1 through Q5 labels).
-  expect(screen.getByText("Q1")).toBeInTheDocument();
-  expect(screen.getByText("Q5")).toBeInTheDocument();
+  // S9 A-3 — PR #61 rewrote QuizResult onto AI-first hero. Score copy
+  // landed in a few places:
+  //   - "This session" tile renders `· {pct}%` inside one span
+  //   - "{correct}/{total}" rendered inline in the same tile (no split)
+  // Per-item review uses bare item numbers ("1".."5") in qr-num spans
+  // and CORRECT/WRONG pills — the "Q1" prefix only appears inside the
+  // Report-an-issue popover (not open in this test).
+  expect((await screen.findAllByText(/80%/)).length).toBeGreaterThanOrEqual(1);
+  expect(screen.getAllByText("4/5").length).toBeGreaterThanOrEqual(1);
+  // 4 of the 5 items were correct; 1 was wrong.
+  expect(screen.getAllByText(/CORRECT/).length).toBeGreaterThanOrEqual(1);
+  expect(screen.getAllByText(/WRONG/).length).toBeGreaterThanOrEqual(1);
 });
 
 // ---- Profile + Settings (PR #62) ----

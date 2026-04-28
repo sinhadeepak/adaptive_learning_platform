@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../api/api_client.dart';
+import '../api/assignments.dart';
 import '../api/billing.dart';
 import '../auth/auth_client.dart';
 import '../widgets/activity_heatmap.dart';
 import '../widgets/alp_card.dart';
+import 'assignments_screen.dart';
 import 'billing_screen.dart';
 import 'bookmarks_screen.dart';
 import 'change_password_screen.dart';
@@ -421,6 +423,15 @@ class _ProfileTabState extends State<ProfileTab> {
               trailing: 'View',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => BookmarksScreen(api: api, auth: auth),
+              )),
+            ),
+            // Sprint 9 F-2 — Assignments inbox entry.
+            _SettingsRow(
+              icon: Icons.assignment_outlined,
+              title: 'Assignments',
+              trailing: 'View',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => AssignmentsScreen(client: AssignmentsClient(auth)),
               )),
             ),
             _SettingsRow(

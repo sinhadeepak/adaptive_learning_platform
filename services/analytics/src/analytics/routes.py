@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
+from analytics.cohort_leaderboard import (
+    batch_readiness,
+    fetch_cohort_members,
+    rank_leaderboard,
+)
 from analytics.db import sessionmaker
 from analytics.repositories import (
     get_mastery,
@@ -97,3 +102,26 @@ async def streak(user_id: str) -> dict:
         "longestStreak": row.longest_streak,
         "lastActiveDate": row.last_active_date.isoformat(),
     }
+
+
+@router.get("/analytics/cohorts/{cohort_id}/leaderboard")
+async def cohort_leaderboard(
+    cohort_id: str,
+    include_teachers: bool = Query(default=False, alias="includeTeachers"),
+) -> dict:
+    """Sprint 9 L-1 — class leaderboard.
+
+    Joins Institution's cohort-members → Analytics's readiness via the
+    HTTP-then-batch-DB pattern (AP-01 keeps schemas service-owned).
+    Members without a readiness row render as `started: false` so the
+    educator UI can show "not started" badges."""
+    members = await fetch_cohort_members(cohort_id)
+    if not members:
+        return {"cohortId": cohort_id, "leaderboard": []}
+    user_ids = [m["userId"] for m in members]
+    async with sessionmaker()() as session:
+        readiness_by_user = await batch_readiness(session, user_ids)
+    rows = rank_leaderboard(
+        members, readiness_by_user, include_teachers=include_teachers
+    )
+    return {"cohortId": cohort_id, "leaderboard": rows}

@@ -152,11 +152,17 @@ def _build_system(
             f"- Student EWA on this topic is {mastery_ewa:.2f} — confident. "
             "You can use advanced terminology and skip basics."
         )
-    return SYSTEM_TEMPLATE.format(
-        topic_title=title,
-        subject_name=subject,
-        exam_name=exam,
-        mastery_line=mastery_line,
+    # Sprint 9 A-2 — `.format()` collides with the literal `{"title": ...}`
+    # JSON examples in the artifact-schema section of SYSTEM_TEMPLATE
+    # (Python's str.format treats `{` as placeholder markers). Use plain
+    # str.replace() instead — there are only four named placeholders and
+    # they're unique enough to be safe.
+    return (
+        SYSTEM_TEMPLATE
+        .replace("{topic_title}", title)
+        .replace("{subject_name}", subject)
+        .replace("{exam_name}", exam)
+        .replace("{mastery_line}", mastery_line)
     )
 
 

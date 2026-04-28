@@ -33,6 +33,10 @@ log = logging.getLogger(__name__)
 
 STREAM = "CONTENT_EVENTS"
 SUBJECT_QUESTION_PUBLISHED = "content.question.published"
+# Sprint 9 E-4 — Educator Assignments fanout. Notification subscribes to
+# this subject and writes one `assignment.new` notification per cohort
+# member; web + mobile clients deep-link to /assignments/{id}.
+SUBJECT_ASSIGNMENT_CREATED = "content.assignment.created"
 
 _client: NatsClient | None = None
 _js: JetStreamContext | None = None
@@ -109,3 +113,37 @@ async def publish_question_published(question: dict[str, Any]) -> None:
         log.info("content published question %s", question["id"])
     except Exception as err:
         log.warning("content publish failed for %s: %s", question["id"], err)
+
+
+async def publish_assignment_created(assignment: dict[str, Any]) -> None:
+    """Sprint 9 E-4 — emit content.assignment.created when an educator
+    publishes an assignment. Notification consumes this and fans out
+    `assignment.new` to the cohort members. Best-effort: a publish
+    failure is logged but never breaks the publish HTTP response — the
+    assignment row is the durable record and a future replay can re-fan-out."""
+    if _js is None:
+        log.debug("content noop publish: js not connected")
+        return
+    payload = {
+        "id": str(assignment["id"]),
+        "cohort_id": str(assignment["cohort_id"]),
+        "tenant_id": str(assignment["tenant_id"]) if assignment.get("tenant_id") else None,
+        "title": assignment["title"],
+        "description": assignment.get("description"),
+        "created_by": str(assignment["created_by"]),
+        "due_at": (
+            assignment["due_at"].isoformat() if assignment.get("due_at") else None
+        ),
+        "published_at": (
+            assignment["published_at"].isoformat()
+            if assignment.get("published_at")
+            else None
+        ),
+    }
+    try:
+        await _js.publish(SUBJECT_ASSIGNMENT_CREATED, json.dumps(payload).encode("utf-8"))
+        log.info("content published assignment %s", assignment["id"])
+    except Exception as err:
+        log.warning(
+            "content assignment publish failed for %s: %s", assignment["id"], err
+        )

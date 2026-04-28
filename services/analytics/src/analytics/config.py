@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Profile service base URL — used to look up the daily goal so we can
     # detect goal-reached crossings on a session-by-session basis.
     user_profile_base_url: str = Field(default="http://user-profile:8000")
+    # Sprint 9 L-1 — Institution service for cohort membership lookups
+    # (cohort leaderboard endpoint joins membership → readiness via HTTP
+    # rather than a cross-schema SQL JOIN, per AP-01).
+    institution_base_url: str = Field(default="http://institution:8000")
 
 
 settings = Settings()
