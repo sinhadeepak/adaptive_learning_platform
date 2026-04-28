@@ -3,7 +3,7 @@
 Endpoint contract: given (cohort_id, user_id), the educator gets a
 single payload with everything they need to coach the student:
   - Overall readiness (`analytics_schema.readiness` GLOBAL row)
-  - Per-topic mastery breakdown (analytics_schema.user_mastery)
+  - Per-topic mastery breakdown (analytics_schema.mastery)
   - Streak (current + longest)
   - Last 10 quiz sessions (read-only handle into quiz_schema)
 

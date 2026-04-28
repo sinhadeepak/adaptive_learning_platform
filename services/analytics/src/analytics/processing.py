@@ -319,12 +319,18 @@ async def _today_minutes(session: AsyncSession, user_id: str, today: date) -> in
 async def _sum_user_sessions(session: AsyncSession, user_id: str) -> int:
     """Sum of `n` across all topics for this user — the running total of
     sessions the analytics pipeline has booked. Sourced from the post-write
-    state of user_mastery so it includes the session we just processed."""
+    state of `mastery` so it includes the session we just processed.
+
+    Sprint 14 — was `user_mastery` (the schema-rename debt from a much
+    earlier sprint that never got reflected here). All the other paths
+    in this file already query `analytics_schema.mastery`; this raw-SQL
+    branch was the last holdout. test_streaks failures + the streak
+    `currentStreak` column on /home went silently stale because of it."""
     from sqlalchemy import text
 
     res = await session.execute(
         text(
-            "SELECT COALESCE(SUM(n), 0) FROM analytics_schema.user_mastery "
+            "SELECT COALESCE(SUM(n), 0) FROM analytics_schema.mastery "
             "WHERE user_id = :uid"
         ),
         {"uid": user_id},
