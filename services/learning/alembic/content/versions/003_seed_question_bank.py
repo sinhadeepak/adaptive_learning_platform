@@ -105,7 +105,7 @@ def _load_question_bank() -> dict[str, list[dict[str, Any]]]:
     context. Alembic doesn't add the service root to sys.path, so we
     insert it manually relative to this file."""
     here = Path(__file__).resolve()
-    seed_dir = here.parent.parent.parent / "seed"
+    seed_dir = here.parent.parent.parent.parent / "src" / "learning" / "content" / "seed"
     if str(seed_dir) not in sys.path:
         sys.path.insert(0, str(seed_dir))
     import question_bank  # type: ignore[import-not-found]

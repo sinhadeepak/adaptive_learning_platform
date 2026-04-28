@@ -20,7 +20,7 @@ import sys
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -57,10 +57,12 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
+    connection.execute(text("CREATE SCHEMA IF NOT EXISTS analytics_schema"))
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
+        transaction_per_migration=True,
         version_table_schema="analytics_schema",
     )
     with context.begin_transaction():
@@ -76,7 +78,7 @@ async def run_migrations_online() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-    async with engine.connect() as connection:
+    async with engine.begin() as connection:
         await connection.run_sync(do_run_migrations)
     await engine.dispose()
 

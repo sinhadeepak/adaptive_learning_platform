@@ -71,6 +71,9 @@ def _load_bank() -> dict[str, list[dict]]:
     here = Path(__file__).resolve()
     bank_path = (
         here.parent.parent.parent
+        / "learning"
+        / "src"
+        / "learning"
         / "content"
         / "seed"
         / "question_bank.py"
