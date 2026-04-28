@@ -4,11 +4,11 @@
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
 
-PY_SERVICES := auth user-profile content catalog search analytics payment institution notification adaptive-engine
+PY_SERVICES := auth user-profile content catalog search payment institution adaptive-engine engagement
 GO_SERVICES := quiz
-# Consolidated services (skeletons from ADR-0005). During the consolidation
-# rollout, NEW_PY_SERVICES grows as old services move into them; once Sprint E
-# lands, PY_SERVICES is replaced by `identity learning engagement payment`.
+# Sprint B closed: analytics + notification merged into engagement.
+# Sprints C/D move catalog+content+doubts+search+adaptive→learning and
+# auth+user-profile+institution→identity. PY_SERVICES shrinks each sprint.
 NEW_PY_SERVICES := identity learning engagement
 COMPOSE := docker compose -f infrastructure/docker/docker-compose.yml
 
