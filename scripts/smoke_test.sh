@@ -215,6 +215,68 @@ LISTING=$(curl -s "$MARKETPLACE_URL/marketplace/tutors?topicId=$MECHANICS_TOPIC"
 assert "active tutor visible in public listing" \
   bash -c "echo '$LISTING' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['total']>=1 and any(it['userId']=='$TEACHER_ID' for it in d['items'])\""
 
+# -- 6. booking flow (Sprint 17) -------------------------------------------
+
+echo "==> marketplace bookings (P3-S2)"
+
+# Compute a slot 48h from now during the teacher's availability window
+# (Mon 18:00–21:00 UTC, set in the apply step above). We just pick 48h
+# ahead and assume it's in some window — the smoke just needs the
+# tutor's availability to be permissive. Tighten later.
+SLOT_START=$(python3 -c "
+from datetime import datetime, timedelta, timezone
+# 48 hours from now, snapped to the hour
+t = datetime.now(timezone.utc) + timedelta(hours=48)
+t = t.replace(minute=0, second=0, microsecond=0)
+print(t.isoformat())
+")
+SLOT_END=$(python3 -c "
+from datetime import datetime, timedelta, timezone
+t = datetime.now(timezone.utc) + timedelta(hours=49)
+t = t.replace(minute=0, second=0, microsecond=0)
+print(t.isoformat())
+")
+
+# Patch teacher availability to cover all hours every day so the smoke
+# slot is guaranteed to fit a window. Quick + dirty.
+docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d marketplace -c \
+  "DELETE FROM marketplace_schema.tutor_availability WHERE tutor_user_id='$TEACHER_ID'; \
+   INSERT INTO marketplace_schema.tutor_availability (id, tutor_user_id, day_of_week, start_minute, end_minute) \
+   SELECT gen_random_uuid(), '$TEACHER_ID', d, 0, 1440 FROM generate_series(0,6) d" >/dev/null 2>&1
+
+# Student creates booking
+BOOKING_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/bookings" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"tutorUserId\":\"$TEACHER_ID\",\"slotStart\":\"$SLOT_START\",\"slotEnd\":\"$SLOT_END\"}")
+BOOKING_ID=$(echo "$BOOKING_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)
+assert "student created booking → PENDING_PAYMENT" \
+  bash -c "echo '$BOOKING_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['status']=='PENDING_PAYMENT'\""
+
+# Confirm payment (stub)
+CONFIRM_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/bookings/$BOOKING_ID/confirm-payment" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}')
+assert "stub payment confirms → CONFIRMED + Daily room URL" \
+  bash -c "echo '$CONFIRM_RESP' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['status']=='CONFIRMED' and d['dailyRoomUrl'].startswith('https://example.daily.co/')\""
+
+# Tutor starts session
+START_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/bookings/$BOOKING_ID/start" \
+  -H "Authorization: Bearer $TEACHER_TOKEN")
+assert "tutor starts session → IN_PROGRESS" \
+  bash -c "echo '$START_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['status']=='IN_PROGRESS'\""
+
+# Tutor completes session
+COMPLETE_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/bookings/$BOOKING_ID/complete" \
+  -H "Authorization: Bearer $TEACHER_TOKEN")
+assert "tutor completes session → COMPLETED" \
+  bash -c "echo '$COMPLETE_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['status']=='COMPLETED'\""
+
+# Booking shows in student my-bookings
+MY_BOOKINGS=$(curl -s "$MARKETPLACE_URL/marketplace/bookings/me" \
+  -H "Authorization: Bearer $TOKEN")
+assert "booking appears in student my-bookings" \
+  bash -c "echo '$MY_BOOKINGS' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert any(b['id']=='$BOOKING_ID' and b['status']=='COMPLETED' for b in d['items'])\""
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then

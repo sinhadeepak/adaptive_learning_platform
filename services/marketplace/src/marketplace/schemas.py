@@ -118,3 +118,88 @@ class AdminRejectIn(BaseModel):
 class Problem(BaseModel):
     code: str
     message: str
+
+
+# ===========================================================================
+# Sprint 17 — booking + session DTOs
+# ===========================================================================
+
+
+from datetime import datetime  # noqa: E402  (placed here to keep S16 + S17 sections distinct)
+
+
+class CreateBookingIn(BaseModel):
+    tutorUserId: str
+    slotStart: datetime
+    slotEnd: datetime
+
+
+class BookingOut(BaseModel):
+    id: str
+    studentUserId: str
+    tutorUserId: str
+    slotStart: str
+    slotEnd: str
+    pricePaise: int
+    commissionPaise: int
+    status: str
+    stripePaymentIntentId: str | None
+    dailyRoomUrl: str | None
+    createdAt: str
+
+
+class BookingListOut(BaseModel):
+    items: list[BookingOut]
+
+
+class ConfirmPaymentIn(BaseModel):
+    # In live mode the client provides the Stripe-confirmed intent id; in
+    # stub mode this is optional and the backend just flips status.
+    paymentIntentId: str | None = None
+    forceFailure: bool = False  # stub-only — for testing the failure branch
+
+
+class NoShowIn(BaseModel):
+    whom: Literal["student", "tutor"]
+
+
+class CancelIn(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class AvailabilitySlotOut(BaseModel):
+    slotStart: str
+    slotEnd: str
+
+
+class AvailabilityListOut(BaseModel):
+    tutorUserId: str
+    date: str
+    slots: list[AvailabilitySlotOut]
+
+
+class AdminQueueItem(BaseModel):
+    userId: str
+    displayName: str
+    headline: str
+    hourlyRatePaise: int
+    applicationStatus: str
+    appliedAt: str
+    kycStatus: str | None
+
+
+class AdminQueueOut(BaseModel):
+    items: list[AdminQueueItem]
+
+
+class AdminActionOut(BaseModel):
+    id: str
+    adminUserId: str
+    tutorUserId: str
+    action: str
+    reason: str | None
+    createdAt: str
+
+
+class AdminActionListOut(BaseModel):
+    items: list[AdminActionOut]

@@ -371,3 +371,62 @@ export const cohorts = {
     }
   },
 };
+
+// ── Sprint 17 (P3-S2) — Marketplace admin moderation ─────────────────
+
+export interface TutorQueueItem {
+  userId: string;
+  displayName: string;
+  headline: string;
+  hourlyRatePaise: number;
+  applicationStatus: string;
+  appliedAt: string;
+  kycStatus: string | null;
+}
+
+export interface TutorAdminAction {
+  id: string;
+  adminUserId: string;
+  tutorUserId: string;
+  action: "APPROVE" | "REJECT" | "SUSPEND" | "REACTIVATE";
+  reason: string | null;
+  createdAt: string;
+}
+
+export const marketplaceAdmin = {
+  async queue(status = "KYC_VERIFIED"): Promise<TutorQueueItem[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/admin/tutors/queue?status=${encodeURIComponent(status)}`,
+    );
+    const body = await asJson<{ items: TutorQueueItem[] }>(res);
+    return body.items;
+  },
+
+  async approve(userId: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/admin/tutors/${encodeURIComponent(userId)}/approve`,
+      { method: "POST" },
+    );
+    await asJson(res);
+  },
+
+  async reject(userId: string, reason: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/admin/tutors/${encodeURIComponent(userId)}/reject`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reason }),
+      },
+    );
+    await asJson(res);
+  },
+
+  async actions(userId: string): Promise<TutorAdminAction[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/admin/tutors/${encodeURIComponent(userId)}/actions`,
+    );
+    const body = await asJson<{ items: TutorAdminAction[] }>(res);
+    return body.items;
+  },
+};

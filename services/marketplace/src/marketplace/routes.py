@@ -257,7 +257,7 @@ async def activate_self(p: Annotated[Principal, Depends(require_user)]) -> Tutor
 @router.post("/marketplace/admin/tutors/{user_id}/approve", response_model=TutorProfileOut)
 async def admin_approve(
     user_id: str,
-    _admin: Annotated[Principal, Depends(require_admin)],
+    admin: Annotated[Principal, Depends(require_admin)],
 ) -> TutorProfileOut:
     async with sessionmaker()() as session:
         profile = await repo.get_profile(session, user_id)
@@ -274,6 +274,12 @@ async def admin_approve(
                 http_status=409,
             ) from e
         await repo.set_application_status(session, user_id=user_id, status=new_state, approved=True)
+        await repo.insert_admin_action(
+            session,
+            admin_user_id=admin.user_id,
+            tutor_user_id=user_id,
+            action="APPROVE",
+        )
         await session.commit()
         profile = await repo.get_profile(session, user_id)
         assert profile is not None
@@ -284,7 +290,7 @@ async def admin_approve(
 async def admin_reject(
     user_id: str,
     body: AdminRejectIn,
-    _admin: Annotated[Principal, Depends(require_admin)],
+    admin: Annotated[Principal, Depends(require_admin)],
 ) -> TutorProfileOut:
     async with sessionmaker()() as session:
         profile = await repo.get_profile(session, user_id)
@@ -300,9 +306,15 @@ async def admin_reject(
                 f"Cannot reject from {profile['application_status']}.",
                 http_status=409,
             ) from e
-        # We persist `body.reason` in a future audit table; for P3-S1 we
-        # just record the state transition. Audit table lands in P3-S2.
         await repo.set_application_status(session, user_id=user_id, status=new_state)
+        # Sprint 17: persist the rejection reason to tutor_admin_actions.
+        await repo.insert_admin_action(
+            session,
+            admin_user_id=admin.user_id,
+            tutor_user_id=user_id,
+            action="REJECT",
+            reason=body.reason,
+        )
         await session.commit()
         profile = await repo.get_profile(session, user_id)
         assert profile is not None

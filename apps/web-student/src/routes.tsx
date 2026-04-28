@@ -38,6 +38,9 @@ import { DailyGoal } from "./pages/onboarding/DailyGoal";
 import { ExamSelect } from "./pages/onboarding/ExamSelect";
 import { Language } from "./pages/onboarding/Language";
 import { TargetDate } from "./pages/onboarding/TargetDate";
+import { Tutors } from "./pages/Tutors";
+import { TutorDetail } from "./pages/TutorDetail";
+import { MyBookings } from "./pages/MyBookings";
 
 // Sprint 1 route map — see docs/01_design/08_Wireframes_Sprint1_Student_AdaptiveLearningPlatform.md.
 // Login is the only page fully implemented in Sprint 0; the rest are placeholders
@@ -360,6 +363,32 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <QuizResult />
+      </ProtectedRoute>
+    ),
+  },
+
+  // Sprint 17 (P3-S2) — Marketplace tutor browsing + booking.
+  {
+    path: "/tutors",
+    element: (
+      <ProtectedRoute>
+        <Tutors />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/tutors/:userId",
+    element: (
+      <ProtectedRoute>
+        <TutorDetail />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/bookings",
+    element: (
+      <ProtectedRoute>
+        <MyBookings />
       </ProtectedRoute>
     ),
   },
