@@ -531,3 +531,514 @@ async def list_admin_queue(
         )
     ).mappings().all()
     return [dict(r) for r in rows]
+
+
+# ===========================================================================
+# Sprint 18 — creators, courses, purchases, ratings
+# ===========================================================================
+
+
+# -- creator profiles -------------------------------------------------------
+
+
+async def get_creator_profile(session: AsyncSession, user_id: str) -> dict[str, Any] | None:
+    row = (
+        await session.execute(
+            text(f"""
+                SELECT user_id, display_name, headline, bio, tier,
+                       application_status, kyc_status,
+                       stripe_identity_session_id, stripe_connect_account_id,
+                       commission_rate_override,
+                       applied_at, approved_at, created_at, updated_at
+                  FROM {SCHEMA}.creator_profiles
+                 WHERE user_id = :uid
+            """),
+            {"uid": user_id},
+        )
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+async def insert_creator_profile(
+    session: AsyncSession,
+    *,
+    user_id: str,
+    display_name: str,
+    headline: str,
+    bio: str,
+) -> None:
+    await session.execute(
+        text(f"""
+            INSERT INTO {SCHEMA}.creator_profiles
+              (user_id, display_name, headline, bio)
+            VALUES (:uid, :dn, :hl, :bio)
+        """),
+        {"uid": user_id, "dn": display_name, "hl": headline, "bio": bio},
+    )
+
+
+async def patch_creator_profile(
+    session: AsyncSession,
+    *,
+    user_id: str,
+    headline: str | None = None,
+    bio: str | None = None,
+) -> None:
+    sets = ["updated_at = now()"]
+    params: dict[str, Any] = {"uid": user_id}
+    if headline is not None:
+        sets.append("headline = :hl")
+        params["hl"] = headline
+    if bio is not None:
+        sets.append("bio = :bio")
+        params["bio"] = bio
+    if len(sets) == 1:
+        return
+    await session.execute(
+        text(f"UPDATE {SCHEMA}.creator_profiles SET {', '.join(sets)} WHERE user_id = :uid"),
+        params,
+    )
+
+
+async def set_creator_application_status(
+    session: AsyncSession,
+    *,
+    user_id: str,
+    status: str,
+    kyc_status: str | None = None,
+    stripe_identity_session_id: str | None = None,
+    approved: bool = False,
+) -> None:
+    fields = ["application_status = :st", "updated_at = now()"]
+    params: dict[str, Any] = {"uid": user_id, "st": status}
+    if kyc_status is not None:
+        fields.append("kyc_status = :ks")
+        params["ks"] = kyc_status
+    if stripe_identity_session_id is not None:
+        fields.append("stripe_identity_session_id = :sid")
+        params["sid"] = stripe_identity_session_id
+    if approved:
+        fields.append("approved_at = now()")
+    await session.execute(
+        text(f"UPDATE {SCHEMA}.creator_profiles SET {', '.join(fields)} WHERE user_id = :uid"),
+        params,
+    )
+
+
+async def list_creator_admin_queue(
+    session: AsyncSession, status: str = "KYC_VERIFIED"
+) -> list[dict[str, Any]]:
+    rows = (
+        await session.execute(
+            text(f"""
+                SELECT user_id, display_name, headline, application_status,
+                       applied_at, kyc_status
+                  FROM {SCHEMA}.creator_profiles
+                 WHERE application_status = :st
+                 ORDER BY applied_at ASC
+            """),
+            {"st": status},
+        )
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+# -- courses ----------------------------------------------------------------
+
+
+async def insert_course(
+    session: AsyncSession,
+    *,
+    course_id: str,
+    creator_user_id: str,
+    title: str,
+    description: str,
+    content_md: str,
+    price_paise: int,
+    tier: str,
+    cover_image_url: str | None,
+    exam_id: str | None,
+    subject_id: str | None,
+    topic_ids: list[str],
+) -> None:
+    import json
+    await session.execute(
+        text(f"""
+            INSERT INTO {SCHEMA}.courses
+              (id, creator_user_id, title, description, content_md,
+               price_paise, tier, cover_image_url, exam_id, subject_id, topic_ids)
+            VALUES (:id, :cid, :t, :d, :md, :p, :tier, :ci, :ex, :sb, CAST(:tids AS jsonb))
+        """),
+        {
+            "id": course_id,
+            "cid": creator_user_id,
+            "t": title,
+            "d": description,
+            "md": content_md,
+            "p": price_paise,
+            "tier": tier,
+            "ci": cover_image_url,
+            "ex": exam_id,
+            "sb": subject_id,
+            "tids": json.dumps(topic_ids),
+        },
+    )
+
+
+async def get_course(session: AsyncSession, course_id: str) -> dict[str, Any] | None:
+    row = (
+        await session.execute(
+            text(f"""
+                SELECT id, creator_user_id, title, description, content_md,
+                       price_paise, tier, status, cover_image_url,
+                       exam_id, subject_id, topic_ids,
+                       created_at, published_at, updated_at
+                  FROM {SCHEMA}.courses
+                 WHERE id = :id
+            """),
+            {"id": course_id},
+        )
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+async def patch_course(
+    session: AsyncSession,
+    *,
+    course_id: str,
+    title: str | None = None,
+    description: str | None = None,
+    content_md: str | None = None,
+    price_paise: int | None = None,
+    cover_image_url: str | None = None,
+    exam_id: str | None = None,
+    subject_id: str | None = None,
+    topic_ids: list[str] | None = None,
+) -> None:
+    import json
+    sets = ["updated_at = now()"]
+    params: dict[str, Any] = {"id": course_id}
+    if title is not None:
+        sets.append("title = :t"); params["t"] = title
+    if description is not None:
+        sets.append("description = :d"); params["d"] = description
+    if content_md is not None:
+        sets.append("content_md = :md"); params["md"] = content_md
+    if price_paise is not None:
+        sets.append("price_paise = :p"); params["p"] = price_paise
+    if cover_image_url is not None:
+        sets.append("cover_image_url = :ci"); params["ci"] = cover_image_url
+    if exam_id is not None:
+        sets.append("exam_id = :ex"); params["ex"] = exam_id
+    if subject_id is not None:
+        sets.append("subject_id = :sb"); params["sb"] = subject_id
+    if topic_ids is not None:
+        sets.append("topic_ids = CAST(:tids AS jsonb)"); params["tids"] = json.dumps(topic_ids)
+    if len(sets) == 1:
+        return
+    await session.execute(
+        text(f"UPDATE {SCHEMA}.courses SET {', '.join(sets)} WHERE id = :id"),
+        params,
+    )
+
+
+async def set_course_status(
+    session: AsyncSession,
+    *,
+    course_id: str,
+    status: str,
+    published: bool = False,
+) -> None:
+    fields = ["status = :st", "updated_at = now()"]
+    params: dict[str, Any] = {"id": course_id, "st": status}
+    if published:
+        fields.append("published_at = now()")
+    await session.execute(
+        text(f"UPDATE {SCHEMA}.courses SET {', '.join(fields)} WHERE id = :id"),
+        params,
+    )
+
+
+async def list_creator_courses(
+    session: AsyncSession, creator_user_id: str
+) -> list[dict[str, Any]]:
+    rows = (
+        await session.execute(
+            text(f"""
+                SELECT id, creator_user_id, title, description, content_md,
+                       price_paise, tier, status, cover_image_url,
+                       exam_id, subject_id, topic_ids,
+                       created_at, published_at, updated_at
+                  FROM {SCHEMA}.courses
+                 WHERE creator_user_id = :uid
+                 ORDER BY updated_at DESC
+            """),
+            {"uid": creator_user_id},
+        )
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+async def list_published_courses(
+    session: AsyncSession,
+    *,
+    exam_id: str | None = None,
+    subject_id: str | None = None,
+    creator_id: str | None = None,
+    max_paise: int | None = None,
+    page: int = 1,
+    per_page: int = 20,
+) -> tuple[list[dict[str, Any]], int]:
+    where = ["status = 'PUBLISHED'"]
+    params: dict[str, Any] = {"limit": per_page, "offset": (page - 1) * per_page}
+    if exam_id is not None:
+        where.append("exam_id = :ex"); params["ex"] = exam_id
+    if subject_id is not None:
+        where.append("subject_id = :sb"); params["sb"] = subject_id
+    if creator_id is not None:
+        where.append("creator_user_id = :cr"); params["cr"] = creator_id
+    if max_paise is not None:
+        where.append("price_paise <= :mp"); params["mp"] = max_paise
+    where_clause = " AND ".join(where)
+    items = (
+        await session.execute(
+            text(f"""
+                SELECT id, creator_user_id, title, description, price_paise,
+                       tier, cover_image_url
+                  FROM {SCHEMA}.courses
+                 WHERE {where_clause}
+                 ORDER BY published_at DESC
+                 LIMIT :limit OFFSET :offset
+            """),
+            params,
+        )
+    ).mappings().all()
+    total = (
+        await session.execute(
+            text(f"SELECT COUNT(*) FROM {SCHEMA}.courses WHERE {where_clause}"),
+            params,
+        )
+    ).scalar_one()
+    return [dict(r) for r in items], int(total or 0)
+
+
+async def list_course_admin_queue(
+    session: AsyncSession,
+) -> list[dict[str, Any]]:
+    rows = (
+        await session.execute(
+            text(f"""
+                SELECT id, creator_user_id, title, price_paise, tier,
+                       updated_at, created_at
+                  FROM {SCHEMA}.courses
+                 WHERE status = 'PENDING_REVIEW'
+                 ORDER BY updated_at ASC
+            """),
+        )
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+# -- course purchases -------------------------------------------------------
+
+
+async def get_paid_purchase(
+    session: AsyncSession, *, student_user_id: str, course_id: str
+) -> dict[str, Any] | None:
+    row = (
+        await session.execute(
+            text(f"""
+                SELECT id, student_user_id, course_id, price_paise, commission_paise,
+                       status, stripe_payment_intent_id, purchased_at, created_at
+                  FROM {SCHEMA}.course_purchases
+                 WHERE student_user_id = :sid AND course_id = :cid
+                   AND status = 'PAID'
+                 LIMIT 1
+            """),
+            {"sid": student_user_id, "cid": course_id},
+        )
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+async def get_purchase(session: AsyncSession, purchase_id: str) -> dict[str, Any] | None:
+    row = (
+        await session.execute(
+            text(f"""
+                SELECT id, student_user_id, course_id, price_paise, commission_paise,
+                       status, stripe_payment_intent_id, purchased_at, created_at
+                  FROM {SCHEMA}.course_purchases
+                 WHERE id = :id
+            """),
+            {"id": purchase_id},
+        )
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+async def insert_purchase(
+    session: AsyncSession,
+    *,
+    purchase_id: str,
+    student_user_id: str,
+    course_id: str,
+    price_paise: int,
+    commission_paise: int,
+    stripe_payment_intent_id: str,
+) -> None:
+    await session.execute(
+        text(f"""
+            INSERT INTO {SCHEMA}.course_purchases
+              (id, student_user_id, course_id, price_paise, commission_paise,
+               stripe_payment_intent_id)
+            VALUES (:id, :sid, :cid, :p, :c, :pi)
+        """),
+        {
+            "id": purchase_id,
+            "sid": student_user_id,
+            "cid": course_id,
+            "p": price_paise,
+            "c": commission_paise,
+            "pi": stripe_payment_intent_id,
+        },
+    )
+
+
+async def set_purchase_status(
+    session: AsyncSession,
+    *,
+    purchase_id: str,
+    status: str,
+    paid: bool = False,
+) -> None:
+    fields = ["status = :st", "updated_at = now()"]
+    params: dict[str, Any] = {"id": purchase_id, "st": status}
+    if paid:
+        fields.append("purchased_at = now()")
+    await session.execute(
+        text(f"UPDATE {SCHEMA}.course_purchases SET {', '.join(fields)} WHERE id = :id"),
+        params,
+    )
+
+
+async def list_student_purchases(
+    session: AsyncSession, student_user_id: str
+) -> list[dict[str, Any]]:
+    rows = (
+        await session.execute(
+            text(f"""
+                SELECT id, student_user_id, course_id, price_paise, commission_paise,
+                       status, stripe_payment_intent_id, purchased_at, created_at
+                  FROM {SCHEMA}.course_purchases
+                 WHERE student_user_id = :sid
+                 ORDER BY created_at DESC
+            """),
+            {"sid": student_user_id},
+        )
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+# -- ratings ----------------------------------------------------------------
+
+
+async def insert_session_rating(
+    session: AsyncSession,
+    *,
+    rating_id: str,
+    booking_id: str,
+    student_user_id: str,
+    tutor_user_id: str,
+    stars: int,
+    comment: str | None = None,
+) -> None:
+    await session.execute(
+        text(f"""
+            INSERT INTO {SCHEMA}.tutor_session_ratings
+              (id, booking_id, student_user_id, tutor_user_id, stars, comment)
+            VALUES (:id, :bid, :sid, :tid, :s, :c)
+        """),
+        {
+            "id": rating_id, "bid": booking_id, "sid": student_user_id,
+            "tid": tutor_user_id, "s": stars, "c": comment,
+        },
+    )
+
+
+async def insert_course_rating(
+    session: AsyncSession,
+    *,
+    rating_id: str,
+    purchase_id: str,
+    course_id: str,
+    student_user_id: str,
+    stars: int,
+    comment: str | None = None,
+) -> None:
+    await session.execute(
+        text(f"""
+            INSERT INTO {SCHEMA}.course_ratings
+              (id, purchase_id, course_id, student_user_id, stars, comment)
+            VALUES (:id, :pid, :cid, :sid, :s, :c)
+        """),
+        {
+            "id": rating_id, "pid": purchase_id, "cid": course_id,
+            "sid": student_user_id, "s": stars, "c": comment,
+        },
+    )
+
+
+async def aggregate_tutor_ratings(
+    session: AsyncSession, tutor_user_id: str, *, recent_n: int = 5
+) -> dict[str, Any]:
+    agg = (
+        await session.execute(
+            text(f"""
+                SELECT COALESCE(AVG(stars), 0)::float AS avg, COUNT(*) AS cnt
+                  FROM {SCHEMA}.tutor_session_ratings
+                 WHERE tutor_user_id = :tid
+            """),
+            {"tid": tutor_user_id},
+        )
+    ).mappings().first()
+    recent = (
+        await session.execute(
+            text(f"""
+                SELECT id, stars, comment, created_at, student_user_id
+                  FROM {SCHEMA}.tutor_session_ratings
+                 WHERE tutor_user_id = :tid
+                 ORDER BY created_at DESC
+                 LIMIT :n
+            """),
+            {"tid": tutor_user_id, "n": recent_n},
+        )
+    ).mappings().all()
+    return {"avg": float(agg["avg"]) if agg else 0.0, "count": int(agg["cnt"]) if agg else 0, "recent": [dict(r) for r in recent]}
+
+
+async def aggregate_course_ratings(
+    session: AsyncSession, course_id: str, *, recent_n: int = 5
+) -> dict[str, Any]:
+    agg = (
+        await session.execute(
+            text(f"""
+                SELECT COALESCE(AVG(stars), 0)::float AS avg, COUNT(*) AS cnt
+                  FROM {SCHEMA}.course_ratings
+                 WHERE course_id = :cid
+            """),
+            {"cid": course_id},
+        )
+    ).mappings().first()
+    recent = (
+        await session.execute(
+            text(f"""
+                SELECT id, stars, comment, created_at, student_user_id
+                  FROM {SCHEMA}.course_ratings
+                 WHERE course_id = :cid
+                 ORDER BY created_at DESC
+                 LIMIT :n
+            """),
+            {"cid": course_id, "n": recent_n},
+        )
+    ).mappings().all()
+    return {"avg": float(agg["avg"]) if agg else 0.0, "count": int(agg["cnt"]) if agg else 0, "recent": [dict(r) for r in recent]}

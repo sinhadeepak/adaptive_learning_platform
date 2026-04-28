@@ -14,6 +14,11 @@ from fastapi import FastAPI
 
 from marketplace import __version__
 from marketplace.booking_routes import admin_router, booking_router
+from marketplace.creator_routes import (
+    course_router,
+    creator_router,
+    rating_router,
+)
 from marketplace.db import dispose
 from marketplace.routes import router as tutor_router
 
@@ -35,6 +40,9 @@ app.add_middleware(TraceContextMiddleware)
 app.include_router(tutor_router)
 app.include_router(booking_router)
 app.include_router(admin_router)
+app.include_router(creator_router)
+app.include_router(course_router)
+app.include_router(rating_router)
 
 
 @app.get("/health")

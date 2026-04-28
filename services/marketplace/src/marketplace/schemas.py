@@ -203,3 +203,140 @@ class AdminActionOut(BaseModel):
 
 class AdminActionListOut(BaseModel):
     items: list[AdminActionOut]
+
+
+# ===========================================================================
+# Sprint 18 — creator + course + ratings DTOs
+# ===========================================================================
+
+
+# Course pricing band per ADR-0008.
+COURSE_PRICE_FLOOR_PAISE = 4900    # ₹49
+COURSE_PRICE_CEILING_PAISE = 499900  # ₹4,999
+
+
+CourseTier = Literal["FREE", "STANDARD", "PREMIUM"]
+CourseStatus = Literal["DRAFT", "PENDING_REVIEW", "PUBLISHED", "RETIRED"]
+
+
+class CreatorApplyIn(BaseModel):
+    displayName: str = Field(min_length=1, max_length=120)
+    headline: str = Field(min_length=1, max_length=240)
+    bio: str = Field(default="", max_length=4000)
+
+
+class CreatorPatchIn(BaseModel):
+    headline: str | None = Field(default=None, min_length=1, max_length=240)
+    bio: str | None = Field(default=None, max_length=4000)
+
+
+class CreatorProfileOut(BaseModel):
+    userId: str
+    displayName: str
+    headline: str
+    bio: str
+    tier: str
+    applicationStatus: str
+    kycStatus: str | None
+    appliedAt: str
+    approvedAt: str | None
+
+
+class CourseCreateIn(BaseModel):
+    title: str = Field(min_length=1, max_length=240)
+    description: str = Field(default="", max_length=4000)
+    contentMd: str = Field(default="", max_length=200000)
+    pricePaise: int = Field(ge=0, le=COURSE_PRICE_CEILING_PAISE)
+    tier: CourseTier = "STANDARD"
+    coverImageUrl: str | None = Field(default=None, max_length=2000)
+    examId: str | None = None
+    subjectId: str | None = None
+    topicIds: list[str] = Field(default_factory=list)
+
+
+class CoursePatchIn(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=240)
+    description: str | None = Field(default=None, max_length=4000)
+    contentMd: str | None = Field(default=None, max_length=200000)
+    pricePaise: int | None = Field(default=None, ge=0, le=COURSE_PRICE_CEILING_PAISE)
+    coverImageUrl: str | None = Field(default=None, max_length=2000)
+    examId: str | None = None
+    subjectId: str | None = None
+    topicIds: list[str] | None = None
+
+
+class CourseOut(BaseModel):
+    id: str
+    creatorUserId: str
+    title: str
+    description: str
+    contentMd: str  # only populated on detail / authoring view; truncated in listings
+    pricePaise: int
+    tier: str
+    status: str
+    coverImageUrl: str | None
+    examId: str | None
+    subjectId: str | None
+    topicIds: list[str]
+    createdAt: str
+    publishedAt: str | None
+    updatedAt: str
+
+
+class CourseListingItem(BaseModel):
+    id: str
+    creatorUserId: str
+    title: str
+    description: str  # short — for cards
+    pricePaise: int
+    tier: str
+    coverImageUrl: str | None
+
+
+class CourseListingOut(BaseModel):
+    items: list[CourseListingItem]
+    total: int
+    page: int
+    perPage: int
+
+
+class PurchaseOut(BaseModel):
+    id: str
+    studentUserId: str
+    courseId: str
+    pricePaise: int
+    commissionPaise: int
+    status: str
+    stripePaymentIntentId: str | None
+    purchasedAt: str | None
+    createdAt: str
+
+
+class PurchaseListOut(BaseModel):
+    items: list[PurchaseOut]
+
+
+class RateBookingIn(BaseModel):
+    stars: int = Field(ge=1, le=5)
+    comment: str | None = Field(default=None, max_length=2000)
+
+
+class RateCourseIn(BaseModel):
+    purchaseId: str
+    stars: int = Field(ge=1, le=5)
+    comment: str | None = Field(default=None, max_length=2000)
+
+
+class RatingOut(BaseModel):
+    id: str
+    stars: int
+    comment: str | None
+    createdAt: str
+    studentUserId: str
+
+
+class RatingAggregateOut(BaseModel):
+    targetId: str
+    averageStars: float
+    count: int
+    recent: list[RatingOut]

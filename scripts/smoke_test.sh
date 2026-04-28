@@ -277,6 +277,82 @@ MY_BOOKINGS=$(curl -s "$MARKETPLACE_URL/marketplace/bookings/me" \
 assert "booking appears in student my-bookings" \
   bash -c "echo '$MY_BOOKINGS' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert any(b['id']=='$BOOKING_ID' and b['status']=='COMPLETED' for b in d['items'])\""
 
+# Sprint 18 — student rates the completed booking.
+RATE_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/bookings/$BOOKING_ID/rating" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"stars":5,"comment":"Great session"}')
+assert "student rates completed booking → 5 stars" \
+  bash -c "echo '$RATE_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['stars']==5\""
+
+# -- 7. creator content marketplace (Sprint 18) ----------------------------
+
+echo "==> creator marketplace (P3-S3)"
+
+CREATOR_EMAIL="moderator@alp.dev"
+CREATOR_ID="00000000-0000-0000-0000-000000000003"
+CREATOR_LOGIN=$(curl -s -X POST "$IDENTITY_URL/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$CREATOR_EMAIL\",\"password\":\"Password123!\"}")
+CREATOR_TOKEN=$(echo "$CREATOR_LOGIN" | python3 -c "import sys,json; print(json.load(sys.stdin)['tokens']['accessToken'])" 2>/dev/null || true)
+assert "creator login → JWT" test -n "$CREATOR_TOKEN"
+
+docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d marketplace -c \
+  "TRUNCATE marketplace_schema.course_ratings, marketplace_schema.course_purchases, \
+            marketplace_schema.courses, marketplace_schema.creator_profiles \
+   RESTART IDENTITY CASCADE" >/dev/null 2>&1
+
+curl -s -X POST "$MARKETPLACE_URL/marketplace/creators/apply" \
+  -H "Authorization: Bearer $CREATOR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"displayName":"Sample Creator","headline":"Smoke","bio":""}' >/dev/null
+
+curl -s -X POST "$MARKETPLACE_URL/marketplace/creators/me/kyc/start" \
+  -H "Authorization: Bearer $CREATOR_TOKEN" >/dev/null
+KYC_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/creators/me/kyc/poll" \
+  -H "Authorization: Bearer $CREATOR_TOKEN")
+assert "creator KYC reaches KYC_VERIFIED" \
+  bash -c "echo '$KYC_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['applicationStatus']=='KYC_VERIFIED'\""
+
+curl -s -X POST "$MARKETPLACE_URL/marketplace/admin/creators/$CREATOR_ID/approve" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" >/dev/null
+
+ACT_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/creators/me/activate" \
+  -H "Authorization: Bearer $CREATOR_TOKEN")
+assert "creator activates → ACTIVE" \
+  bash -c "echo '$ACT_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['applicationStatus']=='ACTIVE'\""
+
+COURSE_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/courses" \
+  -H "Authorization: Bearer $CREATOR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Smoke Course","description":"Test","contentMd":"# Hello\nReal content.","pricePaise":9900,"tier":"STANDARD","topicIds":[]}')
+COURSE_ID=$(echo "$COURSE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)
+assert "creator creates DRAFT course" \
+  bash -c "echo '$COURSE_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['status']=='DRAFT'\""
+
+curl -s -X POST "$MARKETPLACE_URL/marketplace/courses/$COURSE_ID/submit-for-review" \
+  -H "Authorization: Bearer $CREATOR_TOKEN" >/dev/null
+APPROVE_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/admin/courses/$COURSE_ID/approve" \
+  -H "Authorization: Bearer $ADMIN_TOKEN")
+assert "admin approves course → PUBLISHED" \
+  bash -c "echo '$APPROVE_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['status']=='PUBLISHED'\""
+
+PURCHASE_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/courses/$COURSE_ID/purchase" \
+  -H "Authorization: Bearer $TOKEN")
+PURCHASE_ID=$(echo "$PURCHASE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)
+
+CONFIRM_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/courses/$COURSE_ID/purchase/$PURCHASE_ID/confirm-payment" \
+  -H "Authorization: Bearer $TOKEN")
+assert "course payment confirms → PAID" \
+  bash -c "echo '$CONFIRM_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['status']=='PAID'\""
+
+COURSE_RATE_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/courses/$COURSE_ID/rating" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"purchaseId\":\"$PURCHASE_ID\",\"stars\":4,\"comment\":\"Solid\"}")
+assert "student rates course → 4 stars" \
+  bash -c "echo '$COURSE_RATE_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['stars']==4\""
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then

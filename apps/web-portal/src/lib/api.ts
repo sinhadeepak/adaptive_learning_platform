@@ -495,3 +495,143 @@ export const marketplace = {
     return asJson<TutorProfile>(res);
   },
 };
+
+// ── Sprint 18 (P3-S3) — Creator marketplace + courses ────────────────
+
+export interface CreatorProfile {
+  userId: string;
+  displayName: string;
+  headline: string;
+  bio: string;
+  tier: string;
+  applicationStatus:
+    | "APPLIED" | "KYC_PENDING" | "KYC_VERIFIED"
+    | "APPROVED" | "ACTIVE" | "REJECTED" | "SUSPENDED";
+  kycStatus: string | null;
+  appliedAt: string;
+  approvedAt: string | null;
+}
+
+export interface Course {
+  id: string;
+  creatorUserId: string;
+  title: string;
+  description: string;
+  contentMd: string;
+  pricePaise: number;
+  tier: "FREE" | "STANDARD" | "PREMIUM";
+  status: "DRAFT" | "PENDING_REVIEW" | "PUBLISHED" | "RETIRED";
+  coverImageUrl: string | null;
+  examId: string | null;
+  subjectId: string | null;
+  topicIds: string[];
+  createdAt: string;
+  publishedAt: string | null;
+  updatedAt: string;
+}
+
+export const creator = {
+  async apply(input: {
+    displayName: string;
+    headline: string;
+    bio?: string;
+  }): Promise<CreatorProfile> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/marketplace/creators/apply`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    return asJson<CreatorProfile>(res);
+  },
+
+  async me(): Promise<CreatorProfile | null> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/marketplace/creators/me`);
+    if (res.status === 404) return null;
+    return asJson<CreatorProfile>(res);
+  },
+
+  async startKyc(): Promise<{ sessionId: string }> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/creators/me/kyc/start`,
+      { method: "POST" },
+    );
+    return asJson(res);
+  },
+
+  async pollKyc(): Promise<{ applicationStatus: string; status: string }> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/creators/me/kyc/poll`,
+      { method: "POST" },
+    );
+    return asJson(res);
+  },
+
+  async activate(): Promise<CreatorProfile> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/creators/me/activate`,
+      { method: "POST" },
+    );
+    return asJson<CreatorProfile>(res);
+  },
+};
+
+export const courseAuthoring = {
+  async create(input: {
+    title: string;
+    description: string;
+    contentMd: string;
+    pricePaise: number;
+    tier?: "FREE" | "STANDARD" | "PREMIUM";
+    coverImageUrl?: string | null;
+    examId?: string | null;
+    subjectId?: string | null;
+    topicIds?: string[];
+  }): Promise<Course> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/marketplace/courses`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tier: "STANDARD", topicIds: [], ...input }),
+    });
+    return asJson<Course>(res);
+  },
+
+  async patch(courseId: string, input: Partial<Course>): Promise<Course> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(input),
+      },
+    );
+    return asJson<Course>(res);
+  },
+
+  async submit(courseId: string): Promise<Course> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/submit-for-review`,
+      { method: "POST" },
+    );
+    return asJson<Course>(res);
+  },
+
+  async retire(courseId: string): Promise<Course> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/retire`,
+      { method: "POST" },
+    );
+    return asJson<Course>(res);
+  },
+
+  async myCourses(): Promise<Course[]> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/marketplace/creators/me/courses`);
+    return asJson<Course[]>(res);
+  },
+
+  async get(courseId: string): Promise<Course> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}`,
+    );
+    return asJson<Course>(res);
+  },
+};

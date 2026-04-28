@@ -41,6 +41,10 @@ import { TargetDate } from "./pages/onboarding/TargetDate";
 import { Tutors } from "./pages/Tutors";
 import { TutorDetail } from "./pages/TutorDetail";
 import { MyBookings } from "./pages/MyBookings";
+import { Courses } from "./pages/Courses";
+import { CourseDetail } from "./pages/CourseDetail";
+import { MyPurchases } from "./pages/MyPurchases";
+import { CourseRead } from "./pages/CourseRead";
 
 // Sprint 1 route map — see docs/01_design/08_Wireframes_Sprint1_Student_AdaptiveLearningPlatform.md.
 // Login is the only page fully implemented in Sprint 0; the rest are placeholders
@@ -389,6 +393,39 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <MyBookings />
+      </ProtectedRoute>
+    ),
+  },
+  // Sprint 18 (P3-S3) — Course marketplace.
+  {
+    path: "/courses",
+    element: (
+      <ProtectedRoute>
+        <Courses />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/courses/:courseId",
+    element: (
+      <ProtectedRoute>
+        <CourseDetail />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/courses-mine",
+    element: (
+      <ProtectedRoute>
+        <MyPurchases />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/courses/:courseId/read",
+    element: (
+      <ProtectedRoute>
+        <CourseRead />
       </ProtectedRoute>
     ),
   },

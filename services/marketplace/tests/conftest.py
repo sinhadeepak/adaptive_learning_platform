@@ -42,7 +42,7 @@ def _clean_state() -> None:
             "-d",
             "marketplace",
             "-c",
-            "TRUNCATE marketplace_schema.tutor_admin_actions, "
+            "TRUNCATE marketplace_schema.course_ratings, marketplace_schema.tutor_session_ratings, marketplace_schema.course_purchases, marketplace_schema.courses, marketplace_schema.creator_profiles, marketplace_schema.tutor_admin_actions, "
             "marketplace_schema.tutor_sessions, "
             "marketplace_schema.bookings, "
             "marketplace_schema.tutor_topics, "

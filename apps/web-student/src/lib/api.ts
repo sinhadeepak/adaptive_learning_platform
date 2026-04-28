@@ -177,3 +177,157 @@ export const marketplace = {
     return body.items;
   },
 };
+
+// ── Sprint 18 (P3-S3) — Course marketplace + ratings ──────────────────
+
+export interface CourseListingItem {
+  id: string;
+  creatorUserId: string;
+  title: string;
+  description: string;
+  pricePaise: number;
+  tier: "FREE" | "STANDARD" | "PREMIUM";
+  coverImageUrl: string | null;
+}
+
+export interface CourseDetail {
+  id: string;
+  creatorUserId: string;
+  title: string;
+  description: string;
+  contentMd: string; // truncated preview unless purchased
+  pricePaise: number;
+  tier: string;
+  status: string;
+  coverImageUrl: string | null;
+  examId: string | null;
+  subjectId: string | null;
+  topicIds: string[];
+  createdAt: string;
+  publishedAt: string | null;
+  updatedAt: string;
+}
+
+export interface Purchase {
+  id: string;
+  studentUserId: string;
+  courseId: string;
+  pricePaise: number;
+  commissionPaise: number;
+  status: "PENDING_PAYMENT" | "PAID" | "REFUNDED";
+  stripePaymentIntentId: string | null;
+  purchasedAt: string | null;
+  createdAt: string;
+}
+
+export interface RatingAggregate {
+  targetId: string;
+  averageStars: number;
+  count: number;
+  recent: {
+    id: string;
+    stars: number;
+    comment: string | null;
+    createdAt: string;
+    studentUserId: string;
+  }[];
+}
+
+export const courseMarketplace = {
+  async list(opts?: {
+    examId?: string;
+    subjectId?: string;
+    creatorId?: string;
+    maxPricePaise?: number;
+    page?: number;
+    perPage?: number;
+  }): Promise<{ items: CourseListingItem[]; total: number; page: number; perPage: number }> {
+    const params = new URLSearchParams();
+    if (opts?.examId) params.set("examId", opts.examId);
+    if (opts?.subjectId) params.set("subjectId", opts.subjectId);
+    if (opts?.creatorId) params.set("creatorId", opts.creatorId);
+    if (opts?.maxPricePaise) params.set("maxPricePaise", String(opts.maxPricePaise));
+    if (opts?.page) params.set("page", String(opts.page));
+    if (opts?.perPage) params.set("perPage", String(opts.perPage));
+    const qs = params.toString();
+    const url = `${env.apiBaseUrl}/marketplace/courses${qs ? `?${qs}` : ""}`;
+    const res = await auth.fetch(url);
+    return asJson(res);
+  },
+
+  async get(courseId: string): Promise<CourseDetail> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}`,
+    );
+    return asJson<CourseDetail>(res);
+  },
+
+  async purchase(courseId: string): Promise<Purchase> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/purchase`,
+      { method: "POST" },
+    );
+    return asJson<Purchase>(res);
+  },
+
+  async confirmPayment(courseId: string, purchaseId: string): Promise<Purchase> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/purchase/${encodeURIComponent(purchaseId)}/confirm-payment`,
+      { method: "POST" },
+    );
+    return asJson<Purchase>(res);
+  },
+
+  async myPurchases(): Promise<Purchase[]> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/marketplace/purchases/me`);
+    const body = await asJson<{ items: Purchase[] }>(res);
+    return body.items;
+  },
+
+  async access(courseId: string): Promise<CourseDetail> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/purchases/me/${encodeURIComponent(courseId)}/access`,
+    );
+    return asJson<CourseDetail>(res);
+  },
+
+  async rate(courseId: string, purchaseId: string, stars: number, comment?: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/rating`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ purchaseId, stars, comment: comment ?? null }),
+      },
+    );
+    await asJson(res);
+  },
+
+  async ratings(courseId: string): Promise<RatingAggregate> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/ratings`,
+    );
+    return asJson<RatingAggregate>(res);
+  },
+};
+
+export const tutorRatings = {
+  async rate(bookingId: string, stars: number, comment?: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/bookings/${encodeURIComponent(bookingId)}/rating`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ stars, comment: comment ?? null }),
+      },
+    );
+    await asJson(res);
+  },
+
+  async getAggregate(tutorUserId: string): Promise<RatingAggregate> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/tutors/${encodeURIComponent(tutorUserId)}/ratings`,
+    );
+    return asJson<RatingAggregate>(res);
+  },
+};
