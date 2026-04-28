@@ -23,6 +23,11 @@ PG_CONTAINER="${PG_CONTAINER:-alp-local-postgres-1}"
 STUDENT_EMAIL="student@alp.dev"
 STUDENT_PASSWORD="Password123!"
 STUDENT_ID="00000000-0000-0000-0000-000000000001"
+TEACHER_EMAIL="teacher@alp.dev"
+TEACHER_PASSWORD="Password123!"
+TEACHER_ID="00000000-0000-0000-0000-000000000002"
+ADMIN_EMAIL="admin@alp.dev"
+ADMIN_PASSWORD="Password123!"
 JEE_MAIN_ID="11111111-0000-0000-0000-000000000001"
 MECHANICS_TOPIC="33333333-0000-0000-0000-000000000001"
 
@@ -155,6 +160,63 @@ assert "readiness endpoint returns nTopics≥1" \
 # -- summary ----------------------------------------------------------------
 
 echo
+# -- 5. marketplace tutor flow ---------------------------------------------
+
+echo "==> marketplace (tutor application FSM)"
+
+# Wipe any prior tutor state so re-runs are deterministic.
+docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d marketplace -c \
+  "TRUNCATE marketplace_schema.tutor_topics, marketplace_schema.tutor_availability, \
+            marketplace_schema.tutor_qualifications, marketplace_schema.tutor_profiles \
+   RESTART IDENTITY CASCADE" >/dev/null 2>&1
+
+# Login as teacher
+TEACHER_LOGIN=$(curl -s -X POST "$IDENTITY_URL/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$TEACHER_EMAIL\",\"password\":\"$TEACHER_PASSWORD\"}")
+TEACHER_TOKEN=$(echo "$TEACHER_LOGIN" | python3 -c "import sys,json; print(json.load(sys.stdin)['tokens']['accessToken'])" 2>/dev/null || true)
+assert "teacher login → JWT" test -n "$TEACHER_TOKEN"
+
+# Apply
+APPLY_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/tutors/apply" \
+  -H "Authorization: Bearer $TEACHER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"displayName\":\"Sample Teacher\",\"headline\":\"Smoke-test tutor\",\"bio\":\"\",\"hourlyRatePaise\":50000,\"qualifications\":[],\"availability\":[{\"dayOfWeek\":1,\"startMinute\":1080,\"endMinute\":1260}],\"topicIds\":[\"$MECHANICS_TOPIC\"]}")
+assert "tutor application accepted (APPLIED)" \
+  bash -c "echo '$APPLY_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['applicationStatus']=='APPLIED'\""
+
+# KYC start
+curl -s -X POST "$MARKETPLACE_URL/marketplace/tutors/me/kyc/start" \
+  -H "Authorization: Bearer $TEACHER_TOKEN" >/dev/null
+KYC_POLL=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/tutors/me/kyc/poll" \
+  -H "Authorization: Bearer $TEACHER_TOKEN")
+assert "stub KYC reaches KYC_VERIFIED" \
+  bash -c "echo '$KYC_POLL' | python3 -c \"import sys,json; assert json.load(sys.stdin)['applicationStatus']=='KYC_VERIFIED'\""
+
+# Admin approve
+ADMIN_LOGIN=$(curl -s -X POST "$IDENTITY_URL/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}")
+ADMIN_TOKEN=$(echo "$ADMIN_LOGIN" | python3 -c "import sys,json; print(json.load(sys.stdin)['tokens']['accessToken'])" 2>/dev/null || true)
+
+APPROVE_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/admin/tutors/$TEACHER_ID/approve" \
+  -H "Authorization: Bearer $ADMIN_TOKEN")
+assert "admin approves → APPROVED" \
+  bash -c "echo '$APPROVE_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['applicationStatus']=='APPROVED'\""
+
+# Tutor activates
+ACT_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/tutors/me/activate" \
+  -H "Authorization: Bearer $TEACHER_TOKEN")
+assert "tutor self-activates → ACTIVE" \
+  bash -c "echo '$ACT_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['applicationStatus']=='ACTIVE'\""
+
+# Public listing
+LISTING=$(curl -s "$MARKETPLACE_URL/marketplace/tutors?topicId=$MECHANICS_TOPIC")
+assert "active tutor visible in public listing" \
+  bash -c "echo '$LISTING' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['total']>=1 and any(it['userId']=='$TEACHER_ID' for it in d['items'])\""
+
+# -- summary ---------------------------------------------------------------
+
 if [ "$fail" -eq 0 ]; then
   printf "${GREEN}%d/%d steps passed — stack is green${RST}\n" "$step" "$step"
   exit 0

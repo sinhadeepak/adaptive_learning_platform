@@ -394,3 +394,104 @@ export const adaptive = {
     return asJson<GenerateQuestionsResponse>(res);
   },
 };
+
+// ── Sprint 16 (P3-S1) — Marketplace tutor application ────────────────
+
+export interface TutorQualification {
+  id?: string;
+  kind: "DEGREE" | "CERTIFICATE" | "EXAM_RANK" | "TEACHING_EXPERIENCE";
+  title: string;
+  institution?: string | null;
+  yearCompleted?: number | null;
+}
+
+export interface TutorAvailability {
+  id?: string;
+  dayOfWeek: number; // 0=Mon..6=Sun
+  startMinute: number; // 0–1439
+  endMinute: number; // 0–1440 exclusive of end
+}
+
+export interface TutorProfile {
+  userId: string;
+  displayName: string;
+  headline: string;
+  bio: string;
+  hourlyRatePaise: number;
+  tier: "STANDARD" | "PREMIUM_VERIFIED" | "RETIRED";
+  applicationStatus:
+    | "APPLIED"
+    | "KYC_PENDING"
+    | "KYC_VERIFIED"
+    | "APPROVED"
+    | "ACTIVE"
+    | "REJECTED"
+    | "SUSPENDED";
+  kycStatus: string | null;
+  qualifications: TutorQualification[];
+  availability: TutorAvailability[];
+  topicIds: string[];
+  appliedAt: string;
+  approvedAt: string | null;
+}
+
+export interface KycStartOut {
+  sessionId: string;
+  redirectUrl: string | null;
+}
+
+export interface KycPollOut {
+  sessionId: string;
+  status: "pending" | "verified" | "rejected";
+  applicationStatus: TutorProfile["applicationStatus"];
+}
+
+export const marketplace = {
+  async applyAsTutor(input: {
+    displayName: string;
+    headline: string;
+    bio?: string;
+    hourlyRatePaise: number;
+    qualifications: TutorQualification[];
+    availability: TutorAvailability[];
+    topicIds: string[];
+  }): Promise<TutorProfile> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/marketplace/tutors/apply`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    return asJson<TutorProfile>(res);
+  },
+
+  async getMyTutorProfile(): Promise<TutorProfile | null> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/marketplace/tutors/me`);
+    if (res.status === 404) return null;
+    return asJson<TutorProfile>(res);
+  },
+
+  async startKyc(): Promise<KycStartOut> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/tutors/me/kyc/start`,
+      { method: "POST" },
+    );
+    return asJson<KycStartOut>(res);
+  },
+
+  async pollKyc(force?: "rejected" | "pending"): Promise<KycPollOut> {
+    const qs = force ? `?force=${force}` : "";
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/tutors/me/kyc/poll${qs}`,
+      { method: "POST" },
+    );
+    return asJson<KycPollOut>(res);
+  },
+
+  async activate(): Promise<TutorProfile> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/tutors/me/activate`,
+      { method: "POST" },
+    );
+    return asJson<TutorProfile>(res);
+  },
+};

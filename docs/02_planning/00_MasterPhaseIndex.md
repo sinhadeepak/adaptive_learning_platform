@@ -32,7 +32,7 @@
 | **Final cutover sprint** | 1 — Staging deploy + drills, deferred per user direction until all Phase 1+2+3 sprints land + Stripe ready. Plan preserved at [24_DEPRECATED_Staging_Cutover_Plan](24_DEPRECATED_Staging_Cutover_Plan.md). |
 | **Total** | **20** sprints to staging push (S0–S19) |
 
-**Pending today**: ~6 (Phase 2 + P3-S0 closed at Sprints S13 + 14 + 15. Sprint 15 stood up alp-marketplace + 6 gating ADRs; P3-S1 through P3-S6 remain. Staging cutover still AWS-blocked).
+**Pending today**: ~5 (Phase 2 + P3-S0 + P3-S1 closed at Sprints S13 + 14 + 15 + 16. Sprint 16 shipped the tutor application FSM end-to-end (supply side); P3-S2 opens demand-side booking + Stripe Connect + Daily.co. Staging cutover still AWS-blocked).
 
 ---
 
@@ -60,6 +60,7 @@ Each closure summarizes what shipped, what slipped, what carries to the next spr
 | Sprint 14 — Consolidation closure + Phase 2 wrap-up | [36_Sprint14_Plan](36_Sprint14_Plan.md) → [37_Sprint14_Closure](37_Sprint14_Closure.md) | ✅ DELIVERED 2026-04-28 — `make smoke` 16-assertion golden-path script (S14-A); `runbook/rollback.md` + `runbook/nats_dlq.md` updated to 5 consolidated services + new `runbook/smoke_test.md` (S14-B); engagement integration tests resurrected with `@pytest.mark.integration` marker, 84 unit tests pass, 22 integration opt-in (S14-C); Phase 2 retrospective written (S14-D). |
 | Phase 2 retrospective | [22_Phase2_Retrospective](22_Phase2_Retrospective.md) | ✅ written 2026-04-28; unblocks P3-S0. |
 | Sprint 15 — P3-S0 foundations (alp-marketplace + 6 gating ADRs) | [38_Sprint15_Plan](38_Sprint15_Plan.md) → [39_Sprint15_Closure](39_Sprint15_Closure.md) | ✅ DELIVERED 2026-04-28 — alp-marketplace skeleton (the 6th and final service slot per ADR-0005) live on port 38110 with `marketplace_schema` initialised; ADRs [0006](../adr/0006-kyc-vendor.md) (Stripe Identity), [0007](../adr/0007-stripe-connect-rollout.md) (Connect Express + 15% + weekly), [0008](../adr/0008-marketplace-pricing-model.md) (creator-set within bands), [0009](../adr/0009-tutor-session-realtime-signalling.md) (NATS + Daily.co), [0010](../adr/0010-predictive-analytics-model-serving.md) (pure Python in engagement), [0011](../adr/0011-recommendation-algorithm.md) (OpenAI embeddings) all proposed; smoke 17/17 green. **P3-S0 closed**; P3-S1 unblocked pending ADR acceptance. |
+| Sprint 16 — P3-S1 live tutor marketplace, supply side | [40_Sprint16_Plan](40_Sprint16_Plan.md) → [41_Sprint16_Closure](41_Sprint16_Closure.md) | ✅ DELIVERED 2026-04-28 — tutor application FSM end-to-end. Migration 002 adds 4 tables (tutor_profiles + qualifications + availability + topics) with ADR-0008 pricing band CHECK; 10 routes wired (/marketplace/tutors/apply + /me + /me/kyc/{start,poll} + /me/activate + /admin/{user_id}/{approve,reject} + /tutors listing + /tutors/{id} public); Stripe Identity stub for KYC (real wiring P3-S2); web-portal /tutor/apply + /tutor pages + marketplace API namespace. Tests: 18 unit + 5 integration green. **make smoke = 23/23**. P3-S1 closed; P3-S2 opens demand side + Stripe Connect + Daily.co. |
 
 ---
 

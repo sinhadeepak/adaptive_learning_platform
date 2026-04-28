@@ -15,6 +15,8 @@ import { AssignmentNew } from "./pages/AssignmentNew";
 import { Analytics } from "./pages/Analytics";
 import { CohortLeaderboard } from "./pages/CohortLeaderboard";
 import { StudentDrillDown } from "./pages/StudentDrillDown";
+import { TutorApply } from "./pages/TutorApply";
+import { TutorDashboard } from "./pages/TutorDashboard";
 
 const protectedRoute = (path: string, element: ReactElement): RouteObject => ({
   path,
@@ -75,5 +77,8 @@ export const routes: RouteObject[] = [
     <StudentDrillDown />,
   ),
   protectedRoute("/analytics", <Analytics />),
+  // Sprint 16 (P3-S1) — Tutor marketplace, supply side.
+  protectedRoute("/tutor", <TutorDashboard />),
+  protectedRoute("/tutor/apply", <TutorApply />),
   { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];
