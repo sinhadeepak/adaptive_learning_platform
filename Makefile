@@ -4,7 +4,7 @@
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
 
-PY_SERVICES := auth user-profile payment institution learning engagement
+PY_SERVICES := identity payment learning engagement
 GO_SERVICES := quiz
 # Sprint B closed: analytics + notification merged into engagement.
 # Sprints C/D move catalog+content+doubts+search+adaptive→learning and
