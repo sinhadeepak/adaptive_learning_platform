@@ -6,6 +6,10 @@ SHELL := /usr/bin/env bash
 
 PY_SERVICES := auth user-profile content catalog search analytics payment institution notification adaptive-engine
 GO_SERVICES := quiz
+# Consolidated services (skeletons from ADR-0005). During the consolidation
+# rollout, NEW_PY_SERVICES grows as old services move into them; once Sprint E
+# lands, PY_SERVICES is replaced by `identity learning engagement payment`.
+NEW_PY_SERVICES := identity learning engagement
 COMPOSE := docker compose -f infrastructure/docker/docker-compose.yml
 
 .PHONY: help
@@ -52,6 +56,33 @@ dev-logs: ## Tail logs for the local stack
 .PHONY: dev-seed
 dev-seed: ## Run seed script against local Postgres + NATS (placeholder until Sprint 1)
 	@echo "→ dev-seed: implemented in Sprint 1 (scripts/seed_staging.py, GAP-09)"
+
+# -- consolidation rollout (ADR-0005) --
+
+.PHONY: dev-new
+dev-new: dev-env ## Boot the new consolidated stack (identity, learning, engagement) — runs alongside `make dev` during rollout.
+	@for svc in $(NEW_PY_SERVICES); do \
+	  echo "→ uv sync services/$$svc"; \
+	  (cd services/$$svc && uv sync) || exit 1; \
+	done
+	@echo "→ infra (postgres, nats, redis, opensearch) must be up — run \`make dev\` first"
+	@echo "→ launch the consolidated services manually until docker-compose entries land:"
+	@echo "    cd services/engagement && uv run uvicorn engagement.main:app --port 38100"
+	@echo "    cd services/learning   && uv run uvicorn learning.main:app   --port 38101"
+	@echo "    cd services/identity   && uv run uvicorn identity.main:app   --port 38102"
+
+.PHONY: contract-test
+contract-test: ## Run consolidation contract tests (requires recordings/ + new services running). Usage: make contract-test bundle=engagement|learning|identity
+	@if [ -z "$(bundle)" ]; then \
+	  PYTHONPATH=. uv run --project services/engagement pytest tests/consolidation/ -v; \
+	else \
+	  PYTHONPATH=. uv run --project services/engagement pytest tests/consolidation/test_$(bundle).py -v; \
+	fi
+
+.PHONY: contract-record
+contract-record: ## Capture old-service responses for the contract tests. Usage: make contract-record svcs="analytics notification"
+	@if [ -z "$(svcs)" ]; then echo "Usage: make contract-record svcs=\"analytics notification\""; exit 1; fi
+	PYTHONPATH=. uv run --project services/engagement python -m tests.consolidation.record $(svcs)
 
 .PHONY: seed-hindi
 seed-hindi: ## Seed 15 Hindi MCQs through Content API → bridge → Quiz bank.
