@@ -37,6 +37,7 @@ from nats.js.errors import BadRequestError
 from analytics.config import settings
 from analytics.db import sessionmaker
 from analytics.processing import process_session
+from analytics.realtime import publish_user_recomputed
 
 log = logging.getLogger(__name__)
 
@@ -182,6 +183,12 @@ async def _on_session_completed(msg: Msg) -> None:
                 user_id,
                 topic_id,
             )
+            # Sprint 13 S13-A — wake any cohort SSE subscribers that
+            # have this user in their member set. publish_user_recomputed
+            # is in-process + non-blocking; a slow SSE consumer can't
+            # stall this consumer.
+            with contextlib.suppress(Exception):
+                publish_user_recomputed(user_id)
         else:
             log.info("analytics session %s already processed; skipping", session_id)
     except Exception as err:

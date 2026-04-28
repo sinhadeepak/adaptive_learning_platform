@@ -324,6 +324,21 @@ export const cohorts = {
     }
   },
 
+  // Sprint 13 S13-B — invite claim funnel.
+  async listClaims(inviteId: string): Promise<
+    {
+      id: string;
+      inviteId: string;
+      userId: string;
+      claimedAt: string;
+    }[]
+  > {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/institution/cohorts/invites/${encodeURIComponent(inviteId)}/claims`,
+    );
+    return asJson(res);
+  },
+
   async members(cohortId: string): Promise<AdminCohortMember[]> {
     const res = await auth.fetch(
       `${env.apiBaseUrl}/institution/cohorts/${encodeURIComponent(cohortId)}/members`,

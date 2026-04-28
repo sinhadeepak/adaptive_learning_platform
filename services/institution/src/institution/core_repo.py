@@ -314,3 +314,45 @@ def redact_invite_token(token: str) -> str:
         return "***"
     visible = head[-4:] if len(head) >= 4 else head
     return f"…{visible}.***"
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Sprint 13 S13-B — invite claim audit
+# ─────────────────────────────────────────────────────────────────────────
+
+
+async def insert_invite_claim(
+    session: AsyncSession,
+    *,
+    invite_id: str,
+    user_id: str,
+) -> None:
+    """Append-only — the claim endpoint calls this on every successful
+    redemption. Educator UI consumes via list_invite_claims."""
+    await session.execute(
+        text(
+            f"""
+            INSERT INTO {SCHEMA}.cohort_invite_claims (invite_id, user_id)
+            VALUES (:i, :u)
+            """
+        ),
+        {"i": invite_id, "u": user_id},
+    )
+
+
+async def list_invite_claims(
+    session: AsyncSession, invite_id: str
+) -> list[dict[str, Any]]:
+    """Newest-first claim list for the invite-funnel UI."""
+    res = await session.execute(
+        text(
+            f"""
+            SELECT id, invite_id, user_id, claimed_at
+              FROM {SCHEMA}.cohort_invite_claims
+             WHERE invite_id = :i
+          ORDER BY claimed_at DESC
+            """
+        ),
+        {"i": invite_id},
+    )
+    return [dict(r) for r in res.mappings().all()]

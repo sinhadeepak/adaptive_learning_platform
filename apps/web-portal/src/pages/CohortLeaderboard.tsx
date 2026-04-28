@@ -8,7 +8,11 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { AppShell } from "../components/AppShell";
-import { analytics, type CohortLeaderboardRow } from "../lib/api";
+import {
+  analytics,
+  type CohortLeaderboardRow,
+  type CohortSummary,
+} from "../lib/api";
 import { env } from "../lib/env";
 
 interface LeaderboardFrame {
@@ -19,6 +23,7 @@ interface LeaderboardFrame {
 export function CohortLeaderboard() {
   const { cohortId } = useParams<{ cohortId: string }>();
   const [rows, setRows] = useState<CohortLeaderboardRow[] | null>(null);
+  const [summary, setSummary] = useState<CohortSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState(false);
   const sourceRef = useRef<EventSource | null>(null);
@@ -36,6 +41,20 @@ export function CohortLeaderboard() {
         if (!cancelled) setRows(r.leaderboard);
       })
       .catch((e) => !cancelled && setError((e as Error).message));
+
+    // Sprint 13 S13-D — fetch the summary header alongside the
+    // leaderboard. Same fan-out as the cohortLeaderboard path; it's a
+    // pure aggregation over the same source rows.
+    analytics
+      .cohortSummary(cohortId)
+      .then((r) => {
+        if (!cancelled) setSummary(r.summary);
+      })
+      .catch(() => {
+        // Summary failure shouldn't block the leaderboard render — the
+        // educator gets to keep the table even if the header tile
+        // fetch hiccups.
+      });
 
     // 2) Open the SSE stream. The browser's EventSource auto-reconnects
     //    on transient failure; we just need to wire the handlers.
@@ -94,6 +113,35 @@ export function CohortLeaderboard() {
           </span>
         </div>
         {error && <p className="banner banner-error">{error}</p>}
+
+        {/* Sprint 13 S13-D — headline summary tiles. */}
+        {summary && (
+          <section
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+              gap: 12,
+              marginTop: 16,
+              marginBottom: 16,
+            }}
+          >
+            <SummaryTile label="Members" value={summary.memberCount} />
+            <SummaryTile
+              label="Started"
+              value={`${summary.startedCount} · ${summary.completionPct}%`}
+            />
+            <SummaryTile
+              label="Avg readiness"
+              value={`${summary.avgReadinessPct}%`}
+            />
+            <SummaryTile
+              label="At risk"
+              value={summary.atRisk.length}
+              hint={summary.atRisk.length > 0 ? "see top of list" : undefined}
+            />
+          </section>
+        )}
+
         {rows === null && <p>Loading…</p>}
         {rows !== null && rows.length === 0 && (
           <p>No members in this cohort yet.</p>
@@ -114,7 +162,10 @@ export function CohortLeaderboard() {
                 <tr key={r.userId} className={r.started ? "" : "row-inactive"}>
                   <td>{r.rank}</td>
                   <td>
-                    <code>{r.userId.slice(0, 8)}…</code>
+                    {/* Sprint 13 S13-C — clickable for drill-down. */}
+                    <Link to={`/cohorts/${cohortId}/students/${r.userId}`}>
+                      <code>{r.userId.slice(0, 8)}…</code>
+                    </Link>
                     {r.role !== "STUDENT" && (
                       <span className="pill pill-neutral" style={{ marginLeft: 8 }}>
                         {r.role}
@@ -135,5 +186,34 @@ export function CohortLeaderboard() {
         )}
       </main>
     </AppShell>
+  );
+}
+
+function SummaryTile({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string | number;
+  hint?: string;
+}) {
+  return (
+    <div
+      style={{
+        padding: 12,
+        border: "1px solid var(--border-faint)",
+        borderRadius: 8,
+        background: "var(--bg-surface-1, #fff)",
+      }}
+    >
+      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>{value}</div>
+      {hint && (
+        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+          {hint}
+        </div>
+      )}
+    </div>
   );
 }

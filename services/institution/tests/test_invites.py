@@ -259,6 +259,81 @@ def test_redact_invite_token_pure_helper() -> None:
     assert redact_invite_token("") == "***"
 
 
+async def test_claim_appends_audit_row(client: AsyncClient) -> None:
+    """Sprint 13 S13-B — every successful claim produces an audit row
+    that the educator UI can list."""
+    _, cohort_id = await _make_cohort(client)
+    invite = (
+        await client.post(
+            f"/institution/cohorts/{cohort_id}/invites", json={}
+        )
+    ).json()
+    user_id = str(uuid.uuid4())
+    r = await client.post(
+        f"/institution/cohorts/invites/{invite['token']}/claim",
+        json={"userId": user_id},
+    )
+    assert r.status_code == 200
+    claims = (
+        await client.get(f"/institution/cohorts/invites/{invite['id']}/claims")
+    ).json()
+    assert len(claims) == 1
+    assert claims[0]["userId"] == user_id
+
+
+async def test_repeated_claims_show_in_audit_funnel(client: AsyncClient) -> None:
+    """Same student opening the link twice WILL produce two audit rows.
+    cohort_members PK still de-dupes to one membership; the audit
+    captures the funnel signal."""
+    _, cohort_id = await _make_cohort(client)
+    invite = (
+        await client.post(
+            f"/institution/cohorts/{cohort_id}/invites", json={}
+        )
+    ).json()
+    user_id = str(uuid.uuid4())
+    for _ in range(2):
+        await client.post(
+            f"/institution/cohorts/invites/{invite['token']}/claim",
+            json={"userId": user_id},
+        )
+    claims = (
+        await client.get(f"/institution/cohorts/invites/{invite['id']}/claims")
+    ).json()
+    assert len(claims) == 2
+
+
+async def test_unknown_invite_id_returns_empty_list(client: AsyncClient) -> None:
+    """By-design: revoked / never-existed invites produce empty results
+    rather than 404."""
+    r = await client.get(
+        f"/institution/cohorts/invites/{uuid.uuid4()}/claims"
+    )
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+async def test_revoking_invite_clears_audit(client: AsyncClient) -> None:
+    """FK CASCADE removes audit rows when the invite is revoked. That's
+    the explicit design (see migration docstring)."""
+    _, cohort_id = await _make_cohort(client)
+    invite = (
+        await client.post(
+            f"/institution/cohorts/{cohort_id}/invites", json={}
+        )
+    ).json()
+    user_id = str(uuid.uuid4())
+    await client.post(
+        f"/institution/cohorts/invites/{invite['token']}/claim",
+        json={"userId": user_id},
+    )
+    await client.delete(f"/institution/cohorts/invites/{invite['id']}")
+    claims = (
+        await client.get(f"/institution/cohorts/invites/{invite['id']}/claims")
+    ).json()
+    assert claims == []
+
+
 async def test_same_user_can_claim_twice_idempotently(client: AsyncClient) -> None:
     """If the student opens the invite link twice (refresh, deep-link
     racing), they shouldn't see an error. The cohort_members add is

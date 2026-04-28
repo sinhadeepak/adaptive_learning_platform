@@ -14,6 +14,7 @@ import { AssignmentDetail } from "./pages/AssignmentDetail";
 import { AssignmentNew } from "./pages/AssignmentNew";
 import { Analytics } from "./pages/Analytics";
 import { CohortLeaderboard } from "./pages/CohortLeaderboard";
+import { StudentDrillDown } from "./pages/StudentDrillDown";
 
 const protectedRoute = (path: string, element: ReactElement): RouteObject => ({
   path,
@@ -68,6 +69,11 @@ export const routes: RouteObject[] = [
   protectedRoute("/assignments/:assignmentId", <AssignmentDetail />),
   // Sprint 10 S10-E — cohort leaderboard.
   protectedRoute("/cohorts/:cohortId/leaderboard", <CohortLeaderboard />),
+  // Sprint 13 S13-C — per-student drill-down.
+  protectedRoute(
+    "/cohorts/:cohortId/students/:userId",
+    <StudentDrillDown />,
+  ),
   protectedRoute("/analytics", <Analytics />),
   { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];

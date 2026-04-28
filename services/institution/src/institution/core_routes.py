@@ -37,8 +37,10 @@ from institution.core_repo import (
     get_tenant,
     get_tenant_by_slug,
     increment_invite_uses,
+    insert_invite_claim,
     list_cohort_members,
     list_cohorts_for_tenant,
+    list_invite_claims,
     list_invites_for_cohort,
     redact_invite_token,
     remove_cohort_member,
@@ -395,6 +397,13 @@ async def post_claim(
     await add_cohort_member(
         session, cohort_id=str(invite["cohort_id"]), user_id=body.userId
     )
+    # Sprint 13 S13-B — append-only claim audit. Same student opening
+    # the same link twice WILL produce two audit rows, which is the
+    # right behaviour for the funnel ("two attempted claims, one
+    # actually new member" is signal, not noise).
+    await insert_invite_claim(
+        session, invite_id=str(invite["id"]), user_id=body.userId
+    )
     await session.commit()
     return {
         "ok": True,
@@ -461,3 +470,40 @@ async def delete_invite_endpoint(invite_id: str, session: SessionDep) -> None:
             },
         )
     await session.commit()
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Sprint 13 S13-B — invite claim funnel
+# ─────────────────────────────────────────────────────────────────────────
+
+
+class InviteClaimEntry(BaseModel):
+    id: str
+    inviteId: str
+    userId: str
+    claimedAt: str
+
+
+def _claim_to_out(row: dict[str, Any]) -> InviteClaimEntry:
+    return InviteClaimEntry(
+        id=str(row["id"]),
+        inviteId=str(row["invite_id"]),
+        userId=str(row["user_id"]),
+        claimedAt=row["claimed_at"].isoformat(),
+    )
+
+
+@router.get(
+    "/cohorts/invites/{invite_id}/claims",
+    response_model=list[InviteClaimEntry],
+)
+async def get_invite_claims(
+    invite_id: str, session: SessionDep
+) -> list[InviteClaimEntry]:
+    """Educator-side funnel view: who has claimed this invite, and when.
+
+    Note: returns the audit rows even for invites that have since been
+    revoked (FK CASCADE deletes them, so an unknown invite_id naturally
+    produces an empty list rather than 404 — by-design)."""
+    rows = await list_invite_claims(session, invite_id)
+    return [_claim_to_out(r) for r in rows]

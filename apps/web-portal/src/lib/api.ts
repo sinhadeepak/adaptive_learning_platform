@@ -289,6 +289,33 @@ export interface CohortLeaderboardRow {
   updatedAt: string | null;
 }
 
+// Sprint 13 S13-D — cohort summary header.
+export interface CohortSummary {
+  memberCount: number;
+  startedCount: number;
+  avgReadinessPct: number;
+  completionPct: number;
+  atRisk: { userId: string; score: number; nTopics: number }[];
+}
+
+// Sprint 13 S13-C — per-student drill-down.
+export interface StudentDrillDown {
+  userId: string;
+  cohortId: string;
+  readiness: { score: number; nTopics: number; updatedAt: string | null };
+  topicMastery: { topicId: string; ewa: number; n: number }[];
+  streak: { current: number; longest: number; lastActiveDate: string | null };
+  recentSessions: {
+    sessionId: string;
+    topicId: string | null;
+    mode: string;
+    servedCount: number;
+    correctCount: number;
+    accuracyPct: number;
+    submittedAt: string | null;
+  }[];
+}
+
 export const analytics = {
   async cohortLeaderboard(
     cohortId: string,
@@ -299,6 +326,25 @@ export const analytics = {
     return asJson<{ cohortId: string; leaderboard: CohortLeaderboardRow[] }>(
       res,
     );
+  },
+
+  async cohortSummary(
+    cohortId: string,
+  ): Promise<{ cohortId: string; summary: CohortSummary }> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/analytics/cohorts/${encodeURIComponent(cohortId)}/summary`,
+    );
+    return asJson<{ cohortId: string; summary: CohortSummary }>(res);
+  },
+
+  async studentDrillDown(
+    cohortId: string,
+    userId: string,
+  ): Promise<StudentDrillDown> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/analytics/cohorts/${encodeURIComponent(cohortId)}/students/${encodeURIComponent(userId)}`,
+    );
+    return asJson<StudentDrillDown>(res);
   },
 };
 

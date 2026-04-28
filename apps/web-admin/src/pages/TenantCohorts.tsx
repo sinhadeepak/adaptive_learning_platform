@@ -1,6 +1,6 @@
 // Sprint 10 S10-C — Tenant cohorts + members admin surface.
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { AppShell } from "../components/AppShell";
@@ -34,6 +34,11 @@ export function TenantCohorts() {
   const [invites, setInvites] = useState<AdminInviteListEntry[] | null>(null);
   const [inviteMaxUses, setInviteMaxUses] = useState<string>("");
   const [latestInviteUrl, setLatestInviteUrl] = useState<string | null>(null);
+  // Sprint 13 S13-B — claim funnel viewer keyed by invite id.
+  const [openClaimsFor, setOpenClaimsFor] = useState<string | null>(null);
+  const [claims, setClaims] = useState<
+    { userId: string; claimedAt: string }[] | null
+  >(null);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -127,6 +132,26 @@ export function TenantCohorts() {
     try {
       await cohortsApi.revokeInvite(inviteId);
       setInvites((invites ?? []).filter((i) => i.id !== inviteId));
+      if (openClaimsFor === inviteId) {
+        setOpenClaimsFor(null);
+        setClaims(null);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function toggleClaims(inviteId: string) {
+    if (openClaimsFor === inviteId) {
+      setOpenClaimsFor(null);
+      setClaims(null);
+      return;
+    }
+    setOpenClaimsFor(inviteId);
+    setClaims(null);
+    try {
+      const rows = await cohortsApi.listClaims(inviteId);
+      setClaims(rows);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -304,22 +329,56 @@ export function TenantCohorts() {
                     </thead>
                     <tbody>
                       {invites.map((inv) => (
-                        <tr key={inv.id}>
-                          <td>
-                            <code>{inv.tokenPreview}</code>
-                          </td>
-                          <td>{inv.uses}</td>
-                          <td>{inv.maxUses ?? "∞"}</td>
-                          <td>{inv.createdAt.slice(0, 10)}</td>
-                          <td>
-                            <button
-                              className="btn-link"
-                              onClick={() => revokeInvite(inv.id)}
-                            >
-                              revoke
-                            </button>
-                          </td>
-                        </tr>
+                        <React.Fragment key={inv.id}>
+                          <tr>
+                            <td>
+                              <code>{inv.tokenPreview}</code>
+                            </td>
+                            <td>{inv.uses}</td>
+                            <td>{inv.maxUses ?? "∞"}</td>
+                            <td>{inv.createdAt.slice(0, 10)}</td>
+                            <td>
+                              <button
+                                className="btn-link"
+                                onClick={() => toggleClaims(inv.id)}
+                              >
+                                {openClaimsFor === inv.id
+                                  ? "hide claims"
+                                  : "view claims"}
+                              </button>
+                              {" · "}
+                              <button
+                                className="btn-link"
+                                onClick={() => revokeInvite(inv.id)}
+                              >
+                                revoke
+                              </button>
+                            </td>
+                          </tr>
+                          {openClaimsFor === inv.id && (
+                            <tr>
+                              <td colSpan={5} style={{ background: "var(--bg-surface-2, #f7f9fc)" }}>
+                                {claims === null ? (
+                                  <p style={{ margin: 8 }}>Loading claims…</p>
+                                ) : claims.length === 0 ? (
+                                  <p style={{ margin: 8 }}>
+                                    No claims yet — share the link to onboard students.
+                                  </p>
+                                ) : (
+                                  <ul style={{ margin: 8, padding: 0, listStyle: "none" }}>
+                                    {claims.map((c, i) => (
+                                      <li key={`${c.userId}-${i}`} style={{ padding: "2px 0" }}>
+                                        <code>{c.userId.slice(0, 8)}…</code>
+                                        {" · "}
+                                        {c.claimedAt.slice(0, 19).replace("T", " ")}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>

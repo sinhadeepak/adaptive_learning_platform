@@ -14,7 +14,9 @@ from analytics.cohort_leaderboard import (
     fetch_cohort_members,
     rank_leaderboard,
 )
+from analytics import realtime
 from analytics.db import sessionmaker
+from analytics.student_drill_down import build_drilldown
 from analytics.repositories import (
     get_mastery,
     get_readiness,
@@ -152,9 +154,12 @@ def _leaderboard_digest(rows: list[dict]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-# Tunable; the educator UX says "near-realtime" — 5s is fine.
-SSE_POLL_INTERVAL_SECONDS = 5
+# Sprint 13 S13-A — heartbeat is the only timer left in the SSE loop.
+# Wakes are driven by NATS-derived ticks via analytics.realtime.
 SSE_HEARTBEAT_SECONDS = 25
+# How often we re-fetch cohort membership from Institution (membership
+# changes when an educator adds / removes a student). Cap on staleness.
+SSE_MEMBER_REFRESH_SECONDS = 60
 
 
 @router.get("/analytics/cohorts/{cohort_id}/leaderboard/stream")
@@ -162,47 +167,107 @@ async def cohort_leaderboard_stream(
     cohort_id: str,
     include_teachers: bool = Query(default=False, alias="includeTeachers"),
 ) -> StreamingResponse:
-    """Sprint 12 S12-B — SSE leaderboard.
+    """Sprint 12 S12-B + Sprint 13 S13-A — push-based SSE leaderboard.
 
     Frames:
       - `event: snapshot` on connect with the full board
-      - `event: delta`    when the digest changes (~5s poll)
+      - `event: delta`    when a quiz session lands for any cohort member
+                          AND the digest actually changed
       - `: keepalive`     every 25s so proxies don't idle out
 
-    Why poll rather than push: the L-1 endpoint already returns a
-    deterministic snapshot; a content-hash diff catches all real changes
-    without needing in-process pub/sub plumbing. Sprint 13 can swap in
-    a NATS-driven pusher if 5s lag isn't tight enough."""
+    Wake mechanism: `analytics/events.py` calls
+    `realtime.publish_user_recomputed(user_id)` after every successful
+    `process_session()`. This handler subscribes to its cohort's
+    fan-out queue and only rebuilds the snapshot when a tick arrives
+    (or every SSE_MEMBER_REFRESH_SECONDS as a membership-staleness
+    safety net).
+    """
 
     async def stream() -> "asyncio.AsyncIterator[bytes]":  # type: ignore[name-defined]
-        last_digest: str | None = None
-        last_heartbeat = asyncio.get_event_loop().time()
-        # Initial snapshot.
-        rows = await _build_leaderboard(cohort_id, include_teachers)
-        last_digest = _leaderboard_digest(rows)
-        yield b"event: snapshot\ndata: " + json.dumps(
-            {"cohortId": cohort_id, "leaderboard": rows}
-        ).encode() + b"\n\n"
+        # Initial cohort fetch + snapshot.
+        members = await fetch_cohort_members(cohort_id)
+        member_ids = {m["userId"] for m in members}
+        sub = realtime.Subscription(cohort_id=cohort_id, members=member_ids)
+        realtime.register(sub)
+        try:
+            rows = await _build_leaderboard(cohort_id, include_teachers)
+            last_digest = _leaderboard_digest(rows)
+            yield b"event: snapshot\ndata: " + json.dumps(
+                {"cohortId": cohort_id, "leaderboard": rows}
+            ).encode() + b"\n\n"
 
-        while True:
-            await asyncio.sleep(SSE_POLL_INTERVAL_SECONDS)
-            try:
-                rows = await _build_leaderboard(cohort_id, include_teachers)
+            last_member_refresh = asyncio.get_event_loop().time()
+            while True:
+                # Wait for either a tick from the publisher or the
+                # heartbeat timeout. asyncio.wait_for gives us the
+                # primitive — TimeoutError = heartbeat tick path.
+                try:
+                    await asyncio.wait_for(
+                        sub.queue.get(), timeout=SSE_HEARTBEAT_SECONDS
+                    )
+                    woke_for_event = True
+                except asyncio.TimeoutError:
+                    woke_for_event = False
+
+                # Refresh the member set occasionally — handles
+                # cohort_members add/remove without forcing the
+                # educator to reload the page.
+                now = asyncio.get_event_loop().time()
+                if now - last_member_refresh > SSE_MEMBER_REFRESH_SECONDS:
+                    last_member_refresh = now
+                    fresh_members = await fetch_cohort_members(cohort_id)
+                    sub.update_members({m["userId"] for m in fresh_members})
+
+                if not woke_for_event:
+                    yield b": keepalive\n\n"
+                    continue
+
+                # Drain any extra ticks queued during the rebuild —
+                # one snapshot covers every event up to "now".
+                while True:
+                    try:
+                        sub.queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        break
+
+                try:
+                    rows = await _build_leaderboard(cohort_id, include_teachers)
+                except Exception:
+                    # Transient DB blip — wait for the next tick.
+                    continue
                 digest = _leaderboard_digest(rows)
                 if digest != last_digest:
                     last_digest = digest
                     yield b"event: delta\ndata: " + json.dumps(
                         {"cohortId": cohort_id, "leaderboard": rows}
                     ).encode() + b"\n\n"
-                # Heartbeat regardless of changes so proxies (nginx) don't
-                # close the connection during quiet periods.
-                now = asyncio.get_event_loop().time()
-                if now - last_heartbeat > SSE_HEARTBEAT_SECONDS:
-                    last_heartbeat = now
-                    yield b": keepalive\n\n"
-            except Exception:
-                # Best-effort — a transient DB blip shouldn't kill the
-                # connection. The next poll retries.
-                continue
+        finally:
+            realtime.unregister(sub)
 
     return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+@router.get("/analytics/cohorts/{cohort_id}/students/{user_id}")
+async def cohort_student_drill_down(cohort_id: str, user_id: str) -> dict:
+    """Sprint 13 S13-C — per-student drill-down for the educator UI.
+
+    Returns the four sources (readiness, per-topic mastery, streak,
+    recent quiz sessions) in one round-trip. Membership check is the
+    educator's responsibility (they got the user_id from the leaderboard
+    which already filtered by cohort)."""
+    return await build_drilldown(cohort_id=cohort_id, user_id=user_id)
+
+
+@router.get("/analytics/cohorts/{cohort_id}/summary")
+async def cohort_summary(
+    cohort_id: str,
+    include_teachers: bool = Query(default=False, alias="includeTeachers"),
+) -> dict:
+    """Sprint 13 S13-D — headline cohort stats for the leaderboard
+    header. Reuses the same source rows the leaderboard consumes and
+    runs a pure aggregation over them — no new DB hits beyond what the
+    leaderboard already does."""
+    from analytics.cohort_summary import summarise_cohort
+
+    rows = await _build_leaderboard(cohort_id, include_teachers)
+    return {"cohortId": cohort_id, "summary": summarise_cohort(rows)}
