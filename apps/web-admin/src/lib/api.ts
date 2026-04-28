@@ -430,3 +430,41 @@ export const marketplaceAdmin = {
     return body.items;
   },
 };
+
+// ── Sprint 20 (P3-S5) — Rating moderation ────────────────────────────
+
+export const ratingModeration = {
+  async hide(kind: "session" | "course", ratingId: string, reason: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/admin/ratings/${kind}/${encodeURIComponent(ratingId)}/hide`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reason }),
+      },
+    );
+    if (!res.ok && res.status !== 204) throw new Error(res.statusText);
+  },
+
+  async unhide(kind: "session" | "course", ratingId: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/admin/ratings/${kind}/${encodeURIComponent(ratingId)}/unhide`,
+      { method: "POST" },
+    );
+    if (!res.ok && res.status !== 204) throw new Error(res.statusText);
+  },
+
+  async listForCourse(courseId: string): Promise<{ targetId: string; averageStars: number; count: number; recent: { id: string; stars: number; comment: string | null; createdAt: string; studentUserId: string }[] }> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/ratings`,
+    );
+    return asJson(res);
+  },
+
+  async listForTutor(tutorUserId: string): Promise<{ targetId: string; averageStars: number; count: number; recent: { id: string; stars: number; comment: string | null; createdAt: string; studentUserId: string }[] }> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/tutors/${encodeURIComponent(tutorUserId)}/ratings`,
+    );
+    return asJson(res);
+  },
+};

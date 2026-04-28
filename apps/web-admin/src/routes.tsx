@@ -15,6 +15,7 @@ import { Profile } from "./pages/Profile";
 import { Settings } from "./pages/Settings";
 import { TutorAdminActions } from "./pages/TutorAdminActions";
 import { TutorModerationQueue } from "./pages/TutorModerationQueue";
+import { RatingModeration } from "./pages/RatingModeration";
 
 const adminRoute = (path: string, element: ReactElement): RouteObject => ({
   path,
@@ -51,5 +52,7 @@ export const routes: RouteObject[] = [
   // Sprint 17 (P3-S2) — Tutor moderation.
   adminRoute("/tutors-admin", <TutorModerationQueue />),
   adminRoute("/tutors-admin/:userId", <TutorAdminActions />),
+  // Sprint 20 (P3-S5) — Rating moderation.
+  adminRoute("/ratings-mod", <RatingModeration />),
   { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];

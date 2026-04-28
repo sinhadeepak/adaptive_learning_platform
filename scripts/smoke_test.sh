@@ -395,6 +395,28 @@ REFUND_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/admin/courses/$COURS
 assert "admin refunds course purchase → REFUNDED" \
   bash -c "echo '$REFUND_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['status']=='REFUNDED'\""
 
+# -- 9. Sprint 20 (P3-S5): predictive analytics + recommendations ---------
+
+echo "==> engagement P3-S5 (predictive)"
+
+DROPOUT_RESP=$(curl -s "$ENGAGEMENT_URL/analytics/predictive/dropout/$STUDENT_ID")
+assert "dropout score endpoint returns valid score" \
+  bash -c "echo '$DROPOUT_RESP' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert 'score' in d and d['risk_band'] in ('LOW','MEDIUM','HIGH')\""
+
+RECS_RESP=$(curl -s "$ENGAGEMENT_URL/analytics/recommendations/$STUDENT_ID")
+assert "recommendations endpoint returns items array" \
+  bash -c "echo '$RECS_RESP' | python3 -c \"import sys,json; assert isinstance(json.load(sys.stdin).get('items'), list)\""
+
+# Force-recompute
+RECOMPUTE_RESP=$(curl -s -X POST "$ENGAGEMENT_URL/analytics/predictive/recompute/$STUDENT_ID")
+assert "force recompute returns fresh dropout (cached=false)" \
+  bash -c "echo '$RECOMPUTE_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['dropout']['cached']==False\""
+
+# Second call hits cache
+CACHED_RESP=$(curl -s "$ENGAGEMENT_URL/analytics/predictive/dropout/$STUDENT_ID")
+assert "second call hits cache (cached=true)" \
+  bash -c "echo '$CACHED_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin).get('cached', False)==True\""
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then

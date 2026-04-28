@@ -8,6 +8,7 @@ import { GuidedNextSteps } from "../components/GuidedNextSteps";
 import { PhotoDoubt } from "../components/PhotoDoubt";
 import { RankTrajectoryCard } from "../components/RankTrajectoryCard";
 import { WeaknessDiagnosis } from "../components/WeaknessDiagnosis";
+import { PersonalisedNextStep } from "../components/PersonalisedNextStep";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Master Dashboard — React port of docs/ui/01_StudentPortal_Web/05_master-dashboard.html.
@@ -573,6 +574,9 @@ export function Home() {
           </div>
         )}
       </section>
+
+      {/* ── Zone 1.4: Personalised next step (P3-S5 predictive) ───── */}
+      {user ? <PersonalisedNextStep userId={user.id} /> : null}
 
       {/* ── Zone 1.5: Predicted AIR for target exam ──────────────── */}
       {user ? <RankTrajectoryCard userId={user.id} /> : null}

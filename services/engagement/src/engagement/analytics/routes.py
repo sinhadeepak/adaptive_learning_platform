@@ -271,3 +271,77 @@ async def cohort_summary(
 
     rows = await _build_leaderboard(cohort_id, include_teachers)
     return {"cohortId": cohort_id, "summary": summarise_cohort(rows)}
+
+
+# ===========================================================================
+# Sprint 20 (P3-S5) — predictive analytics + recommendations
+# ===========================================================================
+
+from engagement.analytics import predictive as _predictive
+from engagement.analytics import predictive_repo as _predictive_repo
+
+
+@router.get("/analytics/predictive/dropout/{user_id}")
+async def predictive_dropout_get(user_id: str) -> dict:
+    """Drop-out risk score per ADR-0010. Auth check (caller is user OR
+    admin OR cohort educator) deferred to gateway level — this endpoint
+    is internal-trusted today."""
+    async with sessionmaker()() as session:
+        return await _predictive.compute_or_get_dropout(session, user_id)
+
+
+@router.get("/analytics/recommendations/{user_id}")
+async def predictive_recommendations_get(user_id: str) -> dict:
+    """Topic recommendations per ADR-0011."""
+    async with sessionmaker()() as session:
+        recs = await _predictive.compute_or_get_recommendations(session, user_id)
+        return {
+            "userId": user_id,
+            "items": [
+                {
+                    "topicId": r.topic_id,
+                    "score": r.score,
+                    "reasonString": r.reason_string,
+                }
+                for r in recs
+            ],
+        }
+
+
+@router.post("/analytics/predictive/recompute/{user_id}")
+async def predictive_recompute(user_id: str) -> dict:
+    """Force-recompute both score + recommendations (skip cache).
+    Admin-only in production; gateway enforces. Returns the fresh score."""
+    async with sessionmaker()() as session:
+        score = await _predictive.compute_or_get_dropout(session, user_id, force=True)
+        recs = await _predictive.compute_or_get_recommendations(session, user_id, force=True)
+        return {
+            "userId": user_id,
+            "dropout": score,
+            "recommendationsCount": len(recs),
+        }
+
+
+@router.get("/analytics/predictive/cohorts/{cohort_id}/at-risk")
+async def predictive_cohort_at_risk(cohort_id: str) -> dict:
+    """High-risk students in a cohort. Uses the existing leaderboard's
+    member list (which already does the cohort_members lookup) so we
+    don't re-fetch institution data here."""
+    async with sessionmaker()() as session:
+        # Reuse the leaderboard helper to get the member list
+        rows = await _build_leaderboard(cohort_id, include_teachers=False)
+        user_ids = [r["user_id"] for r in rows]
+        items = await _predictive_repo.list_high_risk_in_cohort(session, user_ids)
+        return {
+            "cohortId": cohort_id,
+            "items": [
+                {
+                    "userId": str(r["user_id"]),
+                    "score": float(r["score"]),
+                    "riskBand": r["risk_band"],
+                    "interventionKind": r.get("intervention_kind"),
+                    "computedAt": r["computed_at"].isoformat(),
+                }
+                for r in items
+            ],
+        }

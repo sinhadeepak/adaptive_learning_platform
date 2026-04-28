@@ -331,3 +331,42 @@ export const tutorRatings = {
     return asJson<RatingAggregate>(res);
   },
 };
+
+// ── Sprint 20 (P3-S5) — Predictive analytics + recommendations ───────
+
+export interface DropoutScore {
+  score: number;
+  risk_band: "LOW" | "MEDIUM" | "HIGH";
+  intervention_kind:
+    | "re_engagement_notification"
+    | "suggest_tutor"
+    | "lower_difficulty"
+    | "none"
+    | null;
+  signals: Record<string, unknown>;
+  computed_at: string;
+  cached?: boolean;
+}
+
+export interface TopicRecommendation {
+  topicId: string;
+  score: number;
+  reasonString: string;
+}
+
+export const predictive = {
+  async dropout(userId: string): Promise<DropoutScore> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/analytics/predictive/dropout/${encodeURIComponent(userId)}`,
+    );
+    return asJson<DropoutScore>(res);
+  },
+
+  async recommendations(userId: string): Promise<TopicRecommendation[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/analytics/recommendations/${encodeURIComponent(userId)}`,
+    );
+    const body = await asJson<{ items: TopicRecommendation[] }>(res);
+    return body.items;
+  },
+};
