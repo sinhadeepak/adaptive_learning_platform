@@ -22,19 +22,26 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from institution.config import settings
 from institution.core_repo import (
+    SCHEMA,
     add_cohort_member,
     create_cohort,
+    create_invite,
     create_tenant,
+    get_invite_by_token,
     get_tenant,
     get_tenant_by_slug,
+    increment_invite_uses,
     list_cohort_members,
     list_cohorts_for_tenant,
     remove_cohort_member,
     slugify,
 )
+from institution.invite_token import generate_invite_token, verify_invite_token
 from institution.db import sessionmaker
 
 router = APIRouter(prefix="/institution", tags=["institution-core"])
@@ -253,3 +260,141 @@ async def delete_member(
             detail={"code": "member_not_found", "message": "User isn't in this cohort"},
         )
     await session.commit()
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Sprint 11 S11-A — Cohort invites
+# ─────────────────────────────────────────────────────────────────────────
+
+
+class InviteCreate(BaseModel):
+    """Educator generates a cohort invite link.
+
+    `maxUses=None` means unlimited (a class-wide link). Finite values let
+    the educator hand out a "20-seat" invite. `expiresAt` is optional —
+    when set, the claim endpoint refuses past it."""
+
+    maxUses: int | None = Field(default=None, ge=1, le=10_000)
+    expiresAt: str | None = None  # ISO-8601
+
+
+class InviteOut(BaseModel):
+    id: str
+    cohortId: str
+    token: str
+    maxUses: int | None
+    uses: int
+    expiresAt: str | None
+    createdAt: str
+
+
+def _invite_to_out(row: dict[str, Any]) -> InviteOut:
+    return InviteOut(
+        id=str(row["id"]),
+        cohortId=str(row["cohort_id"]),
+        token=row["token"],
+        maxUses=row.get("max_uses"),
+        uses=row["uses"],
+        expiresAt=row["expires_at"].isoformat() if row.get("expires_at") else None,
+        createdAt=row["created_at"].isoformat() if row.get("created_at") else "",
+    )
+
+
+@router.post(
+    "/cohorts/{cohort_id}/invites",
+    response_model=InviteOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def post_invite(
+    cohort_id: str, body: InviteCreate, session: SessionDep
+) -> InviteOut:
+    # Defensive: refuse to mint invites for a cohort that doesn't exist
+    # (FK CASCADE would orphan the row otherwise).
+    res = await session.execute(
+        text(f"SELECT 1 FROM {SCHEMA}.cohorts WHERE id = :id"),
+        {"id": cohort_id},
+    )
+    if res.first() is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "cohort_not_found", "message": "No cohort with that id"},
+        )
+    token = generate_invite_token(settings.jwt_secret)
+    row = await create_invite(
+        session,
+        cohort_id=cohort_id,
+        token=token,
+        max_uses=body.maxUses,
+        expires_at=body.expiresAt,
+    )
+    await session.commit()
+    return _invite_to_out(row)
+
+
+class InviteClaim(BaseModel):
+    userId: str
+
+
+@router.post("/cohorts/invites/{token}/claim")
+async def post_claim(
+    token: str, body: InviteClaim, session: SessionDep
+) -> dict:
+    """Student-side: redeem a cohort invite. Adds the user to
+    cohort_members and atomically increments `uses`. Returns 410 if the
+    invite is invalid, expired, or already at the cap."""
+    if not verify_invite_token(token, settings.jwt_secret):
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail={
+                "code": "invalid_invite",
+                "message": "Invite token is invalid or has been revoked",
+            },
+        )
+    invite = await get_invite_by_token(session, token)
+    if invite is None:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail={
+                "code": "invalid_invite",
+                "message": "Invite token is invalid or has been revoked",
+            },
+        )
+    # Expiry check
+    if invite.get("expires_at"):
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
+
+        expires_at = invite["expires_at"]
+        if isinstance(expires_at, str):
+            expires_at = _dt.fromisoformat(expires_at)
+        now = _dt.now(tz=_tz.utc)
+        if expires_at < now:
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail={
+                    "code": "invite_expired",
+                    "message": "Invite has expired",
+                },
+            )
+    # Atomic uses-bump: returns False when at the cap.
+    claimed = await increment_invite_uses(session, str(invite["id"]))
+    if not claimed:
+        await session.commit()
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail={
+                "code": "invite_exhausted",
+                "message": "Invite has reached its claim limit",
+            },
+        )
+    # Add to cohort_members (idempotent — student opening the same link
+    # twice doesn't error).
+    await add_cohort_member(
+        session, cohort_id=str(invite["cohort_id"]), user_id=body.userId
+    )
+    await session.commit()
+    return {
+        "ok": True,
+        "cohortId": str(invite["cohort_id"]),
+        "userId": body.userId,
+    }

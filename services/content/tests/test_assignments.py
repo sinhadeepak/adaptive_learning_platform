@@ -406,3 +406,62 @@ def test_submit_409_when_no_questions(client: TestClient) -> None:
     )
     assert r.status_code == 409
     assert r.json()["detail"]["code"] == "no_questions"
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Sprint 11 S11-C — explanation surfaces on misses
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def test_grade_answers_attaches_explanation_only_on_misses() -> None:
+    """The educator's `explanation` field is the teaching note. We
+    surface it on missed questions only — showing it on correct answers
+    dilutes the signal (and rewards memorising explanations)."""
+    from content.assignments_repo import grade_answers
+
+    keys = [
+        {
+            "question_id": "q1",
+            "position": 1,
+            "correct_idx": 1,
+            "stem": "What is 2+2?",
+            "explanation": "Basic addition: count up from 2.",
+        },
+        {
+            "question_id": "q2",
+            "position": 2,
+            "correct_idx": 0,
+            "stem": "Capital of India?",
+            "explanation": "New Delhi has been the capital since 1911.",
+        },
+    ]
+    _, _, breakdown = grade_answers(keys, {"q1": 1, "q2": 3})
+    assert breakdown[0]["isCorrect"] is True
+    assert breakdown[0]["explanation"] is None  # correct → no teaching note
+    assert breakdown[1]["isCorrect"] is False
+    assert (
+        breakdown[1]["explanation"]
+        == "New Delhi has been the capital since 1911."
+    )
+    # Stems are always surfaced — the result panel needs them to label rows.
+    assert breakdown[0]["stem"] == "What is 2+2?"
+    assert breakdown[1]["stem"] == "Capital of India?"
+
+
+def test_grade_answers_handles_missing_explanation() -> None:
+    """Defensive: many existing questions don't have an explanation.
+    The breakdown must still render — None passes through cleanly."""
+    from content.assignments_repo import grade_answers
+
+    keys = [
+        {
+            "question_id": "q1",
+            "position": 1,
+            "correct_idx": 0,
+            "stem": "Stem text",
+            "explanation": None,
+        },
+    ]
+    _, _, breakdown = grade_answers(keys, {"q1": 2})
+    assert breakdown[0]["isCorrect"] is False
+    assert breakdown[0]["explanation"] is None

@@ -14,16 +14,26 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import {
   type Cohort,
+  type Question,
   assignments as assignmentsApi,
+  content,
   institution,
 } from "../lib/api";
+import {
+  type PickerState,
+  applyFilters,
+  initialPickerState,
+  setQuery,
+  setTopic,
+  toggle as togglePicker,
+  topicsInSet,
+} from "../lib/question_picker";
 import {
   type WizardState,
   dueAtToIso,
   initialWizardState,
   nextStep,
   prevStep,
-  toggleQuestion,
   validateStep,
 } from "../lib/assignment_wizard";
 
@@ -40,7 +50,25 @@ export function AssignmentNew() {
   const [cohorts, setCohorts] = useState<Cohort[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [draftQuestions, setDraftQuestions] = useState<string>("");
+  // Sprint 11 S11-B — published-question picker for Step 2.
+  const [questions, setQuestions] = useState<Question[] | null>(null);
+  const [picker, setPicker] = useState<PickerState>(initialPickerState);
+
+  useEffect(() => {
+    // Lazy-load on first entry to Step 2 — keeps initial render fast for
+    // educators who only use the wizard's other steps.
+    if (state.step !== 2 || questions !== null) return;
+    content
+      .listMine("PUBLISHED")
+      .then(setQuestions)
+      .catch((e) => setError((e as Error).message));
+  }, [state.step, questions]);
+
+  // Keep wizard.questionIds in sync with picker.selected so validation
+  // (>=1) and the Step 3 review both reflect what's been picked.
+  useEffect(() => {
+    setState((prev) => ({ ...prev, questionIds: picker.selected }));
+  }, [picker.selected]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -109,45 +137,78 @@ export function AssignmentNew() {
         {state.step === 2 && (
           <section>
             <p>
-              Paste a comma-separated list of question UUIDs (the full picker
-              ships in Sprint 11). Picked: {state.questionIds.length}
+              Pick from your published questions. Selected:{" "}
+              {picker.selected.length}
             </p>
-            <textarea
-              rows={6}
-              style={{ width: "100%" }}
-              value={draftQuestions}
-              onChange={(e) => setDraftQuestions(e.currentTarget.value)}
-              placeholder="Paste question UUIDs separated by comma or newline"
-            />
-            <button
-              className="btn-secondary"
-              onClick={() => {
-                const ids = draftQuestions
-                  .split(/[,\n]+/)
-                  .map((s) => s.trim())
-                  .filter((s) => s.length > 0);
-                let next = state;
-                for (const id of ids) next = toggleQuestion(next, id);
-                setState(next);
-                setDraftQuestions("");
-              }}
-            >
-              Add IDs to assignment
-            </button>
-            {state.questionIds.length > 0 && (
-              <ul style={{ marginTop: 12 }}>
-                {state.questionIds.map((id) => (
-                  <li key={id}>
-                    <code style={{ fontSize: 12 }}>{id}</code>{" "}
-                    <button
-                      className="btn-link"
-                      onClick={() => setState(toggleQuestion(state, id))}
-                    >
-                      remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
+            {questions === null ? (
+              <p>Loading your question bank…</p>
+            ) : questions.length === 0 ? (
+              <p className="banner banner-info">
+                No published questions yet —{" "}
+                <a href="/questions/new">author some questions first</a>.
+              </p>
+            ) : (
+              <>
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  <input
+                    placeholder="Search by stem…"
+                    value={picker.query}
+                    onChange={(e) =>
+                      setPicker((p) => setQuery(p, e.currentTarget.value))
+                    }
+                    style={{ flex: 1 }}
+                  />
+                  <select
+                    value={picker.topicId ?? ""}
+                    onChange={(e) =>
+                      setPicker((p) =>
+                        setTopic(p, e.currentTarget.value || null),
+                      )
+                    }
+                  >
+                    <option value="">All topics</option>
+                    {topicsInSet(questions).map((t) => (
+                      <option key={t} value={t}>
+                        {t.slice(0, 8)}…
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <ul
+                  style={{
+                    listStyle: "none",
+                    padding: 0,
+                    maxHeight: 320,
+                    overflowY: "auto",
+                    border: "1px solid var(--border-default)",
+                    borderRadius: 6,
+                  }}
+                >
+                  {applyFilters(questions, picker).map((q) => {
+                    const checked = picker.selected.includes(q.id);
+                    return (
+                      <li
+                        key={q.id}
+                        style={{
+                          padding: 8,
+                          borderBottom: "1px solid var(--border-faint)",
+                        }}
+                      >
+                        <label style={{ display: "flex", gap: 8 }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setPicker((p) => togglePicker(p, q.id))
+                            }
+                          />
+                          <span>{q.stem}</span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
             )}
           </section>
         )}

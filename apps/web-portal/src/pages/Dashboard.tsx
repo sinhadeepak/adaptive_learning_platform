@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { content, type Question } from "../lib/api";
+import { content, institution, type Cohort, type Question } from "../lib/api";
 import { useAuth, canAuthor, canReview } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
 import { Banner, SkeletonRows } from "../components/primitives";
@@ -83,6 +83,37 @@ export function Dashboard() {
   const firstName = user?.firstName ?? "Educator";
   const greeting = greetingFor(new Date());
 
+  // Sprint 11 S11-F — pinned tenant + cohort quick access.
+  const TENANT_KEY = "alp.portal.tenantId";
+  const [tenantId, setTenantIdState] = useState<string>(
+    () => (typeof window !== "undefined"
+      ? window.localStorage.getItem(TENANT_KEY) ?? ""
+      : ""),
+  );
+  const [cohorts, setCohorts] = useState<Cohort[] | null>(null);
+  const [tenantInput, setTenantInput] = useState(tenantId);
+
+  function setTenantId(id: string) {
+    setTenantIdState(id);
+    try {
+      if (id) window.localStorage.setItem(TENANT_KEY, id);
+      else window.localStorage.removeItem(TENANT_KEY);
+    } catch {
+      // private mode → silently ignore
+    }
+  }
+
+  useEffect(() => {
+    if (!tenantId) {
+      setCohorts(null);
+      return;
+    }
+    institution
+      .cohortsForTenant(tenantId)
+      .then(setCohorts)
+      .catch(() => setCohorts([]));
+  }, [tenantId]);
+
   return (
     <AppShell
       title="Educator Dashboard"
@@ -162,6 +193,79 @@ export function Dashboard() {
           </Banner>
         </div>
       ) : null}
+
+      {/* ── Sprint 11 S11-F — pinned tenant + cohort quick-access ── */}
+      <section
+        aria-label="Cohorts"
+        style={{
+          marginTop: "var(--sp-4)",
+          padding: 16,
+          border: "1px solid var(--border-faint)",
+          borderRadius: 8,
+        }}
+      >
+        <h2 style={{ marginTop: 0 }}>Your cohorts</h2>
+        {!tenantId ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setTenantId(tenantInput.trim());
+            }}
+          >
+            <p>
+              Pin a tenant to skip the lookup step every time you visit the
+              Assignments page.
+            </p>
+            <input
+              placeholder="Tenant UUID"
+              value={tenantInput}
+              onChange={(e) => setTenantInput(e.currentTarget.value)}
+              style={{ minWidth: 320, marginRight: 8 }}
+            />
+            <button className="btn btn-primary" type="submit" disabled={!tenantInput.trim()}>
+              Pin tenant
+            </button>
+          </form>
+        ) : (
+          <>
+            <div style={{ marginBottom: 12 }}>
+              Tenant <code>{tenantId.slice(0, 8)}…</code>{" "}
+              <button
+                className="btn btn-ghost"
+                onClick={() => {
+                  setTenantId("");
+                  setTenantInput("");
+                }}
+              >
+                Unpin
+              </button>
+            </div>
+            {cohorts === null ? (
+              <p>Loading cohorts…</p>
+            ) : cohorts.length === 0 ? (
+              <p>No cohorts under this tenant yet.</p>
+            ) : (
+              <ul className="row-list">
+                {cohorts.map((c) => (
+                  <li key={c.id}>
+                    <Link
+                      to={`/assignments?tenantId=${tenantId}&cohortId=${c.id}`}
+                    >
+                      {c.name}
+                      {c.exam ? ` · ${c.exam}` : ""}
+                      {c.year ? ` · ${c.year}` : ""}
+                    </Link>{" "}
+                    ·{" "}
+                    <Link to={`/cohorts/${c.id}/leaderboard`}>
+                      Leaderboard
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </section>
 
       {/* ── KPI tiles ─────────────────────────────────────────── */}
       <section

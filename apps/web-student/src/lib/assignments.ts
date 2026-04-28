@@ -45,6 +45,11 @@ export interface SubmitResult {
     studentAnswer: number | null;
     correctAnswer: number;
     isCorrect: boolean;
+    // Sprint 11 S11-C — stem + explanation. Explanation is null on
+    // correct answers (server-side decision); always null when the
+    // educator didn't author one.
+    stem: string | null;
+    explanation: string | null;
   }[];
 }
 

@@ -66,6 +66,14 @@ const NOTIF_KINDS: NotifKind[] = [
     label: "Achievements",
     description: "Bell ping the first time you unlock a new badge.",
   },
+  // Sprint 11 S11-D — assignment.new mute toggle. Producers: educator
+  // publishes via Content; Notification fans out via the durable
+  // content.assignment.created consumer.
+  {
+    id: "assignment.new",
+    label: "New assignments",
+    description: "Bell ping when your educator publishes a new assignment to your cohort.",
+  },
 ];
 
 type Language = "en" | "hi" | "hinglish";

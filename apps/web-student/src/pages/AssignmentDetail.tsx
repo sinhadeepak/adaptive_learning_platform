@@ -114,10 +114,27 @@ export function AssignmentDetail() {
                       key={b.questionId}
                       className={b.isCorrect ? "ok" : "wrong"}
                     >
-                      Q{b.position}:{" "}
-                      {b.isCorrect ? "✓ CORRECT" : "✗ WRONG"} (you:{" "}
-                      {b.studentAnswer === null ? "—" : b.studentAnswer + 1},
-                      correct: {b.correctAnswer + 1})
+                      <div>
+                        Q{b.position}:{" "}
+                        {b.isCorrect ? "✓ CORRECT" : "✗ WRONG"} (you:{" "}
+                        {b.studentAnswer === null ? "—" : b.studentAnswer + 1},
+                        correct: {b.correctAnswer + 1})
+                      </div>
+                      {/* Sprint 11 S11-C — explanation only renders on misses. */}
+                      {!b.isCorrect && b.explanation && (
+                        <div
+                          className="explanation-note"
+                          style={{
+                            marginTop: 4,
+                            padding: 8,
+                            background: "var(--bg-surface-2, #fff8e1)",
+                            borderRadius: 4,
+                            fontSize: 13,
+                          }}
+                        >
+                          💡 {b.explanation}
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ol>

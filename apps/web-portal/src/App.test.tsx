@@ -184,7 +184,12 @@ test("/questions/new renders the IRT authoring form", async () => {
   });
   renderAt("/questions/new");
   expect(await screen.findByText(/New question/i)).toBeInTheDocument();
-  expect(screen.getByLabelText(/Topic ID/i)).toBeInTheDocument();
+  // S11-E — PR 906f530 replaced the "Topic ID" text input with a
+  // cascading Exam → Subject → Topic dropdown set. The test now looks
+  // for the dropdown label instead. The cascade starts disabled until
+  // the educator's exams load (mocked above with no exams), so the
+  // dropdown's disabled placeholder is what renders.
+  expect(screen.getByLabelText(/^Topic$/i)).toBeInTheDocument();
   expect(screen.getByLabelText(/Stem/i)).toBeInTheDocument();
   // Default 4 choices, A through D
   expect(screen.getByText(/^A\.$/)).toBeInTheDocument();

@@ -109,14 +109,49 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
         ),
         const SizedBox(height: 16),
         ...r.breakdown.map(
-          (b) => ListTile(
-            leading: Icon(
-              b.isCorrect ? Icons.check_circle : Icons.cancel,
-              color: b.isCorrect ? Colors.green : Colors.red,
+          (b) => Card(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        b.isCorrect ? Icons.check_circle : Icons.cancel,
+                        color: b.isCorrect ? Colors.green : Colors.red,
+                      ),
+                      const SizedBox(width: 8),
+                      Text('Q${b.position}',
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'You: ${b.studentAnswer == null ? "—" : (b.studentAnswer! + 1).toString()}, correct: ${b.correctAnswer + 1}',
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Sprint 11 S11-C — explanation only on misses.
+                  if (!b.isCorrect &&
+                      b.explanation != null &&
+                      b.explanation!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text('💡 ${b.explanation!}',
+                          style: const TextStyle(fontSize: 13)),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            title: Text('Q${b.position}'),
-            subtitle: Text(
-                'You: ${b.studentAnswer == null ? "—" : (b.studentAnswer! + 1).toString()}, correct: ${b.correctAnswer + 1}'),
           ),
         ),
       ],

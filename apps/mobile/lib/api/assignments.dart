@@ -90,12 +90,19 @@ class SubmitBreakdownEntry {
     required this.studentAnswer,
     required this.correctAnswer,
     required this.isCorrect,
+    this.stem,
+    this.explanation,
   });
   final String questionId;
   final int position;
   final int? studentAnswer;
   final int correctAnswer;
   final bool isCorrect;
+  // Sprint 11 S11-C — stem + explanation. Explanation is null on
+  // correct answers (server policy) and null when the educator didn't
+  // author one.
+  final String? stem;
+  final String? explanation;
 
   factory SubmitBreakdownEntry.fromJson(Map<String, dynamic> j) =>
       SubmitBreakdownEntry(
@@ -104,6 +111,8 @@ class SubmitBreakdownEntry {
         studentAnswer: (j['studentAnswer'] as num?)?.toInt(),
         correctAnswer: (j['correctAnswer'] as num).toInt(),
         isCorrect: j['isCorrect'] as bool,
+        stem: j['stem'] as String?,
+        explanation: j['explanation'] as String?,
       );
 }
 

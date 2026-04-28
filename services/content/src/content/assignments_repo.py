@@ -217,14 +217,15 @@ async def list_assignment_questions(
 async def list_assignment_questions_with_keys(
     session: AsyncSession, assignment_id: str
 ) -> list[dict[str, Any]]:
-    """Sprint 10 S10-D — server-side variant that includes correct_idx.
-    Used ONLY by POST /submit to grade the student's answers — never
-    returned over the wire to clients."""
+    """Sprint 10 S10-D — server-side variant that includes correct_idx
+    + Sprint 11 S11-C explanation. Used ONLY by POST /submit to grade
+    the student's answers and surface the educator's teaching note on
+    misses. Never returned ahead of submission."""
     res = await session.execute(
         text(
             f"""
             SELECT aq.assignment_id, aq.question_id, aq.position,
-                   q.correct_idx
+                   q.stem, q.correct_idx, q.explanation
               FROM {SCHEMA}.assignment_questions aq
               JOIN {SCHEMA}.questions q ON q.id = aq.question_id
              WHERE aq.assignment_id = :id
@@ -242,7 +243,12 @@ def grade_answers(
 ) -> tuple[int, int, list[dict[str, Any]]]:
     """Pure function — given the answer key + student's submitted answers,
     return (correct_count, total_count, breakdown). Extracted so unit tests
-    can pin the contract without DB or HTTP."""
+    can pin the contract without DB or HTTP.
+
+    Sprint 11 S11-C — `breakdown` now carries `stem` + `explanation` so
+    the result panel can render the educator's teaching note inline on
+    misses (only on misses — showing it on correct answers would dilute
+    the signal)."""
     correct = 0
     breakdown: list[dict[str, Any]] = []
     for q in questions_with_keys:
@@ -258,6 +264,12 @@ def grade_answers(
                 "studentAnswer": student_idx,
                 "correctAnswer": q["correct_idx"],
                 "isCorrect": is_correct,
+                "stem": q.get("stem"),
+                # Only populate explanation on misses — correct answers
+                # don't need the teaching note and surfacing it there
+                "explanation": (
+                    None if is_correct else q.get("explanation")
+                ),
             }
         )
     return correct, len(questions_with_keys), breakdown

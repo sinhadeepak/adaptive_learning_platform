@@ -200,3 +200,76 @@ async def remove_cohort_member(
         {"c": cohort_id, "u": user_id},
     )
     return (res.rowcount or 0) > 0
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Cohort invites (Sprint 11 S11-A)
+# ─────────────────────────────────────────────────────────────────────────
+
+
+async def create_invite(
+    session: AsyncSession,
+    *,
+    cohort_id: str,
+    token: str,
+    created_by: str | None = None,
+    max_uses: int | None = None,
+    expires_at: Any | None = None,
+) -> dict[str, Any]:
+    res = await session.execute(
+        text(
+            f"""
+            INSERT INTO {SCHEMA}.cohort_invites
+              (cohort_id, token, created_by, max_uses, expires_at)
+            VALUES (:c, :t, :u, :m, :e)
+            RETURNING id, cohort_id, token, created_by, max_uses, uses,
+                      expires_at, created_at
+            """
+        ),
+        {
+            "c": cohort_id,
+            "t": token,
+            "u": created_by,
+            "m": max_uses,
+            "e": expires_at,
+        },
+    )
+    row = res.mappings().first()
+    return dict(row) if row else {}
+
+
+async def get_invite_by_token(
+    session: AsyncSession, token: str
+) -> dict[str, Any] | None:
+    res = await session.execute(
+        text(
+            f"""
+            SELECT id, cohort_id, token, created_by, max_uses, uses,
+                   expires_at, created_at
+              FROM {SCHEMA}.cohort_invites WHERE token = :t
+            """
+        ),
+        {"t": token},
+    )
+    row = res.mappings().first()
+    return dict(row) if row else None
+
+
+async def increment_invite_uses(
+    session: AsyncSession, invite_id: str
+) -> bool:
+    """Atomically increment `uses` only when below `max_uses` (or
+    max_uses IS NULL = unlimited). Returns True if the slot was claimed,
+    False if the invite was already at the cap."""
+    res = await session.execute(
+        text(
+            f"""
+            UPDATE {SCHEMA}.cohort_invites
+               SET uses = uses + 1
+             WHERE id = :id
+               AND (max_uses IS NULL OR uses < max_uses)
+            """
+        ),
+        {"id": invite_id},
+    )
+    return (res.rowcount or 0) > 0

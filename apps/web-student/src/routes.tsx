@@ -6,6 +6,7 @@ import { AssignmentDetail } from "./pages/AssignmentDetail";
 import { Assignments } from "./pages/Assignments";
 import { Billing } from "./pages/Billing";
 import { Bookmarks } from "./pages/Bookmarks";
+import { JoinCohort } from "./pages/JoinCohort";
 import { DoubtDetail } from "./pages/DoubtDetail";
 import { Doubts } from "./pages/Doubts";
 import { Catalog } from "./pages/Catalog";
@@ -332,6 +333,15 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <AssignmentDetail />
+      </ProtectedRoute>
+    ),
+  },
+  // Sprint 11 S11-A — cohort invite landing.
+  {
+    path: "/join/:token",
+    element: (
+      <ProtectedRoute>
+        <JoinCohort />
       </ProtectedRoute>
     ),
   },
