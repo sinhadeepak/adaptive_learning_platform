@@ -2,7 +2,7 @@
 
 **Purpose**: single jump-off point for everything plan-related across all phases. If you're not sure which doc is current, start here.
 
-**Updated**: 2026-04-25 (after PR #37 — Phase 3 plan landed).
+**Updated**: 2026-04-28 (after Sprint 21 closure — Phase 3 closed).
 
 ---
 
@@ -16,7 +16,7 @@
 | **Ph 1c** Full Launch | Wk 10+ | India public, freemium + premium + institution | §S4b (same doc) | 🟨 feature-complete locally; staging deferred (see Final cutover row below) |
 | **Ph 1 emergent** Post-MVP | 2026-04-26→27 | Close visible gaps (AI verticals, mobile parity, engagement loop) | S5 [19_AI_Sprint_Closure](19_AI_Sprint_Closure.md) · S6 [22_Platform_Completion](22_Platform_Completion_Sprint_Closure.md) · S7 [23_Engagement](23_Engagement_Sprint_Closure.md) | ✅ all three closed |
 | **Ph 2** Global Expansion | Q4 2026 | Global English + RTL/Arabic; live sessions; native video; B2B API reads | [19_Phase2_SprintDevelopmentPlan](19_Phase2_SprintDevelopmentPlan.md) | ❌ all 5 sprints pending |
-| **Ph 3** Platform Evolution | 2027 | Marketplaces (live tutors + content), B2B API writes, predictive analytics | [21_Phase3_SprintDevelopmentPlan](21_Phase3_SprintDevelopmentPlan.md) | ❌ all 6 sprints pending |
+| **Ph 3** Platform Evolution | 2026-04-28 | Marketplaces (live tutors + content), B2B API writes, predictive analytics | [21_Phase3_SprintDevelopmentPlan](21_Phase3_SprintDevelopmentPlan.md) | ✅ all 6 sprints closed (S15–S21 = P3-S0..S6) |
 | Phase 4+ | TBD | Out of scope today | — | (no plan) |
 
 ---
@@ -32,7 +32,7 @@
 | **Final cutover sprint** | 1 — Staging deploy + drills, deferred per user direction until all Phase 1+2+3 sprints land + Stripe ready. Plan preserved at [24_DEPRECATED_Staging_Cutover_Plan](24_DEPRECATED_Staging_Cutover_Plan.md). |
 | **Total** | **20** sprints to staging push (S0–S19) |
 
-**Pending today**: ~1 (Phase 2 + P3-S0..S5 closed at Sprints S13–S20. Sprint 20 shipped predictive analytics + recommendations heuristic v1 per ADR-0010/0011. P3-S6 opens embedding upgrade + deferred UI + stabilisation. Staging cutover still AWS-blocked).
+**Pending today**: ~1 (Phase 2 + Phase 3 both closed. Sprint 21 closed P3-S6 with rating aggregate caches + module/lesson UI editor + reader navigation + cohort at-risk educator page + Phase 3 retrospective. Staging cutover is the only remaining sprint, still AWS-blocked).
 
 ---
 
@@ -65,6 +65,8 @@ Each closure summarizes what shipped, what slipped, what carries to the next spr
 | Sprint 18 — P3-S3 creator content marketplace + ratings | [44_Sprint18_Plan](44_Sprint18_Plan.md) → [45_Sprint18_Closure](45_Sprint18_Closure.md) | ✅ DELIVERED 2026-04-28 — creator marketplace + ratings end-to-end. Migration 004 adds creator_profiles + courses + course_purchases + tutor_session_ratings + course_ratings (13 marketplace tables total). Creator FSM mirrors tutor FSM; course FSM = DRAFT→PENDING_REVIEW→PUBLISHED→RETIRED with admin gate. 26 new endpoints (creator apply/KYC/activate, course CRUD, submit + admin approve/reject, retire, purchase + confirm + access, ratings read+write); 49 marketplace routes total. Web-portal creator pages (apply, dashboard, my-courses, course author with markdown editor); web-student course pages (browse, detail, my-purchases, course-read). Tests: 52 unit + 20 integration. **make smoke = 36/36**. P3-S3 closed; P3-S4 opens course modules + earnings dashboard + real Stripe/Daily wiring. |
 | Sprint 19 — P3-S4 marketplace polish + creator economics | [46_Sprint19_Plan](46_Sprint19_Plan.md) → [47_Sprint19_Closure](47_Sprint19_Closure.md) | ✅ DELIVERED 2026-04-28 — Migration 005 adds course_modules + course_lessons (15 marketplace tables); rating-moderation columns on both rating tables; widens admin_actions enum (RATING_HIDE/UNHIDE, BOOKING/COURSE_REFUND) and bookings status (REFUNDED_BY_ADMIN). 12 new endpoints: 8 module/lesson CRUD + course structure (with content gating), creator earnings dashboard, rating hide/unhide, booking + course-purchase refunds. 61 marketplace routes. Web-portal CreatorEarnings page + courseStructure API namespace. Tests: 52 unit + 38 integration. **make smoke = 42/42**. P3-S4 closed; P3-S5 opens predictive analytics + recommendations. |
 | Sprint 20 — P3-S5 predictive analytics + recommendations | [48_Sprint20_Plan](48_Sprint20_Plan.md) → [49_Sprint20_Closure](49_Sprint20_Closure.md) | ✅ DELIVERED 2026-04-28 — predictive layer per ADR-0010/0011. engagement migration 004 adds predictive_dropout_scores + cached_recommendations. Heuristic v1 dropout scorer (4 axes: inactivity + streak_broken + mastery_decline + many_weak_topics) + 4-tier intervention rules. Heuristic v1 recommendation ranker (3 phases: bridge → direct weak → exposure). 4 new endpoints. Web-student PersonalisedNextStep tile on Home; web-admin RatingModeration page (S19 carry-over). Tests: 13 new unit (98 unit total in engagement). **make smoke = 46/46**. P3-S5 closed; lightgbm/sklearn upgrade + OpenAI embeddings defer to P3-S6 once training-data volume justifies. |
+| Sprint 21 — P3-S6 stabilisation + Phase 3 closure | [50_Sprint21_Plan](50_Sprint21_Plan.md) → [51_Sprint21_Closure](51_Sprint21_Closure.md) | ✅ DELIVERED 2026-04-28 — marketplace migration 006 adds rating aggregate cache columns (rating_avg + rating_count + last_aggregated_at) on tutor_profiles + courses with on-upgrade backfill. Aggregate maintenance hooks in repositories.recompute_{tutor,course}_aggregate fire on rate_session/rate_course/hide_rating/unhide_rating. Listing endpoints serve from cache. Web-portal CourseAuthor module/lesson sidebar editor (with `nextPosition` pure-helper + 2 unit tests). Web-student CourseRead module/lesson navigation (with backward-compat for legacy content_md). Web-portal CohortAtRisk page consumes existing S20 endpoint. Phase 3 retrospective written. Tests: 3 new integration in marketplace + 2 unit in web-portal. **make smoke = 50/50**. P3-S6 closed; **Phase 3 closed in full**. Only the deferred AWS staging cutover sprint remains. |
+| Phase 3 retrospective | [22_Phase3_Retrospective](22_Phase3_Retrospective.md) | ✅ written 2026-04-28; closes Phase 3. |
 
 ---
 

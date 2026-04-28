@@ -417,6 +417,50 @@ CACHED_RESP=$(curl -s "$ENGAGEMENT_URL/analytics/predictive/dropout/$STUDENT_ID"
 assert "second call hits cache (cached=true)" \
   bash -c "echo '$CACHED_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin).get('cached', False)==True\""
 
+# -- 10. Sprint 21 (P3-S6): rating aggregate cache + cohort at-risk -------
+
+echo "==> Sprint 21 (P3-S6) — aggregates + cohort drill-down + structure"
+
+# Create a fresh paid+rated course so we hit the aggregate cache after S19
+# hid the prior rating. Reuse the existing creator (already KYC'd + active).
+S21_COURSE_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/courses" \
+  -H "Authorization: Bearer $CREATOR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"S21 cache check","description":"d","contentMd":"x","pricePaise":9900,"tier":"STANDARD","topicIds":[]}')
+S21_COURSE_ID=$(echo "$S21_COURSE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)
+curl -s -X POST "$MARKETPLACE_URL/marketplace/courses/$S21_COURSE_ID/submit-for-review" -H "Authorization: Bearer $CREATOR_TOKEN" >/dev/null
+curl -s -X POST "$MARKETPLACE_URL/marketplace/admin/courses/$S21_COURSE_ID/approve" -H "Authorization: Bearer $ADMIN_TOKEN" >/dev/null
+S21_PURCHASE_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/courses/$S21_COURSE_ID/purchase" -H "Authorization: Bearer $TOKEN")
+S21_PURCHASE_ID=$(echo "$S21_PURCHASE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)
+curl -s -X POST "$MARKETPLACE_URL/marketplace/courses/$S21_COURSE_ID/purchase/$S21_PURCHASE_ID/confirm-payment" -H "Authorization: Bearer $TOKEN" >/dev/null
+S21_RATE_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/courses/$S21_COURSE_ID/rating" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"purchaseId\":\"$S21_PURCHASE_ID\",\"stars\":5}")
+S21_RATING_ID=$(echo "$S21_RATE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)
+
+LISTING=$(curl -s "$MARKETPLACE_URL/marketplace/courses?creatorId=$CREATOR_ID")
+assert "course listing serves cached ratingAvg=5 / count=1 after rating insert" \
+  bash -c "echo '$LISTING' | python3 -c \"import sys,json; d=json.load(sys.stdin); m=[x for x in d['items'] if x['id']=='$S21_COURSE_ID'][0]; assert m['ratingCount']==1 and m['ratingAvg']==5.0\""
+
+curl -s -X POST "$MARKETPLACE_URL/marketplace/admin/ratings/course/$S21_RATING_ID/hide" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"reason":"S21 smoke"}' >/dev/null
+LISTING_HIDDEN=$(curl -s "$MARKETPLACE_URL/marketplace/courses?creatorId=$CREATOR_ID")
+assert "hide rating updates cache back to 0 / 0" \
+  bash -c "echo '$LISTING_HIDDEN' | python3 -c \"import sys,json; d=json.load(sys.stdin); m=[x for x in d['items'] if x['id']=='$S21_COURSE_ID'][0]; assert m['ratingCount']==0\""
+
+STRUCTURE_RESP=$(curl -s "$MARKETPLACE_URL/marketplace/courses/$COURSE_ID/structure" -H "Authorization: Bearer $TOKEN")
+assert "course structure endpoint returns module/lesson tree" \
+  bash -c "echo '$STRUCTURE_RESP' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert isinstance(d.get('items'), list) and len(d['items'])>=1\""
+
+# Cohort at-risk endpoint shape (cohort id may not exist in seed; we only
+# assert the response shape, not member count).
+COHORT_AT_RISK=$(curl -s "$ENGAGEMENT_URL/analytics/predictive/cohorts/00000000-0000-0000-0000-000000000000/at-risk")
+assert "cohort at-risk endpoint returns shape {cohortId, items}" \
+  bash -c "echo '$COHORT_AT_RISK' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert 'cohortId' in d and isinstance(d.get('items'), list)\""
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then

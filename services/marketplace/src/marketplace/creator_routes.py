@@ -562,6 +562,8 @@ async def list_courses(
                     pricePaise=int(it["price_paise"]),
                     tier=it["tier"],
                     coverImageUrl=it.get("cover_image_url"),
+                    ratingAvg=float(it.get("rating_avg") or 0.0),
+                    ratingCount=int(it.get("rating_count") or 0),
                 )
                 for it in items
             ],
@@ -763,6 +765,7 @@ async def rate_booking(
         except IntegrityError as e:
             await session.rollback()
             raise _problem("already_rated", "You already rated this booking.", 409) from e
+        await repo.recompute_tutor_aggregate(session, str(booking["tutor_user_id"]))
         await session.commit()
         return RatingOut(
             id=rating_id,
@@ -803,6 +806,7 @@ async def rate_course(
         except IntegrityError as e:
             await session.rollback()
             raise _problem("already_rated", "You already rated this course.", 409) from e
+        await repo.recompute_course_aggregate(session, course_id)
         await session.commit()
         return RatingOut(
             id=rating_id,

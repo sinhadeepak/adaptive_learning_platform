@@ -256,7 +256,8 @@ async def list_active_tutors(
         await session.execute(
             text(f"""
                 SELECT DISTINCT tp.user_id, tp.display_name, tp.headline,
-                       tp.hourly_rate_paise, tp.tier
+                       tp.hourly_rate_paise, tp.tier,
+                       tp.rating_avg, tp.rating_count
                   FROM {base_from}
                  WHERE {where_clause}
                  ORDER BY tp.hourly_rate_paise ASC, tp.user_id
@@ -804,7 +805,7 @@ async def list_published_courses(
         await session.execute(
             text(f"""
                 SELECT id, creator_user_id, title, description, price_paise,
-                       tier, cover_image_url
+                       tier, cover_image_url, rating_avg, rating_count
                   FROM {SCHEMA}.courses
                  WHERE {where_clause}
                  ORDER BY published_at DESC
@@ -1426,6 +1427,62 @@ async def aggregate_course_ratings(  # noqa: F811
         )
     ).mappings().all()
     return {"avg": float(agg["avg"]) if agg else 0.0, "count": int(agg["cnt"]) if agg else 0, "recent": [dict(r) for r in recent]}
+
+
+# -- rating aggregate cache (Sprint 21, P3-S6) ------------------------------
+
+
+async def recompute_tutor_aggregate(
+    session: AsyncSession, tutor_user_id: str
+) -> tuple[float, int]:
+    """Recompute (avg, count) over visible ratings and persist on tutor_profiles."""
+    row = (
+        await session.execute(
+            text(f"""
+                SELECT COALESCE(AVG(stars), 0)::float AS avg, COUNT(*) AS cnt
+                  FROM {SCHEMA}.tutor_session_ratings
+                 WHERE tutor_user_id = :tid AND hidden_at IS NULL
+            """),
+            {"tid": tutor_user_id},
+        )
+    ).mappings().first()
+    avg = float(row["avg"]) if row else 0.0
+    cnt = int(row["cnt"]) if row else 0
+    await session.execute(
+        text(f"""
+            UPDATE {SCHEMA}.tutor_profiles
+               SET rating_avg = :a, rating_count = :c, last_aggregated_at = now()
+             WHERE user_id = :tid
+        """),
+        {"a": avg, "c": cnt, "tid": tutor_user_id},
+    )
+    return avg, cnt
+
+
+async def recompute_course_aggregate(
+    session: AsyncSession, course_id: str
+) -> tuple[float, int]:
+    row = (
+        await session.execute(
+            text(f"""
+                SELECT COALESCE(AVG(stars), 0)::float AS avg, COUNT(*) AS cnt
+                  FROM {SCHEMA}.course_ratings
+                 WHERE course_id = :cid AND hidden_at IS NULL
+            """),
+            {"cid": course_id},
+        )
+    ).mappings().first()
+    avg = float(row["avg"]) if row else 0.0
+    cnt = int(row["cnt"]) if row else 0
+    await session.execute(
+        text(f"""
+            UPDATE {SCHEMA}.courses
+               SET rating_avg = :a, rating_count = :c, last_aggregated_at = now()
+             WHERE id = :cid
+        """),
+        {"a": avg, "c": cnt, "cid": course_id},
+    )
+    return avg, cnt
 
 
 # -- course refund ----------------------------------------------------------

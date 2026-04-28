@@ -14,6 +14,7 @@ import { AssignmentDetail } from "./pages/AssignmentDetail";
 import { AssignmentNew } from "./pages/AssignmentNew";
 import { Analytics } from "./pages/Analytics";
 import { CohortLeaderboard } from "./pages/CohortLeaderboard";
+import { CohortAtRisk } from "./pages/CohortAtRisk";
 import { StudentDrillDown } from "./pages/StudentDrillDown";
 import { TutorApply } from "./pages/TutorApply";
 import { TutorDashboard } from "./pages/TutorDashboard";
@@ -81,6 +82,8 @@ export const routes: RouteObject[] = [
     "/cohorts/:cohortId/students/:userId",
     <StudentDrillDown />,
   ),
+  // Sprint 21 (P3-S6) — at-risk educator drill-down.
+  protectedRoute("/cohort-at-risk", <CohortAtRisk />),
   protectedRoute("/analytics", <Analytics />),
   // Sprint 16 (P3-S1) — Tutor marketplace, supply side.
   protectedRoute("/tutor", <TutorDashboard />),

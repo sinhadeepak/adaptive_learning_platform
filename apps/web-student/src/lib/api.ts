@@ -233,6 +233,30 @@ export interface RatingAggregate {
   }[];
 }
 
+// Sprint 21 — module/lesson navigation in CourseRead.
+export interface CourseModuleView {
+  id: string;
+  courseId: string;
+  position: number;
+  title: string;
+  description: string | null;
+}
+
+export interface CourseLessonView {
+  id: string;
+  moduleId: string;
+  position: number;
+  title: string;
+  contentMd: string;
+  durationSeconds: number | null;
+}
+
+export interface CourseStructureView {
+  courseId: string;
+  contentVisible: boolean;
+  items: { module: CourseModuleView; lessons: CourseLessonView[] }[];
+}
+
 export const courseMarketplace = {
   async list(opts?: {
     examId?: string;
@@ -289,6 +313,13 @@ export const courseMarketplace = {
       `${env.apiBaseUrl}/marketplace/purchases/me/${encodeURIComponent(courseId)}/access`,
     );
     return asJson<CourseDetail>(res);
+  },
+
+  async structure(courseId: string): Promise<CourseStructureView> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/structure`,
+    );
+    return asJson<CourseStructureView>(res);
   },
 
   async rate(courseId: string, purchaseId: string, stars: number, comment?: string): Promise<void> {

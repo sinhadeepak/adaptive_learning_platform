@@ -346,7 +346,24 @@ export const analytics = {
     );
     return asJson<StudentDrillDown>(res);
   },
+
+  async cohortAtRisk(
+    cohortId: string,
+  ): Promise<{ cohortId: string; items: CohortAtRiskItem[] }> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/analytics/predictive/cohorts/${encodeURIComponent(cohortId)}/at-risk`,
+    );
+    return asJson<{ cohortId: string; items: CohortAtRiskItem[] }>(res);
+  },
 };
+
+export interface CohortAtRiskItem {
+  userId: string;
+  score: number;
+  riskBand: "LOW" | "MEDIUM" | "HIGH";
+  interventionKind: string | null;
+  computedAt: string;
+}
 
 // AI-assisted authoring (calls adaptive-engine).
 export interface GeneratedQuestion {
@@ -703,6 +720,18 @@ export const courseStructure = {
       },
     );
     return asJson<CourseLesson>(res);
+  },
+
+  async patchModule(courseId: string, moduleId: string, input: { title?: string; description?: string | null }): Promise<CourseModule> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(input),
+      },
+    );
+    return asJson<CourseModule>(res);
   },
 
   async patchLesson(courseId: string, moduleId: string, lessonId: string, input: Partial<CourseLesson>): Promise<CourseLesson> {

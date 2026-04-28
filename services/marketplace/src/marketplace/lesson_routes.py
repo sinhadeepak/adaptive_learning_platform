@@ -316,6 +316,10 @@ async def hide_rating_route(
             str(rating["tutor_user_id"]) if kind == "session"
             else str(rating["course_id"])
         )
+        if kind == "session":
+            await repo.recompute_tutor_aggregate(session, subject)
+        else:
+            await repo.recompute_course_aggregate(session, subject)
         await repo.insert_admin_action(
             session,
             admin_user_id=admin.user_id,
@@ -348,6 +352,10 @@ async def unhide_rating_route(
             str(rating["tutor_user_id"]) if kind == "session"
             else str(rating["course_id"])
         )
+        if kind == "session":
+            await repo.recompute_tutor_aggregate(session, subject)
+        else:
+            await repo.recompute_course_aggregate(session, subject)
         await repo.insert_admin_action(
             session,
             admin_user_id=admin.user_id,

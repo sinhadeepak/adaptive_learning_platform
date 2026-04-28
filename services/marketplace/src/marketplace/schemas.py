@@ -102,6 +102,8 @@ class TutorListingItem(BaseModel):
     hourlyRatePaise: int
     tier: str
     topicIds: list[str]
+    ratingAvg: float = 0.0
+    ratingCount: int = 0
 
 
 class TutorListingOut(BaseModel):
@@ -291,6 +293,8 @@ class CourseListingItem(BaseModel):
     pricePaise: int
     tier: str
     coverImageUrl: str | None
+    ratingAvg: float = 0.0
+    ratingCount: int = 0
 
 
 class CourseListingOut(BaseModel):

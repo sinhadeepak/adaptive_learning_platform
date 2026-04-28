@@ -350,6 +350,8 @@ async def list_tutors(
                     hourlyRatePaise=int(it["hourly_rate_paise"]),
                     tier=it["tier"],
                     topicIds=it["topicIds"],
+                    ratingAvg=float(it.get("rating_avg") or 0.0),
+                    ratingCount=int(it.get("rating_count") or 0),
                 )
                 for it in items
             ],
