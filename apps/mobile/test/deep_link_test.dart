@@ -62,4 +62,46 @@ void main() {
       expect(parseDeepLink('mailto:reset?token=x').kind, DeepLinkRouteKind.ignored);
     });
   });
+
+  // ── Sprint 12 S12-C — cohort invite deep-links ────────────────────
+  group('parseDeepLink — recognised join shapes', () {
+    test('https://<host>/join/<token>', () {
+      final r = parseDeepLink('https://app.adaptive-learn.io/join/abc.def');
+      expect(r.kind, DeepLinkRouteKind.joinCohort);
+      expect(r.token, 'abc.def');
+    });
+
+    test('http:// also accepted', () {
+      final r = parseDeepLink('http://localhost:35173/join/short.tail');
+      expect(r.kind, DeepLinkRouteKind.joinCohort);
+      expect(r.token, 'short.tail');
+    });
+
+    test('alp://join/<token>', () {
+      // Custom-scheme variant for environments where the universal-link
+      // app-association couldn't be set up (eg. dev builds).
+      final r = parseDeepLink('alp://join/some.tok');
+      expect(r.kind, DeepLinkRouteKind.joinCohort);
+      expect(r.token, 'some.tok');
+    });
+
+    test('empty token rejected', () {
+      // /join/ with no segment after the slash → ignored, not a crash.
+      final r = parseDeepLink('https://app.adaptive-learn.io/join/');
+      expect(r.kind, DeepLinkRouteKind.ignored);
+    });
+
+    test('case-insensitive path segment', () {
+      final r = parseDeepLink('https://app.adaptive-learn.io/JOIN/abc.def');
+      expect(r.kind, DeepLinkRouteKind.joinCohort);
+    });
+
+    test('does not collide with /reset', () {
+      // A token that happens to look like a path shouldn't take the
+      // join branch when the URL is clearly /reset?token=...
+      final r = parseDeepLink('https://app/reset?token=join.value');
+      expect(r.kind, DeepLinkRouteKind.resetPassword);
+      expect(r.token, 'join.value');
+    });
+  });
 }

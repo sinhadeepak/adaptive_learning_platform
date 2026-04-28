@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/adaptive-learn/quiz/internal/domain"
 )
 
 // stubFlags returns a fixed value for `irt_model_enabled` and an error otherwise —
@@ -128,6 +130,19 @@ func TestStartSession_BadRequest(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("want 400, got %d", resp.StatusCode)
+	}
+}
+
+// Sprint 12 S12-D — pure constant check. The cross-service
+// "from-assignment" creator (Quiz fetches the question list from
+// Content) lands in Sprint 13; for now we just guard the constant so
+// the FSM enum stays in sync between Quiz Go and Content's payload
+// expectations. Live mode validation is exercised in sessions_pg_test.go
+// via the SessionService path (this test file's newTestSrv helper
+// intentionally exposes the legacy un-validated handler).
+func TestModeAssignment_ConstantValue(t *testing.T) {
+	if domain.ModeAssignment != "ASSIGNMENT" {
+		t.Errorf("ModeAssignment = %q, want ASSIGNMENT", domain.ModeAssignment)
 	}
 }
 

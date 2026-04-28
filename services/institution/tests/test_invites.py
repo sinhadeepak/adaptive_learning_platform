@@ -207,6 +207,58 @@ async def test_claim_respects_max_uses(client: AsyncClient) -> None:
     assert r.json()["detail"]["code"] == "invite_exhausted"
 
 
+async def test_list_invites_redacts_tokens(client: AsyncClient) -> None:
+    """Sprint 12 S12-A — the educator UI lists invites. The token here
+    must be redacted: never expose the HMAC tail (which is the only
+    forgery barrier between a leaked list and a working claim)."""
+    _, cohort_id = await _make_cohort(client)
+    await client.post(
+        f"/institution/cohorts/{cohort_id}/invites", json={"maxUses": 5}
+    )
+    r = await client.get(f"/institution/cohorts/{cohort_id}/invites")
+    assert r.status_code == 200
+    items = r.json()
+    assert len(items) == 1
+    preview = items[0]["tokenPreview"]
+    # Preview shape: `…<4-chars>.***` — never includes the real signature.
+    assert preview.endswith(".***")
+    assert preview.startswith("…")
+
+
+async def test_delete_invite_removes_then_claim_410s(client: AsyncClient) -> None:
+    """Sprint 12 S12-A — once revoked, the same token can't be claimed."""
+    _, cohort_id = await _make_cohort(client)
+    invite = (
+        await client.post(
+            f"/institution/cohorts/{cohort_id}/invites", json={}
+        )
+    ).json()
+    r = await client.delete(f"/institution/cohorts/invites/{invite['id']}")
+    assert r.status_code == 204
+    # Re-claim must 410.
+    r2 = await client.post(
+        f"/institution/cohorts/invites/{invite['token']}/claim",
+        json={"userId": str(uuid.uuid4())},
+    )
+    assert r2.status_code == 410
+
+
+async def test_delete_invite_404s_when_unknown(client: AsyncClient) -> None:
+    r = await client.delete(f"/institution/cohorts/invites/{uuid.uuid4()}")
+    assert r.status_code == 404
+
+
+def test_redact_invite_token_pure_helper() -> None:
+    from institution.core_repo import redact_invite_token
+
+    assert redact_invite_token("abcd1234.signaturepart") == "…1234.***"
+    # Less than 4 chars in head still works.
+    assert redact_invite_token("xy.sig") == "…xy.***"
+    # Malformed input shouldn't leak any random bytes.
+    assert redact_invite_token("nodot") == "***"
+    assert redact_invite_token("") == "***"
+
+
 async def test_same_user_can_claim_twice_idempotently(client: AsyncClient) -> None:
     """If the student opens the invite link twice (refresh, deep-link
     racing), they shouldn't see an error. The cohort_members add is

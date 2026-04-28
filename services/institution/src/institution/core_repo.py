@@ -273,3 +273,44 @@ async def increment_invite_uses(
         {"id": invite_id},
     )
     return (res.rowcount or 0) > 0
+
+
+async def list_invites_for_cohort(
+    session: AsyncSession, cohort_id: str
+) -> list[dict[str, Any]]:
+    """Sprint 12 S12-A — newest-first invite listing for the educator UI."""
+    res = await session.execute(
+        text(
+            f"""
+            SELECT id, cohort_id, token, created_by, max_uses, uses,
+                   expires_at, created_at
+              FROM {SCHEMA}.cohort_invites
+             WHERE cohort_id = :c
+          ORDER BY created_at DESC
+            """
+        ),
+        {"c": cohort_id},
+    )
+    return [dict(r) for r in res.mappings().all()]
+
+
+async def delete_invite(session: AsyncSession, invite_id: str) -> bool:
+    """Sprint 12 S12-A — hard-delete revocation. Returns True if the row
+    existed (UI can show "revoked" or "already gone" copy)."""
+    res = await session.execute(
+        text(f"DELETE FROM {SCHEMA}.cohort_invites WHERE id = :id"),
+        {"id": invite_id},
+    )
+    return (res.rowcount or 0) > 0
+
+
+def redact_invite_token(token: str) -> str:
+    """Show only the last 4 chars of the random head — never the HMAC
+    tail. A list-response leak then can't be replayed against the claim
+    endpoint without re-forging a valid signature. Pure function so
+    tests can pin the contract."""
+    head, _, tail = token.partition(".")
+    if not head or not tail:
+        return "***"
+    visible = head[-4:] if len(head) >= 4 else head
+    return f"…{visible}.***"

@@ -120,8 +120,8 @@ func (svc *SessionService) Start(logger *slog.Logger) http.HandlerFunc {
 		if mode == "" {
 			mode = domain.ModePractice
 		}
-		if mode != domain.ModePractice && mode != domain.ModeMock {
-			writeProblem(w, http.StatusBadRequest, "invalid_mode", "mode must be PRACTICE or MOCK")
+		if mode != domain.ModePractice && mode != domain.ModeMock && mode != domain.ModeAssignment {
+			writeProblem(w, http.StatusBadRequest, "invalid_mode", "mode must be PRACTICE, MOCK, or ASSIGNMENT")
 			return
 		}
 		// Sprint 8 R-3 — MOCK mode requires STUDENT_PREMIUM (or any

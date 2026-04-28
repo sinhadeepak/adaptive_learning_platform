@@ -12,6 +12,14 @@ type Mode string
 const (
 	ModePractice Mode = "PRACTICE"
 	ModeMock     Mode = "MOCK"
+	// Sprint 12 S12-D — assignments published from Content land here.
+	// Same FSM as PRACTICE for the play loop; difference is at create
+	// time (item set is pinned, not adaptive) and at submit time (the
+	// quiz.session.completed payload carries `assignment_id` so
+	// Content's subscriber can mirror the score into assignment_progress).
+	// The cross-service "from-assignment" creator + Content-side
+	// subscriber land in Sprint 13.
+	ModeAssignment Mode = "ASSIGNMENT"
 )
 
 type Strategy string

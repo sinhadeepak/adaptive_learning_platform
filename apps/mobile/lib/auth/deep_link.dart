@@ -21,9 +21,15 @@ class DeepLinkRoute {
 
   factory DeepLinkRoute.resetPassword(String token) =>
       DeepLinkRoute._(DeepLinkRouteKind.resetPassword, token: token);
+
+  /// Sprint 12 S12-C — cohort invite. Web has /join/:token; mobile
+  /// recognises the same path so a Slack/WhatsApp invite tapped on a
+  /// phone routes through the native onboarding.
+  factory DeepLinkRoute.joinCohort(String token) =>
+      DeepLinkRoute._(DeepLinkRouteKind.joinCohort, token: token);
 }
 
-enum DeepLinkRouteKind { ignored, resetPassword }
+enum DeepLinkRouteKind { ignored, resetPassword, joinCohort }
 
 /// Parses a single URL into a route. Returns [DeepLinkRoute.ignored] for
 /// anything we don't recognise — callers then fall back to the normal app
@@ -46,6 +52,22 @@ DeepLinkRoute parseDeepLink(String? raw) {
   }
   final scheme = uri.scheme.toLowerCase();
   final path = uri.path.toLowerCase();
+  final segments = uri.pathSegments;
+
+  // Sprint 12 S12-C — /join/<token> takes precedence over reset before
+  // any token-extraction branching. Token is in the path segment, not
+  // the query string.
+  final isJoinPath = ((scheme == 'http' || scheme == 'https') &&
+          segments.length >= 2 &&
+          segments.first.toLowerCase() == 'join') ||
+      (scheme == 'alp' && uri.host.toLowerCase() == 'join');
+  if (isJoinPath) {
+    final token = scheme == 'alp'
+        ? (segments.isNotEmpty ? segments.first : '')
+        : segments[1];
+    if (token.isEmpty) return DeepLinkRoute.ignored;
+    return DeepLinkRoute.joinCohort(token);
+  }
 
   final isResetPath = (scheme == 'alp' && uri.host.toLowerCase() == 'reset') ||
       ((scheme == 'http' || scheme == 'https') &&

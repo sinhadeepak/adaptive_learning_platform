@@ -32,12 +32,15 @@ from institution.core_repo import (
     create_cohort,
     create_invite,
     create_tenant,
+    delete_invite,
     get_invite_by_token,
     get_tenant,
     get_tenant_by_slug,
     increment_invite_uses,
     list_cohort_members,
     list_cohorts_for_tenant,
+    list_invites_for_cohort,
+    redact_invite_token,
     remove_cohort_member,
     slugify,
 )
@@ -398,3 +401,63 @@ async def post_claim(
         "cohortId": str(invite["cohort_id"]),
         "userId": body.userId,
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Sprint 12 S12-A — Invite list / revoke
+# ─────────────────────────────────────────────────────────────────────────
+
+
+class InviteListEntry(BaseModel):
+    """Educator-side view of an invite. `tokenPreview` is intentionally
+    redacted (last 4 chars of the random head only, no HMAC tail) so a
+    list-payload leak can't be replayed against the claim endpoint."""
+
+    id: str
+    cohortId: str
+    tokenPreview: str
+    maxUses: int | None
+    uses: int
+    expiresAt: str | None
+    createdAt: str
+
+
+def _list_entry(row: dict[str, Any]) -> InviteListEntry:
+    return InviteListEntry(
+        id=str(row["id"]),
+        cohortId=str(row["cohort_id"]),
+        tokenPreview=redact_invite_token(row["token"]),
+        maxUses=row.get("max_uses"),
+        uses=row["uses"],
+        expiresAt=row["expires_at"].isoformat() if row.get("expires_at") else None,
+        createdAt=row["created_at"].isoformat() if row.get("created_at") else "",
+    )
+
+
+@router.get(
+    "/cohorts/{cohort_id}/invites", response_model=list[InviteListEntry]
+)
+async def get_invites(
+    cohort_id: str, session: SessionDep
+) -> list[InviteListEntry]:
+    rows = await list_invites_for_cohort(session, cohort_id)
+    return [_list_entry(r) for r in rows]
+
+
+@router.delete(
+    "/cohorts/invites/{invite_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_invite_endpoint(invite_id: str, session: SessionDep) -> None:
+    """Hard-delete the invite — `claim` already verifies the row exists,
+    so a deleted token returns 410 invalid_invite the next time it's
+    used (matches the FK CASCADE design — gone means gone)."""
+    removed = await delete_invite(session, invite_id)
+    if not removed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "invite_not_found",
+                "message": "No invite with that id",
+            },
+        )
+    await session.commit()

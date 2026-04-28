@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
+import json
+
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from analytics.cohort_leaderboard import (
     batch_readiness,
@@ -104,6 +109,20 @@ async def streak(user_id: str) -> dict:
     }
 
 
+async def _build_leaderboard(
+    cohort_id: str, include_teachers: bool
+) -> list[dict]:
+    members = await fetch_cohort_members(cohort_id)
+    if not members:
+        return []
+    user_ids = [m["userId"] for m in members]
+    async with sessionmaker()() as session:
+        readiness_by_user = await batch_readiness(session, user_ids)
+    return rank_leaderboard(
+        members, readiness_by_user, include_teachers=include_teachers
+    )
+
+
 @router.get("/analytics/cohorts/{cohort_id}/leaderboard")
 async def cohort_leaderboard(
     cohort_id: str,
@@ -115,13 +134,75 @@ async def cohort_leaderboard(
     HTTP-then-batch-DB pattern (AP-01 keeps schemas service-owned).
     Members without a readiness row render as `started: false` so the
     educator UI can show "not started" badges."""
-    members = await fetch_cohort_members(cohort_id)
-    if not members:
-        return {"cohortId": cohort_id, "leaderboard": []}
-    user_ids = [m["userId"] for m in members]
-    async with sessionmaker()() as session:
-        readiness_by_user = await batch_readiness(session, user_ids)
-    rows = rank_leaderboard(
-        members, readiness_by_user, include_teachers=include_teachers
-    )
+    rows = await _build_leaderboard(cohort_id, include_teachers)
     return {"cohortId": cohort_id, "leaderboard": rows}
+
+
+def _leaderboard_digest(rows: list[dict]) -> str:
+    """Sprint 12 S12-B — compact hash so the SSE poller can decide whether
+    a frame needs to be re-sent. A snapshot is identical iff the digest
+    matches; we re-send only on change. Pure function for testability."""
+    payload = json.dumps(
+        [
+            (r["userId"], r["rank"], r["score"], r["nTopics"])
+            for r in rows
+        ],
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+# Tunable; the educator UX says "near-realtime" — 5s is fine.
+SSE_POLL_INTERVAL_SECONDS = 5
+SSE_HEARTBEAT_SECONDS = 25
+
+
+@router.get("/analytics/cohorts/{cohort_id}/leaderboard/stream")
+async def cohort_leaderboard_stream(
+    cohort_id: str,
+    include_teachers: bool = Query(default=False, alias="includeTeachers"),
+) -> StreamingResponse:
+    """Sprint 12 S12-B — SSE leaderboard.
+
+    Frames:
+      - `event: snapshot` on connect with the full board
+      - `event: delta`    when the digest changes (~5s poll)
+      - `: keepalive`     every 25s so proxies don't idle out
+
+    Why poll rather than push: the L-1 endpoint already returns a
+    deterministic snapshot; a content-hash diff catches all real changes
+    without needing in-process pub/sub plumbing. Sprint 13 can swap in
+    a NATS-driven pusher if 5s lag isn't tight enough."""
+
+    async def stream() -> "asyncio.AsyncIterator[bytes]":  # type: ignore[name-defined]
+        last_digest: str | None = None
+        last_heartbeat = asyncio.get_event_loop().time()
+        # Initial snapshot.
+        rows = await _build_leaderboard(cohort_id, include_teachers)
+        last_digest = _leaderboard_digest(rows)
+        yield b"event: snapshot\ndata: " + json.dumps(
+            {"cohortId": cohort_id, "leaderboard": rows}
+        ).encode() + b"\n\n"
+
+        while True:
+            await asyncio.sleep(SSE_POLL_INTERVAL_SECONDS)
+            try:
+                rows = await _build_leaderboard(cohort_id, include_teachers)
+                digest = _leaderboard_digest(rows)
+                if digest != last_digest:
+                    last_digest = digest
+                    yield b"event: delta\ndata: " + json.dumps(
+                        {"cohortId": cohort_id, "leaderboard": rows}
+                    ).encode() + b"\n\n"
+                # Heartbeat regardless of changes so proxies (nginx) don't
+                # close the connection during quiet periods.
+                now = asyncio.get_event_loop().time()
+                if now - last_heartbeat > SSE_HEARTBEAT_SECONDS:
+                    last_heartbeat = now
+                    yield b": keepalive\n\n"
+            except Exception:
+                # Best-effort — a transient DB blip shouldn't kill the
+                # connection. The next poll retries.
+                continue
+
+    return StreamingResponse(stream(), media_type="text/event-stream")

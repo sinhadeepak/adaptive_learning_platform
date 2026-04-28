@@ -1,32 +1,98 @@
-// Sprint 10 S10-E — Educator-facing cohort leaderboard.
+// Sprint 10 S10-E + Sprint 12 S12-B — Educator-facing cohort leaderboard.
 //
-// Consumes the L-1 endpoint added in Sprint 9. Pure presentation —
-// the analytics service does the ranking; this page just renders.
+// Now SSE-driven: connects to /analytics/cohorts/{id}/leaderboard/stream
+// and patches the table in place when a `delta` event lands. Falls back
+// to the cached snapshot if the EventSource fails.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { AppShell } from "../components/AppShell";
 import { analytics, type CohortLeaderboardRow } from "../lib/api";
+import { env } from "../lib/env";
+
+interface LeaderboardFrame {
+  cohortId: string;
+  leaderboard: CohortLeaderboardRow[];
+}
 
 export function CohortLeaderboard() {
   const { cohortId } = useParams<{ cohortId: string }>();
   const [rows, setRows] = useState<CohortLeaderboardRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [live, setLive] = useState(false);
+  const sourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
     if (!cohortId) return;
+    let cancelled = false;
+
+    // 1) Initial snapshot via the regular GET — covers the case where
+    //    SSE is blocked by a proxy (eg. corporate firewall stripping
+    //    text/event-stream).
     analytics
       .cohortLeaderboard(cohortId)
-      .then((r) => setRows(r.leaderboard))
-      .catch((e) => setError((e as Error).message));
+      .then((r) => {
+        if (!cancelled) setRows(r.leaderboard);
+      })
+      .catch((e) => !cancelled && setError((e as Error).message));
+
+    // 2) Open the SSE stream. The browser's EventSource auto-reconnects
+    //    on transient failure; we just need to wire the handlers.
+    const url = `${env.apiBaseUrl}/analytics/cohorts/${encodeURIComponent(
+      cohortId,
+    )}/leaderboard/stream`;
+    try {
+      const es = new EventSource(url, { withCredentials: true });
+      sourceRef.current = es;
+      const onFrame = (ev: MessageEvent) => {
+        try {
+          const payload = JSON.parse(ev.data) as LeaderboardFrame;
+          if (cancelled) return;
+          setRows(payload.leaderboard);
+          setLive(true);
+        } catch {
+          /* ignore malformed frames */
+        }
+      };
+      es.addEventListener("snapshot", onFrame as EventListener);
+      es.addEventListener("delta", onFrame as EventListener);
+      es.onerror = () => {
+        // Don't set an error banner — the snapshot path already filled
+        // the rows. Just mark live=false so the UI tells the educator
+        // the table isn't auto-updating.
+        setLive(false);
+      };
+    } catch {
+      // EventSource unavailable in this runtime; rely on the GET above.
+    }
+
+    return () => {
+      cancelled = true;
+      sourceRef.current?.close();
+      sourceRef.current = null;
+    };
   }, [cohortId]);
 
   return (
     <AppShell title="Cohort Leaderboard">
       <main className="page" style={{ padding: 24 }}>
         <Link to="/assignments">← Back to assignments</Link>
-        <h1>Cohort Leaderboard</h1>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <h1>Cohort Leaderboard</h1>
+          <span
+            className={`pill ${live ? "pill-success" : "pill-neutral"}`}
+            title="Updates every ~5s while connected"
+          >
+            {live ? "● LIVE" : "○ Snapshot"}
+          </span>
+        </div>
         {error && <p className="banner banner-error">{error}</p>}
         {rows === null && <p>Loading…</p>}
         {rows !== null && rows.length === 0 && (

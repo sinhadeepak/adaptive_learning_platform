@@ -9,6 +9,7 @@ import {
   tenants,
   type AdminCohort,
   type AdminCohortMember,
+  type AdminInviteListEntry,
   type AdminTenant,
 } from "../lib/api";
 
@@ -29,6 +30,11 @@ export function TenantCohorts() {
   const [memberRole, setMemberRole] =
     useState<AdminCohortMember["role"]>("STUDENT");
 
+  // Sprint 12 S12-A — invite list/create/revoke
+  const [invites, setInvites] = useState<AdminInviteListEntry[] | null>(null);
+  const [inviteMaxUses, setInviteMaxUses] = useState<string>("");
+  const [latestInviteUrl, setLatestInviteUrl] = useState<string | null>(null);
+
   useEffect(() => {
     if (!tenantId) return;
     tenants.get(tenantId).then(setTenant).catch((e) => setError((e as Error).message));
@@ -47,6 +53,10 @@ export function TenantCohorts() {
       .members(selected)
       .then(setMembers)
       .catch((e) => setError((e as Error).message));
+    cohortsApi
+      .invites(selected)
+      .then(setInvites)
+      .catch(() => setInvites([]));
   }, [selected]);
 
   async function createCohort(e: React.FormEvent) {
@@ -88,6 +98,35 @@ export function TenantCohorts() {
     try {
       await cohortsApi.removeMember(selected, userId);
       setMembers((members ?? []).filter((m) => m.userId !== userId));
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function generateInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selected) return;
+    try {
+      const created = await cohortsApi.createInvite(selected, {
+        maxUses: inviteMaxUses ? Number(inviteMaxUses) : null,
+      });
+      // Surface the share URL so the educator can copy it before the
+      // raw token disappears (the list endpoint redacts).
+      const base = window.location.origin.replace(":35174", ":35173");
+      setLatestInviteUrl(`${base}/join/${created.token}`);
+      setInviteMaxUses("");
+      // Refresh redacted list.
+      const fresh = await cohortsApi.invites(selected);
+      setInvites(fresh);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function revokeInvite(inviteId: string) {
+    try {
+      await cohortsApi.revokeInvite(inviteId);
+      setInvites((invites ?? []).filter((i) => i.id !== inviteId));
     } catch (err) {
       setError((err as Error).message);
     }
@@ -211,6 +250,80 @@ export function TenantCohorts() {
                     Add
                   </button>
                 </form>
+
+                {/* Sprint 12 S12-A — Invite list + revoke ─────────── */}
+                <h2 style={{ marginTop: 32 }}>Invites</h2>
+                {latestInviteUrl && (
+                  <div className="banner banner-success" style={{ marginBottom: 12 }}>
+                    Share this link (the secret only appears once):
+                    <div style={{ marginTop: 6 }}>
+                      <code style={{ wordBreak: "break-all" }}>{latestInviteUrl}</code>
+                    </div>
+                    <button
+                      className="btn-link"
+                      style={{ marginTop: 6 }}
+                      onClick={() => {
+                        navigator.clipboard?.writeText(latestInviteUrl);
+                      }}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                )}
+                <form
+                  onSubmit={generateInvite}
+                  style={{ display: "flex", gap: 8, marginBottom: 12 }}
+                >
+                  <input
+                    type="number"
+                    min={1}
+                    max={10000}
+                    placeholder="Max uses (blank = unlimited)"
+                    value={inviteMaxUses}
+                    onChange={(e) => setInviteMaxUses(e.currentTarget.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <button className="btn-primary" type="submit">
+                    Generate invite
+                  </button>
+                </form>
+                {invites === null ? (
+                  <p>Loading invites…</p>
+                ) : invites.length === 0 ? (
+                  <p>No invites yet.</p>
+                ) : (
+                  <table className="leaderboard">
+                    <thead>
+                      <tr>
+                        <th>Token</th>
+                        <th>Uses</th>
+                        <th>Cap</th>
+                        <th>Created</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invites.map((inv) => (
+                        <tr key={inv.id}>
+                          <td>
+                            <code>{inv.tokenPreview}</code>
+                          </td>
+                          <td>{inv.uses}</td>
+                          <td>{inv.maxUses ?? "∞"}</td>
+                          <td>{inv.createdAt.slice(0, 10)}</td>
+                          <td>
+                            <button
+                              className="btn-link"
+                              onClick={() => revokeInvite(inv.id)}
+                            >
+                              revoke
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </>
             ) : (
               <p>Pick or create a cohort to manage members.</p>

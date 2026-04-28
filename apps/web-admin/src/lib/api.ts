@@ -266,7 +266,64 @@ export const tenants = {
   },
 };
 
+// ── Sprint 12 S12-A — invite list/create/revoke ───────────────────────
+
+export interface AdminInviteListEntry {
+  id: string;
+  cohortId: string;
+  tokenPreview: string;
+  maxUses: number | null;
+  uses: number;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export interface AdminInviteCreated {
+  id: string;
+  cohortId: string;
+  // The full token is returned ONLY on create — the list endpoint
+  // redacts. Educator copies the link from the toast and never
+  // re-fetches the secret.
+  token: string;
+  maxUses: number | null;
+  uses: number;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
 export const cohorts = {
+  async invites(cohortId: string): Promise<AdminInviteListEntry[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/institution/cohorts/${encodeURIComponent(cohortId)}/invites`,
+    );
+    return asJson<AdminInviteListEntry[]>(res);
+  },
+
+  async createInvite(
+    cohortId: string,
+    input: { maxUses?: number | null },
+  ): Promise<AdminInviteCreated> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/institution/cohorts/${encodeURIComponent(cohortId)}/invites`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ maxUses: input.maxUses ?? null }),
+      },
+    );
+    return asJson<AdminInviteCreated>(res);
+  },
+
+  async revokeInvite(inviteId: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/institution/cohorts/invites/${encodeURIComponent(inviteId)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+  },
+
   async members(cohortId: string): Promise<AdminCohortMember[]> {
     const res = await auth.fetch(
       `${env.apiBaseUrl}/institution/cohorts/${encodeURIComponent(cohortId)}/members`,
