@@ -1,7 +1,8 @@
 name: alp-local
 
 # Local dev stack — see docs/02_planning/08_DevEnvironmentRequirements_AdaptiveLearningPlatform.md
-# Default profile launches infra + all 9 backend services + 3 web apps in containers.
+# Per ADR-0005, default profile launches infra + the 5 consolidated backend
+# services (identity, payment, learning, quiz, engagement) + 3 web apps.
 # Use `--profile host` for the older host-binary mode (debugger-friendly).
 
 x-py-build: &py-build
@@ -14,7 +15,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_MULTIPLE_DATABASES: auth,user_profile,content,catalog,search,analytics,payment,institution,notification,adaptive_engine,quiz,doubts
+      POSTGRES_MULTIPLE_DATABASES: identity,learning,engagement,payment,quiz
     ports: ["35432:5432"]
     volumes:
       - pg-data:/var/lib/postgresql/data
@@ -88,120 +89,103 @@ services:
       - "31025:1025"  # SMTP
       - "38025:8025"  # Web UI
 
-  # ---- Backend services (Python) ----
-  auth:
+  # ---- Backend services (Python) — consolidated per ADR-0005 ----
+  identity:
     build:
       <<: *py-build
-      args: { SERVICE: auth, MODULE: auth.main }
-    image: alp/auth:local
+      args: { SERVICE: identity, MODULE: identity.main }
+    image: alp/identity:local
     ports: ["38001:8000"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/auth
-      AUTH_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/auth
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/identity
+      # Auth — keeps AUTH_* env_prefix per the legacy module's config.
+      AUTH_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/identity
       AUTH_REDIS_URL: redis://redis:6379/0
       AUTH_NATS_URL: nats://nats:4222
-      AUTH_INSTITUTION_BASE_URL: http://institution:8000
+      AUTH_INSTITUTION_BASE_URL: http://identity:8000
+      AUTH_PAYMENT_BASE_URL: http://payment:8000
       AUTH_SMTP_HOST: mailpit
       AUTH_SMTP_PORT: "1025"
-      # Local-only seed: enables migration 004 to insert four known test
-      # accounts (student@/teacher@/moderator@/admin@alp.dev, password
-      # `Password123!`). Absent in staging/prod.
       AUTH_SEED_LOCAL: "1"
+      # Profile (renamed from user_profile)
+      USER_PROFILE_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/identity
+      USER_PROFILE_NATS_URL: nats://nats:4222
+      # Institution
+      INSTITUTION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/identity
+      INSTITUTION_NATS_URL: nats://nats:4222
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
       nats: { condition: service_healthy }
 
-  user-profile:
+  learning:
     build:
       <<: *py-build
-      args: { SERVICE: user-profile, MODULE: user_profile.main }
-    image: alp/user-profile:local
-    ports: ["38002:8000"]
+      args: { SERVICE: learning, MODULE: learning.main }
+    image: alp/learning:local
+    ports: ["38101:8000"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/user_profile
-      USER_PROFILE_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/user_profile
-      USER_PROFILE_NATS_URL: nats://nats:4222
-    depends_on:
-      postgres: { condition: service_healthy }
-      nats: { condition: service_healthy }
-
-  catalog:
-    build:
-      <<: *py-build
-      args: { SERVICE: catalog, MODULE: catalog.main }
-    image: alp/catalog:local
-    ports: ["38004:8000"]
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/catalog
-      CATALOG_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/catalog
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/learning
+      # Catalog
+      CATALOG_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/learning
       CATALOG_NATS_URL: nats://nats:4222
-      CATALOG_INSTITUTION_BASE_URL: http://institution:8000
-      # Must match auth's JWT_SECRET so tokens issued by Auth verify on
-      # the educator-scoped endpoints (/catalog/educators/me/*).
+      CATALOG_INSTITUTION_BASE_URL: http://identity:8000
       CATALOG_JWT_SECRET: dev-only-change-me-in-staging-at-least-32-bytes-long
-      # Local-only seed: enables migration 006 to insert assignments
-      # for teacher@/moderator@alp.dev against every published exam so
-      # the cascading dropdown on /questions/new works on a fresh stack.
       CATALOG_SEED_LOCAL: "1"
-    depends_on:
-      postgres: { condition: service_healthy }
-      nats: { condition: service_healthy }
-
-  content:
-    build:
-      <<: *py-build
-      args: { SERVICE: content, MODULE: content.main }
-    image: alp/content:local
-    ports: ["38003:8000"]
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/content
-      CONTENT_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/content
+      # Content
+      CONTENT_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/learning
       CONTENT_NATS_URL: nats://nats:4222
-      # Must match auth's JWT_SECRET so tokens issued by Auth verify here.
       CONTENT_JWT_SECRET: dev-only-change-me-in-staging-at-least-32-bytes-long
-      # Round-trip used by POST /content/questions to verify the
-      # educator is assigned to the topic's exam (defence-in-depth
-      # behind the cascading-dropdown UI).
-      CONTENT_CATALOG_BASE_URL: http://catalog:8000
-      # Local-only seed: enables migration 003 to insert 20 PUBLISHED
-      # questions per topic across every exam, so /questions/new and
-      # the student topic-detail screens have realistic data on a
-      # fresh stack. Absent in staging/prod.
+      CONTENT_CATALOG_BASE_URL: http://learning:8000
       CONTENT_SEED_LOCAL: "1"
-    depends_on:
-      postgres: { condition: service_healthy }
-      nats: { condition: service_healthy }
-
-  search:
-    build:
-      <<: *py-build
-      args: { SERVICE: search, MODULE: search.main }
-    image: alp/search:local
-    ports: ["38005:8000"]
-    environment:
+      # Doubts
+      DOUBTS_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/learning
+      DOUBTS_JWT_SECRET: dev-only-change-me-in-staging-at-least-32-bytes-long
+      # Search
       SEARCH_OPENSEARCH_URL: http://opensearch:9200
       SEARCH_TOPICS_INDEX: topics_v2
       SEARCH_NATS_URL: nats://nats:4222
-      SEARCH_CATALOG_BASE_URL: http://catalog:8000/catalog
+      SEARCH_CATALOG_BASE_URL: http://learning:8000/catalog
+      # Adaptive (renamed from adaptive-engine)
+      ADAPTIVE_ENGINE_NATS_URL: nats://nats:4222
+      ADAPTIVE_ENGINE_INSTITUTION_BASE_URL: http://identity:8000
+      ADAPTIVE_ENGINE_CATALOG_BASE_URL: http://learning:8000
+      ADAPTIVE_ENGINE_ANALYTICS_BASE_URL: http://engagement:8000
+      ADAPTIVE_ENGINE_QUIZ_BASE_URL: http://quiz:8000
+      ADAPTIVE_ENGINE_REDIS_URL: redis://redis:6379/1
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ADAPTIVE_ENGINE_OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
     depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
       opensearch: { condition: service_healthy }
       nats: { condition: service_healthy }
-      catalog: { condition: service_started }
 
-  analytics:
+  engagement:
     build:
       <<: *py-build
-      args: { SERVICE: analytics, MODULE: analytics.main }
-    image: alp/analytics:local
-    ports: ["38006:8000"]
+      args: { SERVICE: engagement, MODULE: engagement.main }
+    image: alp/engagement:local
+    ports: ["38100:8000"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/analytics
-      ANALYTICS_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/analytics
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/engagement
+      # Analytics
+      ANALYTICS_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/engagement
       ANALYTICS_NATS_URL: nats://nats:4222
+      ANALYTICS_QUIZ_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/quiz
+      # Notification
+      NOTIFICATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/engagement
+      NOTIFICATION_NATS_URL: nats://nats:4222
+      NOTIFICATION_INSTITUTION_BASE_URL: http://identity:8000
+      NOTIFICATION_SMTP_HOST: mailpit
+      NOTIFICATION_SMTP_PORT: "1025"
+      NOTIFICATION_PROFILE_INTERNAL_BASE_URL: http://identity:8000
+      NOTIFICATION_QUIZ_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/quiz
     depends_on:
       postgres: { condition: service_healthy }
       nats: { condition: service_healthy }
+      mailpit: { condition: service_started }
+      identity: { condition: service_started }
 
   payment:
     build:
@@ -213,7 +197,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/payment
       PAYMENT_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/payment
       PAYMENT_NATS_URL: nats://nats:4222
-      PAYMENT_INSTITUTION_BASE_URL: http://institution:8000
+      PAYMENT_INSTITUTION_BASE_URL: http://identity:8000
       # Stripe — set these via .env in real environments. Empty → stub mode
       # (Sprint 8: lets the full flow be exercised without a Stripe account).
       PAYMENT_STRIPE_API_KEY: "${PAYMENT_STRIPE_API_KEY:-}"
@@ -227,73 +211,6 @@ services:
       postgres: { condition: service_healthy }
       nats: { condition: service_healthy }
 
-  institution:
-    build:
-      <<: *py-build
-      args: { SERVICE: institution, MODULE: institution.main }
-    image: alp/institution:local
-    ports: ["38008:8000"]
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/institution
-      INSTITUTION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/institution
-      INSTITUTION_NATS_URL: nats://nats:4222
-    depends_on:
-      postgres: { condition: service_healthy }
-      nats: { condition: service_healthy }
-
-  notification:
-    build:
-      <<: *py-build
-      args: { SERVICE: notification, MODULE: notification.main }
-    image: alp/notification:local
-    ports: ["38009:8000"]
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/notification
-      NOTIFICATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/notification
-      NOTIFICATION_NATS_URL: nats://nats:4222
-      NOTIFICATION_INSTITUTION_BASE_URL: http://institution:8000
-      # SMTP outbound — Mailpit container in local dev (port 1025, no auth).
-      NOTIFICATION_SMTP_HOST: mailpit
-      NOTIFICATION_SMTP_PORT: "1025"
-      # Service-to-service profile lookup for the "to:" email.
-      NOTIFICATION_PROFILE_INTERNAL_BASE_URL: http://user-profile:8000
-    depends_on:
-      postgres: { condition: service_healthy }
-      nats: { condition: service_healthy }
-      mailpit: { condition: service_started }
-      user-profile: { condition: service_started }
-
-  adaptive-engine:
-    build:
-      <<: *py-build
-      args: { SERVICE: adaptive-engine, MODULE: adaptive_engine.main }
-    image: alp/adaptive-engine:local
-    ports: ["38010:8000"]
-    environment:
-      ADAPTIVE_ENGINE_NATS_URL: nats://nats:4222
-      ADAPTIVE_ENGINE_INSTITUTION_BASE_URL: http://institution:8000
-      ADAPTIVE_ENGINE_CATALOG_BASE_URL: http://catalog:8000
-      ADAPTIVE_ENGINE_ANALYTICS_BASE_URL: http://analytics:8000
-      ADAPTIVE_ENGINE_QUIZ_BASE_URL: http://quiz:8000
-      # AI layer — empty key means the LLM is disabled and endpoints fall back to heuristics.
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      ADAPTIVE_ENGINE_OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
-    depends_on:
-      nats: { condition: service_healthy }
-
-  doubts:
-    build:
-      <<: *py-build
-      args: { SERVICE: doubts, MODULE: doubts.main }
-    image: alp/doubts:local
-    ports: ["38012:8000"]
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/doubts
-      DOUBTS_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/doubts
-      DOUBTS_JWT_SECRET: dev-only-change-me-in-staging-at-least-32-bytes-long
-    depends_on:
-      postgres: { condition: service_healthy }
-
   # ---- Backend services (Go) ----
   quiz:
     build:
@@ -305,8 +222,9 @@ services:
     environment:
       QUIZ_DATABASE_URL: postgres://postgres:postgres@postgres:5432/quiz?sslmode=disable
       QUIZ_NATS_URL: nats://nats:4222
-      QUIZ_INSTITUTION_BASE_URL: http://institution:8000
-      QUIZ_ADAPTIVE_BASE_URL: http://adaptive-engine:8000
+      QUIZ_INSTITUTION_BASE_URL: http://identity:8000
+      QUIZ_ADAPTIVE_BASE_URL: http://learning:8000
+      QUIZ_CONTENT_BASE_URL: http://learning:8000
       QUIZ_MIGRATIONS_DIR: /app/migrations
     depends_on:
       postgres: { condition: service_healthy }
@@ -320,9 +238,10 @@ services:
     image: alp/web-student:local
     ports: ["35173:8080"]
     depends_on:
-      auth: { condition: service_started }
-      catalog: { condition: service_started }
+      identity: { condition: service_started }
+      learning: { condition: service_started }
       quiz: { condition: service_started }
+      engagement: { condition: service_started }
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
       interval: 10s

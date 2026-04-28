@@ -34,11 +34,15 @@ Master index: [`docs/02_planning/00_MasterPhaseIndex.md`](02_planning/00_MasterP
 
 ADRs are four-digit-numbered: `docs/adr/0001-*.md`, etc.
 
-**Backend**:
-- **Quiz**: Go (per ADR-0001 reasoning — deterministic latency under concurrency)
-- **Adaptive Engine + 9 other services**: Python 3.11, FastAPI, Pydantic v2, async/await
+**Backend** (per [ADR-0005](adr/0005-service-consolidation.md), the 12 services consolidated into 5):
+- **alp-quiz**: Go (per ADR-0001 reasoning — deterministic latency under concurrency)
+- **alp-identity**: Python 3.11, FastAPI — absorbs `auth + user-profile + institution` (3 schemas inside one Postgres DB)
+- **alp-learning**: Python 3.11, FastAPI — absorbs `catalog + content + doubts + search + adaptive-engine`. Also owns OpenSearch (`topics_v2`) and Redis (adaptive rate-limit / photo-doubt cache)
+- **alp-engagement**: Python 3.11, FastAPI — absorbs `analytics + notification`. JetStream durable consumers `analytics-quiz-completed`, `notification-quiz-completed`, `notification-assignment-created`
+- **alp-payment**: Python 3.11, FastAPI — Stripe checkout + webhooks (standalone for webhook isolation; reversible — see ADR-0005 trigger conditions)
+- **alp-marketplace**: reserved for Phase 3 (Tutor + creator marketplace)
 - **Event bus**: NATS JetStream (durable streams since Sprint 3 PR #11)
-- **Storage**: PostgreSQL 15 (separate database per service in compose; same Aurora cluster + per-service schema in staging+), Redis 7 (lockout + flag cache only — **session state lives in Postgres**, NOT Redis), OpenSearch 2.x (`topics_v2` index, alias-rotation supported per PR #35)
+- **Storage**: PostgreSQL 15 (one DB per consolidated service in compose: `identity`, `learning`, `engagement`, `payment`, `quiz` — each absorbed module keeps its own schema with `version_table_schema=<schema>` in alembic). Redis 7 (lockout + flag cache + adaptive rate-limit). OpenSearch 2.x (`topics_v2` alias inside alp-learning).
 - **Deployment**: AWS EKS + Helm (per ADR-0001-foundation-stack); Terraform manages cluster
 
 **Frontend**:
@@ -48,7 +52,7 @@ ADRs are four-digit-numbered: `docs/adr/0001-*.md`, etc.
 
 **AI/ML**:
 - **Adaptive Engine**: 3PL IRT (a, b, c per item — calibrated since PR #25) + EAP estimator + MFI selector. Pure stdlib Python, no numpy yet.
-- **Mastery model**: EWA with **α = 0.4** (`services/analytics/src/analytics/mastery.py`). Cold-start seeds with first score.
+- **Mastery model**: EWA with **α = 0.4** (`services/engagement/src/engagement/analytics/mastery.py`). Cold-start seeds with first score.
 - **Readiness score**: `mean(per-topic EWAs)` over user's mastery set. Range 0–1 (UI may render as 0–100).
 - **Streak**: consecutive UTC days of activity, current + longest (PR #34).
 - **Predictive (drop-out, recommendations)**: Phase 3 — see [`docs/02_planning/21_Phase3_SprintDevelopmentPlan.md`](02_planning/21_Phase3_SprintDevelopmentPlan.md).
@@ -159,16 +163,22 @@ The gating P1 today is **AWS staging access**, not any code-side blocker. Phase 
 
 ---
 
-## Build order (already executed up to step 6 + 7 partially)
+## Service inventory (post-ADR-0005 consolidation, 2026-04-28)
 
-1. ✅ Auth Service (Python) — JWT + lockout + email OTP
-2. ✅ Catalog Service (Python) — Exam/Subject/Topic + bilingual
-3. ✅ Quiz Service (Go) — session FSM, IRT-aware pickNext, JetStream publisher
-4. ✅ Adaptive Engine (Python) — 3PL IRT + EAP + MFI; called via HTTP, not gRPC
-5. ✅ Analytics — EWA mastery + readiness + streak; nightly backfill (Recommendation deferred to P3)
-6. ✅ Content (S3) — DRAFT→REVIEW→PUBLISHED FSM, Content→Quiz bridge (Moderation deferred)
-7. 🟨 Remaining services — Notification ✅, Payment ❌ (Stripe never wired), Community ❌ (P3), Institution ❌ (cohorts/assignments never built)
-8. 🟨 Frontend — three React+Vite apps shipped as MVP shells (login + key flows); design-system foundation per `docs/ui/` rolling out
+The 12 original services collapsed into **5 deployables + 1 reserved P3 slot**. Each consolidated service owns one Postgres database with one schema per absorbed module, and mounts each old service's HTTP routes at the same URL prefix used previously — clients are unaffected.
+
+| Service | Stack | Absorbs | URL prefixes | Postgres DB | NATS edges |
+|---|---|---|---|---|---|
+| **alp-identity** | Py/FastAPI | auth, user-profile (renamed to `profile` sub-package), institution | `/auth/* /profile/* /institution/* /flags/*` | `identity` (3 schemas) | publishes `user.created`, `flag.changed`; subscribes `payment.subscription.changed` |
+| **alp-payment** | Py/FastAPI | payment (standalone, see ADR-0005 triggers) | `/payment/*` | `payment` | publishes `payment.subscription.changed` |
+| **alp-learning** | Py/FastAPI | catalog, content, doubts, search, adaptive-engine (renamed to `adaptive`) | `/catalog/* /content/* /doubts/* /search/* /adaptive/* /irt/* /strategy/select /admin/reindex` | `learning` (3 schemas; search has none) + OpenSearch + Redis | publishes `content.question.published`, `content.assignment.created`; subscribes `quiz.session.completed` |
+| **alp-quiz** | Go | quiz | `/quiz/*` | `quiz` (1 schema) | publishes `quiz.session.completed`; subscribes `content.question.published` |
+| **alp-engagement** | Py/FastAPI | analytics, notification | `/analytics/* /notifications/*` | `engagement` (2 schemas) | subscribes `quiz.session.completed`, `content.assignment.created` |
+| **alp-marketplace** | TBD | tutor, creator marketplace, revenue-share | TBD | TBD | TBD (Phase 3) |
+
+**Service ceiling = 6** (5 today + Marketplace). New domains in Phase 2/3 land as *modules* inside one of the existing services unless a new ADR justifies a boundary.
+
+Frontend (unchanged by consolidation): three React+Vite apps (`apps/web-student`, `apps/web-portal`, `apps/web-admin`) + Flutter mobile (`apps/mobile`).
 
 ---
 
@@ -179,8 +189,13 @@ The gating P1 today is **AWS staging access**, not any code-side blocker. Phase 
 - **All SQL**: parameterised queries only — checked by `ruff` rule S608 ignore on schema-name interpolation only.
 - **All secrets**: env vars in `docker-compose.yml` (local), AWS Secrets Manager SDK (staging+). Never in code.
 - **Logging**: structured (structlog Py / slog Go). Every request scope carries `trace_id` (alp_telemetry / alptelemetry). PII scrubbed.
-- **Tests**: per-service test minimums (current totals from PR #38 master index):
-   - auth 18, profile 14, catalog 10, search 20, institution 9, analytics 28, notification 20, payment 5, adaptive-engine 26, content 16, quiz Go 22 + 5 events. Lib tests: alp_telemetry 16, alptelemetry 8.
+- **Tests**: per-consolidated-service unit-test minimums after ADR-0005:
+   - alp-identity 119 (auth + profile + institution combined)
+   - alp-learning 142+ (catalog + content + doubts + search + adaptive combined; ~144 total of which 2 are state-dependent)
+   - alp-engagement 92 (analytics + notification combined; integration tests requiring live infra deselected)
+   - alp-payment 5
+   - alp-quiz: Go 22 + 5 events
+   - lib tests: alp_telemetry 16, alptelemetry 8.
 - **Error responses**: FastAPI default `{ "detail": { "code": "...", "message": "..." } }` — Quiz Go matches the shape: `{ "code": "...", "message": "..." }` plain.
 - **List endpoints**: paginated, max 100 per page (Catalog + Search enforce; Analytics/Notification list endpoints have soft caps).
 

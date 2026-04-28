@@ -6,10 +6,8 @@ SHELL := /usr/bin/env bash
 
 PY_SERVICES := identity payment learning engagement
 GO_SERVICES := quiz
-# Sprint B closed: analytics + notification merged into engagement.
-# Sprints C/D move catalog+content+doubts+search+adaptive→learning and
-# auth+user-profile+institution→identity. PY_SERVICES shrinks each sprint.
-NEW_PY_SERVICES := identity learning engagement
+# ADR-0005 consolidation complete: identity, payment, learning, quiz, engagement.
+# Marketplace is the reserved 6th slot (Phase 3).
 COMPOSE := docker compose -f infrastructure/docker/docker-compose.yml
 
 .PHONY: help
@@ -57,102 +55,99 @@ dev-logs: ## Tail logs for the local stack
 dev-seed: ## Run seed script against local Postgres + NATS (placeholder until Sprint 1)
 	@echo "→ dev-seed: implemented in Sprint 1 (scripts/seed_staging.py, GAP-09)"
 
-# -- consolidation rollout (ADR-0005) --
-
-.PHONY: dev-new
-dev-new: dev-env ## Boot the new consolidated stack (identity, learning, engagement) — runs alongside `make dev` during rollout.
-	@for svc in $(NEW_PY_SERVICES); do \
-	  echo "→ uv sync services/$$svc"; \
-	  (cd services/$$svc && uv sync) || exit 1; \
-	done
-	@echo "→ infra (postgres, nats, redis, opensearch) must be up — run \`make dev\` first"
-	@echo "→ launch the consolidated services manually until docker-compose entries land:"
-	@echo "    cd services/engagement && uv run uvicorn engagement.main:app --port 38100"
-	@echo "    cd services/learning   && uv run uvicorn learning.main:app   --port 38101"
-	@echo "    cd services/identity   && uv run uvicorn identity.main:app   --port 38102"
+# -- consolidation (ADR-0005) — historical contract-test harness left in place
+#    for any future module-level boundary changes.
 
 .PHONY: contract-test
-contract-test: ## Run consolidation contract tests (requires recordings/ + new services running). Usage: make contract-test bundle=engagement|learning|identity
+contract-test: ## Run consolidation contract tests (requires recordings/). Usage: make contract-test bundle=engagement|learning|identity
 	@if [ -z "$(bundle)" ]; then \
 	  PYTHONPATH=. uv run --project services/engagement pytest tests/consolidation/ -v; \
 	else \
 	  PYTHONPATH=. uv run --project services/engagement pytest tests/consolidation/test_$(bundle).py -v; \
 	fi
 
-.PHONY: contract-record
-contract-record: ## Capture old-service responses for the contract tests. Usage: make contract-record svcs="analytics notification"
-	@if [ -z "$(svcs)" ]; then echo "Usage: make contract-record svcs=\"analytics notification\""; exit 1; fi
-	PYTHONPATH=. uv run --project services/engagement python -m tests.consolidation.record $(svcs)
-
 .PHONY: seed-hindi
 seed-hindi: ## Seed 15 Hindi MCQs through Content API → bridge → Quiz bank.
-	@echo "→ seeding Hindi content via Content service at $${CONTENT_BASE_URL:-http://localhost:38003}"
-	@cd services/content && uv run python seed/seed_hindi.py
+	@echo "→ seeding Hindi content via Learning service at $${LEARNING_BASE_URL:-http://localhost:38101}"
+	@cd services/learning && uv run python -m learning.content.seed.seed_hindi
 
 .PHONY: seed-restore
-seed-restore: ## Restore the local seed bank (auth users + 480 real exam-prep questions in Content + Quiz).
-	@echo "→ restoring auth seed (4 test users)"
-	@cd services/auth && AUTH_SEED_LOCAL=1 \
-	  DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:35432/auth \
-	  uv run python scripts/restore_seed.py
-	@echo "→ restoring content seed (480 questions, real exam-prep content)"
-	@cd services/content && CONTENT_SEED_LOCAL=1 \
-	  DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:35432/content \
-	  uv run python scripts/restore_seed.py
-	@echo "→ restoring quiz seed (mirrors content question bank)"
-	@cd services/content && uv run python ../quiz/scripts/restore_seed.py
+seed-restore: ## Restore the local seed bank (auth users + 480 real exam-prep questions in Learning + Quiz).
+	@echo "→ restoring identity (auth) seed (4 test users)"
+	@cd services/identity && AUTH_SEED_LOCAL=1 \
+	  DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:35432/identity \
+	  uv run python -m identity.auth.scripts.restore_seed
+	@echo "→ restoring learning (content) seed (480 questions, real exam-prep content)"
+	@cd services/learning && CONTENT_SEED_LOCAL=1 \
+	  DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:35432/learning \
+	  uv run python -m learning.content.scripts.restore_seed
+	@echo "→ restoring quiz seed (mirrors learning question bank)"
+	@cd services/learning && uv run python ../quiz/scripts/restore_seed.py
 
-.PHONY: analytics-backfill
-analytics-backfill: ## Replay any Quiz SUBMITTED sessions Analytics missed. SINCE=ISO-8601 (default 36h).
+.PHONY: engagement-backfill
+engagement-backfill: ## Replay Quiz SUBMITTED sessions Engagement missed (analytics + notification). SINCE=ISO-8601 (default 36h).
 	@since="$${SINCE:-$$(date -u -d '36 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-36H +%Y-%m-%dT%H:%M:%SZ)}"; \
-	echo "→ analytics backfill since $$since"; \
-	cd services/analytics && uv run python -m analytics.backfill --since "$$since"
-
-.PHONY: notification-backfill
-notification-backfill: ## Replay any Quiz SUBMITTED sessions Notification missed. SINCE=ISO-8601 (default 36h).
-	@since="$${SINCE:-$$(date -u -d '36 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-36H +%Y-%m-%dT%H:%M:%SZ)}"; \
-	echo "→ notification backfill since $$since"; \
-	cd services/notification && uv run python -m notification.backfill --since "$$since"
+	echo "→ engagement.analytics backfill since $$since"; \
+	cd services/engagement && uv run python -m engagement.analytics.backfill --since "$$since"; \
+	echo "→ engagement.notification backfill since $$since"; \
+	cd services/engagement && uv run python -m engagement.notification.backfill --since "$$since"
 
 .PHONY: search-swap-alias
 search-swap-alias: ## Swap topics alias to TARGET. Usage: TARGET=topics_v3 [REINDEX=1] [DROP_OLD=1] make search-swap-alias
 	@if [ -z "$(TARGET)" ]; then echo "Usage: TARGET=topics_v3 [REINDEX=1] [DROP_OLD=1] make search-swap-alias"; exit 1; fi
-	@cd services/search && uv run python -m search.swap_alias --target "$(TARGET)" \
+	@cd services/learning && uv run python -m learning.search.swap_alias --target "$(TARGET)" \
 		$(if $(REINDEX),--reindex,) \
 		$(if $(DROP_OLD),--drop-old,)
 
 # -- migrations --
 
-# Per-service Alembic. The service name maps to its own database (one DB per service
-# in local Compose; one schema per service in Aurora staging/prod). Auth is the
-# template implementation — other services will mirror this pattern in Sprint 1.
+# Per-consolidated-service Alembic. After ADR-0005 each service's DB holds
+# multiple schemas (one per absorbed module), with `version_table_schema`
+# pinned per module. Run as: make migrate svc=identity mod=auth.
+#   identity:    auth profile institution
+#   learning:    catalog content doubts
+#   engagement:  analytics notification
+#   payment:     (no module split — uses the standard alembic.ini)
+#   quiz:        Go service, uses `go run ./cmd/migrate up`
 .PHONY: migrate
-migrate: ## Run migrations for one service.  Usage: make migrate svc=auth   (also: make migrate svc=quiz)
-	@if [ -z "$(svc)" ]; then echo "Usage: make migrate svc=<service-name>"; exit 1; fi
+migrate: ## Run migrations.  Usage: make migrate svc=identity mod=auth   (or: make migrate svc=quiz)
+	@if [ -z "$(svc)" ]; then echo "Usage: make migrate svc=<service-name> [mod=<module>]"; exit 1; fi
 	@if [ -d services/$(svc)/migrations ]; then \
 		echo "→ go-migrate up — services/$(svc)"; \
 		(cd services/$(svc) && go run ./cmd/migrate up); \
-	elif [ -f services/$(svc)/alembic.ini ]; then \
+	elif [ -n "$(mod)" ] && [ -f services/$(svc)/alembic_$(mod).ini ]; then \
 		svc_upper=$$(echo "$(svc)" | tr 'a-z-' 'A-Z_'); \
 		url_var=$${svc_upper}_DATABASE_URL; \
 		if [ -z "$${!url_var:-}" ]; then set -a; . ./.env 2>/dev/null || true; set +a; fi; \
 		url=$${!url_var}; \
 		if [ -z "$$url" ]; then echo "✗ $$url_var not set. Add it to .env (see .env.example)."; exit 1; fi; \
+		echo "→ alembic -c alembic_$(mod).ini upgrade head — services/$(svc)"; \
+		(cd services/$(svc) && DATABASE_URL=$$url uv run alembic -c alembic_$(mod).ini upgrade head); \
+	elif [ -f services/$(svc)/alembic.ini ]; then \
+		svc_upper=$$(echo "$(svc)" | tr 'a-z-' 'A-Z_'); \
+		url_var=$${svc_upper}_DATABASE_URL; \
+		if [ -z "$${!url_var:-}" ]; then set -a; . ./.env 2>/dev/null || true; set +a; fi; \
+		url=$${!url_var}; \
+		if [ -z "$$url" ]; then echo "✗ $$url_var not set."; exit 1; fi; \
 		echo "→ alembic upgrade head — services/$(svc)"; \
 		(cd services/$(svc) && DATABASE_URL=$$url uv run alembic upgrade head); \
 	else \
-		echo "✗ services/$(svc) has neither alembic.ini nor migrations/ — nothing to run"; \
+		echo "✗ services/$(svc) has neither alembic_<mod>.ini nor alembic.ini nor migrations/ — nothing to run"; \
 		exit 1; \
 	fi
 
 .PHONY: migrate-status
-migrate-status: ## Show current Alembic revision for one service.  Usage: make migrate-status svc=auth
-	@if [ -z "$(svc)" ]; then echo "Usage: make migrate-status svc=<service-name>"; exit 1; fi
+migrate-status: ## Show current Alembic revision.  Usage: make migrate-status svc=identity mod=auth
+	@if [ -z "$(svc)" ]; then echo "Usage: make migrate-status svc=<service-name> [mod=<module>]"; exit 1; fi
 	@svc_upper=$$(echo "$(svc)" | tr 'a-z-' 'A-Z_'); \
 	url_var=$${svc_upper}_DATABASE_URL; \
 	if [ -z "$${!url_var:-}" ]; then set -a; . ./.env 2>/dev/null || true; set +a; fi; \
 	url=$${!url_var}; \
-	(cd services/$(svc) && DATABASE_URL=$$url uv run alembic current)
+	if [ -n "$(mod)" ] && [ -f services/$(svc)/alembic_$(mod).ini ]; then \
+		(cd services/$(svc) && DATABASE_URL=$$url uv run alembic -c alembic_$(mod).ini current); \
+	else \
+		(cd services/$(svc) && DATABASE_URL=$$url uv run alembic current); \
+	fi
 
 # -- per-stack commands --
 

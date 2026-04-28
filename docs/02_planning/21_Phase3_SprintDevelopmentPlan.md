@@ -7,6 +7,16 @@
 **Status**: **DRAFT — forward-looking**, lower fidelity than Phases 1/2. Concrete sprint scope is set after Phase 2 closure publishes; this doc establishes shape, count, and gating decisions so capacity planning can begin.
 **Authoritative inputs**: [Release Plan / MVP §1.1](04_ReleasePlan_MVPScope_AdaptiveLearningPlatform.docx) (Phase 3 scope: B2B API writes, live tutor marketplace, content marketplace, advanced institution analytics — predictive), [Phase 2 Sprint Plan](19_Phase2_SprintDevelopmentPlan.md) (P3 inherits any P2 carry-overs).
 
+**Service ownership** (post-[ADR-0005](../adr/0005-service-consolidation.md)): the platform now ships **5 backend services + 1 reserved P3 slot**. Phase 3 work lands in:
+
+- **alp-marketplace** *(new in P3-S0)* — tutor profiles, availability, bookings, ratings, creator profiles, course listings, revenue-share ledger, Stripe Connect tutor + creator onboarding events. Greenfield service; the 6th and final slot under the service ceiling.
+- **alp-payment** — extends existing `payment` module: Stripe Connect splits, payout cycles, refunds, royalty math. **Do not** create a new "payouts" service.
+- **alp-engagement** — extends existing `analytics` module with predictive features (drop-out forecasting, intervention triggers, recommendations). **Do not** create a separate "predictive" or "ML" service; the feature store and model-serving thin layer live alongside the existing EWA/readiness code.
+- **alp-identity** — extends `institution` module for B2B API write-side (webhooks, partner API keys) and `auth` for tutor/creator role enums.
+- **alp-learning** — extends `content` for marketplace course authoring v2 + creator review pipeline; extends `adaptive` for recommendation feature engineering against the existing IRT signals.
+
+If a P3 work item appears to need a new backend service that doesn't fit any of the above, it requires a new ADR per the service-ceiling rule in ADR-0005.
+
 ---
 
 ## What changes vs. Phase 2
