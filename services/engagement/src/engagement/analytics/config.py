@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     port: int = Field(default=38006)
 
     database_url: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:35432/analytics"
+        default="postgresql+asyncpg://postgres:postgres@localhost:35432/engagement"
     )
     # Read-only handle into Quiz's DB for the nightly backfill (Sprint 4).
     # Analytics already trusts quiz_schema.quiz_sessions as the source of

@@ -16,6 +16,7 @@
 | "We rolled back but the old version is serving stale cache" | [cache_flush.md](cache_flush.md) (Step 2.5 of rollback) |
 | "A feature needs to be disabled right now" | [feature_flag_kill_switch.md](feature_flag_kill_switch.md) |
 | "JetStream messages dropped / consumer caught up but missed events" | [nats_dlq.md](nats_dlq.md) |
+| "Did the deploy actually work end-to-end?" | [smoke_test.md](smoke_test.md) (`make smoke`) |
 | "An incident just closed — what do we document?" | [pir_template.md](pir_template.md) |
 | "Who do I page?" | [contacts.md](contacts.md) → PagerDuty |
 

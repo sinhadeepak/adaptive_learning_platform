@@ -44,6 +44,13 @@ extend = "../../ruff.toml"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Sprint 14: integration tests need a live Postgres + NATS + (sometimes) SMTP.
+# `pytest` skips them by default; CI / on-demand: `pytest -m integration`
+# or `pytest -m ''` for everything.
+markers = [
+    "integration: needs live infra (Postgres + NATS + Mailpit) — opt-in",
+]
+addopts = "-m 'not integration'"
 
 [tool.mypy]
 strict = true

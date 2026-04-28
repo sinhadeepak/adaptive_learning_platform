@@ -2,7 +2,19 @@
 
 **Purpose**: decide whether to roll back after a post-deploy incident, then execute safely. Covers GAP-12 (decision tree) and GAP-17 (manual `kubectl` fallback when ArgoCD is unavailable).
 
-**Pre-authorised actors**: see [delegation order](../docs/05_launch/03_DelegationOrder.md) §2. Anyone level-1 and above may execute `kubectl rollout undo`; Payment / Auth / Quiz full-service disables require level-4+.
+**Pre-authorised actors**: see [delegation order](../docs/05_launch/03_DelegationOrder.md) §2. Anyone level-1 and above may execute `kubectl rollout undo`; **`alp-payment` / `alp-identity` / `alp-quiz`** full-service disables require level-4+.
+
+**Service inventory** (post-[ADR-0005](../docs/adr/0005-service-consolidation.md), 5 deployables):
+
+| Service | Stack | Hosts |
+|---|---|---|
+| `alp-identity` | Python | auth, profile, institution (incl. flags) |
+| `alp-payment` | Python | Stripe checkout + webhooks (standalone) |
+| `alp-learning` | Python | catalog, content, doubts, search, adaptive |
+| `alp-quiz` | Go | quiz session FSM + IRT |
+| `alp-engagement` | Python | analytics, notification (durable JetStream consumers) |
+
+**Trade-off introduced by consolidation**: rolling back `alp-engagement` rolls back both analytics + notification together. The pre-consolidation per-service rollback granularity is gone. If you only need to disable one module, prefer **feature-flag kill-switch** over rollback (see [feature_flag_kill_switch.md](feature_flag_kill_switch.md)).
 
 **Default bias**: roll back. A reversible mistake is cheaper than a live incident. If you are asking "should I roll back?", the answer is usually yes.
 
@@ -18,8 +30,8 @@
 | Slow query alerts on Aurora correlated with deploy | **Maybe — see §1.1** | Could be rollback, could be a query that needs an index. |
 | Error rate unchanged, latency +10–20% p99 | **Investigate first** | Capacity issue ≠ bug. HPA may still absorb it. |
 | Error rate unchanged, latency +50% p99 | **Rollback** | Whatever caused this, it's not going to be fun to debug under load. |
-| Payment webhook failures > 5% for 5 min | **Rollback + page HoP** | Billing correctness is non-negotiable. |
-| Auth login failure rate > 3% for 5 min | **Rollback + page Tech Lead** | Auth regressions are user-facing by the minute. |
+| `alp-payment` webhook failures > 5% for 5 min | **Rollback + page HoP** | Billing correctness is non-negotiable. Rollback `alp-payment` only — independent of `alp-identity`. |
+| `alp-identity` `/auth/login` failure rate > 3% for 5 min | **Rollback + page Tech Lead** | Auth regressions are user-facing by the minute. Rolling back `alp-identity` also rolls back profile + flags + institution; flag a kill-switch for those modules before rollback if possible. |
 | A single user reporting a bug | **No — do not rollback** | File a ticket; prioritise in the next sprint. |
 | Partial feature working, full recovery expected via retries | **No — monitor** | But set a 15-min timer; if not recovered, re-evaluate. |
 
@@ -38,7 +50,7 @@ If Aurora CPU > 80% or slow-query alerts within 15 min of deploy:
 
 Use this path when ArgoCD is healthy. This is ~99% of incidents.
 
-1. Open ArgoCD UI → target application (e.g. `auth`, `quiz`).
+1. Open ArgoCD UI → target application (e.g. `alp-identity`, `alp-quiz`, `alp-learning`, `alp-engagement`, `alp-payment`).
 2. Click **History and rollback**.
 3. Select the previous **green** revision — usually the one just before the active row.
 4. Click **Rollback**. Confirm.

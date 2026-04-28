@@ -12,7 +12,7 @@ from sqlalchemy import text
 # event loop binding (function-scoped pytest-asyncio).
 os.environ.setdefault(
     "ANALYTICS_DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:35432/analytics",
+    "postgresql+asyncpg://postgres:postgres@localhost:35432/engagement",
 )
 
 from engagement.analytics import db

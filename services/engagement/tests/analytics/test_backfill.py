@@ -13,6 +13,8 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+
+pytestmark = pytest.mark.integration
 import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine

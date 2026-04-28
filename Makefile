@@ -55,6 +55,10 @@ dev-logs: ## Tail logs for the local stack
 dev-seed: ## Run seed script against local Postgres + NATS (placeholder until Sprint 1)
 	@echo "→ dev-seed: implemented in Sprint 1 (scripts/seed_staging.py, GAP-09)"
 
+.PHONY: smoke
+smoke: ## Run end-to-end golden-path smoke against the running stack (16 assertions).
+	@bash scripts/smoke_test.sh
+
 # -- consolidation (ADR-0005) — historical contract-test harness left in place
 #    for any future module-level boundary changes.
 
