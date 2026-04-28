@@ -1,33 +1,41 @@
-"""Seed 20 PUBLISHED questions per topic across every exam.
+"""Seed 20 PUBLISHED questions per topic across every exam — REAL
+exam-prep questions (not templated dummies).
 
 Drives the demo/local stack — the cascading dropdown on /questions/new
 and the student-facing topic detail screens both look empty without a
-populated question bank. With this migration applied, every topic the
-catalog seed creates has 20 ready-to-serve MCQs.
+populated question bank. Question content lives in
+`services/content/seed/question_bank.py` so both Content (here) and
+Quiz (services/quiz/migrations/004_seed_full_question_bank.up.sql via
+the python-side build script) consume the same source.
 
 Local-only: guarded by CONTENT_SEED_LOCAL=1 (set in docker-compose for
 the content service). Absent in staging / production where real
 authors create questions through the review pipeline.
 
 Idempotent via deterministic question UUIDs (uuid5 over a stable
-namespace + a topic_id/index pair). Re-running is a no-op once the
-rows exist; ON CONFLICT (id) DO NOTHING handles the second pass.
+namespace + (topic_id, 1-based index)). Re-running is a no-op once the
+rows exist; ON CONFLICT (id) DO NOTHING handles the second pass. The
+namespace was BUMPED for the v2 (real-content) bank so the UUIDs are
+distinct from the v1 dummy data — `make seed-restore` will insert the
+new rows alongside any old dummy rows still present, but
+restore_seed.py wipes first to keep the local stack clean.
 
 All rows land as status='PUBLISHED' with created_by = the seed admin
-(00000000-0000-0000-0000-000000000004). Skipping the DRAFT→REVIEW path
-is intentional — these are demo data, not authored content.
+(00000000-0000-0000-0000-000000000004).
 
 Revision ID: 003
 Revises: 002
-Create Date: 2026-04-26
+Create Date: 2026-04-26 (refreshed with real content 2026-04-28)
 """
 
 from __future__ import annotations
 
 import json
 import os
+import sys
 import uuid
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 from alembic import op
@@ -44,14 +52,18 @@ SCHEMA = "content_schema"
 # seed questions show a sensible audit trail.
 SEED_ADMIN_ID = "00000000-0000-0000-0000-000000000004"
 
-# Stable namespace for uuid5 — gives us deterministic question IDs so
-# re-running this migration on a partially-seeded DB is a no-op.
+# Stable namespace for uuid5. Kept on v1 so existing rows in long-lived
+# local DBs (which were inserted with this namespace when the seed was
+# templated dummy content) are matched by id and UPDATED in place by
+# scripts/restore_seed.py — `assignment_questions` has an FK to
+# `questions.id`, so deleting+reinserting at a new namespace would break
+# any assignment that already references a seeded row.
 QUESTION_NAMESPACE = uuid.UUID("a0000000-0000-4000-a000-000000000001")
 
 QUESTIONS_PER_TOPIC = 20
 
-# (topic_id, topic_title) — must match catalog migrations 002 + 007.
-# Order chosen so the seeded ids in content roughly track exam order.
+# (topic_id, topic_title) — must match catalog migrations 002 + 007 AND
+# the keys in services/content/seed/question_bank.py::TOPIC_QUESTIONS.
 TOPICS: list[tuple[str, str]] = [
     # JEE Main (catalog 002)
     ("33333333-0000-0000-0000-000000000001", "Mechanics"),
@@ -83,47 +95,48 @@ TOPICS: list[tuple[str, str]] = [
     ("33333333-0000-0000-0000-000000000024", "Data Interpretation"),
 ]
 
-# Stem templates rotated across the 20 questions so each topic gets a
-# variety of phrasing. {topic} is filled per row; {n} is the 1-based
-# question index within the topic.
-STEM_TEMPLATES = [
-    "{topic} — Question {n}: Which of the following best describes the core principle?",
-    "{topic} — Question {n}: Identify the correct statement.",
-    "{topic} — Question {n}: Which option is NOT a feature of this concept?",
-    "{topic} — Question {n}: What is the most accurate explanation?",
-    "{topic} — Question {n}: Choose the correct answer.",
-]
-
-# Difficulty cycle (IRT b parameter) — covers easy → hard.
-DIFFICULTY_CYCLE = [-1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5]
-
 
 def _question_id(topic_id: str, idx: int) -> str:
     return str(uuid.uuid5(QUESTION_NAMESPACE, f"{topic_id}-{idx}"))
 
 
+def _load_question_bank() -> dict[str, list[dict[str, Any]]]:
+    """Import services/content/seed/question_bank.py from the migration
+    context. Alembic doesn't add the service root to sys.path, so we
+    insert it manually relative to this file."""
+    here = Path(__file__).resolve()
+    seed_dir = here.parent.parent.parent / "seed"
+    if str(seed_dir) not in sys.path:
+        sys.path.insert(0, str(seed_dir))
+    import question_bank  # type: ignore[import-not-found]
+
+    return question_bank.TOPIC_QUESTIONS
+
+
 def _build_rows() -> list[dict[str, Any]]:
+    bank = _load_question_bank()
     rows: list[dict[str, Any]] = []
     for topic_id, topic_title in TOPICS:
-        for i in range(QUESTIONS_PER_TOPIC):
-            n = i + 1
-            stem = STEM_TEMPLATES[i % len(STEM_TEMPLATES)].format(
-                topic=topic_title, n=n
+        if topic_title not in bank:
+            raise RuntimeError(
+                f"Topic {topic_title!r} missing from question_bank.TOPIC_QUESTIONS"
             )
-            choices = [
-                f"{topic_title} — option A for Q{n}",
-                f"{topic_title} — option B for Q{n}",
-                f"{topic_title} — option C for Q{n}",
-                f"{topic_title} — option D for Q{n}",
-            ]
+        questions = bank[topic_title]
+        if len(questions) != QUESTIONS_PER_TOPIC:
+            raise RuntimeError(
+                f"Topic {topic_title!r} has {len(questions)} questions; "
+                f"expected exactly {QUESTIONS_PER_TOPIC}"
+            )
+        for i, q in enumerate(questions):
+            n = i + 1
             rows.append(
                 {
                     "id": _question_id(topic_id, n),
                     "topic_id": topic_id,
-                    "stem": stem,
-                    "choices": json.dumps(choices),
-                    "correct_idx": i % 4,
-                    "difficulty_b": DIFFICULTY_CYCLE[i % len(DIFFICULTY_CYCLE)],
+                    "stem": q["stem"],
+                    "choices": json.dumps(q["choices"]),
+                    "correct_idx": int(q["correct_idx"]),
+                    "difficulty_b": float(q["difficulty_b"]),
                     "language": "en",
                     "status": "PUBLISHED",
                     "created_by": SEED_ADMIN_ID,

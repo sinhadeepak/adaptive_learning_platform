@@ -1,13 +1,21 @@
-"""Idempotent re-seed for the 480-row local question bank.
+"""Restore the local 480-row Content question bank with real exam-prep data.
 
 Why this exists: integration tests TRUNCATE content_schema.questions
-between runs (they share the compose Postgres at port 35432). The seed
-migration `003_seed_question_bank` only runs once; once recorded,
-alembic won't re-execute it. This script imports the migration's pure
-`_build_rows()` data builder and re-inserts via ON CONFLICT DO NOTHING.
+between runs, and the seed migration `003_seed_question_bank` only
+runs once (alembic_version locks it). This script imports the
+migration's pure `_build_rows()` data builder (which itself reads from
+`services/content/seed/question_bank.py`, the single source of truth
+shared with Quiz) and reapplies the rows.
 
-Safe to run repeatedly: every INSERT keys on the deterministic UUID
-the seed builder generates from (topic_id, question_index).
+Strategy: UPDATE in place keyed on the deterministic uuid5 id so
+existing rows keep their primary key. `assignment_questions.question_id`
+has an FK to `questions.id` — a DELETE+INSERT would either fail
+outright or silently break any assignment already pointing at a
+seeded row. UPDATE preserves those references while overwriting the
+templated dummy content with real questions/choices.
+
+Idempotent: re-running rewrites the same fields with the same values.
+INSERT path is reserved for fresh DBs where the row doesn't exist yet.
 """
 
 from __future__ import annotations
@@ -51,45 +59,61 @@ async def main() -> None:
         password="postgres",  # noqa: S106
         database="content",
     )
+    updated = 0
+    inserted = 0
     try:
-        # Insert in chunks of 50 to stay well under the asyncpg parameter
-        # limit (it caps at 32k params per query — 50 rows × 9 columns =
-        # 450, plenty of headroom).
-        chunk = 50
-        for start in range(0, len(rows), chunk):
-            batch = rows[start : start + chunk]
-            values_sql = ", ".join(
-                f"(${i*9+1}::uuid, ${i*9+2}::uuid, ${i*9+3}, ${i*9+4}::jsonb, "
-                f"${i*9+5}, ${i*9+6}, ${i*9+7}, ${i*9+8}, ${i*9+9}::uuid)"
-                for i in range(len(batch))
-            )
-            params: list = []
-            for r in batch:
-                params.extend(
-                    [
-                        r["id"],
-                        r["topic_id"],
-                        r["stem"],
-                        json.dumps(r["choices"]),
-                        r["correct_idx"],
-                        r["difficulty_b"],
-                        r["language"],
-                        r["status"],
-                        r["created_by"],
-                    ]
-                )
-            await conn.execute(
-                f"""
-                INSERT INTO content_schema.questions (
-                  id, topic_id, stem, choices, correct_idx, difficulty_b,
-                  language, status, created_by
-                ) VALUES {values_sql}
-                ON CONFLICT (id) DO NOTHING
+        for r in rows:
+            choices_json = json.dumps(r["choices"])
+            tag = await conn.execute(
+                """
+                UPDATE content_schema.questions
+                   SET stem = $1,
+                       choices = $2::jsonb,
+                       correct_idx = $3,
+                       difficulty_b = $4,
+                       language = $5,
+                       status = $6
+                 WHERE id = $7::uuid
                 """,
-                *params,
+                r["stem"],
+                choices_json,
+                r["correct_idx"],
+                r["difficulty_b"],
+                r["language"],
+                r["status"],
+                r["id"],
             )
+            if tag.endswith(" 0"):
+                # Fresh DB or different seed generation — INSERT.
+                await conn.execute(
+                    """
+                    INSERT INTO content_schema.questions (
+                      id, topic_id, stem, choices, correct_idx, difficulty_b,
+                      language, status, created_by
+                    ) VALUES (
+                      $1::uuid, $2::uuid, $3, $4::jsonb, $5, $6, $7, $8, $9::uuid
+                    )
+                    ON CONFLICT (id) DO NOTHING
+                    """,
+                    r["id"],
+                    r["topic_id"],
+                    r["stem"],
+                    choices_json,
+                    r["correct_idx"],
+                    r["difficulty_b"],
+                    r["language"],
+                    r["status"],
+                    r["created_by"],
+                )
+                inserted += 1
+            else:
+                updated += 1
+
         n = await conn.fetchval("SELECT COUNT(*) FROM content_schema.questions")
-        print(f"content_schema.questions → {n} rows")
+        print(
+            f"content_schema.questions → updated {updated}, inserted {inserted}, "
+            f"total rows: {n}"
+        )
     finally:
         await conn.close()
 

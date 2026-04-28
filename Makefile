@@ -59,15 +59,17 @@ seed-hindi: ## Seed 15 Hindi MCQs through Content API → bridge → Quiz bank.
 	@cd services/content && uv run python seed/seed_hindi.py
 
 .PHONY: seed-restore
-seed-restore: ## Re-run idempotent seed migrations after a test wipe (auth users + content question bank).
+seed-restore: ## Restore the local seed bank (auth users + 480 real exam-prep questions in Content + Quiz).
 	@echo "→ restoring auth seed (4 test users)"
 	@cd services/auth && AUTH_SEED_LOCAL=1 \
 	  DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:35432/auth \
 	  uv run python scripts/restore_seed.py
-	@echo "→ restoring content seed (480 questions)"
+	@echo "→ restoring content seed (480 questions, real exam-prep content)"
 	@cd services/content && CONTENT_SEED_LOCAL=1 \
 	  DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:35432/content \
 	  uv run python scripts/restore_seed.py
+	@echo "→ restoring quiz seed (mirrors content question bank)"
+	@cd services/content && uv run python ../quiz/scripts/restore_seed.py
 
 .PHONY: analytics-backfill
 analytics-backfill: ## Replay any Quiz SUBMITTED sessions Analytics missed. SINCE=ISO-8601 (default 36h).
