@@ -5,6 +5,7 @@ from alp_telemetry import TraceContextMiddleware
 from fastapi import FastAPI
 
 from content import __version__, events
+from content import quiz_session_subscriber as quiz_sub
 from content.config import settings
 from content.db import dispose
 from content.logging import configure_logging
@@ -16,9 +17,13 @@ from content.routes import router as content_router
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     await events.connect()
+    # Sprint 12 S12-D — subscribe to quiz.session.completed for ASSIGNMENT
+    # mode score mirroring.
+    await quiz_sub.connect()
     try:
         yield
     finally:
+        await quiz_sub.close()
         await events.close()
         await dispose()
 

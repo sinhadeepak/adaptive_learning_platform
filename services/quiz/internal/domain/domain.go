@@ -66,6 +66,11 @@ type Session struct {
 	StartedAt       time.Time
 	ExpiresAt       time.Time
 	SubmittedAt     *time.Time
+	// Sprint 12 S12-D — when Mode == ASSIGNMENT, this holds the
+	// content_schema.assignments id this session was opened from. The
+	// quiz.session.completed payload carries it through so Content's
+	// subscriber can mirror the score into assignment_progress.
+	AssignmentID *uuid.UUID
 }
 
 func (s Session) IsExpired(now time.Time) bool {

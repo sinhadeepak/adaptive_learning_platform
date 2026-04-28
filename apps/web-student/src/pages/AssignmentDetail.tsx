@@ -6,7 +6,7 @@
 // upsert_progress (no manual score-entry step).
 
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { AppShell } from "../components/AppShell";
 import {
@@ -14,14 +14,18 @@ import {
   fetchAssignmentQuestions,
   formatDueAt,
   progressBucket,
+  startAssignmentQuiz,
   submitAssignment,
   type Assignment,
   type AssignmentQuestion,
   type SubmitResult,
 } from "../lib/assignments";
+import { useAuth } from "../lib/auth-provider";
 
 export function AssignmentDetail() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [questions, setQuestions] = useState<AssignmentQuestion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -142,6 +146,25 @@ export function AssignmentDetail() {
             ) : (
               // ── Quiz form ───────────────────────────────────────────
               <>
+                {/* Sprint 12 S12-D — primary CTA: route through the
+                    real Quiz session FSM. Inline radios stay as a
+                    fallback for users who'd rather not navigate away. */}
+                <button
+                  className="btn-primary"
+                  style={{ marginBottom: 16 }}
+                  onClick={async () => {
+                    if (!assignmentId || !user) return;
+                    try {
+                      const s = await startAssignmentQuiz(assignmentId, user.id);
+                      navigate(`/quiz/${s.sessionId}`);
+                    } catch (err) {
+                      setError((err as Error).message);
+                    }
+                  }}
+                  disabled={!user || !questions || questions.length === 0}
+                >
+                  ▶ Start as Quiz
+                </button>
                 <h2>Questions ({questions?.length ?? 0})</h2>
                 {questions === null ? (
                   <p>Loading questions…</p>

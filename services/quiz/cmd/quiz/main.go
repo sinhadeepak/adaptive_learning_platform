@@ -17,6 +17,7 @@ import (
 	"github.com/adaptive-learn/alptelemetry"
 	"github.com/adaptive-learn/quiz/internal/adaptive"
 	"github.com/adaptive-learn/quiz/internal/config"
+	"github.com/adaptive-learn/quiz/internal/content"
 	"github.com/adaptive-learn/quiz/internal/db"
 	"github.com/adaptive-learn/quiz/internal/events"
 	"github.com/adaptive-learn/quiz/internal/flags"
@@ -77,7 +78,8 @@ func main() {
 	}
 
 	sess := server.NewSessionService(st, flagClient, adaptiveClient, publisher, cfg.SessionTTL).
-		WithJWTSecret(cfg.JWTSecret)
+		WithJWTSecret(cfg.JWTSecret).
+		WithContentClient(content.New(cfg.ContentURL))
 
 	mux := http.NewServeMux()
 	mux.Handle("/", server.Router(logger, sess, flagClient))

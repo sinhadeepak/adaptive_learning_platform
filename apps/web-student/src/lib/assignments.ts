@@ -81,6 +81,29 @@ export async function submitAssignment(
   return api.post<SubmitResult>(`/content/assignments/${id}/submit`, { answers });
 }
 
+// Sprint 12 S12-D — start a real Quiz session pinned to the educator's
+// question list. The student plays through the existing /quiz/{id}
+// surface; on submit Quiz publishes quiz.session.completed and Content's
+// subscriber mirrors the score into assignment_progress.
+export interface QuizFromAssignment {
+  sessionId: string;
+  assignmentId: string;
+  mode: string;
+  status: string;
+  expiresAt: string;
+  itemCount: number;
+}
+
+export async function startAssignmentQuiz(
+  assignmentId: string,
+  userId: string,
+): Promise<QuizFromAssignment> {
+  return api.post<QuizFromAssignment>("/quiz/sessions/from-assignment", {
+    assignmentId,
+    userId,
+  });
+}
+
 // ── Pure helpers ─────────────────────────────────────────────────────────
 
 export type ProgressBucket = "completed" | "due-soon" | "overdue" | "open";

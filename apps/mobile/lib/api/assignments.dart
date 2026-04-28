@@ -198,6 +198,45 @@ class AssignmentsClient {
     }
     return SubmitResult.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
   }
+
+  /// Sprint 12 S12-D — start an ASSIGNMENT-mode Quiz session pinned to
+  /// the educator's question list. Returns the sessionId; caller pushes
+  /// the QuizScreen with that id. On submit, Quiz publishes
+  /// quiz.session.completed and Content's subscriber mirrors the score
+  /// into assignment_progress.
+  Future<QuizFromAssignment> startAsQuiz(
+    String assignmentId, {
+    required String userId,
+  }) async {
+    final r = await auth.apiPost('/quiz/sessions/from-assignment', {
+      'assignmentId': assignmentId,
+      'userId': userId,
+    });
+    if (r.statusCode != 201) {
+      throw Exception('Could not start quiz (${r.statusCode})');
+    }
+    return QuizFromAssignment.fromJson(
+      jsonDecode(r.body) as Map<String, dynamic>,
+    );
+  }
+}
+
+class QuizFromAssignment {
+  QuizFromAssignment({
+    required this.sessionId,
+    required this.assignmentId,
+    required this.itemCount,
+  });
+  final String sessionId;
+  final String assignmentId;
+  final int itemCount;
+
+  factory QuizFromAssignment.fromJson(Map<String, dynamic> j) =>
+      QuizFromAssignment(
+        sessionId: j['sessionId'] as String,
+        assignmentId: j['assignmentId'] as String,
+        itemCount: (j['itemCount'] as num).toInt(),
+      );
 }
 
 enum ProgressBucket { completed, overdue, dueSoon, open }

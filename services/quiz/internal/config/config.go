@@ -14,6 +14,8 @@ type Settings struct {
 	NATSURL           string
 	InstitutionURL    string
 	AdaptiveURL       string
+	// Sprint 12 S12-D — Content base URL for assignment question lookup.
+	ContentURL        string
 	AdaptiveTimeoutMS int
 	SessionTTL        time.Duration
 	MigrationsDir     string
@@ -28,6 +30,7 @@ func Load() (Settings, error) {
 		NATSURL:        getenv("QUIZ_NATS_URL", "nats://localhost:34222"),
 		InstitutionURL: getenv("QUIZ_INSTITUTION_BASE_URL", "http://localhost:38008"),
 		AdaptiveURL:    getenv("QUIZ_ADAPTIVE_BASE_URL", "http://localhost:38010"),
+		ContentURL:     getenv("QUIZ_CONTENT_BASE_URL", "http://localhost:38004"),
 		MigrationsDir:  getenv("QUIZ_MIGRATIONS_DIR", "migrations"),
 		JWTSecret:      getenv("QUIZ_JWT_SECRET", "dev-only-change-me-in-staging-at-least-32-bytes-long"),
 		Environment:    getenv("QUIZ_ENVIRONMENT", "local"),

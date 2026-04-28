@@ -1,12 +1,13 @@
-// Sprint 9 F-2 + Sprint 10 S10-D — mobile assignment detail.
-//
-// Renders the question list with inline answer-radio buttons. After the
-// student answers all and taps Submit, the page calls POST /submit; the
-// server grades and returns the breakdown. No more manual score entry.
+// Sprint 9 F-2 + Sprint 10 S10-D + Sprint 12 S12-D — mobile assignment
+// detail. Two paths:
+//   - "▶ Start as Quiz" routes through the Quiz session FSM (preferred).
+//   - Inline answer radios as a fallback (offline-friendly path).
 
 import 'package:flutter/material.dart';
 
 import '../api/assignments.dart';
+import '../quiz/quiz_client.dart';
+import '../quiz/quiz_screen.dart';
 
 class AssignmentDetailScreen extends StatefulWidget {
   const AssignmentDetailScreen({
@@ -158,6 +159,35 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
     );
   }
 
+  Future<void> _startAsQuiz() async {
+    final user = widget.client.auth.user;
+    if (user == null) return;
+    setState(() => _error = null);
+    try {
+      final r = await widget.client.startAsQuiz(
+        widget.assignmentId,
+        userId: user.id,
+      );
+      if (!mounted) return;
+      // Push the existing QuizScreen — same play loop as PRACTICE/MOCK
+      // sessions. On submit, Quiz publishes quiz.session.completed and
+      // Content's subscriber upserts assignment_progress.
+      final qc = QuizClient(auth: widget.client.auth);
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              QuizScreen(client: qc, sessionId: r.sessionId),
+        ),
+      );
+      // After returning from the QuizScreen, refresh so myCompletedAt
+      // reflects the just-completed session.
+      _load();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = '$e');
+    }
+  }
+
   Widget _buildQuiz() {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -170,6 +200,18 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(formatDueAt(_assignment!),
                 style: const TextStyle(color: Colors.black54)),
+          ),
+        const SizedBox(height: 16),
+        // Sprint 12 S12-D — primary CTA: route through the real Quiz
+        // session FSM. Inline radios stay below as a fallback for users
+        // who'd rather not navigate away.
+        if (_questions!.isNotEmpty)
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _startAsQuiz,
+              child: const Text('▶ Start as Quiz'),
+            ),
           ),
         const SizedBox(height: 24),
         if (_questions!.isEmpty)

@@ -312,11 +312,13 @@ func (s *Store) CreateSession(ctx context.Context, sess domain.Session) error {
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO quiz_schema.quiz_sessions
 		  (id, user_id, tenant_id, topic_id, mode, strategy, status, target_count,
-		   served_count, correct_count, ability_estimate, started_at, expires_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+		   served_count, correct_count, ability_estimate, started_at, expires_at,
+		   assignment_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
 		sess.ID, sess.UserID, sess.TenantID, sess.TopicID, sess.Mode, sess.Strategy,
 		sess.Status, sess.TargetCount, sess.ServedCount, sess.CorrectCount,
 		sess.AbilityEstimate, sess.StartedAt, sess.ExpiresAt,
+		sess.AssignmentID,
 	)
 	if err != nil {
 		return fmt.Errorf("insert session: %w", err)
@@ -330,11 +332,11 @@ func (s *Store) GetSession(ctx context.Context, id uuid.UUID) (domain.Session, e
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, user_id, COALESCE(tenant_id,''), topic_id, mode, strategy, status,
 		       target_count, served_count, correct_count, ability_estimate,
-		       started_at, expires_at, submitted_at
+		       started_at, expires_at, submitted_at, assignment_id
 		FROM quiz_schema.quiz_sessions WHERE id = $1`, id,
 	).Scan(&sess.ID, &sess.UserID, &sess.TenantID, &sess.TopicID, &sess.Mode, &sess.Strategy,
 		&sess.Status, &sess.TargetCount, &sess.ServedCount, &sess.CorrectCount, &sess.AbilityEstimate,
-		&sess.StartedAt, &sess.ExpiresAt, &sess.SubmittedAt)
+		&sess.StartedAt, &sess.ExpiresAt, &sess.SubmittedAt, &sess.AssignmentID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return sess, ErrSessionNotFound
 	}

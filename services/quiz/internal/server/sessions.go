@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/adaptive-learn/quiz/internal/adaptive"
+	"github.com/adaptive-learn/quiz/internal/content"
 	"github.com/adaptive-learn/quiz/internal/domain"
 	"github.com/adaptive-learn/quiz/internal/events"
 	"github.com/adaptive-learn/quiz/internal/store"
@@ -40,6 +41,10 @@ type SessionService struct {
 	// allowed for backwards compatibility); production sets this from
 	// QUIZ_JWT_SECRET so tier gating is enforced.
 	jwtSecret string
+	// Sprint 12 S12-D — Content client for ASSIGNMENT mode session
+	// creation. nil when QUIZ_CONTENT_BASE_URL is unset (tests / partial
+	// stacks); the from-assignment endpoint then 503s.
+	contentClient *content.Client
 }
 
 func NewSessionService(
@@ -65,6 +70,13 @@ func NewSessionService(
 // test fixtures don't need to change.
 func (svc *SessionService) WithJWTSecret(s string) *SessionService {
 	svc.jwtSecret = s
+	return svc
+}
+
+// WithContentClient wires the Sprint 12 S12-D from-assignment endpoint.
+// Optional — when unset, the endpoint returns 503.
+func (svc *SessionService) WithContentClient(c *content.Client) *SessionService {
+	svc.contentClient = c
 	return svc
 }
 
@@ -172,6 +184,149 @@ func (svc *SessionService) Start(logger *slog.Logger) http.HandlerFunc {
 			Mode:      string(sess.Mode),
 			Status:    string(sess.Status),
 			ExpiresAt: sess.ExpiresAt,
+		})
+	}
+}
+
+// Sprint 12 S12-D — from-assignment session creation.
+
+type fromAssignmentRequest struct {
+	AssignmentID string `json:"assignmentId"`
+	UserID       string `json:"userId"`
+	TenantID     string `json:"tenantId,omitempty"`
+}
+
+type fromAssignmentResponse struct {
+	SessionID    string    `json:"sessionId"`
+	AssignmentID string    `json:"assignmentId"`
+	Mode         string    `json:"mode"`
+	Status       string    `json:"status"`
+	ExpiresAt    time.Time `json:"expiresAt"`
+	ItemCount    int       `json:"itemCount"`
+}
+
+// StartFromAssignment opens an ASSIGNMENT-mode session pinned to the
+// educator-curated question list. Calls Content over HTTP (forwarding
+// the inbound bearer) to fetch the questions, then pre-serves them via
+// the existing ServeQuestion path so /next walks them in order rather
+// than going through the IRT/binary-search picker.
+func (svc *SessionService) StartFromAssignment(logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if svc.contentClient == nil {
+			writeProblem(w, http.StatusServiceUnavailable,
+				"content_unreachable", "Content service base URL not configured")
+			return
+		}
+		var req fromAssignmentRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeProblem(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
+			return
+		}
+		if req.AssignmentID == "" || req.UserID == "" {
+			writeProblem(w, http.StatusBadRequest, "missing_field",
+				"assignmentId and userId are required")
+			return
+		}
+		assignmentID, err := uuid.Parse(req.AssignmentID)
+		if err != nil {
+			writeProblem(w, http.StatusBadRequest, "invalid_assignment_id",
+				"assignmentId must be a UUID")
+			return
+		}
+		userID, err := uuid.Parse(req.UserID)
+		if err != nil {
+			writeProblem(w, http.StatusBadRequest, "invalid_user_id",
+				"userId must be a UUID")
+			return
+		}
+
+		// Forward the inbound bearer to Content — its `published_at IS
+		// NULL` check + role gate runs against the same JWT.
+		bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		bearer = strings.TrimPrefix(bearer, "bearer ")
+		if bearer == "" {
+			writeProblem(w, http.StatusUnauthorized, "missing_token",
+				"Bearer token required")
+			return
+		}
+
+		questions, err := svc.contentClient.FetchAssignmentQuestions(
+			r.Context(), bearer, assignmentID,
+		)
+		if errors.Is(err, content.ErrAssignmentNotFound) {
+			writeProblem(w, http.StatusNotFound, "assignment_not_found",
+				"No published assignment with that id")
+			return
+		}
+		if err != nil {
+			logger.Error("content.fetch_questions.failed", "err", err)
+			writeProblem(w, http.StatusBadGateway, "content_error",
+				"Content service is unavailable")
+			return
+		}
+		if len(questions) == 0 {
+			writeProblem(w, http.StatusUnprocessableEntity, "empty_assignment",
+				"Assignment has no questions yet")
+			return
+		}
+
+		// Pick a representative topic for the session. Educator may have
+		// pulled questions from multiple topics; we record the first one
+		// so analytics / mastery flows still join cleanly. The full
+		// per-question topic mapping is in assignment_questions on the
+		// Content side.
+		topicID := uuid.Nil
+		for _, q := range questions {
+			if q.TopicID != nil {
+				topicID = *q.TopicID
+				break
+			}
+		}
+
+		now := svc.clock()
+		sess := domain.Session{
+			ID:           uuid.New(),
+			UserID:       userID,
+			TenantID:     req.TenantID,
+			TopicID:      topicID,
+			Mode:         domain.ModeAssignment,
+			Strategy:     domain.StrategyBinarySearch, // not used; ASSIGNMENT walks the pinned list
+			Status:       domain.StatusInProgress,
+			TargetCount:  int16(len(questions)),
+			StartedAt:    now,
+			ExpiresAt:    now.Add(svc.sessionTTL),
+			AssignmentID: &assignmentID,
+		}
+		if err := svc.store.CreateSession(r.Context(), sess); err != nil {
+			logger.Error("create_session.failed", "err", err)
+			writeProblem(w, http.StatusInternalServerError, "store_error",
+				"Failed to create session")
+			return
+		}
+
+		// Pre-serve the educator's exact ordering so /next walks them in
+		// `position` order without hitting the picker. ServeQuestion is
+		// idempotent on (session, item_idx); a partial failure is safe
+		// to retry.
+		for idx, q := range questions {
+			if err := svc.store.ServeQuestion(
+				r.Context(), sess.ID, int16(idx), q.QuestionID, now,
+			); err != nil {
+				logger.Error("preserve_question.failed",
+					"err", err, "session", sess.ID, "idx", idx)
+				writeProblem(w, http.StatusInternalServerError, "store_error",
+					"Failed to seed assignment items")
+				return
+			}
+		}
+
+		writeJSON(w, http.StatusCreated, fromAssignmentResponse{
+			SessionID:    sess.ID.String(),
+			AssignmentID: assignmentID.String(),
+			Mode:         string(sess.Mode),
+			Status:       string(sess.Status),
+			ExpiresAt:    sess.ExpiresAt,
+			ItemCount:    len(questions),
 		})
 	}
 }
@@ -473,6 +628,11 @@ func (svc *SessionService) Submit(logger *slog.Logger) http.HandlerFunc {
 				Score:           score,
 				SubmittedAt:     submittedAt,
 				TS:              svc.clock(),
+			}
+			// Sprint 12 S12-D — carry assignment_id through so Content's
+			// subscriber can mirror the score into assignment_progress.
+			if fresh.AssignmentID != nil {
+				ev.AssignmentID = fresh.AssignmentID.String()
 			}
 			if perr := svc.publisher.PublishSessionCompleted(r.Context(), ev); perr != nil {
 				logger.Warn("publish.session_completed.failed", "err", perr, "session", fresh.ID)

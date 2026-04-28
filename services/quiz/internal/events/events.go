@@ -51,6 +51,10 @@ type SessionCompleted struct {
 	Score           float32   `json:"score"`
 	SubmittedAt     time.Time `json:"submitted_at"`
 	TS              time.Time `json:"ts"`
+	// Sprint 12 S12-D — present (and non-empty) only for ASSIGNMENT
+	// mode. Content's quiz_session_subscriber filters on this to mirror
+	// the score into assignment_progress.
+	AssignmentID string `json:"assignment_id,omitempty"`
 }
 
 // JetStreamPublisher publishes to the QUIZ_EVENTS JetStream stream.
