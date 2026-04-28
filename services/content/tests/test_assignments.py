@@ -337,3 +337,72 @@ def test_leaderboard_requires_educator(client: TestClient) -> None:
         headers=_auth(student, "STUDENT"),
     )
     assert r.status_code == 403
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Sprint 10 S10-D — grade_answers (pure) + /submit endpoint
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def test_grade_answers_all_correct() -> None:
+    from content.assignments_repo import grade_answers
+
+    keys = [
+        {"question_id": "q1", "position": 1, "correct_idx": 2},
+        {"question_id": "q2", "position": 2, "correct_idx": 0},
+    ]
+    answers = {"q1": 2, "q2": 0}
+    correct, total, breakdown = grade_answers(keys, answers)
+    assert correct == 2
+    assert total == 2
+    assert all(b["isCorrect"] for b in breakdown)
+
+
+def test_grade_answers_partial_and_missing() -> None:
+    from content.assignments_repo import grade_answers
+
+    keys = [
+        {"question_id": "q1", "position": 1, "correct_idx": 1},
+        {"question_id": "q2", "position": 2, "correct_idx": 3},
+        {"question_id": "q3", "position": 3, "correct_idx": 0},
+    ]
+    # q1 wrong, q2 right, q3 not answered
+    answers = {"q1": 0, "q2": 3}
+    correct, total, breakdown = grade_answers(keys, answers)
+    assert correct == 1
+    assert total == 3
+    assert breakdown[0]["isCorrect"] is False
+    assert breakdown[1]["isCorrect"] is True
+    assert breakdown[2]["isCorrect"] is False
+    assert breakdown[2]["studentAnswer"] is None
+
+
+def test_submit_requires_published_assignment(client: TestClient) -> None:
+    teacher = str(uuid4())
+    student = str(uuid4())
+    cohort = str(uuid4())
+    aid = _create_assignment(client, teacher, cohort)  # DRAFT
+    r = client.post(
+        f"/content/assignments/{aid}/submit",
+        headers=_auth(student, "STUDENT"),
+        json={"answers": {}},
+    )
+    assert r.status_code == 404
+
+
+def test_submit_409_when_no_questions(client: TestClient) -> None:
+    teacher = str(uuid4())
+    student = str(uuid4())
+    cohort = str(uuid4())
+    aid = _create_assignment(client, teacher, cohort)
+    client.post(
+        f"/content/assignments/{aid}/publish",
+        headers=_auth(teacher, "TEACHER"),
+    )
+    r = client.post(
+        f"/content/assignments/{aid}/submit",
+        headers=_auth(student, "STUDENT"),
+        json={"answers": {}},
+    )
+    assert r.status_code == 409
+    assert r.json()["detail"]["code"] == "no_questions"

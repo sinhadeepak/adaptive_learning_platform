@@ -30,8 +30,10 @@ from content import events
 from content.assignments_repo import (
     create_assignment,
     get_assignment,
+    grade_answers,
     list_assignment_progress,
     list_assignment_questions,
+    list_assignment_questions_with_keys,
     list_assignments_for_user,
     list_cohort_assignments,
     publish_assignment,
@@ -247,17 +249,75 @@ async def get_questions(
             detail={"code": "assignment_not_found", "message": "No assignment with that id"},
         )
     rows = await list_assignment_questions(session, assignment_id)
+    # Sprint 10 S10-D — surface choices so the client can render answer
+    # buttons. correct_idx is intentionally absent — submission grading
+    # happens on the server in POST /submit.
     return [
         {
             "questionId": str(r["question_id"]),
             "position": r["position"],
             "stem": r.get("stem"),
+            "choices": r.get("choices"),
             "subjectId": str(r["subject_id"]) if r.get("subject_id") else None,
             "topicId": str(r["topic_id"]) if r.get("topic_id") else None,
             "language": r.get("language"),
         }
         for r in rows
     ]
+
+
+class SubmitBody(BaseModel):
+    """Sprint 10 S10-D — student's answers keyed by question id."""
+
+    answers: dict[str, int] = Field(default_factory=dict)
+
+
+@router.post("/{assignment_id}/submit")
+async def post_submit(
+    assignment_id: str,
+    body: SubmitBody,
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> dict:
+    """Server-side grading + auto-record progress in one round-trip.
+
+    Replaces the type-the-score-yourself UX from Sprint 9. The client
+    sends `{questionId: choiceIdx}`; we grade against the answer key and
+    upsert into assignment_progress. Returns the breakdown so the result
+    page can show CORRECT/WRONG per item.
+    """
+    row = await get_assignment(session, assignment_id)
+    if row is None or row.get("published_at") is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "assignment_not_found", "message": "No assignment with that id"},
+        )
+    keys = await list_assignment_questions_with_keys(session, assignment_id)
+    if not keys:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "no_questions",
+                "message": "Assignment has no questions to grade",
+            },
+        )
+    correct, total, breakdown = grade_answers(keys, body.answers)
+    progress = await upsert_progress(
+        session,
+        assignment_id=assignment_id,
+        user_id=principal.user_id,
+        correct_count=correct,
+        total_count=total,
+    )
+    await session.commit()
+    return {
+        "assignmentId": str(progress["assignment_id"]),
+        "userId": str(progress["user_id"]),
+        "correctCount": progress["correct_count"],
+        "totalCount": progress["total_count"],
+        "completedAt": progress["completed_at"].isoformat(),
+        "breakdown": breakdown,
+    }
 
 
 @router.post("/{assignment_id}/publish", response_model=AssignmentOut)

@@ -38,7 +38,7 @@ export function Assignments() {
   }, []);
 
   return (
-    <AppShell>
+    <AppShell title="My Assignments">
       <main className="assignments-page">
         <h1>My Assignments</h1>
         {error && <p className="banner banner-error">{error}</p>}

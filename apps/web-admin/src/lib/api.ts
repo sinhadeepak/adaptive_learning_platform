@@ -186,3 +186,116 @@ export const adminCatalog = {
     }
   },
 };
+
+// ── Sprint 10 S10-C — Institution Core CRUD (admin surface) ──────────
+
+export interface AdminTenant {
+  id: string;
+  name: string;
+  slug: string;
+  kind: "SCHOOL" | "COACHING_CENTER" | "UNIVERSITY" | "OTHER";
+  seatLimit: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminCohort {
+  id: string;
+  tenantId: string;
+  name: string;
+  exam: string | null;
+  year: number | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface AdminCohortMember {
+  cohortId: string;
+  userId: string;
+  role: "STUDENT" | "LEAD_TEACHER";
+  joinedAt: string;
+}
+
+export const tenants = {
+  async create(input: {
+    name: string;
+    kind: AdminTenant["kind"];
+    slug?: string;
+    seatLimit?: number | null;
+  }): Promise<AdminTenant> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/institution/tenants`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: input.name,
+        kind: input.kind,
+        slug: input.slug,
+        seatLimit: input.seatLimit ?? null,
+      }),
+    });
+    return asJson<AdminTenant>(res);
+  },
+
+  async get(tenantId: string): Promise<AdminTenant> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/institution/tenants/${encodeURIComponent(tenantId)}`,
+    );
+    return asJson<AdminTenant>(res);
+  },
+
+  async cohorts(tenantId: string): Promise<AdminCohort[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/institution/tenants/${encodeURIComponent(tenantId)}/cohorts`,
+    );
+    return asJson<AdminCohort[]>(res);
+  },
+
+  async createCohort(
+    tenantId: string,
+    input: { name: string; exam?: string; year?: number },
+  ): Promise<AdminCohort> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/institution/tenants/${encodeURIComponent(tenantId)}/cohorts`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(input),
+      },
+    );
+    return asJson<AdminCohort>(res);
+  },
+};
+
+export const cohorts = {
+  async members(cohortId: string): Promise<AdminCohortMember[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/institution/cohorts/${encodeURIComponent(cohortId)}/members`,
+    );
+    return asJson<AdminCohortMember[]>(res);
+  },
+
+  async addMember(
+    cohortId: string,
+    input: { userId: string; role?: AdminCohortMember["role"] },
+  ): Promise<AdminCohortMember> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/institution/cohorts/${encodeURIComponent(cohortId)}/members`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: input.userId, role: input.role ?? "STUDENT" }),
+      },
+    );
+    return asJson<AdminCohortMember>(res);
+  },
+
+  async removeMember(cohortId: string, userId: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/institution/cohorts/${encodeURIComponent(cohortId)}/members/${encodeURIComponent(userId)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+  },
+};

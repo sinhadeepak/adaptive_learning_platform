@@ -25,9 +25,27 @@ export interface AssignmentQuestion {
   questionId: string;
   position: number;
   stem: string | null;
+  // Sprint 10 S10-D — choices needed for the in-page answer form. The
+  // correct index is NOT in this payload; submit grades server-side.
+  choices: string[] | null;
   subjectId: string | null;
   topicId: string | null;
   language: string | null;
+}
+
+export interface SubmitResult {
+  assignmentId: string;
+  userId: string;
+  correctCount: number;
+  totalCount: number;
+  completedAt: string;
+  breakdown: {
+    questionId: string;
+    position: number;
+    studentAnswer: number | null;
+    correctAnswer: number;
+    isCorrect: boolean;
+  }[];
 }
 
 export async function listMyAssignments(): Promise<Assignment[]> {
@@ -49,6 +67,13 @@ export async function recordProgress(
   body: { correctCount: number; totalCount: number },
 ): Promise<void> {
   await api.post(`/content/assignments/${id}/progress`, body);
+}
+
+export async function submitAssignment(
+  id: string,
+  answers: Record<string, number>,
+): Promise<SubmitResult> {
+  return api.post<SubmitResult>(`/content/assignments/${id}/submit`, { answers });
 }
 
 // ── Pure helpers ─────────────────────────────────────────────────────────

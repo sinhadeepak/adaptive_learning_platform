@@ -1,11 +1,9 @@
-// Sprint 9 F-1 — Student assignment detail view.
+// Sprint 9 F-1 + Sprint 10 S10-D — Student assignment detail.
 //
-// Loads /content/assignments/{id} + /questions and renders:
-//  - title, description, due date pill
-//  - the educator-curated question list
-//  - "Mark complete" CTA that records progress (placeholder until the
-//    full quiz-runner integration in Sprint 10 — for now it accepts a
-//    correctCount the student types in)
+// The student answers each question inline (4 multiple-choice buttons),
+// then taps Submit. The server grades and returns the breakdown — the
+// page then shows CORRECT/WRONG per item and persists the score via
+// upsert_progress (no manual score-entry step).
 
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -16,9 +14,10 @@ import {
   fetchAssignmentQuestions,
   formatDueAt,
   progressBucket,
-  recordProgress,
+  submitAssignment,
   type Assignment,
   type AssignmentQuestion,
+  type SubmitResult,
 } from "../lib/assignments";
 
 export function AssignmentDetail() {
@@ -26,9 +25,9 @@ export function AssignmentDetail() {
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [questions, setQuestions] = useState<AssignmentQuestion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [correct, setCorrect] = useState<number>(0);
-  const [done, setDone] = useState(false);
+  const [result, setResult] = useState<SubmitResult | null>(null);
 
   useEffect(() => {
     if (!assignmentId) return;
@@ -41,7 +40,6 @@ export function AssignmentDetail() {
         if (cancelled) return;
         setAssignment(a);
         setQuestions(qs);
-        if (a.myCorrectCount != null) setCorrect(a.myCorrectCount);
       })
       .catch((err) => !cancelled && setError((err as Error).message));
     return () => {
@@ -50,14 +48,12 @@ export function AssignmentDetail() {
   }, [assignmentId]);
 
   async function submit() {
-    if (!assignmentId || !questions) return;
+    if (!assignmentId) return;
     setSubmitting(true);
+    setError(null);
     try {
-      await recordProgress(assignmentId, {
-        correctCount: correct,
-        totalCount: questions.length,
-      });
-      setDone(true);
+      const r = await submitAssignment(assignmentId, answers);
+      setResult(r);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -67,14 +63,19 @@ export function AssignmentDetail() {
 
   if (!assignmentId) {
     return (
-      <AppShell>
+      <AppShell title="Assignment">
         <p>Missing assignment id.</p>
       </AppShell>
     );
   }
 
+  const allAnswered =
+    questions !== null &&
+    questions.length > 0 &&
+    questions.every((q) => answers[q.questionId] !== undefined);
+
   return (
-    <AppShell>
+    <AppShell title="Assignment">
       <main className="assignment-detail">
         <Link to="/assignments" className="back-link">
           ← My Assignments
@@ -93,47 +94,96 @@ export function AssignmentDetail() {
             {assignment.description && (
               <p className="assignment-desc">{assignment.description}</p>
             )}
-            <h2>Questions ({questions?.length ?? 0})</h2>
-            {questions === null ? (
-              <p>Loading questions…</p>
+
+            {result ? (
+              // ── Result panel ─────────────────────────────────────────
+              <section className="assignment-result">
+                <h2>
+                  Score: {result.correctCount}/{result.totalCount}
+                </h2>
+                <p>
+                  {result.correctCount === result.totalCount
+                    ? "Perfect — well done!"
+                    : result.correctCount * 2 >= result.totalCount
+                      ? "Solid run. Review the missed items below."
+                      : "Try again — review the explanations and re-attempt."}
+                </p>
+                <ol className="result-breakdown">
+                  {result.breakdown.map((b) => (
+                    <li
+                      key={b.questionId}
+                      className={b.isCorrect ? "ok" : "wrong"}
+                    >
+                      Q{b.position}:{" "}
+                      {b.isCorrect ? "✓ CORRECT" : "✗ WRONG"} (you:{" "}
+                      {b.studentAnswer === null ? "—" : b.studentAnswer + 1},
+                      correct: {b.correctAnswer + 1})
+                    </li>
+                  ))}
+                </ol>
+              </section>
             ) : (
-              <ol className="assignment-questions">
-                {questions.map((q) => (
-                  <li key={q.questionId}>{q.stem || `Question ${q.position}`}</li>
-                ))}
-              </ol>
-            )}
-            <div className="record-progress">
-              <h3>Record your score</h3>
-              <p className="hint">
-                After working through the questions, enter how many you got
-                right. Your educator sees this on the leaderboard.
-              </p>
-              <label>
-                Correct answers:
-                <input
-                  type="number"
-                  min={0}
-                  max={questions?.length ?? 0}
-                  value={correct}
-                  onChange={(e) => setCorrect(Number(e.target.value))}
-                />
-                <span>/ {questions?.length ?? 0}</span>
-              </label>
-              <button
-                className="btn-primary"
-                onClick={submit}
-                disabled={submitting || done || !questions || questions.length === 0}
-              >
-                {done
-                  ? "Saved ✓"
-                  : submitting
-                    ? "Saving…"
+              // ── Quiz form ───────────────────────────────────────────
+              <>
+                <h2>Questions ({questions?.length ?? 0})</h2>
+                {questions === null ? (
+                  <p>Loading questions…</p>
+                ) : (
+                  <ol className="assignment-questions">
+                    {questions.map((q) => (
+                      <li key={q.questionId} style={{ marginBottom: 16 }}>
+                        <div>{q.stem || `Question ${q.position}`}</div>
+                        {q.choices && (
+                          <div
+                            style={{
+                              display: "grid",
+                              gap: 6,
+                              marginTop: 8,
+                            }}
+                          >
+                            {q.choices.map((choice, idx) => (
+                              <label key={idx}>
+                                <input
+                                  type="radio"
+                                  name={`q-${q.questionId}`}
+                                  checked={answers[q.questionId] === idx}
+                                  onChange={() =>
+                                    setAnswers({
+                                      ...answers,
+                                      [q.questionId]: idx,
+                                    })
+                                  }
+                                />
+                                &nbsp;{String.fromCharCode(65 + idx)}. {choice}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                <button
+                  className="btn-primary"
+                  onClick={submit}
+                  disabled={
+                    submitting ||
+                    !allAnswered ||
+                    !questions ||
+                    questions.length === 0
+                  }
+                >
+                  {submitting
+                    ? "Grading…"
                     : assignment.myCompletedAt
-                      ? "Update score"
-                      : "Mark complete"}
-              </button>
-            </div>
+                      ? "Submit (re-attempt)"
+                      : "Submit answers"}
+                </button>
+                {!allAnswered && questions && questions.length > 0 && (
+                  <p className="hint">Answer every question to enable submit.</p>
+                )}
+              </>
+            )}
           </>
         )}
       </main>

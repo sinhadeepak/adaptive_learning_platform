@@ -57,6 +57,76 @@ class Assignment {
   }
 }
 
+class AssignmentQuestion {
+  AssignmentQuestion({
+    required this.questionId,
+    required this.position,
+    this.stem,
+    this.choices,
+  });
+
+  final String questionId;
+  final int position;
+  final String? stem;
+  // Sprint 10 S10-D — choices for inline answer buttons; correct_idx is
+  // intentionally absent (server grades on POST /submit).
+  final List<String>? choices;
+
+  factory AssignmentQuestion.fromJson(Map<String, dynamic> j) {
+    final c = j['choices'];
+    return AssignmentQuestion(
+      questionId: j['questionId'] as String,
+      position: (j['position'] as num).toInt(),
+      stem: j['stem'] as String?,
+      choices: c is List ? c.map((e) => e.toString()).toList() : null,
+    );
+  }
+}
+
+class SubmitBreakdownEntry {
+  SubmitBreakdownEntry({
+    required this.questionId,
+    required this.position,
+    required this.studentAnswer,
+    required this.correctAnswer,
+    required this.isCorrect,
+  });
+  final String questionId;
+  final int position;
+  final int? studentAnswer;
+  final int correctAnswer;
+  final bool isCorrect;
+
+  factory SubmitBreakdownEntry.fromJson(Map<String, dynamic> j) =>
+      SubmitBreakdownEntry(
+        questionId: j['questionId'] as String,
+        position: (j['position'] as num).toInt(),
+        studentAnswer: (j['studentAnswer'] as num?)?.toInt(),
+        correctAnswer: (j['correctAnswer'] as num).toInt(),
+        isCorrect: j['isCorrect'] as bool,
+      );
+}
+
+class SubmitResult {
+  SubmitResult({
+    required this.correctCount,
+    required this.totalCount,
+    required this.breakdown,
+  });
+  final int correctCount;
+  final int totalCount;
+  final List<SubmitBreakdownEntry> breakdown;
+
+  factory SubmitResult.fromJson(Map<String, dynamic> j) => SubmitResult(
+        correctCount: (j['correctCount'] as num).toInt(),
+        totalCount: (j['totalCount'] as num).toInt(),
+        breakdown: (j['breakdown'] as List<dynamic>)
+            .map((e) =>
+                SubmitBreakdownEntry.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 class AssignmentsClient {
   AssignmentsClient(this.auth);
   final AuthClient auth;
@@ -80,6 +150,17 @@ class AssignmentsClient {
     return Assignment.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
   }
 
+  Future<List<AssignmentQuestion>> questions(String id) async {
+    final r = await auth.apiGet('/content/assignments/$id/questions');
+    if (r.statusCode != 200) {
+      throw Exception('Failed to load questions (${r.statusCode})');
+    }
+    final list = jsonDecode(r.body) as List<dynamic>;
+    return list
+        .map((j) => AssignmentQuestion.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<void> recordProgress(
     String id, {
     required int correctCount,
@@ -92,6 +173,21 @@ class AssignmentsClient {
     if (r.statusCode != 200) {
       throw Exception('Failed to record progress (${r.statusCode})');
     }
+  }
+
+  /// Sprint 10 S10-D — server-graded submission. Replaces the manual
+  /// type-the-score flow from Sprint 9.
+  Future<SubmitResult> submit(
+    String id, {
+    required Map<String, int> answers,
+  }) async {
+    final r = await auth.apiPost('/content/assignments/$id/submit', {
+      'answers': answers,
+    });
+    if (r.statusCode != 200) {
+      throw Exception('Submit failed (${r.statusCode})');
+    }
+    return SubmitResult.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
   }
 }
 

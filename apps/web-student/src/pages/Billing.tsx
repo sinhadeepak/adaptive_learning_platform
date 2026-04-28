@@ -63,7 +63,7 @@ export function Billing() {
   const display = premiumDisplay(sub);
 
   return (
-    <AppShell>
+    <AppShell title="Billing & Subscription">
       <main className="billing-page">
         <h1>Billing &amp; Subscription</h1>
 

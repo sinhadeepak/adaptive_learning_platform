@@ -193,11 +193,16 @@ async def set_assignment_questions(
 async def list_assignment_questions(
     session: AsyncSession, assignment_id: str
 ) -> list[dict[str, Any]]:
+    """Returns the ordered question list with stem + choices.
+
+    Sprint 10 S10-D — `choices` added so the client can render answer
+    buttons. The `correct_idx` is *NOT* returned here — that's served
+    server-side at submit time so students can't peek at the JSON."""
     res = await session.execute(
         text(
             f"""
             SELECT aq.assignment_id, aq.question_id, aq.position,
-                   q.stem, q.subject_id, q.topic_id, q.language
+                   q.stem, q.choices, q.subject_id, q.topic_id, q.language
               FROM {SCHEMA}.assignment_questions aq
               JOIN {SCHEMA}.questions q ON q.id = aq.question_id
              WHERE aq.assignment_id = :id
@@ -207,6 +212,55 @@ async def list_assignment_questions(
         {"id": assignment_id},
     )
     return [dict(r) for r in res.mappings().all()]
+
+
+async def list_assignment_questions_with_keys(
+    session: AsyncSession, assignment_id: str
+) -> list[dict[str, Any]]:
+    """Sprint 10 S10-D — server-side variant that includes correct_idx.
+    Used ONLY by POST /submit to grade the student's answers — never
+    returned over the wire to clients."""
+    res = await session.execute(
+        text(
+            f"""
+            SELECT aq.assignment_id, aq.question_id, aq.position,
+                   q.correct_idx
+              FROM {SCHEMA}.assignment_questions aq
+              JOIN {SCHEMA}.questions q ON q.id = aq.question_id
+             WHERE aq.assignment_id = :id
+          ORDER BY aq.position
+            """
+        ),
+        {"id": assignment_id},
+    )
+    return [dict(r) for r in res.mappings().all()]
+
+
+def grade_answers(
+    questions_with_keys: list[dict[str, Any]],
+    answers: dict[str, int],
+) -> tuple[int, int, list[dict[str, Any]]]:
+    """Pure function — given the answer key + student's submitted answers,
+    return (correct_count, total_count, breakdown). Extracted so unit tests
+    can pin the contract without DB or HTTP."""
+    correct = 0
+    breakdown: list[dict[str, Any]] = []
+    for q in questions_with_keys:
+        qid = str(q["question_id"])
+        student_idx = answers.get(qid)
+        is_correct = student_idx is not None and student_idx == q["correct_idx"]
+        if is_correct:
+            correct += 1
+        breakdown.append(
+            {
+                "questionId": qid,
+                "position": q["position"],
+                "studentAnswer": student_idx,
+                "correctAnswer": q["correct_idx"],
+                "isCorrect": is_correct,
+            }
+        )
+    return correct, len(questions_with_keys), breakdown
 
 
 # ─────────────────────────────────────────────────────────────────────────

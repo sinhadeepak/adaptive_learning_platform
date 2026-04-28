@@ -9,6 +9,7 @@ import { Audit } from "./pages/Audit";
 import { EducatorScope } from "./pages/EducatorScope";
 import { Users } from "./pages/Users";
 import { Tenants } from "./pages/Tenants";
+import { TenantCohorts } from "./pages/TenantCohorts";
 import { Ops } from "./pages/Ops";
 import { Profile } from "./pages/Profile";
 import { Settings } from "./pages/Settings";
@@ -39,6 +40,9 @@ export const routes: RouteObject[] = [
   adminRoute("/users", <Users />),
   adminRoute("/educator-scope", <EducatorScope />),
   adminRoute("/tenants", <Tenants />),
+  // Sprint 10 S10-C — Institution Core management.
+  adminRoute("/institutions", <Tenants />),
+  adminRoute("/institutions/:tenantId/cohorts", <TenantCohorts />),
   adminRoute("/ops", <Ops />),
   adminRoute("/profile", <Profile />),
   adminRoute("/settings", <Settings />),

@@ -10,7 +10,10 @@ import { ReviewQueue } from "./pages/ReviewQueue";
 import { Students } from "./pages/Students";
 import { Doubts } from "./pages/Doubts";
 import { Assignments } from "./pages/Assignments";
+import { AssignmentDetail } from "./pages/AssignmentDetail";
+import { AssignmentNew } from "./pages/AssignmentNew";
 import { Analytics } from "./pages/Analytics";
+import { CohortLeaderboard } from "./pages/CohortLeaderboard";
 
 const protectedRoute = (path: string, element: ReactElement): RouteObject => ({
   path,
@@ -52,6 +55,19 @@ export const routes: RouteObject[] = [
   protectedRoute("/students", <Students />),
   protectedRoute("/doubts", <Doubts />),
   protectedRoute("/assignments", <Assignments />),
+  {
+    path: "/assignments/new",
+    element: (
+      <ProtectedRoute>
+        <RoleGate allow={canAuthor}>
+          <AssignmentNew />
+        </RoleGate>
+      </ProtectedRoute>
+    ),
+  },
+  protectedRoute("/assignments/:assignmentId", <AssignmentDetail />),
+  // Sprint 10 S10-E — cohort leaderboard.
+  protectedRoute("/cohorts/:cohortId/leaderboard", <CohortLeaderboard />),
   protectedRoute("/analytics", <Analytics />),
   { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];

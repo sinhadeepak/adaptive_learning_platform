@@ -25,7 +25,8 @@ os.environ.setdefault(
     "dev-only-change-me-in-staging-at-least-32-bytes-long",
 )
 
-from content import db
+from content import catalog_client, db
+from content.catalog_client import AuthorizeResult
 
 
 async def _truncate() -> None:
@@ -51,10 +52,22 @@ async def _truncate() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _clean_state() -> Iterator[None]:
+def _clean_state(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     asyncio.run(_truncate())
     db._engine = None
     db._sessionmaker = None
+    # Sprint 10 S10-A — content unit tests shouldn't depend on a running
+    # catalog service. The catalog authorize hop is exercised in catalog's
+    # own tests; here we stub it to always-allow so we exercise content's
+    # own logic in isolation. Tests that explicitly want to verify the
+    # 403/404 branches must monkeypatch this back themselves.
+    async def _stub_authorize(
+        *, bearer_token: str, topic_id: str  # noqa: ARG001
+    ) -> AuthorizeResult:
+        return AuthorizeResult(allowed=True, not_found=False)
+
+    monkeypatch.setattr(catalog_client, "authorize_topic", _stub_authorize)
+    monkeypatch.setattr("content.routes.authorize_topic", _stub_authorize)
     yield
     db._engine = None
     db._sessionmaker = None

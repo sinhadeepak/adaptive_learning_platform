@@ -161,6 +161,147 @@ export const content = {
   },
 };
 
+// ── Sprint 10 — Educator Assignments authoring (web-portal) ──────────
+
+export interface Assignment {
+  id: string;
+  cohortId: string;
+  tenantId: string | null;
+  title: string;
+  description: string | null;
+  createdBy: string;
+  dueAt: string | null;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeaderboardRow {
+  userId: string;
+  correctCount: number;
+  totalCount: number;
+  accuracyPct: number;
+  completedAt: string;
+}
+
+export const assignments = {
+  async listForCohort(cohortId: string): Promise<Assignment[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/assignments?cohortId=${encodeURIComponent(cohortId)}`,
+    );
+    return asJson<Assignment[]>(res);
+  },
+
+  async get(id: string): Promise<Assignment> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/assignments/${encodeURIComponent(id)}`,
+    );
+    return asJson<Assignment>(res);
+  },
+
+  async create(input: {
+    cohortId: string;
+    title: string;
+    description?: string;
+    dueAt?: string | null;
+  }): Promise<Assignment> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/content/assignments`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    return asJson<Assignment>(res);
+  },
+
+  async setQuestions(id: string, questionIds: string[]): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/assignments/${encodeURIComponent(id)}/questions`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ questionIds }),
+      },
+    );
+    await asJson(res);
+  },
+
+  async publish(id: string): Promise<Assignment> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/assignments/${encodeURIComponent(id)}/publish`,
+      { method: "POST" },
+    );
+    return asJson<Assignment>(res);
+  },
+
+  async leaderboard(id: string): Promise<LeaderboardRow[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/assignments/${encodeURIComponent(id)}/leaderboard`,
+    );
+    return asJson<LeaderboardRow[]>(res);
+  },
+};
+
+// ── Sprint 10 — Institution Core (web-portal-side reads) ─────────────
+
+export interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  kind: string;
+  seatLimit: number | null;
+}
+
+export interface Cohort {
+  id: string;
+  tenantId: string;
+  name: string;
+  exam: string | null;
+  year: number | null;
+}
+
+export const institution = {
+  async cohortsForTenant(tenantId: string): Promise<Cohort[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/institution/tenants/${encodeURIComponent(tenantId)}/cohorts`,
+    );
+    return asJson<Cohort[]>(res);
+  },
+
+  async cohortMembers(
+    cohortId: string,
+  ): Promise<{ userId: string; role: string; joinedAt: string }[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/institution/cohorts/${encodeURIComponent(cohortId)}/members`,
+    );
+    return asJson<{ userId: string; role: string; joinedAt: string }[]>(res);
+  },
+};
+
+// ── Sprint 10 — Cohort leaderboard (analytics surface) ───────────────
+
+export interface CohortLeaderboardRow {
+  userId: string;
+  role: string;
+  score: number;
+  nTopics: number;
+  started: boolean;
+  rank: number;
+  updatedAt: string | null;
+}
+
+export const analytics = {
+  async cohortLeaderboard(
+    cohortId: string,
+  ): Promise<{ cohortId: string; leaderboard: CohortLeaderboardRow[] }> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/analytics/cohorts/${encodeURIComponent(cohortId)}/leaderboard`,
+    );
+    return asJson<{ cohortId: string; leaderboard: CohortLeaderboardRow[] }>(
+      res,
+    );
+  },
+};
+
 // AI-assisted authoring (calls adaptive-engine).
 export interface GeneratedQuestion {
   stem: string;
