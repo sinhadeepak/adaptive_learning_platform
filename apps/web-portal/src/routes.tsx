@@ -21,6 +21,7 @@ import { CreatorApply } from "./pages/CreatorApply";
 import { CreatorDashboard } from "./pages/CreatorDashboard";
 import { MyCourses } from "./pages/MyCourses";
 import { CourseAuthor } from "./pages/CourseAuthor";
+import { CreatorEarnings } from "./pages/CreatorEarnings";
 
 const protectedRoute = (path: string, element: ReactElement): RouteObject => ({
   path,
@@ -90,5 +91,6 @@ export const routes: RouteObject[] = [
   protectedRoute("/creator/courses", <MyCourses />),
   protectedRoute("/creator/courses/new", <CourseAuthor />),
   protectedRoute("/creator/courses/:courseId/edit", <CourseAuthor />),
+  protectedRoute("/creator/earnings", <CreatorEarnings />),
   { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];

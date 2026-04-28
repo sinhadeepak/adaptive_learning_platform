@@ -70,3 +70,16 @@ def commission_split(price_paise: int, override_rate: float | None = None) -> tu
     if commission > price_paise:
         commission = price_paise
     return commission, price_paise - commission
+
+
+def refund_payment_intent(intent_id: str, *, force: str | None = None) -> str:
+    """Refund a previously confirmed payment intent.
+
+    Stub returns 'succeeded' by default; force='failed' for the failure
+    branch. Live mode (Stripe REST refund call) deferred until creds.
+    """
+    if LIVE_MODE:  # pragma: no cover
+        raise NotImplementedError("Live Stripe Connect refund not wired.")
+    if force == "failed":
+        return "failed"
+    return "succeeded"

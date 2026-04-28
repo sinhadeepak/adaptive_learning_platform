@@ -1042,3 +1042,401 @@ async def aggregate_course_ratings(
         )
     ).mappings().all()
     return {"avg": float(agg["avg"]) if agg else 0.0, "count": int(agg["cnt"]) if agg else 0, "recent": [dict(r) for r in recent]}
+
+
+# ===========================================================================
+# Sprint 19 — modules, lessons, earnings aggregation, moderation, refunds
+# ===========================================================================
+
+
+# -- modules ----------------------------------------------------------------
+
+
+async def insert_module(
+    session: AsyncSession,
+    *,
+    module_id: str,
+    course_id: str,
+    title: str,
+    description: str | None = None,
+) -> int:
+    """Returns the auto-assigned position."""
+    pos = (
+        await session.execute(
+            text(f"""
+                SELECT COALESCE(MAX(position), 0) + 1
+                  FROM {SCHEMA}.course_modules
+                 WHERE course_id = :cid
+            """),
+            {"cid": course_id},
+        )
+    ).scalar_one()
+    await session.execute(
+        text(f"""
+            INSERT INTO {SCHEMA}.course_modules (id, course_id, position, title, description)
+            VALUES (:id, :cid, :pos, :t, :d)
+        """),
+        {"id": module_id, "cid": course_id, "pos": pos, "t": title, "d": description},
+    )
+    return int(pos)
+
+
+async def list_modules(
+    session: AsyncSession, course_id: str
+) -> list[dict[str, Any]]:
+    rows = (
+        await session.execute(
+            text(f"""
+                SELECT id, course_id, position, title, description, created_at, updated_at
+                  FROM {SCHEMA}.course_modules
+                 WHERE course_id = :cid
+                 ORDER BY position
+            """),
+            {"cid": course_id},
+        )
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+async def get_module(session: AsyncSession, module_id: str) -> dict[str, Any] | None:
+    row = (
+        await session.execute(
+            text(f"""
+                SELECT id, course_id, position, title, description, created_at, updated_at
+                  FROM {SCHEMA}.course_modules
+                 WHERE id = :id
+            """),
+            {"id": module_id},
+        )
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+async def patch_module(
+    session: AsyncSession,
+    *,
+    module_id: str,
+    title: str | None = None,
+    description: str | None = None,
+    position: int | None = None,
+) -> None:
+    sets = ["updated_at = now()"]
+    params: dict[str, Any] = {"id": module_id}
+    if title is not None:
+        sets.append("title = :t"); params["t"] = title
+    if description is not None:
+        sets.append("description = :d"); params["d"] = description
+    if position is not None:
+        sets.append("position = :p"); params["p"] = position
+    if len(sets) == 1:
+        return
+    await session.execute(
+        text(f"UPDATE {SCHEMA}.course_modules SET {', '.join(sets)} WHERE id = :id"),
+        params,
+    )
+
+
+async def delete_module(session: AsyncSession, module_id: str) -> None:
+    await session.execute(
+        text(f"DELETE FROM {SCHEMA}.course_modules WHERE id = :id"),
+        {"id": module_id},
+    )
+
+
+# -- lessons ----------------------------------------------------------------
+
+
+async def insert_lesson(
+    session: AsyncSession,
+    *,
+    lesson_id: str,
+    module_id: str,
+    title: str,
+    content_md: str,
+    duration_seconds: int | None = None,
+) -> int:
+    pos = (
+        await session.execute(
+            text(f"""
+                SELECT COALESCE(MAX(position), 0) + 1
+                  FROM {SCHEMA}.course_lessons
+                 WHERE module_id = :mid
+            """),
+            {"mid": module_id},
+        )
+    ).scalar_one()
+    await session.execute(
+        text(f"""
+            INSERT INTO {SCHEMA}.course_lessons
+              (id, module_id, position, title, content_md, duration_seconds)
+            VALUES (:id, :mid, :pos, :t, :md, :dur)
+        """),
+        {
+            "id": lesson_id, "mid": module_id, "pos": pos,
+            "t": title, "md": content_md, "dur": duration_seconds,
+        },
+    )
+    return int(pos)
+
+
+async def list_lessons(
+    session: AsyncSession, module_id: str
+) -> list[dict[str, Any]]:
+    rows = (
+        await session.execute(
+            text(f"""
+                SELECT id, module_id, position, title, content_md, duration_seconds,
+                       created_at, updated_at
+                  FROM {SCHEMA}.course_lessons
+                 WHERE module_id = :mid
+                 ORDER BY position
+            """),
+            {"mid": module_id},
+        )
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+async def get_lesson(session: AsyncSession, lesson_id: str) -> dict[str, Any] | None:
+    row = (
+        await session.execute(
+            text(f"""
+                SELECT id, module_id, position, title, content_md, duration_seconds,
+                       created_at, updated_at
+                  FROM {SCHEMA}.course_lessons
+                 WHERE id = :id
+            """),
+            {"id": lesson_id},
+        )
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+async def patch_lesson(
+    session: AsyncSession,
+    *,
+    lesson_id: str,
+    title: str | None = None,
+    content_md: str | None = None,
+    duration_seconds: int | None = None,
+    position: int | None = None,
+) -> None:
+    sets = ["updated_at = now()"]
+    params: dict[str, Any] = {"id": lesson_id}
+    if title is not None:
+        sets.append("title = :t"); params["t"] = title
+    if content_md is not None:
+        sets.append("content_md = :md"); params["md"] = content_md
+    if duration_seconds is not None:
+        sets.append("duration_seconds = :dur"); params["dur"] = duration_seconds
+    if position is not None:
+        sets.append("position = :p"); params["p"] = position
+    if len(sets) == 1:
+        return
+    await session.execute(
+        text(f"UPDATE {SCHEMA}.course_lessons SET {', '.join(sets)} WHERE id = :id"),
+        params,
+    )
+
+
+async def delete_lesson(session: AsyncSession, lesson_id: str) -> None:
+    await session.execute(
+        text(f"DELETE FROM {SCHEMA}.course_lessons WHERE id = :id"),
+        {"id": lesson_id},
+    )
+
+
+# -- earnings aggregation ---------------------------------------------------
+
+
+async def aggregate_earnings(
+    session: AsyncSession, user_id: str, *, since, until
+) -> dict[str, int]:
+    """Compute per-user (creator + tutor in one query) earnings between
+    [since, until]. Returns paise-denominated columns."""
+    course = (
+        await session.execute(
+            text(f"""
+                SELECT COALESCE(SUM(cp.price_paise), 0) AS revenue,
+                       COALESCE(SUM(cp.commission_paise), 0) AS commission,
+                       COUNT(*) AS n
+                  FROM {SCHEMA}.course_purchases cp
+                  JOIN {SCHEMA}.courses c ON c.id = cp.course_id
+                 WHERE c.creator_user_id = :uid
+                   AND cp.status = 'PAID'
+                   AND cp.purchased_at >= :since
+                   AND cp.purchased_at < :until
+            """),
+            {"uid": user_id, "since": since, "until": until},
+        )
+    ).mappings().first()
+
+    session_ = (
+        await session.execute(
+            text(f"""
+                SELECT COALESCE(SUM(price_paise), 0) AS revenue,
+                       COALESCE(SUM(commission_paise), 0) AS commission,
+                       COUNT(*) AS n
+                  FROM {SCHEMA}.bookings
+                 WHERE tutor_user_id = :uid
+                   AND status = 'COMPLETED'
+                   AND completed_at >= :since
+                   AND completed_at < :until
+            """),
+            {"uid": user_id, "since": since, "until": until},
+        )
+    ).mappings().first()
+
+    return {
+        "course_revenue": int(course["revenue"] or 0),
+        "course_commission": int(course["commission"] or 0),
+        "course_count": int(course["n"] or 0),
+        "session_revenue": int(session_["revenue"] or 0),
+        "session_commission": int(session_["commission"] or 0),
+        "session_count": int(session_["n"] or 0),
+    }
+
+
+# -- rating moderation ------------------------------------------------------
+
+
+async def get_session_rating(
+    session: AsyncSession, rating_id: str
+) -> dict[str, Any] | None:
+    row = (
+        await session.execute(
+            text(f"""
+                SELECT id, booking_id, student_user_id, tutor_user_id, stars,
+                       comment, created_at, hidden_at, hidden_reason
+                  FROM {SCHEMA}.tutor_session_ratings
+                 WHERE id = :id
+            """),
+            {"id": rating_id},
+        )
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+async def get_course_rating(
+    session: AsyncSession, rating_id: str
+) -> dict[str, Any] | None:
+    row = (
+        await session.execute(
+            text(f"""
+                SELECT id, purchase_id, course_id, student_user_id, stars,
+                       comment, created_at, hidden_at, hidden_reason
+                  FROM {SCHEMA}.course_ratings
+                 WHERE id = :id
+            """),
+            {"id": rating_id},
+        )
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+async def hide_rating(
+    session: AsyncSession,
+    *,
+    kind: str,
+    rating_id: str,
+    admin_user_id: str,
+    reason: str,
+) -> None:
+    table = "tutor_session_ratings" if kind == "session" else "course_ratings"
+    await session.execute(
+        text(f"""
+            UPDATE {SCHEMA}.{table}
+               SET hidden_at = now(),
+                   hidden_by_admin_id = :aid,
+                   hidden_reason = :rsn
+             WHERE id = :id
+        """),
+        {"id": rating_id, "aid": admin_user_id, "rsn": reason},
+    )
+
+
+async def unhide_rating(
+    session: AsyncSession, *, kind: str, rating_id: str
+) -> None:
+    table = "tutor_session_ratings" if kind == "session" else "course_ratings"
+    await session.execute(
+        text(f"""
+            UPDATE {SCHEMA}.{table}
+               SET hidden_at = NULL, hidden_by_admin_id = NULL, hidden_reason = NULL
+             WHERE id = :id
+        """),
+        {"id": rating_id},
+    )
+
+
+# Update aggregate fns from S18 to filter on hidden_at — we override the
+# earlier definitions by re-binding them here. Both functions live in the
+# same module; later definitions win.
+async def aggregate_tutor_ratings(  # noqa: F811
+    session: AsyncSession, tutor_user_id: str, *, recent_n: int = 5
+) -> dict[str, Any]:
+    agg = (
+        await session.execute(
+            text(f"""
+                SELECT COALESCE(AVG(stars), 0)::float AS avg, COUNT(*) AS cnt
+                  FROM {SCHEMA}.tutor_session_ratings
+                 WHERE tutor_user_id = :tid AND hidden_at IS NULL
+            """),
+            {"tid": tutor_user_id},
+        )
+    ).mappings().first()
+    recent = (
+        await session.execute(
+            text(f"""
+                SELECT id, stars, comment, created_at, student_user_id
+                  FROM {SCHEMA}.tutor_session_ratings
+                 WHERE tutor_user_id = :tid AND hidden_at IS NULL
+                 ORDER BY created_at DESC
+                 LIMIT :n
+            """),
+            {"tid": tutor_user_id, "n": recent_n},
+        )
+    ).mappings().all()
+    return {"avg": float(agg["avg"]) if agg else 0.0, "count": int(agg["cnt"]) if agg else 0, "recent": [dict(r) for r in recent]}
+
+
+async def aggregate_course_ratings(  # noqa: F811
+    session: AsyncSession, course_id: str, *, recent_n: int = 5
+) -> dict[str, Any]:
+    agg = (
+        await session.execute(
+            text(f"""
+                SELECT COALESCE(AVG(stars), 0)::float AS avg, COUNT(*) AS cnt
+                  FROM {SCHEMA}.course_ratings
+                 WHERE course_id = :cid AND hidden_at IS NULL
+            """),
+            {"cid": course_id},
+        )
+    ).mappings().first()
+    recent = (
+        await session.execute(
+            text(f"""
+                SELECT id, stars, comment, created_at, student_user_id
+                  FROM {SCHEMA}.course_ratings
+                 WHERE course_id = :cid AND hidden_at IS NULL
+                 ORDER BY created_at DESC
+                 LIMIT :n
+            """),
+            {"cid": course_id, "n": recent_n},
+        )
+    ).mappings().all()
+    return {"avg": float(agg["avg"]) if agg else 0.0, "count": int(agg["cnt"]) if agg else 0, "recent": [dict(r) for r in recent]}
+
+
+# -- course refund ----------------------------------------------------------
+
+
+async def set_purchase_refunded(session: AsyncSession, *, purchase_id: str) -> None:
+    await session.execute(
+        text(f"""
+            UPDATE {SCHEMA}.course_purchases
+               SET status = 'REFUNDED', refunded_at = now(), updated_at = now()
+             WHERE id = :id
+        """),
+        {"id": purchase_id},
+    )

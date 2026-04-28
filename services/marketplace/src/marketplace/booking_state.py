@@ -18,6 +18,7 @@ CANCELLED_BY_STUDENT: Final = "CANCELLED_BY_STUDENT"
 CANCELLED_BY_TUTOR: Final = "CANCELLED_BY_TUTOR"
 NO_SHOW_STUDENT: Final = "NO_SHOW_STUDENT"
 NO_SHOW_TUTOR: Final = "NO_SHOW_TUTOR"
+REFUNDED_BY_ADMIN: Final = "REFUNDED_BY_ADMIN"  # Sprint 19
 
 # Actions
 PAYMENT_SUCCEEDED: Final = "payment_succeeded"
@@ -28,6 +29,7 @@ CANCEL_BY_STUDENT: Final = "cancel_by_student"
 CANCEL_BY_TUTOR: Final = "cancel_by_tutor"
 NO_SHOW_STUDENT_ACTION: Final = "no_show_student"
 NO_SHOW_TUTOR_ACTION: Final = "no_show_tutor"
+ADMIN_REFUND: Final = "admin_refund"  # Sprint 19
 
 _TRANSITIONS: dict[tuple[str, str], str] = {
     (PENDING_PAYMENT, PAYMENT_SUCCEEDED): CONFIRMED,
@@ -39,6 +41,12 @@ _TRANSITIONS: dict[tuple[str, str], str] = {
     (IN_PROGRESS, COMPLETE): COMPLETED,
     (IN_PROGRESS, NO_SHOW_STUDENT_ACTION): NO_SHOW_STUDENT,
     (IN_PROGRESS, NO_SHOW_TUTOR_ACTION): NO_SHOW_TUTOR,
+    # Admin refund — terminal. Allowed from COMPLETED + the cancel + no-show
+    # variants (anything where money already changed hands and the admin
+    # decides to reverse it).
+    (COMPLETED, ADMIN_REFUND): REFUNDED_BY_ADMIN,
+    (CANCELLED_BY_TUTOR, ADMIN_REFUND): REFUNDED_BY_ADMIN,
+    (NO_SHOW_TUTOR, ADMIN_REFUND): REFUNDED_BY_ADMIN,
 }
 
 

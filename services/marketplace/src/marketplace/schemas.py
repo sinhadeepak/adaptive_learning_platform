@@ -340,3 +340,90 @@ class RatingAggregateOut(BaseModel):
     averageStars: float
     count: int
     recent: list[RatingOut]
+
+
+# ===========================================================================
+# Sprint 19 — modules + lessons + earnings + moderation + refund DTOs
+# ===========================================================================
+
+
+class ModuleCreateIn(BaseModel):
+    title: str = Field(min_length=1, max_length=240)
+    description: str | None = Field(default=None, max_length=2000)
+
+
+class ModulePatchIn(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=240)
+    description: str | None = Field(default=None, max_length=2000)
+    position: int | None = Field(default=None, ge=1)
+
+
+class ModuleOut(BaseModel):
+    id: str
+    courseId: str
+    position: int
+    title: str
+    description: str | None
+    createdAt: str
+    updatedAt: str
+
+
+class LessonCreateIn(BaseModel):
+    title: str = Field(min_length=1, max_length=240)
+    contentMd: str = Field(default="", max_length=200000)
+    durationSeconds: int | None = Field(default=None, gt=0)
+
+
+class LessonPatchIn(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=240)
+    contentMd: str | None = Field(default=None, max_length=200000)
+    durationSeconds: int | None = Field(default=None, gt=0)
+    position: int | None = Field(default=None, ge=1)
+
+
+class LessonOut(BaseModel):
+    id: str
+    moduleId: str
+    position: int
+    title: str
+    contentMd: str  # empty for non-buyers
+    durationSeconds: int | None
+    createdAt: str
+    updatedAt: str
+
+
+class ModuleWithLessons(BaseModel):
+    module: ModuleOut
+    lessons: list[LessonOut]
+
+
+class CourseStructureOut(BaseModel):
+    courseId: str
+    items: list[ModuleWithLessons]
+    contentVisible: bool  # true if caller is creator/admin or has PAID purchase
+
+
+class EarningsOut(BaseModel):
+    userId: str
+    periodStart: str
+    periodEnd: str
+    courseRevenuePaise: int
+    courseCommissionPaise: int
+    courseNetPaise: int
+    courseCount: int
+    sessionRevenuePaise: int
+    sessionCommissionPaise: int
+    sessionNetPaise: int
+    sessionCount: int
+    totalNetPaise: int
+
+
+class HideRatingIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class RefundResultOut(BaseModel):
+    targetKind: Literal["booking", "course_purchase"]
+    targetId: str
+    status: str
+    refundedAt: str | None

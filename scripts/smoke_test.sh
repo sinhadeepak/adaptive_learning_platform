@@ -350,8 +350,50 @@ COURSE_RATE_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/courses/$COURSE
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"purchaseId\":\"$PURCHASE_ID\",\"stars\":4,\"comment\":\"Solid\"}")
+COURSE_RATING_ID=$(echo "$COURSE_RATE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)
 assert "student rates course → 4 stars" \
   bash -c "echo '$COURSE_RATE_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['stars']==4\""
+
+# -- 8. Sprint 19: modules + lessons + earnings + moderation + refund ----
+
+echo "==> marketplace P3-S4 (modules/lessons/earnings/moderation/refund)"
+
+MODULE_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/courses/$COURSE_ID/modules" \
+  -H "Authorization: Bearer $CREATOR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Module 1","description":"Intro"}')
+MODULE_ID=$(echo "$MODULE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)
+assert "creator adds module to course" test -n "$MODULE_ID"
+
+LESSON_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/courses/$COURSE_ID/modules/$MODULE_ID/lessons" \
+  -H "Authorization: Bearer $CREATOR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"L1","contentMd":"# Real lesson","durationSeconds":600}')
+assert "creator adds lesson under module" \
+  bash -c "echo '$LESSON_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['position']==1\""
+
+STRUCT=$(curl -s "$MARKETPLACE_URL/marketplace/courses/$COURSE_ID/structure" \
+  -H "Authorization: Bearer $TOKEN")
+assert "course structure visible to buyer (contentVisible=true)" \
+  bash -c "echo '$STRUCT' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['contentVisible'] and d['items'][0]['lessons'][0]['contentMd']=='# Real lesson'\""
+
+EARNINGS=$(curl -s "$MARKETPLACE_URL/marketplace/creators/me/earnings" \
+  -H "Authorization: Bearer $CREATOR_TOKEN")
+assert "creator earnings reflect paid course" \
+  bash -c "echo '$EARNINGS' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['courseRevenuePaise']==9900 and d['courseCount']==1\""
+
+curl -s -X POST "$MARKETPLACE_URL/marketplace/admin/ratings/course/$COURSE_RATING_ID/hide" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"reason":"smoke test moderation"}' >/dev/null
+RATINGS_AFTER=$(curl -s "$MARKETPLACE_URL/marketplace/courses/$COURSE_ID/ratings")
+assert "admin hides rating → aggregate count = 0" \
+  bash -c "echo '$RATINGS_AFTER' | python3 -c \"import sys,json; assert json.load(sys.stdin)['count']==0\""
+
+REFUND_RESP=$(curl -s -X POST "$MARKETPLACE_URL/marketplace/admin/courses/$COURSE_ID/purchases/$PURCHASE_ID/refund" \
+  -H "Authorization: Bearer $ADMIN_TOKEN")
+assert "admin refunds course purchase → REFUNDED" \
+  bash -c "echo '$REFUND_RESP' | python3 -c \"import sys,json; assert json.load(sys.stdin)['status']=='REFUNDED'\""
 
 # -- summary ---------------------------------------------------------------
 

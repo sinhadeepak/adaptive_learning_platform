@@ -55,7 +55,8 @@ export function MyCourses() {
         <p>
           <Link to="/creator/courses/new" className="btn-primary">
             + New course
-          </Link>
+          </Link>{" "}
+          · <Link to="/creator/earnings">View earnings →</Link>
         </p>
 
         {error && <p className="banner banner-error">{error}</p>}

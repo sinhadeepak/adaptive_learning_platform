@@ -20,6 +20,11 @@ from marketplace.creator_routes import (
     rating_router,
 )
 from marketplace.db import dispose
+from marketplace.lesson_routes import (
+    earnings_router,
+    lesson_router,
+    mod_router,
+)
 from marketplace.routes import router as tutor_router
 
 
@@ -43,6 +48,9 @@ app.include_router(admin_router)
 app.include_router(creator_router)
 app.include_router(course_router)
 app.include_router(rating_router)
+app.include_router(lesson_router)
+app.include_router(earnings_router)
+app.include_router(mod_router)
 
 
 @app.get("/health")

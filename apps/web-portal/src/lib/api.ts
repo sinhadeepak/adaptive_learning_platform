@@ -635,3 +635,121 @@ export const courseAuthoring = {
     return asJson<Course>(res);
   },
 };
+
+// ── Sprint 19 (P3-S4) — Modules + lessons + earnings ─────────────────
+
+export interface CourseModule {
+  id: string;
+  courseId: string;
+  position: number;
+  title: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CourseLesson {
+  id: string;
+  moduleId: string;
+  position: number;
+  title: string;
+  contentMd: string;
+  durationSeconds: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CourseStructure {
+  courseId: string;
+  contentVisible: boolean;
+  items: { module: CourseModule; lessons: CourseLesson[] }[];
+}
+
+export interface Earnings {
+  userId: string;
+  periodStart: string;
+  periodEnd: string;
+  courseRevenuePaise: number;
+  courseCommissionPaise: number;
+  courseNetPaise: number;
+  courseCount: number;
+  sessionRevenuePaise: number;
+  sessionCommissionPaise: number;
+  sessionNetPaise: number;
+  sessionCount: number;
+  totalNetPaise: number;
+}
+
+export const courseStructure = {
+  async addModule(courseId: string, title: string, description?: string): Promise<CourseModule> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/modules`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title, description: description ?? null }),
+      },
+    );
+    return asJson<CourseModule>(res);
+  },
+
+  async addLesson(courseId: string, moduleId: string, title: string, contentMd: string, durationSeconds?: number): Promise<CourseLesson> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}/lessons`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title, contentMd, durationSeconds: durationSeconds ?? null }),
+      },
+    );
+    return asJson<CourseLesson>(res);
+  },
+
+  async patchLesson(courseId: string, moduleId: string, lessonId: string, input: Partial<CourseLesson>): Promise<CourseLesson> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}/lessons/${encodeURIComponent(lessonId)}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(input),
+      },
+    );
+    return asJson<CourseLesson>(res);
+  },
+
+  async deleteModule(courseId: string, moduleId: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok && res.status !== 204) throw new Error(res.statusText);
+  },
+
+  async deleteLesson(courseId: string, moduleId: string, lessonId: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/modules/${encodeURIComponent(moduleId)}/lessons/${encodeURIComponent(lessonId)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok && res.status !== 204) throw new Error(res.statusText);
+  },
+
+  async get(courseId: string): Promise<CourseStructure> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/structure`,
+    );
+    return asJson<CourseStructure>(res);
+  },
+};
+
+export const creatorEarnings = {
+  async get(opts?: { since?: string; until?: string }): Promise<Earnings> {
+    const params = new URLSearchParams();
+    if (opts?.since) params.set("since", opts.since);
+    if (opts?.until) params.set("until", opts.until);
+    const qs = params.toString();
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/creators/me/earnings${qs ? `?${qs}` : ""}`,
+    );
+    return asJson<Earnings>(res);
+  },
+};
