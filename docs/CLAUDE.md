@@ -40,7 +40,7 @@ ADRs are four-digit-numbered: `docs/adr/0001-*.md`, etc.
 - **alp-learning**: Python 3.11, FastAPI — absorbs `catalog + content + doubts + search + adaptive-engine`. Also owns OpenSearch (`topics_v2`) and Redis (adaptive rate-limit / photo-doubt cache)
 - **alp-engagement**: Python 3.11, FastAPI — absorbs `analytics + notification`. JetStream durable consumers `analytics-quiz-completed`, `notification-quiz-completed`, `notification-assignment-created`
 - **alp-payment**: Python 3.11, FastAPI — Stripe checkout + webhooks (standalone for webhook isolation; reversible — see ADR-0005 trigger conditions)
-- **alp-marketplace**: reserved for Phase 3 (Tutor + creator marketplace)
+- **alp-marketplace**: Python 3.11, FastAPI — Phase 3 service (Sprint 15 / P3-S0 stood up the skeleton; tutor profiles + bookings + creator marketplace land in P3-S1+). Port 38110; DB `marketplace`, schema `marketplace_schema`.
 - **Event bus**: NATS JetStream (durable streams since Sprint 3 PR #11)
 - **Storage**: PostgreSQL 15 (one DB per consolidated service in compose: `identity`, `learning`, `engagement`, `payment`, `quiz` — each absorbed module keeps its own schema with `version_table_schema=<schema>` in alembic). Redis 7 (lockout + flag cache + adaptive rate-limit). OpenSearch 2.x (`topics_v2` alias inside alp-learning).
 - **Deployment**: AWS EKS + Helm (per ADR-0001-foundation-stack); Terraform manages cluster

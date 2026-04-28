@@ -14,6 +14,7 @@ IDENTITY_URL="${IDENTITY_URL:-http://localhost:38001}"
 LEARNING_URL="${LEARNING_URL:-http://localhost:38101}"
 ENGAGEMENT_URL="${ENGAGEMENT_URL:-http://localhost:38100}"
 QUIZ_URL="${QUIZ_URL:-http://localhost:38011}"
+MARKETPLACE_URL="${MARKETPLACE_URL:-http://localhost:38110}"
 PG_HOST="${PG_HOST:-localhost}"
 PG_PORT="${PG_PORT:-35432}"
 PG_USER="${PG_USER:-postgres}"
@@ -65,7 +66,7 @@ psql_q() {
 # -- 0. health --------------------------------------------------------------
 
 echo "==> service health"
-for spec in "identity:$IDENTITY_URL" "learning:$LEARNING_URL" "engagement:$ENGAGEMENT_URL" "quiz:$QUIZ_URL"; do
+for spec in "identity:$IDENTITY_URL" "learning:$LEARNING_URL" "engagement:$ENGAGEMENT_URL" "quiz:$QUIZ_URL" "marketplace:$MARKETPLACE_URL"; do
   name="${spec%%:*}"; url="${spec#*:}"
   assert_msg "$name /health 200" bash -c "code=\$(curl -s -o /dev/null -w '%{http_code}' '$url/health'); [ \"\$code\" = '200' ] && echo \$code"
 done

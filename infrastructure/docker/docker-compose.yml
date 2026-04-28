@@ -15,7 +15,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_MULTIPLE_DATABASES: identity,learning,engagement,payment,quiz
+      POSTGRES_MULTIPLE_DATABASES: identity,learning,engagement,payment,quiz,marketplace
     ports: ["35432:5432"]
     volumes:
       - pg-data:/var/lib/postgresql/data
@@ -207,6 +207,22 @@ services:
       PAYMENT_CHECKOUT_SUCCESS_URL: "${PAYMENT_CHECKOUT_SUCCESS_URL:-http://localhost:35173/billing?status=success&session_id={CHECKOUT_SESSION_ID}}"
       PAYMENT_CHECKOUT_CANCEL_URL: "${PAYMENT_CHECKOUT_CANCEL_URL:-http://localhost:35173/billing?status=cancel}"
       PAYMENT_JWT_SECRET: "${JWT_SECRET:-dev-only-change-me-in-staging-at-least-32-bytes-long}"
+    depends_on:
+      postgres: { condition: service_healthy }
+      nats: { condition: service_healthy }
+
+  marketplace:
+    build:
+      <<: *py-build
+      args: { SERVICE: marketplace, MODULE: marketplace.main }
+    image: alp/marketplace:local
+    ports: ["38110:8000"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/marketplace
+      MARKETPLACE_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/marketplace
+      MARKETPLACE_NATS_URL: nats://nats:4222
+      MARKETPLACE_IDENTITY_BASE_URL: http://identity:8000
+      MARKETPLACE_PAYMENT_BASE_URL: http://payment:8000
     depends_on:
       postgres: { condition: service_healthy }
       nats: { condition: service_healthy }

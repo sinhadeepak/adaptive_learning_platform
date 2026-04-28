@@ -4,7 +4,7 @@
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
 
-PY_SERVICES := identity payment learning engagement
+PY_SERVICES := identity payment learning engagement marketplace
 GO_SERVICES := quiz
 # ADR-0005 consolidation complete: identity, payment, learning, quiz, engagement.
 # Marketplace is the reserved 6th slot (Phase 3).
