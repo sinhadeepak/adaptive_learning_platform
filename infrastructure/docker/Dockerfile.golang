@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1.7
+# Unified Dockerfile for Go backend services. Build from monorepo root so the
+# alpflags path-replaced module resolves. SERVICE = service dir name (quiz).
+
+FROM golang:1.25-alpine AS builder
+ARG SERVICE
+WORKDIR /repo
+RUN apk add --no-cache git
+COPY libs/go ./libs/go
+COPY services/${SERVICE} ./services/${SERVICE}
+WORKDIR /repo/services/${SERVICE}
+RUN go mod download
+# Build the main service binary AND the migration runner (if present).
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/${SERVICE} ./cmd/${SERVICE}
+RUN if [ -d cmd/migrate ]; then CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/migrate ./cmd/migrate; else true; fi
+
+FROM alpine:3.20 AS runtime
+ARG SERVICE
+ENV SERVICE_NAME=${SERVICE}
+RUN apk add --no-cache ca-certificates wget && \
+    adduser -D -h /app app
+WORKDIR /app
+COPY --from=builder --chown=app:app /out/ ./
+# Copy migrations dir if present (golang-migrate reads SQL files at runtime).
+COPY --from=builder --chown=app:app /repo/services/${SERVICE}/migrations* ./migrations/
+COPY --chown=app:app infrastructure/docker/go-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+USER app
+
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD wget -qO- http://localhost:8000/health >/dev/null || exit 1
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -1,0 +1,31 @@
+[project]
+name = "alp-telemetry"
+version = "0.1.0"
+description = "ALP Python telemetry SDK — W3C trace-context propagation, FastAPI middleware, structlog processor. Pairs with the Go alptelemetry lib for cross-language trace-id continuity."
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "structlog>=24.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/alp_telemetry"]
+
+[tool.ruff]
+extend = "../../../ruff.toml"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

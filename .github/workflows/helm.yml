@@ -1,0 +1,57 @@
+name: Helm Charts
+
+on:
+  pull_request:
+    branches: [main, staging, development]
+    paths:
+      - "infrastructure/k8s/charts/**"
+      - ".github/workflows/helm.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-template:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with: { version: "v3.16.2" }
+
+      - name: helm dependency update (all charts)
+        run: |
+          for dir in infrastructure/k8s/charts/*/; do
+            name=$(basename "$dir")
+            if [ "$name" = "alp-service" ]; then continue; fi
+            echo "→ $name"
+            (cd "$dir" && helm dependency update)
+          done
+
+      - name: helm lint
+        run: |
+          for dir in infrastructure/k8s/charts/*/; do
+            name=$(basename "$dir")
+            if [ "$name" = "alp-service" ]; then continue; fi
+            echo "--- lint $name ---"
+            helm lint "$dir" -f "$dir/values.yaml" -f "$dir/values-staging.yaml"
+          done
+
+      - name: helm template (render smoke test)
+        run: |
+          mkdir -p /tmp/rendered
+          for dir in infrastructure/k8s/charts/*/; do
+            name=$(basename "$dir")
+            if [ "$name" = "alp-service" ]; then continue; fi
+            helm template "$name" "$dir" \
+              -f "$dir/values.yaml" -f "$dir/values-staging.yaml" \
+              > "/tmp/rendered/$name.yaml"
+          done
+
+      - name: kubeconform (schema validation of rendered manifests)
+        uses: docker://ghcr.io/yannh/kubeconform:latest
+        with:
+          args: >-
+            -strict
+            -skip NetworkPolicy,ServiceMonitor
+            -ignore-missing-schemas
+            /tmp/rendered/

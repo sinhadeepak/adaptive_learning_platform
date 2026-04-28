@@ -1,0 +1,60 @@
+# Per-service overrides. Library defaults live in ../alp-service/values.yaml
+# and are merged at render time via {{ include "alp-service.render" . }}.
+
+nameOverride: user-profile
+
+image:
+  repository: REPLACE_WITH_ECR_ACCOUNT.dkr.ecr.ap-south-1.amazonaws.com/alp/user-profile
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+service:
+  port: 8000
+  targetPort: 8000
+
+containerPort: 8000
+
+serviceAccount:
+  create: true
+  annotations: {}
+
+resources:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits:   { cpu: 500m, memory: 512Mi }
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+probes:
+  liveness:  { path: /health, initialDelaySeconds: 10, periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3 }
+  readiness: { path: /ready,  initialDelaySeconds: 5,  periodSeconds: 5,  timeoutSeconds: 2, failureThreshold: 3 }
+
+serviceMonitor:
+  enabled: true
+  path: /metrics
+  interval: 30s
+  scrapeTimeout: 10s
+
+networkPolicy:
+  enabled: true
+  allowDns: true
+  allowPostgres: true
+  allowRedis: true
+  allowNats: true
+  allowOpenSearch: false
+
+env: []
+envFromSecret: ""
+
+topologySpread:
+  enabled: true
+  maxSkew: 1
+  topologyKey: topology.kubernetes.io/zone
+
+podAnnotations: {}
+podLabels: {}

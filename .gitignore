@@ -38,6 +38,12 @@ node_modules/
 npm-debug.log*
 pnpm-debug.log*
 
+# Build-time artefacts
+*.tsbuildinfo
+dist-storybook/
+coverage/
+.vite/
+
 # Go
 *.exe
 *.test
@@ -86,6 +92,14 @@ secrets/
 *.tar.gz
 *.zip
 
+# Helm
+# Chart.lock + downloaded deps are regenerated from Chart.yaml; don't check them in
+infrastructure/k8s/charts/*/Chart.lock
+infrastructure/k8s/charts/*/charts/
+
 # Reports / generated
 /reports/
 /tmp/
+
+# Local agent state (per-machine, not for the repo)
+.claude/

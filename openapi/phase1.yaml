@@ -1,0 +1,996 @@
+openapi: 3.1.0
+info:
+  title: ALP Phase 1 API
+  version: 0.1.0
+  description: >
+    Authoritative API contract for Phase 1 of the Adaptive Learning Platform.
+    Consumed by @alp/api-client (TypeScript codegen via openapi-typescript)
+    and by the Flutter mobile app. Contract tests in CI verify each service's
+    handlers against this spec.
+
+    **Sprint 1 scope**: auth, profile, catalog, search, feature flags.
+    Sprint 2+ endpoints land in additional files or as tagged extensions here.
+
+servers:
+  - url: https://staging.alp.in/api/v1
+    description: Staging
+  - url: http://localhost:8080/api/v1
+    description: Local dev (gateway)
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: auth
+    description: Authentication, registration, OTP, SSO, tokens.
+  - name: profile
+    description: User profile, onboarding state, preferences.
+  - name: catalog
+    description: Exams, subjects, topics.
+  - name: search
+    description: Federated search + typeahead.
+  - name: flags
+    description: Feature flags (see ADR-0001).
+  - name: quiz
+    description: Quiz session lifecycle, question serving, answer submission, scoring.
+
+paths:
+  # ---------- auth ----------
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: Register a new student account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '200':
+          description: Registered — OTP dispatched
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisterResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Login with email + password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Session + tokens
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '423': { $ref: '#/components/responses/Locked' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Exchange refresh token for new access+refresh pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: New token pair
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tokens' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke the current session
+      responses:
+        '204': { description: Logged out }
+
+  /auth/otp/verify:
+    post:
+      tags: [auth]
+      summary: Verify an OTP code (email or SMS)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, code, channel]
+              properties:
+                userId: { type: string }
+                code: { type: string, minLength: 6, maxLength: 6 }
+                channel: { type: string, enum: [email, sms] }
+      responses:
+        '200':
+          description: Session + tokens
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '410': { description: Code expired }
+
+  /auth/otp/resend:
+    post:
+      tags: [auth]
+      summary: Resend an OTP (rate-limited 3 / 5 min)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, channel]
+              properties:
+                userId: { type: string }
+                channel: { type: string, enum: [email, sms] }
+      responses:
+        '204': { description: Queued }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /auth/password/forgot:
+    post:
+      tags: [auth]
+      summary: Request a password-reset link (enumeration-safe — always 204)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '204': { description: Always 204 — does not reveal whether email exists }
+
+  /auth/password/reset:
+    post:
+      tags: [auth]
+      summary: Reset password with token from email link
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token: { type: string }
+                newPassword: { type: string, minLength: 12 }
+      responses:
+        '200': { description: Password reset — all sessions invalidated }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '410': { description: Token expired or invalid }
+
+  /auth/oauth/{provider}/url:
+    get:
+      tags: [auth]
+      summary: Get SSO redirect URL
+      security: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string, enum: [google, apple] }
+        - name: returnTo
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Redirect URL to provider
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: { type: string }
+
+  /auth/oauth/callback:
+    post:
+      tags: [auth]
+      summary: Exchange SSO code for session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, state]
+              properties:
+                code: { type: string }
+                state: { type: string }
+      responses:
+        '200':
+          description: Session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  # ---------- profile ----------
+  /profile/me:
+    get:
+      tags: [profile]
+      summary: Get current user profile
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+    patch:
+      tags: [profile]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileUpdate' }
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /profile/me/avatar:
+    post:
+      tags: [profile]
+      summary: Upload avatar image (multipart)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '200':
+          description: New avatar URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  avatarUrl: { type: string }
+    delete:
+      tags: [profile]
+      summary: Remove avatar
+      responses:
+        '204': { description: Removed }
+
+  /profile/exams:
+    put:
+      tags: [profile]
+      summary: Set primary exam for the user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [examId]
+              properties:
+                examId: { type: string }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+
+  /profile/exams/{examId}:
+    patch:
+      tags: [profile]
+      summary: Patch exam-specific settings (target_date, etc.)
+      parameters:
+        - name: examId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetDate: { type: string, format: date }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+
+  /profile/preferences:
+    patch:
+      tags: [profile]
+      summary: Update preferences (language, goal, etc.)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                language: { type: string, enum: [en, hi, hinglish] }
+                dailyGoalMinutes: { type: integer, minimum: 5, maximum: 240 }
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+
+  # ---------- catalog ----------
+  /catalog/exams:
+    get:
+      tags: [catalog]
+      summary: List all exams
+      security: []
+      responses:
+        '200':
+          description: Exams
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Exam' }
+
+  /catalog/exams/{examId}/subjects:
+    get:
+      tags: [catalog]
+      summary: List subjects under an exam
+      parameters:
+        - name: examId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Subjects
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Subject' }
+
+  /catalog/subjects/{subjectId}/topics:
+    get:
+      tags: [catalog]
+      summary: List topics under a subject
+      parameters:
+        - name: subjectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Topics
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Topic' }
+
+  /catalog/topics/{topicId}:
+    get:
+      tags: [catalog]
+      summary: Topic detail
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Topic
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TopicDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------- search ----------
+  /search:
+    get:
+      tags: [search]
+      summary: Federated search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 120 }
+        - name: type
+          in: query
+          schema: { type: string, enum: [topic, lesson, question] }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: perPage
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: Paginated results
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchResults' }
+
+  /search/typeahead:
+    get:
+      tags: [search]
+      summary: Typeahead suggestions (debounce 300ms on client)
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 60 }
+      responses:
+        '200':
+          description: Suggestions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TypeaheadHit' }
+
+  # ---------- flags (ADR-0001) ----------
+  /flags:
+    get:
+      tags: [flags]
+      summary: List all flags (admin scope)
+      responses:
+        '200':
+          description: Flags
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Flag' }
+
+  /flags/{name}:
+    get:
+      tags: [flags]
+      summary: Get a flag's default + overrides + recent audit
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Flag detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlagDetail' }
+    put:
+      tags: [flags]
+      summary: Set global default (admin)
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value: { type: boolean }
+                rationale: { type: string }
+      responses:
+        '200': { description: OK }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /flags/{name}/tenants/{tenantId}:
+    put:
+      tags: [flags]
+      summary: Set per-tenant override (admin)
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenantId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value: { type: boolean }
+                rationale: { type: string }
+      responses:
+        '200': { description: OK }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------- quiz ----------
+  /quiz/sessions/start:
+    post:
+      tags: [quiz]
+      summary: Start a quiz session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuizStartRequest' }
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuizStartResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422':
+          description: No published questions for the requested topic
+
+  /quiz/sessions/{id}:
+    get:
+      tags: [quiz]
+      summary: Get session state with served-item history (resume / review)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Session detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuizSession' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /quiz/sessions/{id}/next:
+    get:
+      tags: [quiz]
+      summary: Fetch the next question (or current unanswered item, for resume)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Next item, or done=true when targetCount reached
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuizNextResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Session is SUBMITTED or EXPIRED
+
+  /quiz/sessions/{id}/answers:
+    post:
+      tags: [quiz]
+      summary: Record an answer (idempotent — first write wins per GAP-21)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuizAnswerRequest' }
+      responses:
+        '200':
+          description: Answer recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuizAnswerResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Session is SUBMITTED or EXPIRED
+
+  /quiz/sessions/{id}/submit:
+    post:
+      tags: [quiz]
+      summary: Close the session and return the score
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Session closed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuizSubmitResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Session is already SUBMITTED or EXPIRED
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: Conflict (e.g. email in use)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Locked:
+      description: Account temporarily locked
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    RateLimited:
+      description: Rate limited
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+  schemas:
+    Problem:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+        fields:
+          type: array
+          items: { type: string }
+
+    User:
+      type: object
+      required: [id, email, firstName, lastName, role, onboardingState]
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        firstName: { type: string }
+        lastName: { type: string }
+        role:
+          type: string
+          enum: [STUDENT, TEACHER, EXPERT, MODERATOR, INSTITUTION_ADMIN, PLATFORM_ADMIN]
+        tenantId: { type: string }
+        onboardingState:
+          type: string
+          enum: [NEW, EXAM_SELECTED, ONBOARDED]
+
+    Tokens:
+      type: object
+      required: [accessToken, refreshToken, expiresAt]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresAt: { type: integer, description: epoch millis }
+
+    Session:
+      type: object
+      required: [user, tokens]
+      properties:
+        user: { $ref: '#/components/schemas/User' }
+        tokens: { $ref: '#/components/schemas/Tokens' }
+
+    RegisterRequest:
+      type: object
+      required: [firstName, lastName, email, password]
+      properties:
+        firstName: { type: string, maxLength: 60 }
+        lastName: { type: string, maxLength: 60 }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 12 }
+        phone: { type: string }
+        locale: { type: string, default: en-IN }
+
+    RegisterResponse:
+      type: object
+      required: [userId, otpChannel]
+      properties:
+        userId: { type: string }
+        otpChannel:
+          type: string
+          enum: [email, sms]
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+        remember: { type: boolean, default: false }
+
+    Profile:
+      type: object
+      required: [user, preferences]
+      properties:
+        user: { $ref: '#/components/schemas/User' }
+        avatarUrl: { type: string }
+        preferences:
+          type: object
+          properties:
+            language: { type: string, enum: [en, hi, hinglish] }
+            dailyGoalMinutes: { type: integer }
+        exams:
+          type: array
+          items:
+            type: object
+            properties:
+              examId: { type: string }
+              targetDate: { type: string, format: date }
+
+    ProfileUpdate:
+      type: object
+      properties:
+        firstName: { type: string, maxLength: 60 }
+        lastName: { type: string, maxLength: 60 }
+        phone: { type: string }
+
+    Exam:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: { type: string }
+        code: { type: string, description: e.g. JEE, NEET, UPSC, CAT }
+        name: { type: string }
+        subtitle: { type: string }
+        iconKey: { type: string }
+
+    Subject:
+      type: object
+      required: [id, name, examId]
+      properties:
+        id: { type: string }
+        examId: { type: string }
+        name: { type: string }
+        topicCount: { type: integer }
+
+    Topic:
+      type: object
+      required: [id, title, subjectId]
+      properties:
+        id: { type: string }
+        subjectId: { type: string }
+        title: { type: string }
+        titleHi:
+          type: string
+          nullable: true
+          description: Devanagari title (added Sprint 2 — GAP-04 bilingual closure)
+        questionCount: { type: integer }
+        tier: { type: string, enum: [FREE, PREMIUM] }
+        mastery:
+          type: number
+          description: 0-1 decimal; null if user has no data yet
+          nullable: true
+
+    TopicDetail:
+      allOf:
+        - $ref: '#/components/schemas/Topic'
+        - type: object
+          properties:
+            description: { type: string }
+            objectives:
+              type: array
+              items: { type: string }
+            prerequisites:
+              type: array
+              items:
+                type: object
+                properties:
+                  topicId: { type: string }
+                  title: { type: string }
+
+    SearchResults:
+      type: object
+      required: [results, total, page, perPage]
+      properties:
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/SearchHit' }
+        total: { type: integer }
+        page: { type: integer }
+        perPage: { type: integer }
+        tookMs: { type: integer }
+
+    SearchHit:
+      type: object
+      required: [type, id, title]
+      properties:
+        type: { type: string, enum: [topic, lesson, question] }
+        id: { type: string }
+        title: { type: string }
+        subtitle: { type: string }
+        path: { type: string }
+        score: { type: number }
+
+    TypeaheadHit:
+      type: object
+      required: [type, id, title]
+      properties:
+        type: { type: string, enum: [topic, lesson, question] }
+        id: { type: string }
+        title: { type: string }
+        path: { type: string }
+
+    Flag:
+      type: object
+      required: [name, defaultValue]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        defaultValue: { type: boolean }
+        overrideCount: { type: integer }
+        updatedAt: { type: string, format: date-time }
+        dangerCritical: { type: boolean, default: false }
+
+    FlagDetail:
+      allOf:
+        - $ref: '#/components/schemas/Flag'
+        - type: object
+          properties:
+            overrides:
+              type: array
+              items:
+                type: object
+                properties:
+                  tenantId: { type: string }
+                  tenantName: { type: string }
+                  value: { type: boolean }
+                  setByUserId: { type: string }
+                  setAt: { type: string, format: date-time }
+            audit:
+              type: array
+              items:
+                type: object
+                properties:
+                  at: { type: string, format: date-time }
+                  actor: { type: string }
+                  action: { type: string }
+                  oldValue: { type: boolean, nullable: true }
+                  newValue: { type: boolean, nullable: true }
+                  rationale: { type: string, nullable: true }
+
+    QuizStartRequest:
+      type: object
+      required: [topicId, userId]
+      properties:
+        topicId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        tenantId: { type: string }
+        mode:
+          type: string
+          enum: [PRACTICE, MOCK]
+          default: PRACTICE
+
+    QuizStartResponse:
+      type: object
+      required: [sessionId, strategy, mode, status, expiresAt]
+      properties:
+        sessionId: { type: string, format: uuid }
+        strategy:
+          type: string
+          enum: [irt, binary_search]
+        mode:
+          type: string
+          enum: [PRACTICE, MOCK]
+        status:
+          type: string
+          enum: [IN_PROGRESS]
+        expiresAt: { type: string, format: date-time }
+
+    QuizSession:
+      type: object
+      required: [sessionId, userId, topicId, mode, strategy, status, targetCount, servedCount, correctCount, startedAt, expiresAt, items]
+      properties:
+        sessionId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        topicId: { type: string, format: uuid }
+        mode: { type: string, enum: [PRACTICE, MOCK] }
+        strategy: { type: string, enum: [irt, binary_search] }
+        status: { type: string, enum: [IN_PROGRESS, SUBMITTED, EXPIRED] }
+        targetCount: { type: integer }
+        servedCount: { type: integer }
+        correctCount: { type: integer }
+        startedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/QuizItemSummary' }
+
+    QuizItemSummary:
+      type: object
+      required: [itemIdx, questionId, answered]
+      properties:
+        itemIdx: { type: integer }
+        questionId: { type: string, format: uuid }
+        answerIdx: { type: integer, nullable: true }
+        isCorrect: { type: boolean, nullable: true }
+        answered: { type: boolean }
+
+    QuizNextResponse:
+      type: object
+      required: [sessionId, status, done]
+      properties:
+        sessionId: { type: string, format: uuid }
+        status: { type: string, enum: [IN_PROGRESS, SUBMITTED, EXPIRED] }
+        done: { type: boolean }
+        item:
+          type: object
+          required: [itemIdx, questionId, stem, choices]
+          properties:
+            itemIdx: { type: integer }
+            questionId: { type: string, format: uuid }
+            stem: { type: string }
+            choices:
+              type: array
+              items: { type: string }
+
+    QuizAnswerRequest:
+      type: object
+      required: [itemIdx, answerIdx]
+      properties:
+        itemIdx: { type: integer, minimum: 0 }
+        answerIdx: { type: integer, minimum: 0 }
+
+    QuizAnswerResponse:
+      type: object
+      required: [sessionId, itemIdx, isCorrect, correctIdx, servedCount, correctCount]
+      properties:
+        sessionId: { type: string, format: uuid }
+        itemIdx: { type: integer }
+        isCorrect: { type: boolean }
+        correctIdx: { type: integer }
+        servedCount: { type: integer }
+        correctCount: { type: integer }
+
+    QuizSubmitResponse:
+      type: object
+      required: [sessionId, status, servedCount, correctCount, score]
+      properties:
+        sessionId: { type: string, format: uuid }
+        status: { type: string, enum: [SUBMITTED] }
+        servedCount: { type: integer }
+        correctCount: { type: integer }
+        score: { type: number, format: float, description: correctCount / servedCount, minimum: 0, maximum: 1 }

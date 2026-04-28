@@ -4,8 +4,10 @@
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
 
-PY_SERVICES := auth user-profile content catalog search analytics payment institution notification adaptive-engine
+PY_SERVICES := identity payment learning engagement
 GO_SERVICES := quiz
+# ADR-0005 consolidation complete: identity, payment, learning, quiz, engagement.
+# Marketplace is the reserved 6th slot (Phase 3).
 COMPOSE := docker compose -f infrastructure/docker/docker-compose.yml
 
 .PHONY: help
@@ -53,6 +55,100 @@ dev-logs: ## Tail logs for the local stack
 dev-seed: ## Run seed script against local Postgres + NATS (placeholder until Sprint 1)
 	@echo "→ dev-seed: implemented in Sprint 1 (scripts/seed_staging.py, GAP-09)"
 
+# -- consolidation (ADR-0005) — historical contract-test harness left in place
+#    for any future module-level boundary changes.
+
+.PHONY: contract-test
+contract-test: ## Run consolidation contract tests (requires recordings/). Usage: make contract-test bundle=engagement|learning|identity
+	@if [ -z "$(bundle)" ]; then \
+	  PYTHONPATH=. uv run --project services/engagement pytest tests/consolidation/ -v; \
+	else \
+	  PYTHONPATH=. uv run --project services/engagement pytest tests/consolidation/test_$(bundle).py -v; \
+	fi
+
+.PHONY: seed-hindi
+seed-hindi: ## Seed 15 Hindi MCQs through Content API → bridge → Quiz bank.
+	@echo "→ seeding Hindi content via Learning service at $${LEARNING_BASE_URL:-http://localhost:38101}"
+	@cd services/learning && uv run python -m learning.content.seed.seed_hindi
+
+.PHONY: seed-restore
+seed-restore: ## Restore the local seed bank (auth users + 480 real exam-prep questions in Learning + Quiz).
+	@echo "→ restoring identity (auth) seed (4 test users)"
+	@cd services/identity && AUTH_SEED_LOCAL=1 \
+	  DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:35432/identity \
+	  uv run python -m identity.auth.scripts.restore_seed
+	@echo "→ restoring learning (content) seed (480 questions, real exam-prep content)"
+	@cd services/learning && CONTENT_SEED_LOCAL=1 \
+	  DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:35432/learning \
+	  uv run python -m learning.content.scripts.restore_seed
+	@echo "→ restoring quiz seed (mirrors learning question bank)"
+	@cd services/learning && uv run python ../quiz/scripts/restore_seed.py
+
+.PHONY: engagement-backfill
+engagement-backfill: ## Replay Quiz SUBMITTED sessions Engagement missed (analytics + notification). SINCE=ISO-8601 (default 36h).
+	@since="$${SINCE:-$$(date -u -d '36 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-36H +%Y-%m-%dT%H:%M:%SZ)}"; \
+	echo "→ engagement.analytics backfill since $$since"; \
+	cd services/engagement && uv run python -m engagement.analytics.backfill --since "$$since"; \
+	echo "→ engagement.notification backfill since $$since"; \
+	cd services/engagement && uv run python -m engagement.notification.backfill --since "$$since"
+
+.PHONY: search-swap-alias
+search-swap-alias: ## Swap topics alias to TARGET. Usage: TARGET=topics_v3 [REINDEX=1] [DROP_OLD=1] make search-swap-alias
+	@if [ -z "$(TARGET)" ]; then echo "Usage: TARGET=topics_v3 [REINDEX=1] [DROP_OLD=1] make search-swap-alias"; exit 1; fi
+	@cd services/learning && uv run python -m learning.search.swap_alias --target "$(TARGET)" \
+		$(if $(REINDEX),--reindex,) \
+		$(if $(DROP_OLD),--drop-old,)
+
+# -- migrations --
+
+# Per-consolidated-service Alembic. After ADR-0005 each service's DB holds
+# multiple schemas (one per absorbed module), with `version_table_schema`
+# pinned per module. Run as: make migrate svc=identity mod=auth.
+#   identity:    auth profile institution
+#   learning:    catalog content doubts
+#   engagement:  analytics notification
+#   payment:     (no module split — uses the standard alembic.ini)
+#   quiz:        Go service, uses `go run ./cmd/migrate up`
+.PHONY: migrate
+migrate: ## Run migrations.  Usage: make migrate svc=identity mod=auth   (or: make migrate svc=quiz)
+	@if [ -z "$(svc)" ]; then echo "Usage: make migrate svc=<service-name> [mod=<module>]"; exit 1; fi
+	@if [ -d services/$(svc)/migrations ]; then \
+		echo "→ go-migrate up — services/$(svc)"; \
+		(cd services/$(svc) && go run ./cmd/migrate up); \
+	elif [ -n "$(mod)" ] && [ -f services/$(svc)/alembic_$(mod).ini ]; then \
+		svc_upper=$$(echo "$(svc)" | tr 'a-z-' 'A-Z_'); \
+		url_var=$${svc_upper}_DATABASE_URL; \
+		if [ -z "$${!url_var:-}" ]; then set -a; . ./.env 2>/dev/null || true; set +a; fi; \
+		url=$${!url_var}; \
+		if [ -z "$$url" ]; then echo "✗ $$url_var not set. Add it to .env (see .env.example)."; exit 1; fi; \
+		echo "→ alembic -c alembic_$(mod).ini upgrade head — services/$(svc)"; \
+		(cd services/$(svc) && DATABASE_URL=$$url uv run alembic -c alembic_$(mod).ini upgrade head); \
+	elif [ -f services/$(svc)/alembic.ini ]; then \
+		svc_upper=$$(echo "$(svc)" | tr 'a-z-' 'A-Z_'); \
+		url_var=$${svc_upper}_DATABASE_URL; \
+		if [ -z "$${!url_var:-}" ]; then set -a; . ./.env 2>/dev/null || true; set +a; fi; \
+		url=$${!url_var}; \
+		if [ -z "$$url" ]; then echo "✗ $$url_var not set."; exit 1; fi; \
+		echo "→ alembic upgrade head — services/$(svc)"; \
+		(cd services/$(svc) && DATABASE_URL=$$url uv run alembic upgrade head); \
+	else \
+		echo "✗ services/$(svc) has neither alembic_<mod>.ini nor alembic.ini nor migrations/ — nothing to run"; \
+		exit 1; \
+	fi
+
+.PHONY: migrate-status
+migrate-status: ## Show current Alembic revision.  Usage: make migrate-status svc=identity mod=auth
+	@if [ -z "$(svc)" ]; then echo "Usage: make migrate-status svc=<service-name> [mod=<module>]"; exit 1; fi
+	@svc_upper=$$(echo "$(svc)" | tr 'a-z-' 'A-Z_'); \
+	url_var=$${svc_upper}_DATABASE_URL; \
+	if [ -z "$${!url_var:-}" ]; then set -a; . ./.env 2>/dev/null || true; set +a; fi; \
+	url=$${!url_var}; \
+	if [ -n "$(mod)" ] && [ -f services/$(svc)/alembic_$(mod).ini ]; then \
+		(cd services/$(svc) && DATABASE_URL=$$url uv run alembic -c alembic_$(mod).ini current); \
+	else \
+		(cd services/$(svc) && DATABASE_URL=$$url uv run alembic current); \
+	fi
+
 # -- per-stack commands --
 
 .PHONY: install
@@ -67,7 +163,7 @@ install-py:
 
 .PHONY: install-web
 install-web:
-	cd apps/web && pnpm install --frozen-lockfile || cd apps/web && pnpm install
+	pnpm install --frozen-lockfile || pnpm install
 
 .PHONY: install-go
 install-go:
@@ -91,7 +187,7 @@ test-go:
 
 .PHONY: test-web
 test-web:
-	cd apps/web && pnpm test
+	pnpm -r --filter=@alp/* test
 
 # -- lint --
 
@@ -113,7 +209,8 @@ lint-go:
 
 .PHONY: lint-web
 lint-web:
-	cd apps/web && pnpm lint && pnpm format
+	pnpm -r --filter=@alp/* lint
+	pnpm -r --filter=@alp/* format
 
 # -- format --
 
@@ -121,13 +218,19 @@ lint-web:
 format: ## Auto-format all stacks
 	@for svc in $(PY_SERVICES); do (cd services/$$svc && uv run ruff format . && uv run ruff check --fix .); done
 	@for svc in $(GO_SERVICES); do (cd services/$$svc && gofmt -w -s .); done
-	cd apps/web && pnpm exec prettier --write .
+	pnpm -r --filter=@alp/* exec prettier --write .
 
 # -- build --
+
+WEB_APPS := web-student web-portal web-admin
 
 .PHONY: build
 build: ## Build all Docker images (local tag: alp/<svc>:dev)
 	@for svc in $(PY_SERVICES) $(GO_SERVICES); do \
 	  echo "→ docker build services/$$svc"; \
 	  docker build -t alp/$$svc:dev services/$$svc || exit 1; \
+	done
+	@for app in $(WEB_APPS); do \
+	  echo "→ docker build apps/$$app"; \
+	  docker build -t alp/$$app:dev -f apps/$$app/Dockerfile . || exit 1; \
 	done

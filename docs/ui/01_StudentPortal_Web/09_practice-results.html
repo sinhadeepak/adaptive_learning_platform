@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AdaptiveLearn — Practice Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!--
+  AdaptiveLearn Student Portal — Practice Results (post-quiz)
+  Version: 1.0 · April 2026 · design source-of-truth.
+  React port: apps/web-student/src/pages/QuizResult.tsx
+  Route:      /quiz/:sessionId/result
+  Reached:    after the user submits/ends a quiz session
+
+  Layout — seven zones:
+    1. AI score hero — gradient panel, AI pill + topic link + status
+       badge, big AI-generated headline, sub-text contextual to the
+       score, primary "Practice again" CTA, and a big readiness-style
+       score ring on the right showing pct + bucket-coloured.
+    2. Stat tiles row — Correct (N/M) · Time / questions · Mode · Strategy.
+    3. AI breakdown — numbered insight items derived from results
+       (correctness streaks, weak items, recommendations).
+    4. Mastery delta card — shows pre→post EWA bump for this topic.
+    5. AI recommends-next banner — suggests the next high-impact
+       topic to practice.
+    6. Item review grid — each Q as a compact card with #N + status
+       pill + answer index + question id slice.
+    7. Footer action row — Practice again · View topic · Catalog.
+-->
+</head>
+<body style="background:#0a0e1a;padding:24px;color:#eef2ff;font-family:'Outfit',sans-serif">
+<p style="font-size:13px;color:#7A8BAD;line-height:1.6;max-width:640px">
+  This file is a placeholder for the canonical Practice Results mockup.
+  The React port at <code>apps/web-student/src/pages/QuizResult.tsx</code>
+  uses the same shell.css primitives as the master / exam / study-map /
+  AI Practice mockups — see those files for the full design language
+  (.ai-header, .topic-stats, .insight-card, .reco-banner, .data-table).
+</p>
+</body>
+</html>

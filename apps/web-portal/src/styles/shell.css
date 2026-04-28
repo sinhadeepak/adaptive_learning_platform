@@ -1,0 +1,56 @@
+/* ============================================================
+   web-portal app — teacher / institution + author surface
+   Mirrors docs/ui/04_TeacherPortal/01_dashboard.html chrome.
+
+   Inherits chrome + form/auth primitives from
+   @alp/design-system/shell.css and re-aliases the blue accent
+   to teacher green inside .app-shell so every gradient / border
+   / accent rule retokens to teacher in one declaration.
+   ============================================================ */
+
+.app-shell {
+  --color-blue:  #10C47A;     /* teacher accent (green) */
+  --color-blue2: #068852;     /* darker green for gradients */
+}
+
+/* ── Review card surface (peer-review queue) ──────────────── */
+.review-card { padding: var(--sp-5); }
+.review-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.review-card-stem {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-primary);
+  flex: 1;
+}
+.review-choices {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.review-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface3);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.review-choice-correct {
+  border-color: var(--color-green);
+  background: rgba(16, 196, 122, 0.10);
+  color: var(--text-primary);
+}

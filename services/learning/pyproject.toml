@@ -1,0 +1,53 @@
+[project]
+name = "learning"
+version = "0.1.0"
+description = "Learning service — catalog + content + doubts + search + adaptive (the learning-material core)."
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "structlog>=24.4",
+    "httpx>=0.27",
+    "sqlalchemy[asyncio]>=2.0",
+    "alembic>=1.13",
+    "asyncpg>=0.29",
+    "nats-py>=2.9",
+    "opensearch-py[async]>=2.7",
+    "redis>=5.0",
+    "openai>=1.50",
+    "pyjwt>=2.9",
+    "alp-flags",
+    "alp-telemetry",
+]
+
+[tool.uv.sources]
+alp-flags = { path = "../../libs/python/alp_flags", editable = true }
+alp-telemetry = { path = "../../libs/python/alp_telemetry", editable = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.7",
+    "mypy>=1.13",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/learning"]
+
+[tool.ruff]
+extend = "../../ruff.toml"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"

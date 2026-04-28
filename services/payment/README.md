@@ -6,8 +6,8 @@ Payment service — subscriptions, in-app purchases, receipts.
 
 ```bash
 uv sync
-uv run uvicorn payment.main:app --reload --port 8007
-curl http://localhost:8007/health
+uv run uvicorn payment.main:app --reload --port 38007
+curl http://localhost:38007/health
 ```
 
 ## Test

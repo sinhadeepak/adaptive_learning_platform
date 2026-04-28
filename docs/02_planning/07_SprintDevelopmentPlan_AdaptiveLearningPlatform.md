@@ -3,7 +3,7 @@
 **Project**: Adaptive Learning Platform — Phase 1 (India)
 **Planning horizon**: 10 weeks (Sprint 0 + 4 feature sprints)
 **Target MVP launch**: End of Week 10 (Phase 1c full launch)
-**Team**: 12 (3 BE Python, 1 BE Go, 2 FE Next.js, 2 Mobile, 1 ML, 1 DevOps, 1 QA, 1 Designer, 1 Tech Lead; Head of Product, PM, CTO participate cross-sprint)
+**Team**: 12 (3 BE Python, 1 BE Go, 2 FE React+Vite across three web apps, 2 Mobile on a shared Flutter codebase, 1 ML, 1 DevOps, 1 QA, 1 Designer, 1 Tech Lead; Head of Product, PM, CTO participate cross-sprint). Frontend stack per [ADR-0002](../adr/0002-flutter-mobile-stack.md) (Flutter for mobile) and [ADR-0003](../adr/0003-three-web-app-split.md) (three web apps: `web-student`, `web-portal`, `web-admin`).
 **Authoritative inputs**: [BRD v2](../00_requirements/02_BRD_v2_Adaptive_Learning_Platform.docx), [User Stories v2](../00_requirements/05_UserStories_v2_Adaptive_Learning_Platform.docx), [Release Plan / MVP](04_ReleasePlan_MVPScope_AdaptiveLearningPlatform.docx), [Sprint 0 Plan](02_Sprint0_Plan_AdaptiveLearningPlatform.docx), [Technical Spikes](05_TechnicalSpikes_AdaptiveLearningPlatform.docx), [Gap Register v1.2](../06_gaps_resolution/GapResolutionRegister_v1.2_AdaptiveLearningPlatform.docx).
 
 ---
@@ -28,18 +28,28 @@
 **Capacity**: 89 SP (per existing Sprint 0 Plan). Non-negotiable: all tasks complete by Day 10.
 
 ### Deliverables
-1. **Monorepo + service skeletons** — one directory per service, standard layout (Go service + 10 Python services + 3 FE projects + `infrastructure/`). Lint + pre-commit hooks wired.
+1. **Monorepo + service skeletons** — one directory per service, standard layout (Go service + 10 Python services + 3 web apps [`apps/web-student`, `apps/web-portal`, `apps/web-admin`] + 1 Flutter mobile [`apps/mobile`] + `infrastructure/`). Lint + pre-commit hooks wired.
 2. **AWS staging provisioned via Terraform** — EKS 1.29, Aurora PG 15 (Multi-AZ, cluster endpoint), Redis 7 cluster, OpenSearch 2.x, NATS JetStream (3-node), S3 + CloudFront, Secrets Manager, WAF.
 3. **Local dev stack** — Docker Compose with Postgres, Redis, OpenSearch, NATS, LocalStack (for S3/SecretsManager). One-command bootstrap.
 4. **CI/CD pipelines** — GitHub Actions (build, test, Snyk, Trivy) → ECR → ArgoCD. ArgoCD configured with **auto-sync OFF** (per [GAP-17 v1.2 amendment](../06_gaps_resolution/GapResolutionRegister_v1.2_AdaptiveLearningPlatform.docx)).
 5. **Observability stack** — Prometheus, Grafana, Loki, Tempo deployed to staging EKS. Default service dashboards scaffolded.
 6. **Coding standards + ADR process** — `docs/adr/` template, PR template with backward-compat checkbox ([OI-01](../06_gaps_resolution/Appendix_OpenItems_GapRegister_v1.2.md)), DoR/DoD checklist embedded.
 7. **Team norms published** — pair rotation, review SLAs, on-call roster skeleton.
+8. **All three web apps dockerized** — `apps/web-student`, `apps/web-portal`, `apps/web-admin` each ship a multi-stage `Dockerfile` (node build → nginx serve), an nginx config that proxies `/api` to the gateway in dev, and a matching service in `infrastructure/docker/docker-compose.yml` on ports 35173 / 35174 / 35175 (per the `+30000` convention in the app READMEs). Corresponding CI paths-filter job + Trivy per-image scan + ECR repo + Helm chart stub per app. The existing web-app CI job is forked three ways (one per app) so a failing student-app build does not block an admin-app merge.
+9. **Flutter mobile build pipeline** — `apps/mobile` has `flutter create .` run and `ios/` + `android/` platform folders committed; GitHub Actions lane builds debug APK + iOS simulator artefact on PR; Firebase App Distribution + TestFlight wiring stubbed (production certs Sprint 3).
+10. **Shared frontend packages** — a `packages/` workspace landed under the pnpm workspace with the following libraries, each publishable internally and consumed by the three web apps:
+    - `@alp/design-system` — tokens + primitive components (Input, Button, Badge, Modal, Table, Nav, etc.) per the [Common Controls Specification](../01_design/07_CommonControls_Specification_AdaptiveLearningPlatform.md). Sprint 0 publishes v0.1 with §2 tokens + §3.1–3.3 primitives; Storybook deployed to S3/CloudFront.
+    - `@alp/icons` — shared SVG icon set (Lucide baseline + any brand-custom icons).
+    - `@alp/api-client` — TypeScript client generated from `openapi/phase1.yaml` (openapi-typescript-codegen); one package consumed by all three web apps so types stay in lock-step with the contract.
+    - `@alp/auth-client` — shared JWT + refresh + Google/Apple SSO flow and secure token storage. Web apps never reimplement auth.
+    - `packages/design-tokens-flutter` — Dart mirror of `@alp/design-system` tokens so Flutter theme matches web brand.
+11. **Design System Specification approved** — [07_CommonControls_Specification_AdaptiveLearningPlatform.md](../01_design/07_CommonControls_Specification_AdaptiveLearningPlatform.md) signed off by Designer + FE Leads + Tech Lead by end of Sprint 0 Day 5. Brand-colour and typography TBDs resolved; token slots filled.
+12. **Cross-app conventions locked** — one decision per item, recorded in the spec or CONTRIBUTING.md: i18n library (`react-i18next` web, `flutter_localizations` mobile), form library (`react-hook-form`), data-fetching (`@tanstack/react-query`), router (`react-router` v6), state (`zustand` or react-query-only), error-boundary + telemetry pattern, env-var loading + runtime config shape.
 
 ### Gap closure gating Sprint 1 (Sprint 1 Start Gate — GAP-24)
 | Item | Owner | Must be YES before Sprint 1 starts |
 |---|---|---|
-| GAP-07 ADR-001 feature flag decision | CTO | ☐ |
+| GAP-07 ADR-0001 feature flag decision | CTO | ☑ Resolved 2026-04-22 — in-house tenant-aware flag service in Institution, Super Admin panel UI. See [ADR-0001](../adr/0001-feature-flag-platform.md) and [ResolutionsLog_GapRegister_v1.2.md](../06_gaps_resolution/ResolutionsLog_GapRegister_v1.2.md). |
 | GAP-13 User Stories v2 changelog distributed | Tech Lead | ☐ |
 | GAP-18 delegation order (5 levels) signed | CTO + Tech Lead | ☐ |
 | GAP-23 dependency graph shared with engineering | Tech Lead | ☐ |
@@ -51,11 +61,15 @@
 - Developer can clone the repo, run `make dev`, and see all services healthy locally in < 15 minutes.
 - `terraform plan` on staging shows zero drift.
 - CI pipeline runs on PR and blocks merge on lint/test/scan failure.
+- `make dev` also boots the three web apps (via Docker or concurrent `pnpm dev`) and a `flutter run` device target for the mobile app — a new engineer can reach each surface in the browser / simulator.
+- `@alp/design-system` v0.1 published internally; Storybook reachable; the three web apps can import `<Button />` and `<Input />` from it and render without local overrides.
+- Common Controls Specification signed off (§2 tokens filled, §3 inventory approved).
 - Gate sheet signed.
 
 ### Risks
-- CTO decision on GAP-07 delayed → Sprint 1 config PRs blocked. Mitigation: surface decision at Week 1 Day 3 standup.
+- ~~CTO decision on GAP-07 delayed → Sprint 1 config PRs blocked.~~ **Resolved 2026-04-22** — ADR-0001 Accepted. Residual risk: Institution shell capacity (~10 SP) needs confirmation at Sprint 1 planning; if capacity is tight, descope Search typeahead to Sprint 2 rather than the flag module.
 - AWS IAM/quota delays. Mitigation: file quota increase requests Day 1.
+- **Design-system slip risk** — Sprint 1 FE feature work depends on `@alp/design-system` v0.1 landing by Sprint 0 Day 8 and token values being locked by Day 5. If Designer is blocked on brand-colour decisions, fallback is to ship the package with placeholder tokens and a global `token.override.css` that the Designer can edit without touching TSX; visual polish then catches up during Sprint 1 without blocking feature work.
 
 ---
 
@@ -64,15 +78,18 @@
 **Goal**: First feature surface live in staging. De-risk adaptive engine and NATS partition before Sprint 2.
 **Closed beta opens Week 4** — 20 internal @adaptivelearn.in accounts first.
 
-### Feature work (~110 SP)
+### Feature work (~120 SP — raised from 110 per GAP-07 resolution 2026-04-22)
 | Epic | Stories | Owner |
 |---|---|---|
 | Auth — registration, email/SMS OTP, login, JWT, refresh | STU-REQ-01..08 | BE Lead Python (Auth) |
 | User Profile — onboarding FSM, exam selection, JWT claim propagation | STU-REQ-53..58 | BE Lead Python (Profile) |
 | Catalog — Exam→Subject→Topic hierarchy, browse, EN-only index | STU-REQ-24..27 | BE Lead Python (Catalog) |
 | Search — federated search, EN-only, typeahead | STU-REQ-28..30 | BE Lead Python (Search) |
-| Web shell — routing, auth flows, onboarding screens | — | FE Lead |
-| iOS + Android shells — auth flows, onboarding | — | Mobile Leads |
+| **Institution shell + feature-flag module** (thin slice — no admin UI yet; per [ADR-0001](../adr/0001-feature-flag-platform.md)) — `feature_flags` + `feature_flag_overrides` + `feature_flag_audit` tables; REST endpoints `GET/PUT /flags/:name` and `PUT /flags/:name/tenants/:id`; NATS `flag.changed` publisher; Python + Go client SDKs with Redis 30s TTL + NATS invalidation + hardcoded fallback | — | BE Lead Python (Institution) + DevOps |
+| `web-student` shell — routing, auth flows, onboarding, catalog browse, search UI. Consumes Auth/Profile/Catalog/Search APIs. | — | FE Lead A |
+| `web-portal` scaffold — app bootstrap only (routing, auth callback, role gate stub). No feature screens this sprint. | — | FE Lead B (part-time) |
+| `web-admin` scaffold — app bootstrap only (routing, auth callback, MFA gate stub). No feature screens this sprint. | — | FE Lead B (part-time) |
+| Mobile shell (Flutter, one codebase for iOS + Android) — routing, auth flows, onboarding, platform signing config. Token storage per SPIKE-05. | — | Mobile Leads (2) |
 
 ### Gap closure (~60 SP)
 - **GAP-16**: fallback config flags in all 7 services (includes Adaptive Engine `irt_model_enabled` and Notification `push_channel_enabled` / `sms_channel_enabled` per v1.2 amendment). One PR per service.
@@ -114,6 +131,9 @@
 | Content — MCQ authoring, peer review, AI moderation | STU-REQ-31..44 | Published via NATS `content.published` event. |
 | Notification — 11 types, preferences, FCM+APNs+SendGrid+Twilio | STU-REQ-14 (expanded) | Dedup per GAP-05 product decision. |
 | Search — Hindi + Hinglish, always-dual-path | STU-REQ-28..30 (expanded) | GAP-04 decision applied. |
+| `web-student` — adaptive quiz UI (start/next/submit/resume), readiness score dashboard, notification preferences, Hindi/English language toggle | STU-REQ-15..23, 14 | Owner: FE Lead A. Consumes Quiz + Adaptive + Analytics + Notification APIs. |
+| `web-portal` — content authoring screens (MCQ create, peer review queue, AI moderation flag triage). First operator-surface drop. | STU-REQ-31..44 | Owner: FE Lead B. EPIC-08/09 subset. |
+| Mobile (Flutter) — adaptive quiz flow, offline queue (STU-REQ-59), readiness score, push-notification integration (FCM+APNs) | STU-REQ-15..23, 14, 59 | Mobile Leads (2). Offline queue per GAP-10/GAP-15 decision. |
 
 ### Gap closure (~40 SP)
 - **GAP-01** circuit breaker in Quiz `internal/adaptive/client.go`. Prometheus gauge + PagerDuty alert wired.
@@ -143,8 +163,11 @@
 | Epic | Stories | Notes |
 |---|---|---|
 | Payment — Stripe Checkout, subscription FSM, webhook HMAC, dunning | STU-REQ-01..13 | PCI SAQ A. Webhook idempotency. |
-| Institution — onboarding, cohorts, assignments, teacher dashboard | STU-REQ-45..52 | `assignments_enabled` flag. |
-| Polish — streaks display, leaderboard, profile edits, avatar upload | Misc | Avatar upload is a descope candidate per GAP-15. |
+| Institution — onboarding, cohorts, assignments, teacher dashboard (backend) | STU-REQ-45..52 | `assignments_enabled` flag. |
+| `web-student` — checkout flow, subscription management, streaks / leaderboard / profile edits / avatar upload | STU-REQ-01..13, misc | Owner: FE Lead A. Avatar upload is a descope candidate per GAP-15. |
+| `web-portal` — teacher dashboard (cohorts, assignments, batch analytics), moderator review queue, institution-admin user search + invite links | EPIC-08 / EPIC-09 / EPIC-10 slices | Owner: FE Lead B. First full operator release. |
+| `web-admin` — platform overview dashboard, user management (search/suspend/impersonate), **feature-flag management panel** per [ADR-0001](../adr/0001-feature-flag-platform.md), audit log viewer | ADM-REQ-01..08, 20 + ADR-0001 | Owner: FE Lead B (shared with `web-portal`); flag UI is the MVP cut (toggle + override + audit view). MFA-gated. |
+| Mobile (Flutter) — Stripe checkout (SDK or hosted), streaks display, leaderboard, profile edits | STU-REQ-01..13, misc | Mobile Leads (2). Platform checkout compliance (Apple in-app review) per release-plan notes. |
 
 ### Gap closure + QA (~70 SP)
 - **LT-SEARCH-03 + LT-SEARCH-03B** bilingual load test with random query generation and drained-node variant (GAP-14 v1.2 amendments).
@@ -168,6 +191,7 @@
 ### Risks
 - Stripe webhook edge cases surface late. Mitigation: implement webhook replay tool by Day 3.
 - Load test fails under concurrent bilingual load — revert to 50% threshold per GAP-14 fallback action.
+- **FE capacity crunch** — 2 FE engineers own three web apps from Sprint 3 onward (`web-student` consumer checkout, `web-portal` operator surface, `web-admin` flag management + ops tooling). Mitigation: `web-admin` Sprint 3 scope is **flag management + user management + dashboards only** — remaining ADM-REQ epic items (revenue, plans, moderation-team management, announcements) deliberately deferred to Phase 1.5. If `web-portal` teacher dashboard slips, descope batch analytics to Phase 1.5 and ship cohorts + assignments only.
 
 ---
 
@@ -191,6 +215,12 @@
 - Enable `premium_tier_enforcement=true`, `checkout_enabled=true`.
 - LaunchDarkly (or Unleash) flag `adaptive_quiz_enabled` to 100%.
 - War room staffed: TL + DevOps Lead + BE Lead Python on-call during business hours.
+
+**Client polish (all surfaces)** — soft-launch exit criteria require P0 UX defects cleared on every client surface:
+- `web-student` — Lighthouse budget + a11y pass + Hindi copy review.
+- `web-portal` — operator keyboard-flow QA, table-density pass, bulk-action audit.
+- `web-admin` — MFA flow verified, IP allow-list applied, flag-management panel dry-run during Drill 3.
+- Mobile (Flutter) — iOS + Android store-submission build, FCM/APNs push live-fire, offline-queue soak test on real device.
 
 ### Week 10 (Sprint 4b) — Launch
 

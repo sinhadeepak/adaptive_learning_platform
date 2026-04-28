@@ -1,0 +1,138 @@
+/* ============================================================
+   web-admin app — platform / institution admin surface
+   Mirrors docs/ui/03_AdminPortal/00_admin-tokens.css palette.
+
+   Inherits chrome + form/auth primitives from
+   @alp/design-system/shell.css and re-aliases the blue accent
+   to admin red inside .app-shell so every gradient / border
+   / accent rule retokens to "ops red" in one declaration.
+   ============================================================ */
+
+.app-shell {
+  --color-blue:  #F43F5E;     /* admin accent (red) */
+  --color-blue2: #BE2A44;     /* darker red for gradients */
+}
+
+/* ── Admin: data tables ────────────────────────────────────── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.data-table thead th {
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--bg-surface1);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.data-table tbody td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  vertical-align: top;
+}
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover td { background: var(--bg-surface2); }
+.data-table code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--bg-surface3);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.data-table .meta {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ── Admin: danger callouts (DANGER-CRITICAL flags) ────────── */
+.danger-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(244, 63, 94, 0.14);
+  color: #F43F5E;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Admin: bool pill (ON / OFF) ───────────────────────────── */
+.bool-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.bool-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.bool-pill-on {
+  background: rgba(16, 196, 122, 0.14);
+  color: #10C47A;
+}
+.bool-pill-off {
+  background: rgba(160, 168, 192, 0.14);
+  color: var(--text-muted);
+}
+
+/* ── Admin: audit log scope chip ───────────────────────────── */
+.scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.scope-chip-platform {
+  background: rgba(244, 63, 94, 0.14);
+  color: #F43F5E;
+}
+.scope-chip-tenant {
+  background: rgba(79, 135, 246, 0.14);
+  color: var(--color-blue);
+}
+
+/* ── Admin: kv list (key-value strip) ─────────────────────── */
+.kv-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: var(--sp-3) 0;
+}
+.kv-list dt {
+  display: inline;
+  color: var(--text-faint);
+  font-weight: 500;
+  margin-right: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
+.kv-list dd {
+  display: inline;
+  margin: 0;
+  color: var(--text-secondary);
+}

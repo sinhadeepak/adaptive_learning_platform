@@ -1,0 +1,30 @@
+# App-of-Apps root — points at infrastructure/argocd/applications/.
+# Applied once per cluster after ArgoCD itself is installed.
+#
+# NOTE: on prod, set spec.syncPolicy to `{}` (no automation) to prevent
+# a mis-authored root manifest from cascading (per GAP-17 v1.2).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  finalizers: ["resources-finalizer.argocd.argoproj.io"]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/sinhadeepak/adaptive_learning_platform.git
+    # On prod, pin to a tag (e.g. v0.3.1). On staging, track `main`.
+    targetRevision: main
+    path: infrastructure/argocd/applications
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

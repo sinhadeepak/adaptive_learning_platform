@@ -1,8 +1,13 @@
 name: alp-local
 
 # Local dev stack — see docs/02_planning/08_DevEnvironmentRequirements_AdaptiveLearningPlatform.md
-# Services (auth, quiz, etc.) run on the host for debugger + iteration speed;
-# only infrastructure runs in containers here.
+# Per ADR-0005, default profile launches infra + the 5 consolidated backend
+# services (identity, payment, learning, quiz, engagement) + 3 web apps.
+# Use `--profile host` for the older host-binary mode (debugger-friendly).
+
+x-py-build: &py-build
+  context: ../..
+  dockerfile: infrastructure/docker/Dockerfile.python
 
 services:
   postgres:
@@ -10,8 +15,8 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_MULTIPLE_DATABASES: auth,user_profile,content,catalog,search,analytics,payment,institution,notification,adaptive_engine,quiz
-    ports: ["5432:5432"]
+      POSTGRES_MULTIPLE_DATABASES: identity,learning,engagement,payment,quiz
+    ports: ["35432:5432"]
     volumes:
       - pg-data:/var/lib/postgresql/data
       - ./postgres-init.sh:/docker-entrypoint-initdb.d/10-init-databases.sh:ro
@@ -23,7 +28,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports: ["6379:6379"]
+    ports: ["36379:6379"]
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis-data:/data
@@ -45,7 +50,7 @@ services:
     ulimits:
       memlock: { soft: -1, hard: -1 }
       nofile: { soft: 65536, hard: 65536 }
-    ports: ["9200:9200"]
+    ports: ["39200:9200"]
     volumes:
       - opensearch-data:/usr/share/opensearch/data
     healthcheck:
@@ -58,8 +63,8 @@ services:
     image: nats:2.10-alpine
     command: ["-js", "-m", "8222"]
     ports:
-      - "4222:4222"
-      - "8222:8222"
+      - "34222:4222"
+      - "38222:8222"
     volumes:
       - nats-data:/data
     healthcheck:
@@ -74,15 +79,198 @@ services:
       SERVICES: s3,secretsmanager,sqs,sns
       DEBUG: 0
       AWS_DEFAULT_REGION: ap-south-1
-    ports: ["4566:4566"]
+    ports: ["34566:4566"]
     volumes:
       - localstack-data:/var/lib/localstack
 
   mailpit:
     image: axllent/mailpit:v1.21
     ports:
-      - "1025:1025"  # SMTP
-      - "8025:8025"  # Web UI
+      - "31025:1025"  # SMTP
+      - "38025:8025"  # Web UI
+
+  # ---- Backend services (Python) — consolidated per ADR-0005 ----
+  identity:
+    build:
+      <<: *py-build
+      args: { SERVICE: identity, MODULE: identity.main }
+    image: alp/identity:local
+    ports: ["38001:8000"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/identity
+      # Auth — keeps AUTH_* env_prefix per the legacy module's config.
+      AUTH_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/identity
+      AUTH_REDIS_URL: redis://redis:6379/0
+      AUTH_NATS_URL: nats://nats:4222
+      AUTH_INSTITUTION_BASE_URL: http://identity:8000
+      AUTH_PAYMENT_BASE_URL: http://payment:8000
+      AUTH_SMTP_HOST: mailpit
+      AUTH_SMTP_PORT: "1025"
+      AUTH_SEED_LOCAL: "1"
+      # Profile (renamed from user_profile)
+      USER_PROFILE_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/identity
+      USER_PROFILE_NATS_URL: nats://nats:4222
+      # Institution
+      INSTITUTION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/identity
+      INSTITUTION_NATS_URL: nats://nats:4222
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      nats: { condition: service_healthy }
+
+  learning:
+    build:
+      <<: *py-build
+      args: { SERVICE: learning, MODULE: learning.main }
+    image: alp/learning:local
+    ports: ["38101:8000"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/learning
+      # Catalog
+      CATALOG_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/learning
+      CATALOG_NATS_URL: nats://nats:4222
+      CATALOG_INSTITUTION_BASE_URL: http://identity:8000
+      CATALOG_JWT_SECRET: dev-only-change-me-in-staging-at-least-32-bytes-long
+      CATALOG_SEED_LOCAL: "1"
+      # Content
+      CONTENT_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/learning
+      CONTENT_NATS_URL: nats://nats:4222
+      CONTENT_JWT_SECRET: dev-only-change-me-in-staging-at-least-32-bytes-long
+      CONTENT_CATALOG_BASE_URL: http://learning:8000
+      CONTENT_SEED_LOCAL: "1"
+      # Doubts
+      DOUBTS_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/learning
+      DOUBTS_JWT_SECRET: dev-only-change-me-in-staging-at-least-32-bytes-long
+      # Search
+      SEARCH_OPENSEARCH_URL: http://opensearch:9200
+      SEARCH_TOPICS_INDEX: topics_v2
+      SEARCH_NATS_URL: nats://nats:4222
+      SEARCH_CATALOG_BASE_URL: http://learning:8000/catalog
+      # Adaptive (renamed from adaptive-engine)
+      ADAPTIVE_ENGINE_NATS_URL: nats://nats:4222
+      ADAPTIVE_ENGINE_INSTITUTION_BASE_URL: http://identity:8000
+      ADAPTIVE_ENGINE_CATALOG_BASE_URL: http://learning:8000
+      ADAPTIVE_ENGINE_ANALYTICS_BASE_URL: http://engagement:8000
+      ADAPTIVE_ENGINE_QUIZ_BASE_URL: http://quiz:8000
+      ADAPTIVE_ENGINE_REDIS_URL: redis://redis:6379/1
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ADAPTIVE_ENGINE_OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      opensearch: { condition: service_healthy }
+      nats: { condition: service_healthy }
+
+  engagement:
+    build:
+      <<: *py-build
+      args: { SERVICE: engagement, MODULE: engagement.main }
+    image: alp/engagement:local
+    ports: ["38100:8000"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/engagement
+      # Analytics
+      ANALYTICS_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/engagement
+      ANALYTICS_NATS_URL: nats://nats:4222
+      ANALYTICS_QUIZ_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/quiz
+      # Notification
+      NOTIFICATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/engagement
+      NOTIFICATION_NATS_URL: nats://nats:4222
+      NOTIFICATION_INSTITUTION_BASE_URL: http://identity:8000
+      NOTIFICATION_SMTP_HOST: mailpit
+      NOTIFICATION_SMTP_PORT: "1025"
+      NOTIFICATION_PROFILE_INTERNAL_BASE_URL: http://identity:8000
+      NOTIFICATION_QUIZ_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/quiz
+    depends_on:
+      postgres: { condition: service_healthy }
+      nats: { condition: service_healthy }
+      mailpit: { condition: service_started }
+      identity: { condition: service_started }
+
+  payment:
+    build:
+      <<: *py-build
+      args: { SERVICE: payment, MODULE: payment.main }
+    image: alp/payment:local
+    ports: ["38007:8000"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/payment
+      PAYMENT_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/payment
+      PAYMENT_NATS_URL: nats://nats:4222
+      PAYMENT_INSTITUTION_BASE_URL: http://identity:8000
+      # Stripe — set these via .env in real environments. Empty → stub mode
+      # (Sprint 8: lets the full flow be exercised without a Stripe account).
+      PAYMENT_STRIPE_API_KEY: "${PAYMENT_STRIPE_API_KEY:-}"
+      PAYMENT_STRIPE_WEBHOOK_SECRET: "${PAYMENT_STRIPE_WEBHOOK_SECRET:-}"
+      PAYMENT_STRIPE_PRICE_ID_PREMIUM_MONTHLY: "${PAYMENT_STRIPE_PRICE_ID_PREMIUM_MONTHLY:-price_test_premium_monthly}"
+      PAYMENT_STRIPE_PRICE_ID_PREMIUM_YEARLY: "${PAYMENT_STRIPE_PRICE_ID_PREMIUM_YEARLY:-price_test_premium_yearly}"
+      PAYMENT_CHECKOUT_SUCCESS_URL: "${PAYMENT_CHECKOUT_SUCCESS_URL:-http://localhost:35173/billing?status=success&session_id={CHECKOUT_SESSION_ID}}"
+      PAYMENT_CHECKOUT_CANCEL_URL: "${PAYMENT_CHECKOUT_CANCEL_URL:-http://localhost:35173/billing?status=cancel}"
+      PAYMENT_JWT_SECRET: "${JWT_SECRET:-dev-only-change-me-in-staging-at-least-32-bytes-long}"
+    depends_on:
+      postgres: { condition: service_healthy }
+      nats: { condition: service_healthy }
+
+  # ---- Backend services (Go) ----
+  quiz:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.golang
+      args: { SERVICE: quiz }
+    image: alp/quiz:local
+    ports: ["38011:8000"]
+    environment:
+      QUIZ_DATABASE_URL: postgres://postgres:postgres@postgres:5432/quiz?sslmode=disable
+      QUIZ_NATS_URL: nats://nats:4222
+      QUIZ_INSTITUTION_BASE_URL: http://identity:8000
+      QUIZ_ADAPTIVE_BASE_URL: http://learning:8000
+      QUIZ_CONTENT_BASE_URL: http://learning:8000
+      QUIZ_MIGRATIONS_DIR: /app/migrations
+    depends_on:
+      postgres: { condition: service_healthy }
+      nats: { condition: service_healthy }
+
+  # ---- Web apps ----
+  web-student:
+    build:
+      context: ../..
+      dockerfile: apps/web-student/Dockerfile
+    image: alp/web-student:local
+    ports: ["35173:8080"]
+    depends_on:
+      identity: { condition: service_started }
+      learning: { condition: service_started }
+      quiz: { condition: service_started }
+      engagement: { condition: service_started }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  web-portal:
+    build:
+      context: ../..
+      dockerfile: apps/web-portal/Dockerfile
+    image: alp/web-portal:local
+    ports: ["35174:8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  web-admin:
+    build:
+      context: ../..
+      dockerfile: apps/web-admin/Dockerfile
+    image: alp/web-admin:local
+    ports: ["35175:8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 volumes:
   pg-data:

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AdaptiveLearn — Exam Dashboard (per-exam drill-down)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Outfit',sans-serif}
+:root{
+  --c0:#07090F;--c1:#0C1422;--c2:#101A30;--c3:#162038;--c4:#1B2844;
+  --t0:#EEF2FF;--t1:#B8C5E0;--t2:#7A8BAD;--t3:#4A5570;
+  --bdr:rgba(255,255,255,0.07);--bdr2:rgba(255,255,255,0.12);
+  --ai:#22D4EE;--blu:#4F87F6;--grn:#10C47A;--amb:#F5A623;--red:#F43F5E;--pur:#A78BFA;
+}
+.app{display:grid;grid-template-columns:64px 1fr;height:780px;background:var(--c0);border-radius:16px;overflow:hidden;border:1px solid var(--bdr2);font-size:13px}
+.sidebar{background:var(--c1);border-right:1px solid var(--bdr);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:2px}
+.logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--blu),var(--pur));display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;margin-bottom:12px}
+.ni{width:48px;height:48px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;position:relative}
+.ni.act{background:rgba(79,135,246,0.15)}
+.ni.act::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:18px;background:var(--blu);border-radius:0 2px 2px 0}
+.ni-ic{font-size:16px;line-height:1}
+.ni-lb{font-size:7.5px;color:var(--t2);font-weight:600}
+.ni.act .ni-lb{color:var(--blu)}
+.av{margin-top:auto;width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--amb),var(--red));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+
+.main{display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:48px;background:rgba(12,20,34,0.96);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px;padding:0 18px;flex-shrink:0}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2);cursor:pointer;padding:5px 9px;border-radius:7px;border:1px solid var(--bdr);background:var(--c3)}
+.tb-crumb{font-size:12px;color:var(--t3)}
+.tb-exam{font-size:14px;font-weight:600;color:var(--t0)}
+.tb-right{display:flex;align-items:center;gap:8px;margin-left:auto}
+.chip{display:flex;align-items:center;gap:5px;background:var(--c3);border:1px solid var(--bdr2);border-radius:20px;padding:4px 11px;font-size:11px;font-weight:600;color:var(--t1)}
+
+.scroll{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:13px}
+.sec-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sec-title{font-size:12px;font-weight:600;color:var(--t1);letter-spacing:.15px}
+.see-all{font-size:11px;color:var(--blu);cursor:pointer;font-weight:500}
+.card{background:var(--c2);border:1px solid var(--bdr);border-radius:14px;padding:14px}
+.ai-pill{display:inline-flex;align-items:center;gap:4px;background:rgba(34,212,238,0.09);border:1px solid rgba(34,212,238,0.22);border-radius:20px;padding:2px 9px;font-size:9px;font-weight:700;color:var(--ai);letter-spacing:.4px}
+.btn-ai{display:inline-flex;align-items:center;gap:5px;background:rgba(34,212,238,0.1);border:1px solid rgba(34,212,238,0.28);border-radius:8px;padding:7px 13px;font-size:11px;font-weight:700;color:var(--ai);cursor:pointer;white-space:nowrap}
+.btn-g{display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--bdr2);border-radius:8px;padding:7px 13px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;white-space:nowrap}
+.bar-track{height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+
+/* Exam hero */
+.exam-hero{background:linear-gradient(115deg,rgba(16,196,122,0.07),rgba(79,135,246,0.07),rgba(34,212,238,0.04));border:1px solid rgba(16,196,122,0.2);border-radius:16px;padding:20px 24px;display:flex;align-items:center;gap:20px;position:relative;overflow:hidden}
+.exam-hero::after{content:'';position:absolute;right:-40px;top:-40px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(16,196,122,0.06),transparent 70%)}
+.eh-left{flex:1;min-width:0}
+.eh-title{font-size:20px;font-weight:700;color:var(--t0);margin-bottom:3px;line-height:1.2}
+.eh-sub{font-size:11.5px;color:var(--t2);line-height:1.5;max-width:360px}
+.eh-sub strong{color:var(--t1);font-weight:600}
+.eh-btns{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap}
+.eh-right{display:flex;align-items:center;gap:18px;flex-shrink:0}
+.eh-ring{position:relative;width:90px;height:90px;flex-shrink:0}
+.eh-ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.eh-ring-num{font-size:26px;font-weight:800;line-height:1;background:linear-gradient(135deg,var(--grn),var(--blu));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.eh-ring-lbl{font-size:8.5px;color:var(--t3);margin-top:1px;letter-spacing:.3px}
+.eh-stats{display:flex;flex-direction:column;gap:8px}
+.eh-stat{background:var(--c3);border:1px solid var(--bdr);border-radius:10px;padding:8px 12px;text-align:center;min-width:80px}
+.eh-stat-num{font-size:16px;font-weight:700;line-height:1}
+.eh-stat-lbl{font-size:9px;color:var(--t3);margin-top:2px}
+
+/* Subject mastery */
+.subj-row{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+.subj-row:last-of-type{margin-bottom:0}
+.subj-em{font-size:15px;width:22px;text-align:center;flex-shrink:0}
+.subj-bd{flex:1;min-width:0}
+.subj-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.subj-name{font-size:12px;font-weight:600;color:var(--t1)}
+.subj-right{display:flex;align-items:center;gap:6px}
+.str{font-size:8.5px;font-weight:800;padding:1.5px 7px;border-radius:20px;letter-spacing:.4px}
+.str-strong{background:rgba(16,196,122,0.14);color:var(--grn)}
+.str-dev{background:rgba(79,135,246,0.14);color:var(--blu)}
+.str-weak{background:rgba(244,63,94,0.14);color:var(--red)}
+.pct{font-size:11px;font-weight:700}
+
+/* Topic matrix */
+.topic-matrix{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.tm-cell{border-radius:10px;padding:10px 9px;cursor:pointer}
+.tm-topic{font-size:10px;font-weight:600;margin-bottom:3px;line-height:1.3}
+.tm-pct{font-size:15px;font-weight:800;line-height:1}
+.tm-lbl{font-size:8px;font-weight:700;letter-spacing:.4px;margin-top:2px}
+.tm-s{background:rgba(16,196,122,0.11);border:1px solid rgba(16,196,122,0.18)}
+.tm-d{background:rgba(79,135,246,0.09);border:1px solid rgba(79,135,246,0.16)}
+.tm-w{background:rgba(244,63,94,0.09);border:1px solid rgba(244,63,94,0.16)}
+.tm-n{background:rgba(74,85,112,0.1);border:1px solid rgba(74,85,112,0.15)}
+
+/* Trajectory chart */
+.chart-wrap{height:130px;position:relative;margin-top:6px}
+.chart-wrap svg{width:100%;height:100%}
+
+/* AI insights */
+.insight-card{background:rgba(34,212,238,0.04);border:1px solid rgba(34,212,238,0.14);border-radius:14px;padding:14px}
+.ins-ey{font-size:9px;font-weight:700;color:var(--ai);letter-spacing:.5px;margin-bottom:10px}
+.ins-item{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px}
+.ins-num{width:18px;height:18px;border-radius:5px;background:rgba(16,196,122,0.15);color:var(--grn);font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.ins-text{font-size:11px;color:var(--t2);line-height:1.5}
+.ins-text strong{color:var(--t1);font-weight:600}
+</style>
+</head>
+<body style="background:#0a0e1a;padding:24px">
+<!--
+  AdaptiveLearn Student Portal — Exam Dashboard (per-exam drill-down)
+  Version: 1.0 · April 2026 · design source-of-truth.
+  React port: apps/web-student/src/pages/ExamDetail.tsx
+  Route:      /exams/:examId
+
+  Eight zones (top to bottom inside .scroll):
+    1. Topbar with back-link + breadcrumb + live chips
+    2. Exam hero — gradient panel with readiness ring + 3 stat tiles
+    3. AI recommends — exam-specific weakest-topic banner
+    4. Subject mastery — Subject rows with bar + decay warning
+    5. Readiness trajectory chart — 90-day SVG line chart + mock history
+    6. Topic mastery matrix — 4-col grid color-coded by strength
+    7. AI insights — numbered insight items
+    8. Assignments — exam-scoped due/done items
+-->
+
+<div class="app">
+  <nav class="sidebar">
+    <div class="logo">A</div>
+    <div class="ni act"><span class="ni-ic">⚡</span><span class="ni-lb">Home</span></div>
+    <div class="ni"><span class="ni-ic">📚</span><span class="ni-lb">Study Map</span></div>
+    <div class="ni"><span class="ni-ic">🎯</span><span class="ni-lb">AI Practice</span></div>
+    <div class="ni"><span class="ni-ic">📊</span><span class="ni-lb">Analysis</span></div>
+    <div class="ni"><span class="ni-ic">💬</span><span class="ni-lb">Experts</span></div>
+    <div class="ni"><span class="ni-ic">🏆</span><span class="ni-lb">Rank</span></div>
+    <div class="av">P</div>
+  </nav>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="back-btn">← Dashboard</div>
+      <div class="tb-crumb" style="margin:0 4px">/</div>
+      <div class="tb-exam">NEET 2027</div>
+      <div class="tb-right">
+        <div class="chip">📅 287 days left</div>
+      </div>
+    </div>
+
+    <div class="scroll">
+
+      <div class="exam-hero">
+        <div class="eh-left">
+          <span class="ai-pill">◈ AI READINESS ENGINE</span>
+          <div class="eh-title">NEET 2027 · Medical Entrance</div>
+          <div class="eh-sub">Biology · Chemistry · Physics · 180 questions · 3 hours · May 4, 2027</div>
+          <div class="eh-btns">
+            <div class="btn-ai">◈ Start AI Practice Session</div>
+            <div class="btn-g">Take Mock Test →</div>
+          </div>
+        </div>
+        <div class="eh-right">
+          <div class="eh-ring">
+            <svg viewBox="0 0 90 90">
+              <circle cx="45" cy="45" r="38" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="7"/>
+              <circle cx="45" cy="45" r="38" fill="none" stroke="url(#rg1)" stroke-width="7" stroke-linecap="round" stroke-dasharray="239" stroke-dashoffset="77" transform="rotate(-90 45 45)"/>
+              <defs><linearGradient id="rg1" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#10C47A"/><stop offset="100%" stop-color="#4F87F6"/></linearGradient></defs>
+            </svg>
+            <div class="eh-ring-inner">
+              <div class="eh-ring-num">68.4</div>
+              <div class="eh-ring-lbl">READINESS</div>
+            </div>
+          </div>
+          <div class="eh-stats">
+            <div class="eh-stat"><div class="eh-stat-num" style="color:var(--grn)">83</div><div class="eh-stat-lbl">AI PREDICTION</div></div>
+            <div class="eh-stat"><div class="eh-stat-num" style="color:var(--amb)">287</div><div class="eh-stat-lbl">DAYS LEFT</div></div>
+            <div class="eh-stat"><div class="eh-stat-num" style="color:var(--blu)">+3.2</div><div class="eh-stat-lbl">THIS WEEK</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subject mastery, decay warn, trajectory chart, topic matrix, AI insights and assignments
+           appear in the React port — see ExamDetail.tsx. Saved here are the chrome zones (hero,
+           topbar) so the design tokens / spacing match for cross-reference. -->
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

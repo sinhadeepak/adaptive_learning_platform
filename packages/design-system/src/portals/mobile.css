@@ -1,0 +1,318 @@
+/* ============================================================
+   ADAPTIVELEARN — MOBILE-SPECIFIC DESIGN TOKENS
+   iOS + Android · v1.0 · April 2026
+   Extends 00_design-system.css
+   ============================================================ */
+
+/* ── MOBILE FRAME ── */
+:root {
+  --mobile-width:       375px;
+  --mobile-height:      812px;
+  --mobile-status-h:    44px;
+  --mobile-nav-h:       72px;
+  --mobile-topbar-h:    52px;
+  --mobile-radius-frame:40px;
+  --mobile-border-frame:8px solid #1A1A2E;
+  --mobile-safe-bottom: 16px;   /* safe area padding bottom */
+  --mobile-safe-side:   20px;   /* standard horizontal padding */
+
+  /* Touch targets — iOS HIG / Material Design minimum */
+  --touch-min:          44px;   /* minimum tap target */
+  --touch-comfortable:  48px;   /* comfortable tap target */
+
+  /* Typography — mobile scale */
+  --m-text-xs:    10px;
+  --m-text-sm:    11.5px;
+  --m-text-base:  13px;
+  --m-text-md:    15px;
+  --m-text-lg:    18px;
+  --m-text-xl:    22px;
+  --m-text-2xl:   26px;
+  --m-text-hero:  44px;   /* large score numbers */
+}
+
+/* ── PHONE FRAME (prototype) ── */
+.phone-frame {
+  width: var(--mobile-width);
+  height: var(--mobile-height);
+  background: var(--bg-base);
+  border-radius: var(--mobile-radius-frame);
+  border: var(--mobile-border-frame);
+  box-shadow: 0 30px 80px rgba(0,0,0,.7);
+  overflow: hidden;
+  position: relative;
+  margin: 0 auto;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+
+/* ── STATUS BAR ── */
+.mobile-status {
+  height: var(--mobile-status-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+  flex-shrink: 0;
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+.mobile-status-time { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.mobile-status-icons { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-primary); }
+
+/* ── BOTTOM NAV ── */
+.mobile-bottom-nav {
+  height: var(--mobile-nav-h);
+  background: rgba(10,14,24,.97);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 6px 8px;
+  flex-shrink: 0;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  flex: 1;
+  position: relative;
+  min-height: var(--touch-min);
+  transition: var(--trans-fast);
+}
+.mobile-nav-item.active { background: rgba(79,135,246,.12); }
+.mobile-nav-icon { font-size: 20px; line-height: 1; }
+.mobile-nav-label { font-size: 9px; font-weight: 600; color: var(--text-faint); }
+.mobile-nav-item.active .mobile-nav-label { color: var(--color-blue); }
+.mobile-nav-badge {
+  position: absolute; top: 6px; right: 8px;
+  width: 5px; height: 5px;
+  background: var(--color-red); border-radius: 50%;
+  border: 1.5px solid #0A0E18;
+}
+
+/* ── MOBILE PAGE HEADER ── */
+.mobile-page-hd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px var(--mobile-safe-side) 0;
+  flex-shrink: 0;
+}
+.mobile-page-title { font-size: 20px; font-weight: 800; color: var(--text-primary); flex: 1; }
+.mobile-back-btn {
+  font-size: 11px; color: var(--text-muted);
+  padding: 5px 9px; border-radius: 7px;
+  border: 1px solid var(--border); cursor: pointer; flex-shrink: 0;
+  min-height: var(--touch-min); display: flex; align-items: center;
+}
+
+/* ── MOBILE SCROLL BODY ── */
+.mobile-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--mobile-safe-bottom);
+}
+.mobile-scroll::-webkit-scrollbar { display: none; }
+
+/* ── MOBILE CARDS ── */
+.m-card {
+  background: #101A30;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px;
+  margin: 0 var(--mobile-safe-side);
+}
+.m-card + .m-card { margin-top: 10px; }
+.m-card-ai {
+  background: rgba(34,212,238,.04);
+  border: 1.5px solid rgba(34,212,238,.2);
+  border-radius: 16px;
+  padding: 14px;
+  margin: 0 var(--mobile-safe-side);
+}
+
+/* ── MOBILE TOPIC ROW ── */
+.m-topic-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  background: #101A30;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin: 0 var(--mobile-safe-side) 8px;
+  cursor: pointer;
+  min-height: var(--touch-comfortable);
+  transition: var(--trans-fast);
+}
+.m-topic-row.priority { border-color: rgba(244,63,94,.2); background: rgba(244,63,94,.03); }
+.m-topic-row.ai-pick  { border-color: rgba(34,212,238,.22); }
+
+/* ── MOBILE SECTION LABEL ── */
+.m-sec-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px var(--mobile-safe-side) 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-faint);
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+.m-sec-label-right { font-size: 10.5px; color: var(--color-blue); font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+/* ── MOBILE FORM ── */
+.m-form-input {
+  width: 100%;
+  background: #101A30;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 11px;
+  padding: 13px 14px;
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+  font-family: var(--font-sans);
+  -webkit-appearance: none;
+  transition: border-color var(--trans-fast);
+  min-height: var(--touch-comfortable);
+}
+.m-form-input:focus   { border-color: rgba(79,135,246,.45); }
+.m-form-input.success { border-color: rgba(16,196,122,.4); }
+.m-form-input.error   { border-color: rgba(244,63,94,.4); }
+
+/* ── MOBILE BUTTON SIZES ── */
+.m-btn-full {
+  width: 100%;
+  padding: 14px;
+  border-radius: 13px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  min-height: var(--touch-comfortable);
+  border: none;
+  transition: var(--trans-normal);
+}
+.m-btn-full:active { transform: scale(.98); }
+
+/* ── OTP BOXES ── */
+.m-otp-row { display: flex; gap: 9px; justify-content: center; margin: 16px 0 6px; }
+.m-otp-box {
+  width: 48px; height: 56px; border-radius: 12px;
+  border: 1.5px solid rgba(255,255,255,.1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 800;
+  background: #101A30;
+  color: var(--text-primary);
+  transition: border-color var(--trans-fast);
+}
+.m-otp-box.filled { border-color: rgba(79,135,246,.4); color: var(--color-blue); }
+.m-otp-box.active { border-color: rgba(79,135,246,.5); }
+
+/* ── PASSWORD STRENGTH ── */
+.m-pw-bars { display: flex; gap: 4px; margin: 6px 0 2px; }
+.m-pw-bar  { flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,.07); transition: background var(--trans-normal); }
+.m-pw-bar.weak   { background: var(--color-red); }
+.m-pw-bar.medium { background: var(--color-amber); }
+.m-pw-bar.strong { background: var(--color-green); }
+
+/* ── EXAM CHIP (onboarding) ── */
+.m-exam-chip {
+  background: #101A30;
+  border: 1.5px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  padding: 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: all var(--trans-fast);
+}
+.m-exam-chip.selected { border-color: var(--color-blue); background: rgba(79,135,246,.08); }
+.m-exam-chip:active   { transform: scale(.97); }
+
+/* ── SOCIAL AUTH BUTTONS ── */
+.m-social-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.m-social-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: #101A30; border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px; padding: 13px;
+  font-size: 13px; font-weight: 600; color: var(--text-secondary);
+  cursor: pointer; min-height: var(--touch-comfortable);
+}
+
+/* ── AI QUIZ CONTEXT BAR ── */
+.m-ai-ctx-bar {
+  margin: 8px 16px 0;
+  background: rgba(34,212,238,.04);
+  border: 1px solid rgba(34,212,238,.12);
+  border-radius: 10px;
+  padding: 7px 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.m-ai-ctx-val { font-weight: 700; color: var(--color-ai); }
+
+/* ── QUIZ PROGRESS PILLS ── */
+.m-quiz-pills { display: flex; gap: 3px; flex: 1; }
+.m-quiz-pill { flex: 1; height: 5px; border-radius: 3px; background: rgba(255,255,255,.07); transition: background var(--trans-normal); }
+.m-quiz-pill.correct { background: var(--color-green); }
+.m-quiz-pill.wrong   { background: var(--color-red); }
+.m-quiz-pill.current { background: var(--color-blue); animation: glowPill .8s ease-in-out infinite alternate; }
+
+/* ── QUIZ OPTION ── */
+.m-quiz-opt {
+  display: flex; align-items: center; gap: 11px;
+  background: #101A30; border: 1.5px solid rgba(255,255,255,.09);
+  border-radius: 12px; padding: 12px 13px;
+  cursor: pointer; transition: all var(--trans-fast);
+  margin-bottom: 8px; min-height: var(--touch-comfortable);
+}
+.m-quiz-opt.selected { border-color: var(--color-blue); background: rgba(79,135,246,.08); }
+.m-quiz-opt.correct  { border-color: var(--color-green); background: rgba(16,196,122,.07); pointer-events: none; }
+.m-quiz-opt.wrong    { border-color: var(--color-red); background: rgba(244,63,94,.07); pointer-events: none; }
+.m-quiz-key {
+  width: 30px; height: 30px; border-radius: 8px;
+  border: 1.5px solid rgba(255,255,255,.1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: var(--text-faint);
+  flex-shrink: 0; transition: all var(--trans-fast);
+}
+.m-quiz-opt.selected .m-quiz-key { background: var(--color-blue); border-color: var(--color-blue); color: #fff; }
+.m-quiz-opt.correct  .m-quiz-key { background: var(--color-green); border-color: var(--color-green); color: #000; }
+.m-quiz-opt.wrong    .m-quiz-key { background: var(--color-red); border-color: var(--color-red); color: #fff; }
+
+/* ── MOBILE SECTION HEIGHTS (for layout reference) ── */
+/*
+  Full screen body (with status + bottom nav): calc(812px - 44px - 72px) = 696px
+  Full screen body (with status only):         calc(812px - 44px)        = 768px
+  Full screen body (no chrome):                812px
+*/
+
+/* ── PLATFORM-SPECIFIC NOTES ── */
+/*
+  iOS:
+  - Safe area bottom = 34px on iPhone X+. Add env(safe-area-inset-bottom) in production.
+  - Minimum touch target: 44×44pt (UIKit HIG)
+  - Font: SF Pro in production, Outfit in prototype
+  - Keychain for JWT tokens — NEVER UserDefaults
+
+  Android:
+  - Navigation bar height varies. Use WindowInsets in Jetpack Compose.
+  - Minimum touch target: 48×48dp (Material Design)
+  - EncryptedSharedPreferences for sensitive data
+  - Font: Roboto in production, Outfit in prototype
+*/

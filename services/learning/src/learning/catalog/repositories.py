@@ -1,0 +1,275 @@
+"""Data access for catalog_schema."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+
+class CatalogRepo:
+    def __init__(self, session: AsyncSession) -> None:
+        self.s = session
+
+    async def list_exams(self) -> list[dict[str, Any]]:
+        rows = (
+            await self.s.execute(
+                text(
+                    "SELECT id, code, name, subtitle, icon_key "
+                    "FROM catalog_schema.exams "
+                    "WHERE is_published = TRUE ORDER BY sort_order, name"
+                )
+            )
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
+    async def subjects_for_exam(self, exam_id: str) -> list[dict[str, Any]]:
+        rows = (
+            await self.s.execute(
+                text(
+                    "SELECT s.id, s.exam_id, s.name, "
+                    "  (SELECT COUNT(*) FROM catalog_schema.topics t WHERE t.subject_id = s.id "
+                    "   AND t.is_published = TRUE) AS topic_count "
+                    "FROM catalog_schema.subjects s "
+                    "WHERE s.exam_id = :eid AND s.is_published = TRUE "
+                    "ORDER BY s.sort_order, s.name"
+                ),
+                {"eid": exam_id},
+            )
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
+    async def topics_for_subject(self, subject_id: str) -> list[dict[str, Any]]:
+        rows = (
+            await self.s.execute(
+                text(
+                    "SELECT id, subject_id, title, title_hi, question_count, tier "
+                    "FROM catalog_schema.topics "
+                    "WHERE subject_id = :sid AND is_published = TRUE "
+                    "ORDER BY sort_order, title"
+                ),
+                {"sid": subject_id},
+            )
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
+    async def topic(self, topic_id: str) -> dict[str, Any] | None:
+        row = (
+            await self.s.execute(
+                text(
+                    "SELECT id, subject_id, title, title_hi, description, question_count, tier, "
+                    "       objectives, prerequisites "
+                    "FROM catalog_schema.topics "
+                    "WHERE id = :tid AND is_published = TRUE"
+                ),
+                {"tid": topic_id},
+            )
+        ).mappings().first()
+        return dict(row) if row else None
+
+    async def exams_for_educator(self, educator_id: str) -> list[dict[str, Any]]:
+        """Exams the given educator is assigned to (either exam-wide or via
+        any subject under that exam). Subject-level grants surface here too —
+        listing the subject_id NULL pre-condition would hide them, defeating
+        the cascading dropdown."""
+        rows = (
+            await self.s.execute(
+                text(
+                    """
+                    SELECT DISTINCT e.id, e.code, e.name, e.subtitle,
+                                    e.icon_key, e.sort_order
+                    FROM catalog_schema.exams e
+                    JOIN catalog_schema.educator_assignments ea
+                      ON ea.exam_id = e.id
+                    WHERE ea.educator_id = :eid
+                      AND e.is_published = TRUE
+                    ORDER BY e.sort_order, e.name
+                    """
+                ),
+                {"eid": educator_id},
+            )
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
+    async def subjects_for_educator_exam(
+        self, educator_id: str, exam_id: str
+    ) -> list[dict[str, Any]]:
+        """Subjects within `exam_id` that this educator can author for.
+
+        An exam-wide grant (subject_id IS NULL) opens up all published
+        subjects under that exam; a subject-level grant only that one.
+        """
+        rows = (
+            await self.s.execute(
+                text(
+                    """
+                    SELECT s.id, s.exam_id, s.name,
+                      (SELECT COUNT(*) FROM catalog_schema.topics t
+                       WHERE t.subject_id = s.id AND t.is_published = TRUE)
+                       AS topic_count
+                    FROM catalog_schema.subjects s
+                    WHERE s.exam_id = :eid
+                      AND s.is_published = TRUE
+                      AND (
+                        EXISTS (
+                          SELECT 1 FROM catalog_schema.educator_assignments ea
+                          WHERE ea.educator_id = :uid
+                            AND ea.exam_id = :eid
+                            AND ea.subject_id IS NULL
+                        )
+                        OR EXISTS (
+                          SELECT 1 FROM catalog_schema.educator_assignments ea
+                          WHERE ea.educator_id = :uid
+                            AND ea.exam_id = :eid
+                            AND ea.subject_id = s.id
+                        )
+                      )
+                    ORDER BY s.sort_order, s.name
+                    """
+                ),
+                {"uid": educator_id, "eid": exam_id},
+            )
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
+    async def can_author_topic(
+        self, educator_id: str, topic_id: str
+    ) -> bool | None:
+        """Three-state authorization check used by content's POST hook.
+
+        Returns:
+          None  — topic_id is missing or unpublished (caller maps to 404)
+          True  — educator has an assignment to the topic's exam, either
+                  exam-wide (subject_id IS NULL) or pinned to the topic's
+                  subject
+          False — topic exists but educator isn't assigned to its exam
+
+        Single query joins topic → subject → exam → assignments. EXISTS
+        short-circuits as soon as any matching grant is found.
+        """
+        row = (
+            await self.s.execute(
+                text(
+                    """
+                    SELECT s.exam_id AS exam_id, t.subject_id AS subject_id
+                    FROM catalog_schema.topics t
+                    JOIN catalog_schema.subjects s ON s.id = t.subject_id
+                    WHERE t.id = :tid AND t.is_published = TRUE
+                    """
+                ),
+                {"tid": topic_id},
+            )
+        ).mappings().first()
+        if row is None:
+            return None
+        auth_row = (
+            await self.s.execute(
+                text(
+                    """
+                    SELECT 1 FROM catalog_schema.educator_assignments
+                    WHERE educator_id = :uid
+                      AND exam_id = :eid
+                      AND (subject_id IS NULL OR subject_id = :sid)
+                    LIMIT 1
+                    """
+                ),
+                {
+                    "uid": educator_id,
+                    "eid": row["exam_id"],
+                    "sid": row["subject_id"],
+                },
+            )
+        ).first()
+        return auth_row is not None
+
+    async def list_assignments_for_educator(
+        self, educator_id: str
+    ) -> list[dict[str, Any]]:
+        rows = (
+            await self.s.execute(
+                text(
+                    """
+                    SELECT id, educator_id, exam_id, subject_id,
+                           created_at, created_by
+                    FROM catalog_schema.educator_assignments
+                    WHERE educator_id = :eid
+                    ORDER BY created_at
+                    """
+                ),
+                {"eid": educator_id},
+            )
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
+    async def insert_assignment(
+        self,
+        *,
+        educator_id: str,
+        exam_id: str,
+        subject_id: str | None,
+        created_by: str,
+    ) -> dict[str, Any] | None:
+        """Insert one assignment row. Returns the row, or None if a
+        duplicate (the partial unique indexes catch dupes per
+        granularity)."""
+        sql = (
+            """
+            INSERT INTO catalog_schema.educator_assignments
+              (educator_id, exam_id, subject_id, created_by)
+            VALUES (
+              CAST(:educator_id AS uuid),
+              CAST(:exam_id AS uuid),
+              CAST(:subject_id AS uuid),
+              CAST(:created_by AS uuid)
+            )
+            ON CONFLICT DO NOTHING
+            RETURNING id, educator_id, exam_id, subject_id,
+                      created_at, created_by
+            """
+        )
+        row = (
+            await self.s.execute(
+                text(sql),
+                {
+                    "educator_id": educator_id,
+                    "exam_id": exam_id,
+                    "subject_id": subject_id,
+                    "created_by": created_by,
+                },
+            )
+        ).mappings().first()
+        return dict(row) if row else None
+
+    async def delete_assignment(self, assignment_id: str) -> bool:
+        result = await self.s.execute(
+            text(
+                "DELETE FROM catalog_schema.educator_assignments "
+                "WHERE id = CAST(:aid AS uuid)"
+            ),
+            {"aid": assignment_id},
+        )
+        return (result.rowcount or 0) > 0
+
+    async def topics_for_reindex(self) -> list[dict[str, Any]]:
+        """Bulk read used by Search service reindex pipeline. Joins through to
+        subject + exam so every doc carries the human-readable subtitle.
+        Returns ALL published topics — closed beta scale (~50 rows)."""
+        rows = (
+            await self.s.execute(
+                text(
+                    """
+                    SELECT t.id AS topic_id, t.title, t.title_hi, t.description,
+                           t.tier, t.question_count,
+                           s.id AS subject_id, s.name AS subject_name,
+                           e.id AS exam_id, e.code AS exam_code, e.name AS exam_name
+                    FROM catalog_schema.topics t
+                    JOIN catalog_schema.subjects s ON s.id = t.subject_id
+                    JOIN catalog_schema.exams e ON e.id = s.exam_id
+                    WHERE t.is_published = TRUE
+                    ORDER BY e.sort_order, s.sort_order, t.sort_order
+                    """
+                )
+            )
+        ).mappings().all()
+        return [dict(r) for r in rows]

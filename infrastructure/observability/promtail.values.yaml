@@ -1,0 +1,26 @@
+# Promtail — DaemonSet, ships container logs to Loki gateway.
+config:
+  clients:
+    - url: http://loki-gateway.observability.svc/loki/api/v1/push
+
+  snippets:
+    pipelineStages:
+      - cri: {}
+      - json:
+          expressions:
+            level: level
+            service: service
+            trace_id: trace_id
+            flag_decision: '"flag.decision"'
+      - labels:
+          level:
+          service:
+      # Drop debug in staging+prod — keep cardinality low.
+      - drop:
+          source: level
+          expression: "DEBUG"
+
+# Resource footprint — tuned for m6i.large nodes.
+resources:
+  requests: { cpu: 50m, memory: 128Mi }
+  limits:   { cpu: 200m, memory: 256Mi }

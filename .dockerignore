@@ -1,0 +1,56 @@
+# Root .dockerignore — applies to all container builds that use the repo as context.
+
+# VCS / editor
+.git
+.gitignore
+.gitattributes
+.vscode
+.idea
+.cursor
+
+# Env + secrets
+.env
+.env.*
+!.env.example
+
+# Node / pnpm
+**/node_modules
+**/.pnpm-store
+**/dist
+**/build
+**/coverage
+**/.vite
+
+# Python
+**/__pycache__
+**/*.pyc
+**/.venv
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/htmlcov
+
+# Go
+**/vendor
+
+# Flutter
+apps/mobile/build
+apps/mobile/.dart_tool
+apps/mobile/ios/Pods
+apps/mobile/android/.gradle
+
+# Infra / docs — most isn't needed in image builds
+infrastructure
+docs
+runbook
+*.md
+!apps/*/README.md
+# But Dockerfiles + entrypoints DO need to land in images that copy them
+!infrastructure/docker/Dockerfile.python
+!infrastructure/docker/Dockerfile.golang
+!infrastructure/docker/python-entrypoint.sh
+!infrastructure/docker/go-entrypoint.sh
+
+# Test artefacts
+**/*.log
+**/.DS_Store
