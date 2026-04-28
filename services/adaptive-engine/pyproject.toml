@@ -13,6 +13,9 @@ dependencies = [
     "openai>=1.50",
     "alp-flags",
     "alp-telemetry",
+    # Sprint 8 R-4 — photo-doubt rate limit (3/day free tier).
+    "redis>=5.0",
+    "pyjwt>=2.9",
 ]
 
 [tool.uv.sources]

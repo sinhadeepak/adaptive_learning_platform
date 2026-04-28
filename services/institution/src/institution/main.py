@@ -8,6 +8,7 @@ from institution import __version__
 from institution.config import settings
 from institution.events import close as close_nats, connect as connect_nats
 from institution.logging import configure_logging
+from institution.core_routes import router as core_router
 from institution.routes import router as flags_router
 
 
@@ -32,6 +33,7 @@ app = FastAPI(
 app.add_middleware(TraceContextMiddleware)
 
 app.include_router(flags_router)
+app.include_router(core_router)
 
 
 @app.get("/health")

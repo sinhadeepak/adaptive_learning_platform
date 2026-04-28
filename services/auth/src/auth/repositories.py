@@ -19,7 +19,8 @@ class UserRepo:
             await self.s.execute(
                 text(
                     "SELECT id, email, password_hash, full_name, role, admin_access_level, "
-                    "account_status, onboarding_status, institution_id, is_deleted "
+                    "account_status, onboarding_status, institution_id, is_deleted, "
+                    "premium_until "
                     "FROM auth_schema.users WHERE email = :email"
                 ),
                 {"email": email.lower()},
@@ -32,7 +33,8 @@ class UserRepo:
             await self.s.execute(
                 text(
                     "SELECT id, email, password_hash, full_name, role, admin_access_level, "
-                    "account_status, onboarding_status, institution_id, is_deleted "
+                    "account_status, onboarding_status, institution_id, is_deleted, "
+                    "premium_until "
                     "FROM auth_schema.users WHERE id = :id"
                 ),
                 {"id": str(user_id)},
@@ -98,6 +100,21 @@ class UserRepo:
                 "WHERE id=:id AND account_status='PENDING_VERIFICATION'"
             ),
             {"id": str(user_id)},
+        )
+
+    async def set_premium_until(
+        self, user_id: UUID | str, premium_until: datetime | None
+    ) -> None:
+        """Sprint 8 — sets/clears the tier elevation window driven by
+        Payment's `payment.subscription.changed` NATS event. The subscriber
+        passes the period_end when the user is ACTIVE/REACTIVATED/PAST_DUE,
+        the period_end if CANCELED-but-still-paid, or None when INACTIVE."""
+        await self.s.execute(
+            text(
+                "UPDATE auth_schema.users SET premium_until = :pu, updated_at = NOW() "
+                "WHERE id = :id"
+            ),
+            {"id": str(user_id), "pu": premium_until},
         )
 
 

@@ -200,7 +200,7 @@ class _HomeTabState extends State<HomeTab> {
           // streak is alive; surfaces only on this exact day-1-gap window so
           // it doesn't appear when already practiced today (gap=0) or when
           // the streak has already broken (gap>1).
-          if (_streak != null && _streak!.current > 0 && _isStreakInDanger(_streak!)) ...[
+          if (_streak != null && _streak!.current > 0 && isStreakInDanger(_streak!)) ...[
             const SizedBox(height: 12),
             _StreakDangerCard(
               streak: _streak!,
@@ -426,7 +426,7 @@ class _RingPainter extends CustomPainter {
   bool shouldRepaint(_RingPainter old) => old.pct != pct;
 }
 
-bool _isStreakInDanger(Streak s) {
+bool isStreakInDanger(Streak s) {
   final lastIso = s.lastActiveDate;
   if (lastIso == null) return false;
   try {

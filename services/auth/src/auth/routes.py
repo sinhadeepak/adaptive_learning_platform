@@ -32,6 +32,7 @@ from auth.schemas import (
     User,
 )
 from auth.security import (
+    effective_role,
     generate_otp,
     generate_refresh_token,
     hash_otp,
@@ -88,7 +89,8 @@ def _row_to_user(row: dict) -> User:
     # to first_name/last_name columns in a later migration once frontend is stable.
     full = row.get("full_name") or ""
     first, _, last = full.partition(" ")
-    role = row["role"]  # DB enum already uppercase
+    # Sprint 8 R-1 — STUDENT with active subscription → STUDENT_PREMIUM in JWT.
+    role = effective_role(row["role"], row.get("premium_until"))
     return User(
         id=str(row["id"]),
         email=row["email"],

@@ -8,8 +8,10 @@ from pydantic import BaseModel
 
 from payment import __version__
 from payment.config import settings
+from payment.db import dispose as dispose_db
 from payment.flags import checkout_enabled, close_flags, connect_flags
 from payment.logging import configure_logging
+from payment.routes import router as payment_router
 
 
 @asynccontextmanager
@@ -20,6 +22,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await close_flags()
+        await dispose_db()
 
 
 app = FastAPI(
@@ -30,6 +33,11 @@ app = FastAPI(
 
 # Trace-id propagation must be the OUTERMOST middleware (Sprint 4).
 app.add_middleware(TraceContextMiddleware)
+
+# Sprint 8 — real Stripe-backed checkout + webhook + /payment/me lives here.
+# The /checkout/start endpoint below is the GAP-16 flag-gated placeholder
+# from Sprint 3 and stays for backward-compatibility with existing tests.
+app.include_router(payment_router)
 
 
 @app.get("/health")

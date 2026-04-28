@@ -17,9 +17,10 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator
+from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -409,11 +410,59 @@ class DoubtPhotoRequest(BaseModel):
     imageDataUrl: str = Field(min_length=24, max_length=8_000_000)
 
 
+def _decode_role_and_user(authorization: str | None) -> tuple[str | None, str | None]:
+    """Sprint 8 R-4 — decode the JWT to get (role, user_id) for the rate
+    limiter. Returns (None, None) on missing/invalid bearer; the route
+    treats anonymous as free-tier (3/day cap)."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None, None
+    try:
+        import jwt as _jwt
+
+        claims = _jwt.decode(
+            authorization[len("bearer "):].strip(),
+            settings.jwt_secret,
+            algorithms=["HS256"],
+        )
+    except Exception:  # noqa: BLE001
+        return None, None
+    return claims.get("role"), claims.get("sub")
+
+
 @router.post("/adaptive/doubt/photo")
-async def post_doubt_photo(req: DoubtPhotoRequest) -> dict:
+async def post_doubt_photo(
+    req: DoubtPhotoRequest,
+    request: Request,
+    authorization: Annotated[str | None, Header()] = None,
+) -> dict:
     """Photo-OCR doubt resolution. Returns the OCR extract + step-by-step solution
     + 3 similar problems from the matched topic. Same shape regardless of source
-    (ai / stub) so the UI can render unconditionally."""
+    (ai / stub) so the UI can render unconditionally.
+
+    Sprint 8 R-4 — free students get 3 photo-doubts per UTC day; premium and
+    staff bypass. 429 with body {code: rate_limited} when the cap is hit."""
+    role, user_id = _decode_role_and_user(authorization)
+    limiter = getattr(request.app.state, "photo_doubt_limiter", None)
+    if limiter is not None:
+        # Anonymous/no-sub callers fall back to a stable IP-derived key so
+        # they can't trivially bypass via missing-token. The rate-limiter
+        # accepts None (treats it as anonymous bucket); we send the IP
+        # explicitly here so the daily key is at least scoped to one client.
+        bucket = user_id or (request.client.host if request.client else "anonymous")
+        allowed, count, cap = await limiter.check_and_increment(
+            user_id=bucket, role=role
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "code": "rate_limited",
+                    "message": (
+                        f"Free tier allows {cap} photo-doubt resolutions per day. "
+                        f"You've used {count}. Upgrade to PREMIUM for unlimited."
+                    ),
+                },
+            )
     return await solve_doubt(image_data_url=req.imageDataUrl)
 
 

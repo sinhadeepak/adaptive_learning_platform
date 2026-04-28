@@ -60,7 +60,15 @@ class User(BaseModel):
     email: str
     firstName: str
     lastName: str
-    role: Literal["STUDENT", "TEACHER", "EXPERT", "MODERATOR", "INSTITUTION_ADMIN", "PLATFORM_ADMIN"]
+    role: Literal[
+        "STUDENT",
+        "STUDENT_PREMIUM",  # Sprint 8 — elevated tier when premium_until > now()
+        "TEACHER",
+        "EXPERT",
+        "MODERATOR",
+        "INSTITUTION_ADMIN",
+        "PLATFORM_ADMIN",
+    ]
     tenantId: str | None = None
     onboardingState: Literal["NEW", "EXAM_SELECTED", "ONBOARDED"]
 

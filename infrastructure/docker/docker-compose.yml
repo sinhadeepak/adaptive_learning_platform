@@ -210,9 +210,21 @@ services:
     image: alp/payment:local
     ports: ["38007:8000"]
     environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/payment
+      PAYMENT_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/payment
       PAYMENT_NATS_URL: nats://nats:4222
       PAYMENT_INSTITUTION_BASE_URL: http://institution:8000
+      # Stripe — set these via .env in real environments. Empty → stub mode
+      # (Sprint 8: lets the full flow be exercised without a Stripe account).
+      PAYMENT_STRIPE_API_KEY: "${PAYMENT_STRIPE_API_KEY:-}"
+      PAYMENT_STRIPE_WEBHOOK_SECRET: "${PAYMENT_STRIPE_WEBHOOK_SECRET:-}"
+      PAYMENT_STRIPE_PRICE_ID_PREMIUM_MONTHLY: "${PAYMENT_STRIPE_PRICE_ID_PREMIUM_MONTHLY:-price_test_premium_monthly}"
+      PAYMENT_STRIPE_PRICE_ID_PREMIUM_YEARLY: "${PAYMENT_STRIPE_PRICE_ID_PREMIUM_YEARLY:-price_test_premium_yearly}"
+      PAYMENT_CHECKOUT_SUCCESS_URL: "${PAYMENT_CHECKOUT_SUCCESS_URL:-http://localhost:35173/billing?status=success&session_id={CHECKOUT_SESSION_ID}}"
+      PAYMENT_CHECKOUT_CANCEL_URL: "${PAYMENT_CHECKOUT_CANCEL_URL:-http://localhost:35173/billing?status=cancel}"
+      PAYMENT_JWT_SECRET: "${JWT_SECRET:-dev-only-change-me-in-staging-at-least-32-bytes-long}"
     depends_on:
+      postgres: { condition: service_healthy }
       nats: { condition: service_healthy }
 
   institution:

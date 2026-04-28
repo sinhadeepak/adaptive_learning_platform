@@ -13,6 +13,8 @@ from auth.lockout import close as close_lockout
 from auth.lockout import connect as connect_lockout
 from auth.logging import configure_logging
 from auth.middleware import ClientVersionLogMiddleware
+from auth.payment_subscriber import close as close_payment_subscriber
+from auth.payment_subscriber import connect as connect_payment_subscriber
 from auth.admin_routes import router as auth_admin_router
 from auth.routes import router as auth_router
 
@@ -23,9 +25,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await connect_flags()
     await connect_lockout()
     await connect_events()
+    await connect_payment_subscriber()
     try:
         yield
     finally:
+        await close_payment_subscriber()
         await close_events()
         await close_lockout()
         await close_flags()

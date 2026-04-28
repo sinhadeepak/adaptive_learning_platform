@@ -12,8 +12,8 @@
 |---|---|---|---|---|
 | **Ph 0** Foundation | Wks 1–2 | Sprint 0 complete; platform ready | [02_Sprint0_Plan](02_Sprint0_Plan_AdaptiveLearningPlatform.docx) | ✅ done |
 | **Ph 1a** Closed Beta | Wks 3–8 | India invite-only; validate core loop | [07_SprintDevelopmentPlan](07_SprintDevelopmentPlan_AdaptiveLearningPlatform.md) §S1–S3 | ✅ S1+S2+S3 done |
-| **Ph 1b** Soft Launch | Wk 9 | India limited public | §S4a (same doc) | 🟨 feature-complete locally; **staging-deploy AWS-blocked** |
-| **Ph 1c** Full Launch | Wk 10+ | India public, freemium + premium + institution | §S4b (same doc) | 🟨 feature-complete locally; **staging-deploy AWS-blocked** |
+| **Ph 1b** Soft Launch | Wk 9 | India limited public | §S4a (same doc) | 🟨 feature-complete locally; **staging deploy deferred to end-of-Phase-3 per user direction** |
+| **Ph 1c** Full Launch | Wk 10+ | India public, freemium + premium + institution | §S4b (same doc) | 🟨 feature-complete locally; staging deferred (see Final cutover row below) |
 | **Ph 1 emergent** Post-MVP | 2026-04-26→27 | Close visible gaps (AI verticals, mobile parity, engagement loop) | S5 [19_AI_Sprint_Closure](19_AI_Sprint_Closure.md) · S6 [22_Platform_Completion](22_Platform_Completion_Sprint_Closure.md) · S7 [23_Engagement](23_Engagement_Sprint_Closure.md) | ✅ all three closed |
 | **Ph 2** Global Expansion | Q4 2026 | Global English + RTL/Arabic; live sessions; native video; B2B API reads | [19_Phase2_SprintDevelopmentPlan](19_Phase2_SprintDevelopmentPlan.md) | ❌ all 5 sprints pending |
 | **Ph 3** Platform Evolution | 2027 | Marketplaces (live tutors + content), B2B API writes, predictive analytics | [21_Phase3_SprintDevelopmentPlan](21_Phase3_SprintDevelopmentPlan.md) | ❌ all 6 sprints pending |
@@ -27,12 +27,12 @@
 |---|---|
 | Phase 0 | 1 (Sprint 0 — done) |
 | Phase 1 | 4 planned (S1–S4) **+ 3 emergent post-MVP** (S5 AI Deepening, S6 Platform Completion, S7 Engagement) — all closed |
-| Phase 1 → Phase 2 bridge | **1 planned** (Sprint 8 — Staging Cutover, AWS-blocked) |
-| Phase 2 | 5 (existing plan; P2-S0 to be re-baselined to foundation-only) |
+| Phase 2 | **5** (S8 Payment + Institution = next; S9 i18n; S10 Live sessions/video; S11 Inst-analytics + B2B API; S12 stabilization). Existing [Phase 2 plan](19_Phase2_SprintDevelopmentPlan.md) covers themes; sprint numbering aligned to global counter post-rebaseline. |
 | Phase 3 | 6 |
-| **Total** | **20** (planned 16 + 3 emergent post-MVP + 1 bridge) |
+| **Final cutover sprint** | 1 — Staging deploy + drills, deferred per user direction until all Phase 1+2+3 sprints land + Stripe ready. Plan preserved at [24_DEPRECATED_Staging_Cutover_Plan](24_DEPRECATED_Staging_Cutover_Plan.md). |
+| **Total** | **20** sprints to staging push (S0–S19) |
 
-**Pending today**: ~12 (Sprint 8 staging cutover; all of P2; all of P3).
+**Pending today**: ~12 (S8 Payment + Institution next; S9–S12 = Phase 2; S13–S18 = Phase 3; S19 = staging cutover).
 
 ---
 
@@ -50,7 +50,7 @@ Each closure summarizes what shipped, what slipped, what carries to the next spr
 | Sprint 6 — Platform Completion | [22_Platform_Completion_Sprint_Closure](22_Platform_Completion_Sprint_Closure.md) | ✅ closed 2026-04-27 — doubts microservice (12th in the stack), per-day analytics + activity-heatmap groundwork, mobile parity (Doubts tab, Profile tab settings flows, Edit Profile / Change Password / Preferences screens). Mobile reached feature-parity with web. |
 | Sprint 7 — Engagement | [23_Engagement_Sprint_Closure](23_Engagement_Sprint_Closure.md) | ✅ closed 2026-04-27 — bookmarks (web + mobile) + quiz session history + notification inbox with read state + 7 notification types + per-type mute prefs + persistent mock attempts + 21-kind achievements catalog + daily-goal card + 30-day activity heatmap + question feedback flag + web Doubts pages + Ask-AI-from-quiz-review doubt flow + avatar upload + post-close addendum (cumulative achievements, search recents, streak nudge, locked-badge preview, `streak.broken` notification). Real engagement loop end-to-end. |
 | Phase 1 retrospective | [20_Phase1_Retrospective](20_Phase1_Retrospective.md) | ✅ written 2026-04-27 — wraps S1–S7 (planned + emergent). Gates P2-S0; sign-off block lists CTO + Head of Product + PM as pending. |
-| Sprint 8 — P1 Wrap-up: Staging Cutover | [24_P1_Wrap_Staging_Cutover_Sprint_Plan](24_P1_Wrap_Staging_Cutover_Sprint_Plan.md) | 📋 PLANNED 2026-04-27 — bridges P1 (feature-complete locally) → P2 (foundation). Single-purpose: AWS staging cutover + Phase 1 carry-over closure. Awaits CTO sign-off on AWS account access (gating dependency). Recommends 2-week shift in Phase 2 timeline so P2-S0 can be foundation-only. |
+| Sprint 8 — Payment + Institution Core | [24_Sprint8_Payment_Institution_Plan](24_Sprint8_Payment_Institution_Plan.md) → [25_Sprint8_Closure](25_Sprint8_Closure.md) | ✅ DELIVERED 2026-04-28 — Stripe Checkout + subscription FSM (P-1..P-8), Auth STUDENT_PREMIUM + NATS subscriber (R-1, R-2), Quiz Go tier gate (R-3), Adaptive photo-doubt rate limit (R-4), Institution Core tenants/cohorts/members (I-1..I-5), Frontend paywall + Billing page + Premium pill + mobile WebView (F-1..F-5 all closed). **126 new tests green** (42 FSM + 11 repos + 8 routes + 16 auth + 8 Quiz Go + 12 Adaptive + 9 Institution + 6 web + 14 mobile). Re-baseline note: original staging-cutover doc lives at [24_DEPRECATED_Staging_Cutover_Plan](24_DEPRECATED_Staging_Cutover_Plan.md) — gate items + drills + runbooks remain valid for the eventual ~Sprint 19 staging push. |
 | Phase 2 retrospective | (planned: `22_Phase2_Retrospective.md`) | ❌ not yet written; gates P3-S0. |
 
 ---

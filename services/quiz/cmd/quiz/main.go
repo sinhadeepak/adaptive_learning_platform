@@ -76,7 +76,8 @@ func main() {
 		defer func() { _ = contentSub.Close() }()
 	}
 
-	sess := server.NewSessionService(st, flagClient, adaptiveClient, publisher, cfg.SessionTTL)
+	sess := server.NewSessionService(st, flagClient, adaptiveClient, publisher, cfg.SessionTTL).
+		WithJWTSecret(cfg.JWTSecret)
 
 	mux := http.NewServeMux()
 	mux.Handle("/", server.Router(logger, sess, flagClient))

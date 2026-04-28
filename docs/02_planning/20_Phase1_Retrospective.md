@@ -1,11 +1,11 @@
 # Phase 1 Retrospective
 
 **Phase window**: Sprints 0–4 planned (Weeks 1–10) + Sprints 5–7 emergent (2026-04-26 → 2026-04-27).
-**Status at close**: ✅ feature-complete locally; 🟨 staging deploy still **AWS-blocked** and rolls forward to Phase 2 Sprint 0.
+**Status at close**: ✅ feature-complete locally. Per user direction (2026-04-27), **staging deploy is deferred to the end-of-all-phases** (after Phase 1+2+3 sprints all close, with Stripe integration as a precondition). Phase 1 closes cleanly here on its engineering deliverables; staging cutover becomes the final sprint of the entire arc, not a Phase-1 wrap.
 **Author**: Tech Lead.
 **Inputs**: [Master Phase Index](00_MasterPhaseIndex.md) · per-sprint closures ([15](15_Sprint1_Closure.md) [16](16_Sprint2_Closure.md) [17](17_Sprint3_Closure.md) [18](18_Sprint4_Closure.md) [19](19_AI_Sprint_Closure.md) [22](22_Platform_Completion_Sprint_Closure.md) [23](23_Engagement_Sprint_Closure.md)) · [Gap Resolution Register v1.2](../06_gaps_resolution/GapResolutionRegister_v1.2_AdaptiveLearningPlatform.docx).
 
-This retro gates the start of **Phase 2 Sprint 0** ([19_Phase2_SprintDevelopmentPlan.md](19_Phase2_SprintDevelopmentPlan.md)).
+This retro gates the start of **Sprint 8 — Payment + Institution Core** ([24_Sprint8_Payment_Institution_Plan.md](24_Sprint8_Payment_Institution_Plan.md)).
 
 ---
 
@@ -145,9 +145,9 @@ S5/S6/S7 explicitly removed every "Coming soon" disabled button in the student f
 
 ---
 
-## 6. Carry-overs to Phase 2 Sprint 0
+## 6. Carry-overs to the staging cutover sprint (now ~Sprint 19)
 
-These are the gating items P2-S0 inherits from Phase 1:
+**Per user direction (2026-04-27): staging deploy moves to after Phase 1+2+3 sprints all close + Stripe integration ships.** The carry-over list below is preserved as the staging-cutover backlog; it no longer gates the immediate-next sprint. The next sprint ([Sprint 8 Payment + Institution Core](24_Sprint8_Payment_Institution_Plan.md)) ships locally without these.
 
 | Item | Source | Notes |
 |---|---|---|
@@ -188,7 +188,13 @@ From the master index PR #38 + post-S4 work:
 | alptelemetry (Go) | 8 |
 | mobile (Flutter widgets) | 39 (deep-link parser) + 24 (forgot/reset password parity) + ~auth widgets |
 
-**Total**: ~305+ unit/integration tests across the stack at close (~280 baseline + 25 new for the four new S7 repos). The remaining test debt — doubts service unit tests, notification read-state tests, mobile widget tests for the new S6/S7 screens, web Playwright e2e — rolls into Sprint 8 stretch (T-1, T-2, T-3 in the [Sprint 8 plan](24_P1_Wrap_Staging_Cutover_Sprint_Plan.md#43-test-debt-should-land--debt-to-repay-alongside-cutover)).
+**Total**: ~382+ unit/integration tests across the stack at close (~280 baseline + 102 new closing pre-Sprint-8 test debt). Breakdown of the new tests, all 2026-04-27:
+- user-profile: 9 (achievements) + 8 (bookmarks) + 8 (mock_attempts + question_feedback) = 25
+- doubts: 15 (full repo lifecycle: create → list → fetch with answer count → answer FSM → accept FSM → owner-isolation)
+- notification: 15 (read_at column: unread_count, mark_read idempotency + cross-user safety, mark_all_read flipped-count)
+- mobile: 47 — 86 total mobile-suite tests passing (8 streak-in-danger + 16 inbox summary + 14 badge decoder + 9 tutor message builder). Pure-logic coverage on every helper extracted from the new screens.
+
+Remaining test debt — render-level mobile widget tests for Bookmarks/History/Doubts list screens + web Playwright e2e for 8 top routes — both deferred to renamed P2-S0 (the Playwright bootstrap is itself ~½ sprint of FE capacity). Per-screen render coverage is lower-value than the pure-logic helper coverage already shipped, since render bugs surface immediately during dev.
 
 ---
 

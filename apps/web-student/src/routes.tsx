@@ -2,6 +2,7 @@ import { Navigate, type RouteObject } from "react-router-dom";
 import { GuestOnlyRoute, ProtectedRoute } from "./lib/protected-route";
 import { AddExam } from "./pages/AddExam";
 import { Analysis } from "./pages/Analysis";
+import { Billing } from "./pages/Billing";
 import { Bookmarks } from "./pages/Bookmarks";
 import { DoubtDetail } from "./pages/DoubtDetail";
 import { Doubts } from "./pages/Doubts";
@@ -303,6 +304,15 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <Settings />
+      </ProtectedRoute>
+    ),
+  },
+  // Sprint 8 F-1 — billing page (subscription summary, post-Checkout lander).
+  {
+    path: "/billing",
+    element: (
+      <ProtectedRoute>
+        <Billing />
       </ProtectedRoute>
     ),
   },

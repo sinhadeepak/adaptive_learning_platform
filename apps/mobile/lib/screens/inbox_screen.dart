@@ -323,7 +323,7 @@ class _NotifRow extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              _summary(item),
+              inboxSummary(item),
               style: const TextStyle(color: AlpColors.textPrimary, fontSize: 14, height: 1.45),
             ),
           ],
@@ -338,7 +338,7 @@ String _prettyType(String t) {
   return stripped.replaceAll(RegExp(r'[._]'), ' ').toUpperCase();
 }
 
-String _summary(InboxItem n) {
+String inboxSummary(InboxItem n) {
   final p = n.payload;
   if (n.type == 'quiz.completed') {
     final score = p['score'];

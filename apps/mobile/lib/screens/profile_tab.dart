@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../api/api_client.dart';
+import '../api/billing.dart';
 import '../auth/auth_client.dart';
 import '../widgets/activity_heatmap.dart';
 import '../widgets/alp_card.dart';
+import 'billing_screen.dart';
 import 'bookmarks_screen.dart';
 import 'change_password_screen.dart';
 import 'edit_profile_screen.dart';
@@ -157,46 +159,10 @@ class _ProfileTabState extends State<ProfileTab> {
   }
 
   Widget _buildBadge(Achievement a) {
-    final days = a.payload['days'];
-    String icon;
-    String label;
-    Color tone;
-    if (a.kind.startsWith('streak_') && days is num) {
-      icon = '🔥';
-      label = '${days.toInt()}-day streak';
-      tone = AlpColors.colorAmber;
-    } else if (a.kind == 'first_session') {
-      icon = '🎯';
-      label = 'First session';
-      tone = AlpColors.colorBlue;
-    } else if (a.kind == 'daily_goal_first') {
-      icon = '✓';
-      label = 'Daily goal hit';
-      tone = AlpColors.colorGreen;
-    } else if (a.kind == 'mock_first') {
-      icon = '🎓';
-      label = 'First mock test';
-      tone = AlpColors.colorPurple;
-    } else if (a.kind.startsWith('mocks_')) {
-      final n = int.tryParse(a.kind.substring('mocks_'.length)) ?? 0;
-      icon = '🎓';
-      label = '$n mock tests';
-      tone = AlpColors.colorPurple;
-    } else if (a.kind.startsWith('sessions_')) {
-      final n = int.tryParse(a.kind.substring('sessions_'.length)) ?? 0;
-      icon = '📚';
-      label = '$n sessions';
-      tone = AlpColors.colorGreen;
-    } else if (a.kind.startsWith('questions_')) {
-      final n = int.tryParse(a.kind.substring('questions_'.length)) ?? 0;
-      icon = '❓';
-      label = '$n questions answered';
-      tone = AlpColors.colorBlue;
-    } else {
-      icon = '🏆';
-      label = a.kind.replaceAll('_', ' ');
-      tone = AlpColors.colorBlue;
-    }
+    final meta = decodeBadge(a);
+    final icon = meta.icon;
+    final label = meta.label;
+    final tone = meta.tone;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -433,6 +399,15 @@ class _ProfileTabState extends State<ProfileTab> {
                 builder: (_) => PreferencesScreen(api: api),
               )),
             ),
+            // Sprint 8 F-5 — Billing entry point on the Profile tab.
+            _SettingsRow(
+              icon: Icons.workspace_premium_outlined,
+              title: 'Subscription',
+              trailing: 'View',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => BillingScreen(client: BillingClient(auth)),
+              )),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -532,6 +507,60 @@ class _ProfileTabState extends State<ProfileTab> {
     final now = DateTime.now();
     return '${_months[now.month - 1]} ${now.year}';
   }
+}
+
+/// Pure-function decoder for an Achievement → (icon, label, tone) triple.
+/// Exposed at top level so the unit suite can pin every kind without
+/// pumping the whole ProfileTab widget. The Profile tab's `_buildBadge`
+/// uses this and just wraps the result in a Container/Row.
+class BadgeDisplay {
+  const BadgeDisplay({required this.icon, required this.label, required this.tone});
+  final String icon;
+  final String label;
+  final Color tone;
+}
+
+BadgeDisplay decodeBadge(Achievement a) {
+  final days = a.payload['days'];
+  if (a.kind.startsWith('streak_') && days is num) {
+    return BadgeDisplay(
+      icon: '🔥',
+      label: '${days.toInt()}-day streak',
+      tone: AlpColors.colorAmber,
+    );
+  }
+  if (a.kind == 'first_session') {
+    return const BadgeDisplay(
+      icon: '🎯', label: 'First session', tone: AlpColors.colorBlue,
+    );
+  }
+  if (a.kind == 'daily_goal_first') {
+    return const BadgeDisplay(
+      icon: '✓', label: 'Daily goal hit', tone: AlpColors.colorGreen,
+    );
+  }
+  if (a.kind == 'mock_first') {
+    return const BadgeDisplay(
+      icon: '🎓', label: 'First mock test', tone: AlpColors.colorPurple,
+    );
+  }
+  if (a.kind.startsWith('mocks_')) {
+    final n = int.tryParse(a.kind.substring('mocks_'.length)) ?? 0;
+    return BadgeDisplay(icon: '🎓', label: '$n mock tests', tone: AlpColors.colorPurple);
+  }
+  if (a.kind.startsWith('sessions_')) {
+    final n = int.tryParse(a.kind.substring('sessions_'.length)) ?? 0;
+    return BadgeDisplay(icon: '📚', label: '$n sessions', tone: AlpColors.colorGreen);
+  }
+  if (a.kind.startsWith('questions_')) {
+    final n = int.tryParse(a.kind.substring('questions_'.length)) ?? 0;
+    return BadgeDisplay(icon: '❓', label: '$n questions answered', tone: AlpColors.colorBlue);
+  }
+  return BadgeDisplay(
+    icon: '🏆',
+    label: a.kind.replaceAll('_', ' '),
+    tone: AlpColors.colorBlue,
+  );
 }
 
 class _SettingsGroup extends StatelessWidget {

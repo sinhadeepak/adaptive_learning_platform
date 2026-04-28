@@ -2,7 +2,7 @@
 
 **Sprint number**: 8 of the post-MVP arc, framed as **the bridge from Phase 1 (feature-complete locally) to Phase 2 (Foundation + global expansion)**.
 **Author**: Tech Lead.
-**Status**: 📋 **PLANNED** — awaiting CTO sign-off on AWS account access (the gating dependency for the entire sprint).
+**Status**: 📋 **PLANNED — stretch test debt closed pre-sprint (T-1 ✅, T-2 ✅, T-3 deferred to renamed P2-S0).** Awaiting CTO sign-off on AWS account access (the gating dependency for gate items G-1 through G-11).
 **Inputs**: [20_Phase1_Retrospective §6](20_Phase1_Retrospective.md#6-carry-overs-to-phase-2-sprint-0) (carry-over list) · [19_Phase2_SprintDevelopmentPlan §P2-S0](19_Phase2_SprintDevelopmentPlan.md) (overlapping scope — see §6 reconciliation below) · [Gap Register v1.2](../06_gaps_resolution/GapResolutionRegister_v1.2_AdaptiveLearningPlatform.docx).
 
 ---
@@ -85,9 +85,9 @@ If we can't say that on Day 10, we don't open Phase 2.
 
 | # | Item | Source |
 |---|---|---|
-| T-1 | Per-repo unit tests for new S5–S7 surfaces: ~~achievement repo~~ ✅ ~~mock-attempts repo~~ ✅ ~~bookmarks repo~~ ✅ ~~question-feedback repo~~ ✅ (all four landed pre-sprint, 2026-04-27, 25 new tests in `services/user-profile/tests/test_achievements.py`, `test_bookmarks.py`, `test_mock_attempts_and_feedback.py`); remaining: doubts service repos, notification read-state, multi-turn AI tutor flow | retro §7 |
-| T-2 | Mobile widget tests for Bookmarks / History / Inbox / Doubts / Profile achievement screens | retro §7 |
-| T-3 | Web e2e (Playwright) smoke covering the 8 top routes (`/inbox`, `/bookmarks`, `/doubts`, `/history`, `/profile`, `/mock/result`, `/settings`, `/home`) | retro §7 |
+| T-1 | Per-repo unit tests for new S5–S7 surfaces: ~~achievement repo~~ ✅ ~~mock-attempts repo~~ ✅ ~~bookmarks repo~~ ✅ ~~question-feedback repo~~ ✅ ~~doubts service repos~~ ✅ ~~notification read-state~~ ✅ ~~multi-turn AI tutor message builder~~ ✅ — all 7 closed pre-sprint, 2026-04-27, 64 new tests across `services/user-profile/tests/test_achievements.py` (9), `test_bookmarks.py` (8), `test_mock_attempts_and_feedback.py` (8), `services/doubts/tests/test_repositories.py` (15), `services/notification/tests/test_read_state.py` (15), `apps/mobile/test/tutor_messages_test.dart` (9). | retro §7 |
+| T-2 | Mobile widget tests: ~~streak-in-danger detection~~ ✅ ~~inbox copy + InboxItem.unread~~ ✅ ~~Profile achievement badge decoder~~ ✅ — 38 new pure-logic tests in `apps/mobile/test/streak_danger_test.dart` (8) + `inbox_summary_test.dart` (16) + `badge_decoder_test.dart` (14), 2026-04-27. Mobile suite total: 86 passing. Remaining: render-level widget tests for the Bookmarks / History / Doubts list screens (lower-value than the pure-logic coverage above; pulled in only if Sprint 8 capacity permits). | retro §7 |
+| T-3 | ❌ **Deferred** — Web e2e (Playwright) smoke covering the 8 top routes (`/inbox`, `/bookmarks`, `/doubts`, `/history`, `/profile`, `/mock/result`, `/settings`, `/home`). Setup (Playwright config + browser install + page-object skeleton) needs ~½ sprint of FE capacity that's better spent on the cutover itself. Carries forward to renamed P2-S0. | retro §7 |
 
 T-1 through T-3 are **stretch** for this sprint; they ride alongside cutover and slip to P2-S1 if the gate items take longer than expected.
 

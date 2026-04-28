@@ -35,6 +35,11 @@ type SessionService struct {
 	clock      func() time.Time
 	sessionTTL time.Duration
 	target     int16
+	// Sprint 8 R-3 — JWT secret for the MOCK-mode tier gate. Empty in
+	// existing tests means the gate is disabled (anonymous traffic still
+	// allowed for backwards compatibility); production sets this from
+	// QUIZ_JWT_SECRET so tier gating is enforced.
+	jwtSecret string
 }
 
 func NewSessionService(
@@ -53,6 +58,14 @@ func NewSessionService(
 		sessionTTL: ttl,
 		target:     10,
 	}
+}
+
+// WithJWTSecret enables the Sprint 8 R-3 MOCK-mode tier gate by giving
+// the service the shared HS256 secret. Optional fluent setter so existing
+// test fixtures don't need to change.
+func (svc *SessionService) WithJWTSecret(s string) *SessionService {
+	svc.jwtSecret = s
+	return svc
 }
 
 // resolveStrategy honours the irt_model_enabled flag; flag errors fall back to binary_search.
@@ -110,6 +123,16 @@ func (svc *SessionService) Start(logger *slog.Logger) http.HandlerFunc {
 		if mode != domain.ModePractice && mode != domain.ModeMock {
 			writeProblem(w, http.StatusBadRequest, "invalid_mode", "mode must be PRACTICE or MOCK")
 			return
+		}
+		// Sprint 8 R-3 — MOCK mode requires STUDENT_PREMIUM (or any
+		// non-student role for internal tooling). Skip when jwtSecret is
+		// unset to keep existing local/test runs anonymous-friendly.
+		if mode == domain.ModeMock && svc.jwtSecret != "" {
+			role := roleFromBearer(r.Header.Get("Authorization"), svc.jwtSecret)
+			if !canStartMockMode(role) {
+				writeProblemMockGated(w)
+				return
+			}
 		}
 
 		// Refuse to start if the topic has no published questions.

@@ -95,24 +95,10 @@ class _DoubtDetailScreenState extends State<DoubtDetailScreen> {
       _aiStreaming = true;
       _aiBuffer = '';
     });
-    // Build a coherent dialog from the full thread so the tutor can
-    // follow up rather than re-answering the original question. peer
-    // replies → user; ai/expert answers → assistant.
-    final sortedAnswers = [..._detail!.answers]
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    final messages = <TutorTurn>[
-      TutorTurn(role: 'user', content: _detail!.summary.questionText),
-    ];
-    for (final a in sortedAnswers) {
-      final role = a.source == 'peer' ? 'user' : 'assistant';
-      messages.add(TutorTurn(role: role, content: a.content));
-    }
-    if (messages.length > 1 && messages.last.role == 'assistant') {
-      messages.add(TutorTurn(
-        role: 'user',
-        content: 'Can you explain this further or give a worked example?',
-      ));
-    }
+    final messages = buildTutorMessages(
+      questionText: _detail!.summary.questionText,
+      answers: _detail!.answers,
+    );
     final stream = widget.api.tutorChat(
       topicId: _detail!.summary.topicId ?? '00000000-0000-0000-0000-000000000000',
       messages: messages,
@@ -434,6 +420,39 @@ class _AnswerCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Build the messages array sent to /adaptive/tutor/chat from a doubt thread.
+///
+/// Maps the source-tagged answer stream to alternating user/assistant turns:
+///   • original questionText → user
+///   • peer answers (student follow-ups) → user
+///   • ai / expert answers → assistant
+///
+/// When the last turn is from an assistant, appends a follow-up user prompt
+/// so the model knows we want continuation, not a fresh first answer.
+/// (Pure function — exposed for unit tests; the doubt detail screen is the
+/// only production caller.)
+List<TutorTurn> buildTutorMessages({
+  required String questionText,
+  required List<DoubtAnswer> answers,
+}) {
+  final sortedAnswers = [...answers]
+    ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  final messages = <TutorTurn>[
+    TutorTurn(role: 'user', content: questionText),
+  ];
+  for (final a in sortedAnswers) {
+    final role = a.source == 'peer' ? 'user' : 'assistant';
+    messages.add(TutorTurn(role: role, content: a.content));
+  }
+  if (messages.length > 1 && messages.last.role == 'assistant') {
+    messages.add(TutorTurn(
+      role: 'user',
+      content: 'Can you explain this further or give a worked example?',
+    ));
+  }
+  return messages;
 }
 
 String _relative(String iso) {

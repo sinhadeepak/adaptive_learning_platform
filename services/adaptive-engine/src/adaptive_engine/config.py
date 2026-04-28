@@ -38,5 +38,8 @@ class Settings(BaseSettings):
     openai_model: str = Field(default="gpt-4o-mini")
     openai_max_tokens: int = Field(default=4096)
 
+    # Sprint 8 R-4 — shared HS256 secret for the photo-doubt tier-gate JWT decode.
+    jwt_secret: str = Field(default="dev-only-change-me-in-staging-at-least-32-bytes-long")
+
 
 settings = Settings()

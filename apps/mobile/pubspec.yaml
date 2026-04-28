@@ -18,6 +18,10 @@ dependencies:
   flutter_markdown: ^0.7.4
   flutter_math_fork: ^0.7.2
   image_picker: ^1.1.2
+  # Sprint 8 F-5 — paywall WebView for Stripe Checkout. The Stripe-hosted
+  # page redirects to /billing?status=success on completion; the screen
+  # listens for that URL and pops back to native Flutter.
+  webview_flutter: ^4.10.0
   alp_design_tokens:
     path: ../../packages/design-tokens-flutter
 

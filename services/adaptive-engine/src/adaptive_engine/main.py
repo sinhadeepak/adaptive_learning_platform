@@ -8,16 +8,21 @@ from adaptive_engine import __version__
 from adaptive_engine.config import settings
 from adaptive_engine.flags import close_flags, connect_flags, use_irt
 from adaptive_engine.logging import configure_logging
+from adaptive_engine.rate_limit import PhotoDoubtRateLimiter
 from adaptive_engine.routes import router as irt_router
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     await connect_flags()
+    # Sprint 8 R-4 — shared limiter instance for /adaptive/doubt/photo.
+    app.state.photo_doubt_limiter = PhotoDoubtRateLimiter(settings.redis_url)
+    await app.state.photo_doubt_limiter.connect()
     try:
         yield
     finally:
+        await app.state.photo_doubt_limiter.close()
         await close_flags()
 
 

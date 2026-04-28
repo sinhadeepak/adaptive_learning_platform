@@ -15,6 +15,20 @@ from auth.config import settings
 ALGORITHM = "HS256"
 
 
+def effective_role(role: str, premium_until: datetime | None, now: datetime | None = None) -> str:
+    """Sprint 8 R-1 — apply the tier elevation contract.
+
+    A STUDENT with `premium_until > now()` issues JWTs as STUDENT_PREMIUM.
+    Other roles (TEACHER / EXPERT / *_ADMIN) pass through unchanged — their
+    entitlements aren't tied to a Stripe subscription. This is the *only*
+    place premium_until → role mapping happens; downstream consumers should
+    only ever look at the `role` claim."""
+    if role != "STUDENT" or premium_until is None:
+        return role
+    n = now or datetime.now(tz=timezone.utc)
+    return "STUDENT_PREMIUM" if premium_until > n else role
+
+
 def hash_password(plaintext: str) -> str:
     return bcrypt.hashpw(plaintext.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
 
