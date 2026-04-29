@@ -505,6 +505,67 @@ func (s *Store) MarkSubmitted(ctx context.Context, sessionID uuid.UUID, submitte
 	return err
 }
 
+// WriteItemDurations computes time_spent_ms for every answered item in a
+// session and persists it (Sprint 22, P4-S22). Idempotent: rows already
+// carrying a non-NULL time_spent_ms are left alone.
+//
+// Server-computed (NFR-P4-02 — clients can't tamper). Items where
+// answered_at is NULL stay NULL; aggregators skip them.
+func (s *Store) WriteItemDurations(ctx context.Context, sessionID uuid.UUID) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE quiz_schema.quiz_session_items
+		   SET time_spent_ms = GREATEST(
+		     0,
+		     CAST(EXTRACT(EPOCH FROM (answered_at - served_at)) * 1000 AS INTEGER)
+		   )
+		 WHERE session_id = $1
+		   AND answered_at IS NOT NULL
+		   AND time_spent_ms IS NULL`,
+		sessionID,
+	)
+	return err
+}
+
+// SessionItemEvent is the per-item slice of the NATS payload (Sprint 22).
+// Keep the field set narrow — downstream consumers are expected to read
+// only what they need.
+type SessionItemEvent struct {
+	ItemIdx     int16
+	QuestionID  uuid.UUID
+	TopicID     uuid.UUID
+	SectionID   *string
+	IsCorrect   bool
+	TimeSpentMs int32
+}
+
+// LoadItemEvents returns the per-item rows for a session, joining onto
+// questions for topic_id (the items table doesn't carry topic_id directly).
+// Used by the submit handler to build the NATS payload.
+func (s *Store) LoadItemEvents(ctx context.Context, sessionID uuid.UUID) ([]SessionItemEvent, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT i.item_idx, i.question_id, q.topic_id, i.section_id,
+		       COALESCE(i.is_correct, false), COALESCE(i.time_spent_ms, 0)
+		  FROM quiz_schema.quiz_session_items i
+		  JOIN quiz_schema.questions q ON q.id = i.question_id
+		 WHERE i.session_id = $1
+		 ORDER BY i.item_idx`,
+		sessionID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []SessionItemEvent
+	for rows.Next() {
+		var ev SessionItemEvent
+		if err := rows.Scan(&ev.ItemIdx, &ev.QuestionID, &ev.TopicID, &ev.SectionID, &ev.IsCorrect, &ev.TimeSpentMs); err != nil {
+			return nil, err
+		}
+		out = append(out, ev)
+	}
+	return out, rows.Err()
+}
+
 // MarkExpired closes any in-progress sessions whose expires_at has passed.
 // Useful as a sweeper, and called inline when /next or /submit hits an expired session.
 func (s *Store) MarkExpired(ctx context.Context, sessionID uuid.UUID) error {

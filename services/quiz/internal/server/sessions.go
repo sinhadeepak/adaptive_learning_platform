@@ -597,6 +597,12 @@ func (svc *SessionService) Submit(logger *slog.Logger) http.HandlerFunc {
 			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to submit session")
 			return
 		}
+		// Sprint 22 (P4-S22) — compute per-item time_spent_ms once, server-side
+		// (NFR-P4-02 — clients cannot tamper). Best-effort: the durable record
+		// is the items table itself; a failure here doesn't block submit.
+		if err := svc.store.WriteItemDurations(r.Context(), sess.ID); err != nil {
+			logger.Warn("write_item_durations.failed", "err", err, "session", sess.ID)
+		}
 		fresh, err := svc.store.GetSession(r.Context(), sess.ID)
 		if err != nil {
 			logger.Error("get_session.failed", "err", err)
@@ -633,6 +639,28 @@ func (svc *SessionService) Submit(logger *slog.Logger) http.HandlerFunc {
 			// subscriber can mirror the score into assignment_progress.
 			if fresh.AssignmentID != nil {
 				ev.AssignmentID = fresh.AssignmentID.String()
+			}
+			// Sprint 22 (P4-S22) — per-item array for engagement's per-section
+			// aggregator + downstream time-per-question analytics. omitempty
+			// preserves the historical payload for any consumer that doesn't
+			// read Items.
+			if items, lerr := svc.store.LoadItemEvents(r.Context(), fresh.ID); lerr == nil {
+				ev.Items = make([]events.SessionItemEvent, 0, len(items))
+				for _, it := range items {
+					itemEv := events.SessionItemEvent{
+						ItemIdx:     it.ItemIdx,
+						QuestionID:  it.QuestionID.String(),
+						TopicID:     it.TopicID.String(),
+						IsCorrect:   it.IsCorrect,
+						TimeSpentMs: it.TimeSpentMs,
+					}
+					if it.SectionID != nil {
+						itemEv.SectionID = *it.SectionID
+					}
+					ev.Items = append(ev.Items, itemEv)
+				}
+			} else {
+				logger.Warn("load_item_events.failed", "err", lerr, "session", fresh.ID)
 			}
 			if perr := svc.publisher.PublishSessionCompleted(r.Context(), ev); perr != nil {
 				logger.Warn("publish.session_completed.failed", "err", perr, "session", fresh.ID)

@@ -17,6 +17,7 @@
 | **Ph 1 emergent** Post-MVP | 2026-04-26→27 | Close visible gaps (AI verticals, mobile parity, engagement loop) | S5 [19_AI_Sprint_Closure](19_AI_Sprint_Closure.md) · S6 [22_Platform_Completion](22_Platform_Completion_Sprint_Closure.md) · S7 [23_Engagement](23_Engagement_Sprint_Closure.md) | ✅ all three closed |
 | **Ph 2** Global Expansion | Q4 2026 | Global English + RTL/Arabic; live sessions; native video; B2B API reads | [19_Phase2_SprintDevelopmentPlan](19_Phase2_SprintDevelopmentPlan.md) | ❌ all 5 sprints pending |
 | **Ph 3** Platform Evolution | 2026-04-28 | Marketplaces (live tutors + content), B2B API writes, predictive analytics | [21_Phase3_SprintDevelopmentPlan](21_Phase3_SprintDevelopmentPlan.md) | ✅ all 6 sprints closed (S15–S21 = P3-S0..S6) |
+| **Ph 4** Exam-Prep Depth | TBD (gated) | Close the gap to Allen / Vedantu / Unacademy on the exam-prep dimensions: PYQ catalogue, real exam blueprints, time-per-question, exam-mode UI, spaced repetition, syllabus coverage, calibrated rank, error patterns, target rank, reference materials | [53_Phase4_ExamPrepDepth_SprintPlan](53_Phase4_ExamPrepDepth_SprintPlan.md) | ❌ DRAFT — gated on 3 strategic decisions (see [audit](52_ExamPrep_Strategic_Gap_Audit.md)) |
 | Phase 4+ | TBD | Out of scope today | — | (no plan) |
 
 ---
@@ -28,11 +29,12 @@
 | Phase 0 | 1 (Sprint 0 — done) |
 | Phase 1 | 4 planned (S1–S4) **+ 3 emergent post-MVP** (S5 AI Deepening, S6 Platform Completion, S7 Engagement) — all closed |
 | Phase 2 | **5** (S8 Payment + Institution = next; S9 i18n; S10 Live sessions/video; S11 Inst-analytics + B2B API; S12 stabilization). Existing [Phase 2 plan](19_Phase2_SprintDevelopmentPlan.md) covers themes; sprint numbering aligned to global counter post-rebaseline. |
-| Phase 3 | 6 |
-| **Final cutover sprint** | 1 — Staging deploy + drills, deferred per user direction until all Phase 1+2+3 sprints land + Stripe ready. Plan preserved at [24_DEPRECATED_Staging_Cutover_Plan](24_DEPRECATED_Staging_Cutover_Plan.md). |
-| **Total** | **20** sprints to staging push (S0–S19) |
+| Phase 3 | 6 (S15–S21, all closed) |
+| Phase 4 | 15 (S22–S36) — DRAFT, gated on strategic decisions; closes the exam-prep depth gap |
+| **Final cutover sprint** | 1 — Staging deploy + drills, deferred per user direction until all Phase 1+2+3+4 sprints land + Stripe ready. Plan preserved at [24_DEPRECATED_Staging_Cutover_Plan](24_DEPRECATED_Staging_Cutover_Plan.md). |
+| **Total** | **37** sprints to staging push (S0–S36 if Phase 4 ships) |
 
-**Pending today**: ~1 (Phase 2 + Phase 3 both closed. Sprint 21 closed P3-S6 with rating aggregate caches + module/lesson UI editor + reader navigation + cohort at-risk educator page + Phase 3 retrospective. Staging cutover is the only remaining sprint, still AWS-blocked).
+**Pending today**: Phase 4 (15 sprints, DRAFT) + Final Cutover (AWS-blocked). Phase 4 closes the exam-prep depth gap identified in the strategic audit; Phase 4 stays DRAFT until the user closes 3 strategic gates (quiz vs exam-prep / which exam first / depth bar). Staging cutover is the only remaining sprint after Phase 4, still AWS-blocked.
 
 ---
 
@@ -67,6 +69,9 @@ Each closure summarizes what shipped, what slipped, what carries to the next spr
 | Sprint 20 — P3-S5 predictive analytics + recommendations | [48_Sprint20_Plan](48_Sprint20_Plan.md) → [49_Sprint20_Closure](49_Sprint20_Closure.md) | ✅ DELIVERED 2026-04-28 — predictive layer per ADR-0010/0011. engagement migration 004 adds predictive_dropout_scores + cached_recommendations. Heuristic v1 dropout scorer (4 axes: inactivity + streak_broken + mastery_decline + many_weak_topics) + 4-tier intervention rules. Heuristic v1 recommendation ranker (3 phases: bridge → direct weak → exposure). 4 new endpoints. Web-student PersonalisedNextStep tile on Home; web-admin RatingModeration page (S19 carry-over). Tests: 13 new unit (98 unit total in engagement). **make smoke = 46/46**. P3-S5 closed; lightgbm/sklearn upgrade + OpenAI embeddings defer to P3-S6 once training-data volume justifies. |
 | Sprint 21 — P3-S6 stabilisation + Phase 3 closure | [50_Sprint21_Plan](50_Sprint21_Plan.md) → [51_Sprint21_Closure](51_Sprint21_Closure.md) | ✅ DELIVERED 2026-04-28 — marketplace migration 006 adds rating aggregate cache columns (rating_avg + rating_count + last_aggregated_at) on tutor_profiles + courses with on-upgrade backfill. Aggregate maintenance hooks in repositories.recompute_{tutor,course}_aggregate fire on rate_session/rate_course/hide_rating/unhide_rating. Listing endpoints serve from cache. Web-portal CourseAuthor module/lesson sidebar editor (with `nextPosition` pure-helper + 2 unit tests). Web-student CourseRead module/lesson navigation (with backward-compat for legacy content_md). Web-portal CohortAtRisk page consumes existing S20 endpoint. Phase 3 retrospective written. Tests: 3 new integration in marketplace + 2 unit in web-portal. **make smoke = 50/50**. P3-S6 closed; **Phase 3 closed in full**. Only the deferred AWS staging cutover sprint remains. |
 | Phase 3 retrospective | [22_Phase3_Retrospective](22_Phase3_Retrospective.md) | ✅ written 2026-04-28; closes Phase 3. |
+| Strategic Gap Audit | [52_ExamPrep_Strategic_Gap_Audit](52_ExamPrep_Strategic_Gap_Audit.md) | ✅ written 2026-04-28 — identifies the structural gap between the platform's "exam-prep" claim and its current quiz-app reality; gates Phase 4 strategic decisions. |
+| Phase 4 plan | [53_Phase4_ExamPrepDepth_SprintPlan](53_Phase4_ExamPrepDepth_SprintPlan.md) | DRAFT — 15 sprints (S22–S36) closing the exam-prep gap; gated on 3 strategic decisions (quiz vs exam-prep, which exam first, depth bar). |
+| Sprint 22 — P4-S22 foundation: time-per-question + per-section analytics | [54_Sprint22_Plan](54_Sprint22_Plan.md) → [55_Sprint22_Closure](55_Sprint22_Closure.md) | ✅ DELIVERED 2026-04-28 — Phase 4 foundation. Quiz Go migration 007 adds time_spent_ms + section_id on session_items + PYQ mirror columns on questions. Submit handler computes time_spent_ms server-side (NFR-P4-02). NATS payload extended with optional `items` array (omitempty for backward compat). Engagement migration 005 adds session_section_stats. New `engagement.analytics.section_stats` module aggregates per section (falls back to topic when no blueprint). Two new endpoints: `/analytics/sessions/{id}/breakdown` + `/analytics/student/{id}/time-stats`. Tests: 4 Go unit + 6 Python unit. ADRs 0012–0016 already drafted in `proposed`. P4-S22 closed; downstream Phase 4 sprints unblocked pending strategic gates. |
 
 ---
 

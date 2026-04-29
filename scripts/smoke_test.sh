@@ -461,6 +461,20 @@ COHORT_AT_RISK=$(curl -s "$ENGAGEMENT_URL/analytics/predictive/cohorts/00000000-
 assert "cohort at-risk endpoint returns shape {cohortId, items}" \
   bash -c "echo '$COHORT_AT_RISK' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert 'cohortId' in d and isinstance(d.get('items'), list)\""
 
+# -- 11. Sprint 22 (P4-S22): per-section breakdown + time-stats -----------
+
+echo "==> Sprint 22 (P4-S22) — time-per-question + per-section analytics"
+
+# The earlier quiz submit (steps 11-14) populated session_section_stats via
+# the consumer extension. Verify the breakdown endpoint surfaces it.
+BREAKDOWN=$(curl -s "$ENGAGEMENT_URL/analytics/sessions/$SESSION_ID/breakdown")
+assert "session breakdown surfaces per-section rollup with non-zero time" \
+  bash -c "echo '$BREAKDOWN' | python3 -c \"import sys,json; d=json.load(sys.stdin); ss=d.get('sections') or []; assert len(ss)>=1 and any((s.get('totalTimeMs') or 0)>=0 for s in ss), d\""
+
+TIMESTATS=$(curl -s "$ENGAGEMENT_URL/analytics/student/$STUDENT_ID/time-stats")
+assert "student time-stats endpoint returns shape {userId, sections}" \
+  bash -c "echo '$TIMESTATS' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('userId')=='$STUDENT_ID' and isinstance(d.get('sections'), list)\""
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then

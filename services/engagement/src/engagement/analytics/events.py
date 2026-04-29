@@ -38,6 +38,7 @@ from engagement.analytics.config import settings
 from engagement.analytics.db import sessionmaker
 from engagement.analytics.processing import process_session
 from engagement.analytics.realtime import publish_user_recomputed
+from engagement.analytics.section_stats import upsert_session_section_stats
 
 log = logging.getLogger(__name__)
 
@@ -163,6 +164,10 @@ async def _on_session_completed(msg: Msg) -> None:
     served_count = int(payload.get("served_count", 0) or 0)
     minutes = _derive_minutes(payload.get("started_at"), payload.get("submitted_at"))
 
+    # Sprint 22 (P4-S22) — per-item array; absent on pre-S22 publishers, so
+    # default to empty list and skip the per-section upsert below.
+    items = payload.get("items") or []
+
     try:
         async with sessionmaker()() as session:
             applied = await process_session(
@@ -174,6 +179,13 @@ async def _on_session_completed(msg: Msg) -> None:
                 questions_answered=served_count,
                 study_minutes=minutes,
             )
+            if items:
+                await upsert_session_section_stats(
+                    session,
+                    session_id=session_id,
+                    user_id=user_id,
+                    items=items,
+                )
             await session.commit()
         with contextlib.suppress(Exception):
             await msg.ack()

@@ -345,3 +345,28 @@ async def predictive_cohort_at_risk(cohort_id: str) -> dict:
                 for r in items
             ],
         }
+
+
+# Sprint 22 (P4-S22) — per-section + per-topic time analytics. Reads from
+# analytics_schema.session_section_stats which the events.py consumer
+# populates from the items array on quiz.session.completed.
+
+from engagement.analytics import section_stats as _section_stats  # noqa: E402
+
+
+@router.get("/analytics/student/{user_id}/time-stats")
+async def student_time_stats(user_id: str) -> dict:
+    """Per-section time + accuracy aggregates for a user across all submitted
+    sessions. Sections fall back to topic_id when the session was not bound
+    to a blueprint (P4-S23 introduces real section ids)."""
+    async with sessionmaker()() as session:
+        sections = await _section_stats.load_user_time_stats(session, user_id)
+        return {"userId": user_id, "sections": sections}
+
+
+@router.get("/analytics/sessions/{session_id}/breakdown")
+async def session_breakdown(session_id: str) -> dict:
+    """Per-section breakdown for a single submitted session."""
+    async with sessionmaker()() as session:
+        sections = await _section_stats.load_session_breakdown(session, session_id)
+        return {"sessionId": session_id, "sections": sections}
