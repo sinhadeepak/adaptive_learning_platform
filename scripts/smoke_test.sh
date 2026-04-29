@@ -509,6 +509,15 @@ FREQ=$(curl -s "$LEARNING_URL/content/pyqs/frequency?examId=$JEE_MAIN_ID&subject
 assert "PYQ frequency endpoint returns shape {examId, subjectId, chapters}" \
   bash -c "echo '$FREQ' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('examId')=='$JEE_MAIN_ID' and isinstance(d.get('chapters'), list)\""
 
+# -- 14. Sprint 25 (P4-S25): mock-mode session filter ---------------------
+
+echo "==> Sprint 25 (P4-S25) — mock series filter"
+
+MOCK_SESSIONS=$(curl -s "$QUIZ_URL/quiz/sessions?userId=$STUDENT_ID&mode=MOCK_BLUEPRINT&limit=10" \
+  -H "Authorization: Bearer $TOKEN")
+assert "mock-mode session filter returns shape {userId, items}" \
+  bash -c "echo '$MOCK_SESSIONS' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('userId')=='$STUDENT_ID' and isinstance(d.get('items'), list)\""
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then

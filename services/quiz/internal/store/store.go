@@ -233,26 +233,47 @@ type SessionListRow struct {
 	CorrectCount int16
 	StartedAt    time.Time
 	SubmittedAt  *time.Time
+	// Sprint 25 (P4-S25) — non-NULL only when Mode == 'MOCK_BLUEPRINT'.
+	// Lets the Mocks series page join with /catalog/exam-blueprints
+	// client-side without a Quiz→Learning fan-out.
+	BlueprintID *uuid.UUID
 }
 
 // ListSessionsForUser returns the user's most recent sessions, newest first.
 // Default limit 50, capped at 200 — pagination can land later if usage warrants.
-func (s *Store) ListSessionsForUser(ctx context.Context, userID uuid.UUID, limit int) ([]SessionListRow, error) {
+//
+// Sprint 25 (P4-S25): optional `mode` filter narrows to a single mode
+// (e.g. MOCK_BLUEPRINT for the Mocks series view). Empty string preserves
+// the historical "all modes" behaviour.
+func (s *Store) ListSessionsForUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+	mode string,
+) ([]SessionListRow, error) {
 	if limit <= 0 {
 		limit = 50
 	}
 	if limit > 200 {
 		limit = 200
 	}
-	rows, err := s.pool.Query(ctx, `
+
+	query := `
 		SELECT id, topic_id, mode, strategy, status, target_count,
-		       served_count, correct_count, started_at, submitted_at
+		       served_count, correct_count, started_at, submitted_at,
+		       blueprint_id
 		FROM quiz_schema.quiz_sessions
-		WHERE user_id = $1
-		ORDER BY started_at DESC
-		LIMIT $2`,
-		userID, limit,
-	)
+		WHERE user_id = $1`
+	args := []any{userID}
+	if mode != "" {
+		query += ` AND mode = $2 ORDER BY started_at DESC LIMIT $3`
+		args = append(args, mode, limit)
+	} else {
+		query += ` ORDER BY started_at DESC LIMIT $2`
+		args = append(args, limit)
+	}
+
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
 	}
@@ -263,7 +284,7 @@ func (s *Store) ListSessionsForUser(ctx context.Context, userID uuid.UUID, limit
 		if err := rows.Scan(
 			&r.ID, &r.TopicID, &r.Mode, &r.Strategy, &r.Status,
 			&r.TargetCount, &r.ServedCount, &r.CorrectCount,
-			&r.StartedAt, &r.SubmittedAt,
+			&r.StartedAt, &r.SubmittedAt, &r.BlueprintID,
 		); err != nil {
 			return nil, err
 		}

@@ -1,12 +1,7 @@
 // Sprint 23 (P4-S23) — exam-mode (MOCK_BLUEPRINT) player.
-//
-// Differs from the regular Quiz.tsx in three ways:
-//   1. Section navigation strip with answered/marked/unanswered totals
-//   2. Per-section + global timer (UI-side; server enforces global ttl)
-//   3. Marked-for-review queue for end-of-exam pass
-//
-// OMR-style answer sheet, full server-side section locks with state
-// recovery, and dropped-connection heartbeat all ship in S25.
+// Sprint 25 (P4-S25) — adds an OMR-style answer-sheet palette + per-section
+// counts strip. Server-side section locks + 5-min disconnect recovery still
+// defer (tracked as Phase 4 stabilisation carry-over).
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -20,6 +15,11 @@ import {
   markedReviewQueue,
   type MockExamSection,
 } from "../lib/mock_state";
+import {
+  computePaletteState,
+  paletteSectionCounts,
+  type PaletteCell,
+} from "../lib/mock_palette";
 
 interface FromBlueprintResp {
   sessionId: string;
@@ -233,6 +233,13 @@ export function MockExam() {
 
   const reviewQueue = useMemo(() => markedReviewQueue(items, marked), [items, marked]);
 
+  // Sprint 25 (P4-S25) — OMR-style palette state.
+  const palette: PaletteCell[] = useMemo(
+    () => computePaletteState(items, answers, marked),
+    [items, answers, marked],
+  );
+  const sectionCounts = useMemo(() => paletteSectionCounts(palette), [palette]);
+
   if (!blueprintId) {
     return (
       <main className="page" style={{ padding: 24 }}>
@@ -277,7 +284,7 @@ export function MockExam() {
   }
 
   return (
-    <main className="page mock-exam" style={{ padding: 24, maxWidth: 1080 }}>
+    <main className="page mock-exam" style={{ padding: 24, maxWidth: 1280 }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1 style={{ margin: 0 }}>{session.blueprintName}</h1>
         <span
@@ -329,68 +336,184 @@ export function MockExam() {
         })}
       </nav>
 
-      {/* Question pane */}
-      {current ? (
-        <section style={{ marginTop: 24 }}>
-          <p style={{ color: "var(--text-muted)" }}>
-            Question {current.itemIdx + 1} of {session.itemCount}
-            {current.sectionId && ` · ${current.sectionId}`}
+      {/* Question pane + OMR-style palette side panel (S25) */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) 240px",
+          gap: 24,
+          marginTop: 24,
+        }}
+      >
+        {current ? (
+          <section>
+            <p style={{ color: "var(--text-muted)" }}>
+              Question {current.itemIdx + 1} of {session.itemCount}
+              {current.sectionId && ` · ${current.sectionId}`}
+            </p>
+            <div style={{ fontSize: 18, marginTop: 8 }}>{current.stem}</div>
+            <ol style={{ listStyle: "none", padding: 0, marginTop: 16 }}>
+              {current.choices.map((c, i) => {
+                const selected = answers[current.questionId] === i;
+                return (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      onClick={() => recordAnswer(i)}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "left",
+                        padding: 12,
+                        marginBottom: 8,
+                        borderRadius: 6,
+                        border: "1px solid var(--border-faint)",
+                        background: selected ? "var(--bg-elevated, #eef)" : "transparent",
+                      }}
+                    >
+                      <strong>{String.fromCharCode(65 + i)}.</strong> {c}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => gotoIdx(currentIdx - 1)}
+                disabled={currentIdx === 0}
+              >
+                ← Previous
+              </button>
+              <button type="button" onClick={toggleMark}>
+                {marked.has(current.questionId) ? "✓ Marked for review" : "⚑ Mark for review"}
+              </button>
+              <button type="button" onClick={next}>
+                Save &amp; Next →
+              </button>
+              <button
+                type="button"
+                onClick={submit}
+                disabled={submitting}
+                className="btn-primary"
+                style={{ marginLeft: "auto" }}
+              >
+                {submitting ? "Submitting…" : "Submit exam"}
+              </button>
+            </div>
+          </section>
+        ) : (
+          <p>Loading first question…</p>
+        )}
+
+        {/* OMR-style answer-sheet palette */}
+        <aside
+          aria-label="Answer sheet"
+          style={{
+            background: "var(--bg-surface-1, #fff)",
+            border: "1px solid var(--border-faint)",
+            borderRadius: 8,
+            padding: 12,
+            alignSelf: "start",
+            position: "sticky",
+            top: 16,
+          }}
+        >
+          <h2 style={{ fontSize: 14, marginTop: 0, marginBottom: 8 }}>
+            Answer sheet
+          </h2>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 8px" }}>
+            {Object.entries(sectionCounts)
+              .map(([k, v]) => `${k === "_none" ? "Unsectioned" : k} ${v.answered}/${v.total}`)
+              .join(" · ")}
           </p>
-          <div style={{ fontSize: 18, marginTop: 8 }}>{current.stem}</div>
-          <ol style={{ listStyle: "none", padding: 0, marginTop: 16 }}>
-            {current.choices.map((c, i) => {
-              const selected = answers[current.questionId] === i;
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(5, 1fr)",
+              gap: 4,
+            }}
+          >
+            {palette.map((cell) => {
+              const isCurrent = cell.itemIdx === currentIdx;
+              const bg =
+                cell.state === "answered_marked"
+                  ? "var(--color-amber, #F5A623)"
+                  : cell.state === "marked"
+                  ? "var(--color-amber, #F5A623)"
+                  : cell.state === "answered"
+                  ? "var(--color-green, #10C47A)"
+                  : "var(--bg-surface-2, #e5e7eb)";
+              const fg =
+                cell.state === "unanswered" ? "var(--text-primary)" : "#fff";
+              const ring = isCurrent
+                ? "0 0 0 2px var(--color-blue, #4F87F6)"
+                : undefined;
               return (
-                <li key={i}>
-                  <button
-                    type="button"
-                    onClick={() => recordAnswer(i)}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      textAlign: "left",
-                      padding: 12,
-                      marginBottom: 8,
-                      borderRadius: 6,
-                      border: "1px solid var(--border-faint)",
-                      background: selected ? "var(--bg-elevated, #eef)" : "transparent",
-                    }}
-                  >
-                    <strong>{String.fromCharCode(65 + i)}.</strong> {c}
-                  </button>
-                </li>
+                <button
+                  key={cell.itemIdx}
+                  type="button"
+                  aria-label={`Question ${cell.itemIdx + 1} ${cell.state.replace("_", " + ")}`}
+                  onClick={() => gotoIdx(cell.itemIdx)}
+                  style={{
+                    aspectRatio: "1 / 1",
+                    border: "1px solid var(--border-faint)",
+                    borderRadius: 4,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    background: bg,
+                    color: fg,
+                    cursor: "pointer",
+                    boxShadow: ring,
+                  }}
+                >
+                  {cell.itemIdx + 1}
+                  {cell.state === "answered_marked" ? " ⚑" : ""}
+                </button>
               );
             })}
-          </ol>
-
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button
-              type="button"
-              onClick={() => gotoIdx(currentIdx - 1)}
-              disabled={currentIdx === 0}
-            >
-              ← Previous
-            </button>
-            <button type="button" onClick={toggleMark}>
-              {marked.has(current.questionId) ? "✓ Marked for review" : "⚑ Mark for review"}
-            </button>
-            <button type="button" onClick={next}>
-              Save &amp; Next →
-            </button>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={submitting}
-              className="btn-primary"
-              style={{ marginLeft: "auto" }}
-            >
-              {submitting ? "Submitting…" : "Submit exam"}
-            </button>
           </div>
-        </section>
-      ) : (
-        <p style={{ marginTop: 24 }}>Loading first question…</p>
-      )}
+          <ul style={{ listStyle: "none", padding: 0, marginTop: 12, fontSize: 11 }}>
+            <li>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 10,
+                  height: 10,
+                  background: "var(--color-green, #10C47A)",
+                  marginRight: 6,
+                }}
+              />
+              Answered
+            </li>
+            <li>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 10,
+                  height: 10,
+                  background: "var(--color-amber, #F5A623)",
+                  marginRight: 6,
+                }}
+              />
+              Marked
+            </li>
+            <li>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 10,
+                  height: 10,
+                  background: "var(--bg-surface-2, #e5e7eb)",
+                  marginRight: 6,
+                }}
+              />
+              Unanswered
+            </li>
+          </ul>
+        </aside>
+      </div>
 
       {/* Marked-for-review queue */}
       {reviewQueue.length > 0 && (

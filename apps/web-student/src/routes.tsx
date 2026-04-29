@@ -23,6 +23,7 @@ import { Placeholder } from "./pages/Placeholder";
 import { MockResult } from "./pages/MockResult";
 import { MockTest } from "./pages/MockTest";
 import { MockExam } from "./pages/MockExam";
+import { Mocks } from "./pages/Mocks";
 import { PYQDrill } from "./pages/PYQDrill";
 import { Practice } from "./pages/Practice";
 import { Profile } from "./pages/Profile";
@@ -270,6 +271,15 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <PYQDrill />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    // Sprint 25 (P4-S25) — Mocks series view.
+    path: "/mocks",
+    element: (
+      <ProtectedRoute>
+        <Mocks />
       </ProtectedRoute>
     ),
   },

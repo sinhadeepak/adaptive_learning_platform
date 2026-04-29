@@ -973,6 +973,8 @@ type sessionListItem struct {
 	CorrectCount int16      `json:"correctCount"`
 	StartedAt    time.Time  `json:"startedAt"`
 	SubmittedAt  *time.Time `json:"submittedAt,omitempty"`
+	// Sprint 25 (P4-S25) — present only for MOCK_BLUEPRINT sessions.
+	BlueprintID *string `json:"blueprintId,omitempty"`
 }
 
 type sessionListResponse struct {
@@ -1003,7 +1005,9 @@ func (svc *SessionService) ListSessions(logger *slog.Logger) http.HandlerFunc {
 				limit = n
 			}
 		}
-		rows, err := svc.store.ListSessionsForUser(r.Context(), userID, limit)
+		// Sprint 25 (P4-S25) — optional ?mode= filter for the Mocks series view.
+		mode := r.URL.Query().Get("mode")
+		rows, err := svc.store.ListSessionsForUser(r.Context(), userID, limit, mode)
 		if err != nil {
 			logger.Error("list_sessions.failed", "err", err, "user", userID)
 			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to list sessions")
@@ -1011,7 +1015,7 @@ func (svc *SessionService) ListSessions(logger *slog.Logger) http.HandlerFunc {
 		}
 		out := make([]sessionListItem, 0, len(rows))
 		for _, row := range rows {
-			out = append(out, sessionListItem{
+			item := sessionListItem{
 				SessionID:    row.ID.String(),
 				TopicID:      row.TopicID.String(),
 				Mode:         row.Mode,
@@ -1022,7 +1026,12 @@ func (svc *SessionService) ListSessions(logger *slog.Logger) http.HandlerFunc {
 				CorrectCount: row.CorrectCount,
 				StartedAt:    row.StartedAt,
 				SubmittedAt:  row.SubmittedAt,
-			})
+			}
+			if row.BlueprintID != nil {
+				bp := row.BlueprintID.String()
+				item.BlueprintID = &bp
+			}
+			out = append(out, item)
 		}
 		writeJSON(w, http.StatusOK, sessionListResponse{
 			UserID: userIDStr,
