@@ -15,6 +15,7 @@ import (
 	"github.com/adaptive-learn/quiz/internal/content"
 	"github.com/adaptive-learn/quiz/internal/domain"
 	"github.com/adaptive-learn/quiz/internal/events"
+	"github.com/adaptive-learn/quiz/internal/learning"
 	"github.com/adaptive-learn/quiz/internal/store"
 )
 
@@ -45,6 +46,10 @@ type SessionService struct {
 	// creation. nil when QUIZ_CONTENT_BASE_URL is unset (tests / partial
 	// stacks); the from-assignment endpoint then 503s.
 	contentClient *content.Client
+	// Sprint 23 (P4-S23) — Learning client for MOCK_BLUEPRINT mode
+	// session creation. nil when QUIZ_LEARNING_BASE_URL is unset; the
+	// from-blueprint endpoint then 503s.
+	learningClient *learning.Client
 }
 
 func NewSessionService(
@@ -77,6 +82,13 @@ func (svc *SessionService) WithJWTSecret(s string) *SessionService {
 // Optional — when unset, the endpoint returns 503.
 func (svc *SessionService) WithContentClient(c *content.Client) *SessionService {
 	svc.contentClient = c
+	return svc
+}
+
+// WithLearningClient wires the Sprint 23 from-blueprint endpoint.
+// Optional — when unset, the endpoint returns 503.
+func (svc *SessionService) WithLearningClient(c *learning.Client) *SessionService {
+	svc.learningClient = c
 	return svc
 }
 
@@ -327,6 +339,181 @@ func (svc *SessionService) StartFromAssignment(logger *slog.Logger) http.Handler
 			Status:       string(sess.Status),
 			ExpiresAt:    sess.ExpiresAt,
 			ItemCount:    len(questions),
+		})
+	}
+}
+
+// Sprint 23 (P4-S23) — from-blueprint session creation.
+type fromBlueprintRequest struct {
+	BlueprintID string `json:"blueprintId"`
+	UserID      string `json:"userId"`
+	TenantID    string `json:"tenantId,omitempty"`
+	AttemptIdx  int    `json:"attemptIdx,omitempty"`
+}
+
+type fromBlueprintSection struct {
+	SectionID  string `json:"sectionId"`
+	Name       string `json:"name"`
+	NRequested int    `json:"nRequested"`
+	NComposed  int    `json:"nComposed"`
+	Short      bool   `json:"short"`
+}
+
+type fromBlueprintResponse struct {
+	SessionID              string                  `json:"sessionId"`
+	BlueprintID            string                  `json:"blueprintId"`
+	BlueprintName          string                  `json:"blueprintName"`
+	Mode                   string                  `json:"mode"`
+	Status                 string                  `json:"status"`
+	ExpiresAt              time.Time               `json:"expiresAt"`
+	ItemCount              int                     `json:"itemCount"`
+	TotalMinutes           int                     `json:"totalMinutes"`
+	MarksCorrect           int                     `json:"marksCorrect"`
+	MarksNegative          float64                 `json:"marksNegative"`
+	Short                  bool                    `json:"short"`
+	InterSectionNavigation bool                    `json:"interSectionNavigation"`
+	PerSectionTimeLocked   bool                    `json:"perSectionTimeLocked"`
+	Sections               []fromBlueprintSection  `json:"sections"`
+}
+
+// StartFromBlueprint opens a MOCK_BLUEPRINT-mode session pinned to the
+// alp-learning composer's output. Mirrors StartFromAssignment in shape:
+// pre-serves the questions via ServeQuestionWithSection (so /next walks
+// them in `position` order and section_id is propagated to engagement's
+// per-section aggregator at submit time).
+func (svc *SessionService) StartFromBlueprint(logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if svc.learningClient == nil {
+			writeProblem(w, http.StatusServiceUnavailable,
+				"learning_unreachable", "Learning service base URL not configured")
+			return
+		}
+		var req fromBlueprintRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeProblem(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
+			return
+		}
+		if req.BlueprintID == "" || req.UserID == "" {
+			writeProblem(w, http.StatusBadRequest, "missing_field",
+				"blueprintId and userId are required")
+			return
+		}
+		blueprintID, err := uuid.Parse(req.BlueprintID)
+		if err != nil {
+			writeProblem(w, http.StatusBadRequest, "invalid_blueprint_id",
+				"blueprintId must be a UUID")
+			return
+		}
+		userID, err := uuid.Parse(req.UserID)
+		if err != nil {
+			writeProblem(w, http.StatusBadRequest, "invalid_user_id",
+				"userId must be a UUID")
+			return
+		}
+
+		bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		bearer = strings.TrimPrefix(bearer, "bearer ")
+
+		paper, err := svc.learningClient.FetchComposedPaper(
+			r.Context(), bearer, blueprintID, userID, req.AttemptIdx,
+		)
+		if errors.Is(err, learning.ErrBlueprintNotFound) {
+			writeProblem(w, http.StatusNotFound, "blueprint_not_found",
+				"No blueprint with that id")
+			return
+		}
+		if errors.Is(err, learning.ErrEmptyPaper) {
+			// Honest content gate — blueprint exists, but the question bank
+			// can't fill any of the sections yet (Phase 4 W1 is the parallel
+			// content workstream that scales the bank).
+			writeProblem(w, http.StatusUnprocessableEntity, "empty_paper",
+				"Composer returned no questions — bank not yet scaled for this blueprint")
+			return
+		}
+		if err != nil {
+			logger.Error("learning.fetch_composed_paper.failed", "err", err)
+			writeProblem(w, http.StatusBadGateway, "learning_error",
+				"Learning service is unavailable")
+			return
+		}
+
+		// Pick the first question's topic_id as the session's representative
+		// topic — same convention as StartFromAssignment when items span
+		// multiple topics. Mastery / readiness consumers join on session
+		// items, not on the session row.
+		topicID := uuid.Nil
+		if len(paper.Items) > 0 {
+			if t, perr := uuid.Parse(paper.Items[0].TopicID); perr == nil {
+				topicID = t
+			}
+		}
+
+		now := svc.clock()
+		// Per-section time budget sums to total_minutes; we use total as the
+		// session expiry so the FSM enforces the global time-out. Per-section
+		// timer enforcement is a UI concern in this sprint; full server-side
+		// section-locks ship in S25 alongside OMR + recovery.
+		expiresAt := now.Add(time.Duration(paper.TotalMinutes) * time.Minute)
+		if expiresAt.Before(now.Add(svc.sessionTTL)) {
+			expiresAt = now.Add(svc.sessionTTL)
+		}
+		sess := domain.Session{
+			ID:          uuid.New(),
+			UserID:      userID,
+			TenantID:    req.TenantID,
+			TopicID:     topicID,
+			Mode:        domain.ModeMockBlueprint,
+			Strategy:    domain.StrategyBinarySearch, // not used; pinned list
+			Status:      domain.StatusInProgress,
+			TargetCount: int16(len(paper.Items)),
+			StartedAt:   now,
+			ExpiresAt:   expiresAt,
+			BlueprintID: &blueprintID,
+		}
+		if err := svc.store.CreateSession(r.Context(), sess); err != nil {
+			logger.Error("create_session.failed", "err", err)
+			writeProblem(w, http.StatusInternalServerError, "store_error",
+				"Failed to create session")
+			return
+		}
+
+		for idx, it := range paper.Items {
+			if err := svc.store.ServeQuestionWithSection(
+				r.Context(), sess.ID, int16(idx), it.QuestionID, it.SectionID, now,
+			); err != nil {
+				logger.Error("preserve_question.failed",
+					"err", err, "session", sess.ID, "idx", idx)
+				writeProblem(w, http.StatusInternalServerError, "store_error",
+					"Failed to seed blueprint items")
+				return
+			}
+		}
+
+		respSections := make([]fromBlueprintSection, 0, len(paper.Sections))
+		for _, s := range paper.Sections {
+			respSections = append(respSections, fromBlueprintSection{
+				SectionID:  s.SectionID,
+				Name:       s.Name,
+				NRequested: s.NRequested,
+				NComposed:  s.NComposed,
+				Short:      s.Short,
+			})
+		}
+		writeJSON(w, http.StatusCreated, fromBlueprintResponse{
+			SessionID:              sess.ID.String(),
+			BlueprintID:            blueprintID.String(),
+			BlueprintName:          paper.BlueprintName,
+			Mode:                   string(sess.Mode),
+			Status:                 string(sess.Status),
+			ExpiresAt:              sess.ExpiresAt,
+			ItemCount:              len(paper.Items),
+			TotalMinutes:           paper.TotalMinutes,
+			MarksCorrect:           paper.MarksCorrect,
+			MarksNegative:          paper.MarksNegative,
+			Short:                  paper.Short,
+			InterSectionNavigation: paper.InterSectionNavigation,
+			PerSectionTimeLocked:   paper.PerSectionTimeLocked,
+			Sections:               respSections,
 		})
 	}
 }

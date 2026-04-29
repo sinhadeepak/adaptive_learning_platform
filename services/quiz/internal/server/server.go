@@ -30,6 +30,8 @@ func Router(logger *slog.Logger, sess *SessionService, flags FlagEvaluator) http
 		mux.HandleFunc("POST /quiz/sessions/start", sess.Start(logger))
 		// Sprint 12 S12-D — ASSIGNMENT mode entry point.
 		mux.HandleFunc("POST /quiz/sessions/from-assignment", sess.StartFromAssignment(logger))
+		// Sprint 23 (P4-S23) — MOCK_BLUEPRINT entry point.
+		mux.HandleFunc("POST /quiz/sessions/from-blueprint", sess.StartFromBlueprint(logger))
 		mux.HandleFunc("GET /quiz/sessions", sess.ListSessions(logger))
 		mux.HandleFunc("GET /quiz/sessions/{id}", sess.Get(logger))
 		mux.HandleFunc("GET /quiz/sessions/{id}/next", sess.Next(logger))

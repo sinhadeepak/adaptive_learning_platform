@@ -20,6 +20,12 @@ const (
 	// The cross-service "from-assignment" creator + Content-side
 	// subscriber land in Sprint 13.
 	ModeAssignment Mode = "ASSIGNMENT"
+	// Sprint 23 (P4-S23) — full-length real-pattern mocks composed from
+	// alp-learning's exam_blueprints. Same play-loop machinery as
+	// ASSIGNMENT (questions pre-served in order); session_items carry
+	// section_id from the blueprint composer so the per-section
+	// breakdown surfaces correctly post-submit.
+	ModeMockBlueprint Mode = "MOCK_BLUEPRINT"
 )
 
 type Strategy string
@@ -71,6 +77,9 @@ type Session struct {
 	// quiz.session.completed payload carries it through so Content's
 	// subscriber can mirror the score into assignment_progress.
 	AssignmentID *uuid.UUID
+	// Sprint 23 (P4-S23) — when Mode == MOCK_BLUEPRINT, this holds the
+	// catalog_schema.exam_blueprints id this session was composed from.
+	BlueprintID *uuid.UUID
 }
 
 func (s Session) IsExpired(now time.Time) bool {

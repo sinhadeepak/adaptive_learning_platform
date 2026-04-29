@@ -313,12 +313,12 @@ func (s *Store) CreateSession(ctx context.Context, sess domain.Session) error {
 		INSERT INTO quiz_schema.quiz_sessions
 		  (id, user_id, tenant_id, topic_id, mode, strategy, status, target_count,
 		   served_count, correct_count, ability_estimate, started_at, expires_at,
-		   assignment_id)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+		   assignment_id, blueprint_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
 		sess.ID, sess.UserID, sess.TenantID, sess.TopicID, sess.Mode, sess.Strategy,
 		sess.Status, sess.TargetCount, sess.ServedCount, sess.CorrectCount,
 		sess.AbilityEstimate, sess.StartedAt, sess.ExpiresAt,
-		sess.AssignmentID,
+		sess.AssignmentID, sess.BlueprintID,
 	)
 	if err != nil {
 		return fmt.Errorf("insert session: %w", err)
@@ -332,15 +332,59 @@ func (s *Store) GetSession(ctx context.Context, id uuid.UUID) (domain.Session, e
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, user_id, COALESCE(tenant_id,''), topic_id, mode, strategy, status,
 		       target_count, served_count, correct_count, ability_estimate,
-		       started_at, expires_at, submitted_at, assignment_id
+		       started_at, expires_at, submitted_at, assignment_id, blueprint_id
 		FROM quiz_schema.quiz_sessions WHERE id = $1`, id,
 	).Scan(&sess.ID, &sess.UserID, &sess.TenantID, &sess.TopicID, &sess.Mode, &sess.Strategy,
 		&sess.Status, &sess.TargetCount, &sess.ServedCount, &sess.CorrectCount, &sess.AbilityEstimate,
-		&sess.StartedAt, &sess.ExpiresAt, &sess.SubmittedAt, &sess.AssignmentID)
+		&sess.StartedAt, &sess.ExpiresAt, &sess.SubmittedAt, &sess.AssignmentID, &sess.BlueprintID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return sess, ErrSessionNotFound
 	}
 	return sess, err
+}
+
+// ServeQuestionWithSection records (idempotently) that a question has been
+// served at itemIdx, with an optional section_id (Sprint 23, P4-S23 — used
+// when the session was created from a blueprint composer). Pass empty
+// sectionID for the legacy non-blueprint path.
+func (s *Store) ServeQuestionWithSection(
+	ctx context.Context,
+	sessionID uuid.UUID,
+	itemIdx int16,
+	questionID uuid.UUID,
+	sectionID string,
+	servedAt time.Time,
+) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var sectionArg any
+	if sectionID == "" {
+		sectionArg = nil
+	} else {
+		sectionArg = sectionID
+	}
+	tag, err := tx.Exec(ctx, `
+		INSERT INTO quiz_schema.quiz_session_items (session_id, item_idx, question_id, served_at, section_id)
+		VALUES ($1,$2,$3,$4,$5)
+		ON CONFLICT (session_id, item_idx) DO NOTHING`,
+		sessionID, itemIdx, questionID, servedAt, sectionArg,
+	)
+	if err != nil {
+		return fmt.Errorf("insert item: %w", err)
+	}
+	if tag.RowsAffected() > 0 {
+		if _, err := tx.Exec(ctx,
+			`UPDATE quiz_schema.quiz_sessions SET served_count = served_count + 1 WHERE id = $1`,
+			sessionID,
+		); err != nil {
+			return fmt.Errorf("bump served_count: %w", err)
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 // ServeQuestion records (idempotently) that a question has been served at

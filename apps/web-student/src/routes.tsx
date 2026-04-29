@@ -22,6 +22,7 @@ import { Login } from "./pages/Login";
 import { Placeholder } from "./pages/Placeholder";
 import { MockResult } from "./pages/MockResult";
 import { MockTest } from "./pages/MockTest";
+import { MockExam } from "./pages/MockExam";
 import { Practice } from "./pages/Practice";
 import { Profile } from "./pages/Profile";
 import { Quiz } from "./pages/Quiz";
@@ -250,6 +251,15 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <MockTest />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    // Sprint 23 (P4-S23) — blueprint-driven exam-mode player.
+    path: "/mock-exam",
+    element: (
+      <ProtectedRoute>
+        <MockExam />
       </ProtectedRoute>
     ),
   },

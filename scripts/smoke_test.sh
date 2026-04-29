@@ -475,6 +475,26 @@ TIMESTATS=$(curl -s "$ENGAGEMENT_URL/analytics/student/$STUDENT_ID/time-stats")
 assert "student time-stats endpoint returns shape {userId, sections}" \
   bash -c "echo '$TIMESTATS' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('userId')=='$STUDENT_ID' and isinstance(d.get('sections'), list)\""
 
+# -- 12. Sprint 23 (P4-S23): exam blueprints + from-blueprint session -----
+
+echo "==> Sprint 23 (P4-S23) — exam blueprints + MOCK_BLUEPRINT session"
+
+JEE_MAIN_BP_ID="44444444-0000-0000-0000-000000000001"
+
+BPS=$(curl -s "$LEARNING_URL/catalog/exam-blueprints?examId=$JEE_MAIN_ID")
+assert "list blueprints for JEE Main returns >=1 entry" \
+  bash -c "echo '$BPS' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert isinstance(d.get('items'), list) and len(d['items'])>=1, d\""
+
+# Try to start a MOCK_BLUEPRINT session. If the seeded question bank can't
+# fill any section the endpoint returns 422 empty_paper — that's an honest
+# content-gate signal, not a regression. Accept either outcome.
+FBP_RESP_HTTP=$(curl -s -o /tmp/fbp_resp.json -w "%{http_code}" -X POST "$QUIZ_URL/quiz/sessions/from-blueprint" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"blueprintId\":\"$JEE_MAIN_BP_ID\",\"userId\":\"$STUDENT_ID\"}")
+assert "from-blueprint returns 201 (or 422 when bank is short)" \
+  bash -c "[ '$FBP_RESP_HTTP' = '201' ] || [ '$FBP_RESP_HTTP' = '422' ]"
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then

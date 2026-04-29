@@ -21,6 +21,7 @@ import (
 	"github.com/adaptive-learn/quiz/internal/db"
 	"github.com/adaptive-learn/quiz/internal/events"
 	"github.com/adaptive-learn/quiz/internal/flags"
+	"github.com/adaptive-learn/quiz/internal/learning"
 	"github.com/adaptive-learn/quiz/internal/server"
 	"github.com/adaptive-learn/quiz/internal/store"
 )
@@ -79,7 +80,8 @@ func main() {
 
 	sess := server.NewSessionService(st, flagClient, adaptiveClient, publisher, cfg.SessionTTL).
 		WithJWTSecret(cfg.JWTSecret).
-		WithContentClient(content.New(cfg.ContentURL))
+		WithContentClient(content.New(cfg.ContentURL)).
+		WithLearningClient(learning.New(cfg.LearningURL))
 
 	mux := http.NewServeMux()
 	mux.Handle("/", server.Router(logger, sess, flagClient))
