@@ -518,6 +518,16 @@ MOCK_SESSIONS=$(curl -s "$QUIZ_URL/quiz/sessions?userId=$STUDENT_ID&mode=MOCK_BL
 assert "mock-mode session filter returns shape {userId, items}" \
   bash -c "echo '$MOCK_SESSIONS' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('userId')=='$STUDENT_ID' and isinstance(d.get('items'), list)\""
 
+# -- 15. Sprint 26 (P4-S26): concept prereq graph -------------------------
+
+echo "==> Sprint 26 (P4-S26) — prereq graph activation"
+
+# THERMO has MECH as a direct prereq per migration 010.
+THERMO_TOPIC_ID="33333333-0000-0000-0000-000000000002"
+PREREQS=$(curl -s "$LEARNING_URL/catalog/topics/$THERMO_TOPIC_ID/prereqs")
+assert "prereq endpoint returns directPrereqs containing Mechanics" \
+  bash -c "echo '$PREREQS' | python3 -c \"import sys,json; d=json.load(sys.stdin); ids=[p['topicId'] for p in d.get('directPrereqs') or []]; assert '33333333-0000-0000-0000-000000000001' in ids, d\""
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then

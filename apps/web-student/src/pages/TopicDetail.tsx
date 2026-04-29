@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill, SkeletonRows } from "../components/dashboard";
 import { AITutorChat } from "../components/AITutorChat";
+import { blockedLabel, summariseGate, type GateResponse } from "../lib/prereq_gate";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Topic Detail — AI Practice prep page.
@@ -46,6 +47,8 @@ export function TopicDetail() {
   const [savedHere, setSavedHere] = useState<
     Array<{ questionId: string; stem: string | null; createdAt: string }>
   >([]);
+  // Sprint 26 (P4-S26) — prereq gate state.
+  const [gate, setGate] = useState<GateResponse | null>(null);
 
   useEffect(() => {
     if (!topicId) return;
@@ -76,6 +79,23 @@ export function TopicDetail() {
         if (m) setMastery({ ewa: m.ewa, n: m.n });
       } catch {
         /* swallow */
+      }
+    })();
+  }, [user, topicId]);
+
+  // Sprint 26 (P4-S26) — prereq gate fetch. Soft-fail: if the request errors
+  // the pill is omitted; the page still renders.
+  useEffect(() => {
+    if (!user || !topicId) return;
+    (async () => {
+      try {
+        const r = await auth.fetch(
+          `/api/v1/catalog/topics/${topicId}/gate?userId=${user.id}`,
+        );
+        if (!r.ok) return;
+        setGate((await r.json()) as GateResponse);
+      } catch {
+        /* swallow — pill hidden */
       }
     })();
   }, [user, topicId]);
@@ -205,6 +225,47 @@ export function TopicDetail() {
             ) : null}
           </div>
           <h1 className="topic-hero-title">{topic.title}</h1>
+          {/* Sprint 26 (P4-S26) — prereq gate pill. Hidden when no prereqs. */}
+          {(() => {
+            const state = summariseGate(gate);
+            if (state.kind === "hidden") return null;
+            if (state.kind === "ready") {
+              return (
+                <p
+                  className="prereq-pill prereq-pill-ready"
+                  style={{
+                    display: "inline-block",
+                    padding: "4px 10px",
+                    borderRadius: 12,
+                    background: "var(--color-green, #10C47A)",
+                    color: "#fff",
+                    fontSize: 13,
+                    margin: "8px 0",
+                  }}
+                >
+                  ✓ You're ready for this topic
+                </p>
+              );
+            }
+            return (
+              <Link
+                to={`/topics/${state.first.topicId}`}
+                className="prereq-pill prereq-pill-blocked"
+                style={{
+                  display: "inline-block",
+                  padding: "4px 10px",
+                  borderRadius: 12,
+                  background: "var(--color-amber, #F5A623)",
+                  color: "#fff",
+                  fontSize: 13,
+                  margin: "8px 0",
+                  textDecoration: "none",
+                }}
+              >
+                ⚠ {blockedLabel(state)} →
+              </Link>
+            );
+          })()}
           <p className="topic-hero-sub">
             {topic.description ?? (
               <>
