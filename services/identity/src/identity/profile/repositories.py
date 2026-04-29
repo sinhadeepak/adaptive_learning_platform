@@ -87,6 +87,37 @@ class ProfileRepo:
         assert row is not None
         return row
 
+    async def patch_goals(
+        self,
+        *,
+        user_id: UUID | str,
+        target_exam_id: str | None = None,
+        target_exam_date: Any = None,
+        target_rank: int | None = None,
+    ) -> dict[str, Any]:
+        """Sprint 30 (P4-S30) — partial update of the target_* columns.
+        Any field passed as None is preserved (COALESCE pattern); explicit
+        clearing is a P5 enhancement (rare path)."""
+        await self.s.execute(
+            text(
+                "UPDATE profile_schema.profiles SET "
+                "target_exam_id = COALESCE(:te, target_exam_id), "
+                "target_exam_date = COALESCE(:td, target_exam_date), "
+                "target_rank = COALESCE(:tr, target_rank), "
+                "updated_at = NOW() "
+                "WHERE user_id = :uid"
+            ),
+            {
+                "uid": str(user_id),
+                "te": target_exam_id,
+                "td": target_exam_date,
+                "tr": target_rank,
+            },
+        )
+        row = await self.by_user_id(user_id)
+        assert row is not None
+        return row
+
     async def set_avatar(self, user_id: UUID | str, avatar_url: str | None) -> None:
         await self.s.execute(
             text(

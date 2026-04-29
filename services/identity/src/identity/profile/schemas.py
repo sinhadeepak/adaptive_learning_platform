@@ -98,6 +98,18 @@ class PreferencesPatch(BaseModel):
     dailyGoalMinutes: int | None = Field(default=None, ge=5, le=240)
 
 
+class GoalsPatch(BaseModel):
+    """Sprint 30 (P4-S30) — exam-prep target goals.
+
+    All fields optional; the route accepts any subset and persists the
+    partial update.
+    """
+
+    targetExamId: str | None = None
+    targetExamDate: date | None = None
+    targetRank: int | None = Field(default=None, ge=1, le=10_000_000)
+
+
 class BookmarkCreate(BaseModel):
     questionId: str
     topicId: str | None = None

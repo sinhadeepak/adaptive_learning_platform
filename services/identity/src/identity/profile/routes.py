@@ -36,6 +36,7 @@ from identity.profile.schemas import (
     MockAttemptList,
     NotificationPrefsPatch,
     Preferences,
+    GoalsPatch,
     PreferencesPatch,
     Problem,
     Profile,
@@ -181,6 +182,41 @@ async def patch_preferences(
     profile = await _build_profile(session=session, principal=principal)
     await session.commit()
     return profile
+
+
+# Sprint 30 (P4-S30) — exam-prep target goals.
+@router.patch("/me/goals")
+async def patch_goals(
+    body: GoalsPatch,
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> dict:
+    """Partial update of `target_exam_id` / `target_exam_date` /
+    `target_rank` on the user's profile. Returns the row's current goal
+    fields. Used by the closed-loop study plan + pre-mock revision
+    sprint mode.
+    """
+    profiles = ProfileRepo(session)
+    await profiles.ensure(
+        user_id=principal.user_id,
+        first_name=principal.claims.get("first_name", ""),
+        last_name=principal.claims.get("last_name", ""),
+    )
+    await profiles.patch_goals(
+        user_id=principal.user_id,
+        target_exam_id=body.targetExamId,
+        target_exam_date=body.targetExamDate,
+        target_rank=body.targetRank,
+    )
+    row = await profiles.by_user_id(principal.user_id)
+    await session.commit()
+    return {
+        "userId": str(principal.user_id),
+        "targetExamId": str(row["target_exam_id"]) if row and row.get("target_exam_id") else None,
+        "targetExamDate": row["target_exam_date"].isoformat()
+        if row and row.get("target_exam_date") else None,
+        "targetRank": int(row["target_rank"]) if row and row.get("target_rank") is not None else None,
+    }
 
 
 @router.put("/me/avatar", response_model=Profile)
