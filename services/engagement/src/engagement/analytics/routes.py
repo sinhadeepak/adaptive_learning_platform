@@ -402,6 +402,44 @@ async def syllabus_coverage_route(user_id: str, examId: str) -> dict:
 # Sprint 29 (P4-S29) — error-pattern rollup.
 from engagement.analytics import error_classifier_repo as _error_repo  # noqa: E402
 
+# Sprint 31 (P4-S31) — cohort percentile distribution.
+from engagement.analytics import cohort_percentile as _cohort  # noqa: E402
+
+
+@router.get("/analytics/cohort-distribution")
+async def cohort_distribution_route(examId: str, topicId: str | None = None) -> dict:
+    """Cohort readiness/mastery distribution for an exam (optionally
+    scoped to a topic). Used by alp-learning's rank.py for cohort-driven
+    percentile prediction."""
+    async with sessionmaker()() as session:
+        rows = await _cohort.load_cohort_distribution(
+            session, exam_id=examId, topic_id=topicId
+        )
+    total = sum(r["user_count"] for r in rows)
+    computed_at = rows[0]["computed_at"] if rows else None
+    return {
+        "examId": examId,
+        "topicId": topicId,
+        "totalUsers": total,
+        "computedAt": computed_at,
+        "buckets": [
+            {"readinessBucket": r["readiness_bucket"], "userCount": r["user_count"]}
+            for r in rows
+        ],
+    }
+
+
+@router.post("/analytics/cohort-distribution/refresh")
+async def cohort_distribution_refresh(examId: str, topicId: str | None = None) -> dict:
+    """Re-aggregate the cohort distribution. Idempotent. The actual
+    periodic schedule defers to the staging-cutover sprint."""
+    async with sessionmaker()() as session:
+        written = await _cohort.aggregate_cohort_distribution(
+            session, exam_id=examId, topic_id=topicId
+        )
+        await session.commit()
+    return {"examId": examId, "topicId": topicId, "bucketsWritten": written}
+
 
 @router.get("/analytics/student/{user_id}/error-patterns")
 async def error_patterns_route(user_id: str, since: str | None = None) -> dict:
