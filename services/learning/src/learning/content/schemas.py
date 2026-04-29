@@ -23,6 +23,12 @@ class QuestionCreate(BaseModel):
     # Optional teaching note shown alongside the correct answer in QuizResult.
     # When omitted, the UI falls back to /adaptive/explain to generate one on demand.
     explanation: str | None = Field(default=None, max_length=4000)
+    # Sprint 24 (P4-S24) — PYQ metadata. Optional. paperSession format per
+    # ADR-0012: <EXAM>-<SESSION>-<YEAR>-<SUB-SESSION>-<SHIFT> (e.g.
+    # JEE-MAIN-2024-JAN-S1).
+    examYear: int | None = Field(default=None, ge=1990, le=2100)
+    paperSession: str | None = Field(default=None, max_length=120)
+    pyqFlag: bool = False
 
 
 class QuestionDetail(BaseModel):
@@ -43,6 +49,10 @@ class QuestionDetail(BaseModel):
     reviewedBy: str | None = None
     reviewedAt: datetime | None = None
     reviewNotes: str | None = None
+    # Sprint 24 (P4-S24)
+    examYear: int | None = None
+    paperSession: str | None = None
+    pyqFlag: bool = False
 
 
 class QuestionList(BaseModel):

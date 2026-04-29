@@ -495,6 +495,20 @@ FBP_RESP_HTTP=$(curl -s -o /tmp/fbp_resp.json -w "%{http_code}" -X POST "$QUIZ_U
 assert "from-blueprint returns 201 (or 422 when bank is short)" \
   bash -c "[ '$FBP_RESP_HTTP' = '201' ] || [ '$FBP_RESP_HTTP' = '422' ]"
 
+# -- 13. Sprint 24 (P4-S24): PYQ catalog + frequency ----------------------
+
+echo "==> Sprint 24 (P4-S24) — PYQ list + frequency"
+
+PYQS=$(curl -s "$LEARNING_URL/content/pyqs?examId=$JEE_MAIN_ID")
+assert "PYQ list endpoint returns >=1 item for JEE Main (after seed)" \
+  bash -c "echo '$PYQS' | python3 -c \"import sys,json; d=json.load(sys.stdin); items=d.get('items') or []; assert len(items)>=1, d\""
+
+# Frequency view scoped to Physics (subject id from S22 catalog seed).
+PHY_SUBJECT_ID="22222222-0000-0000-0000-000000000001"
+FREQ=$(curl -s "$LEARNING_URL/content/pyqs/frequency?examId=$JEE_MAIN_ID&subjectId=$PHY_SUBJECT_ID")
+assert "PYQ frequency endpoint returns shape {examId, subjectId, chapters}" \
+  bash -c "echo '$FREQ' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('examId')=='$JEE_MAIN_ID' and isinstance(d.get('chapters'), list)\""
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then

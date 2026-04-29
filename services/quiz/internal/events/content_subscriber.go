@@ -45,6 +45,11 @@ type QuestionPublished struct {
 	GuessingC       *float32 `json:"guessing_c,omitempty"`
 	Language        string   `json:"language"`
 	Explanation     *string  `json:"explanation,omitempty"`
+	// Sprint 24 (P4-S24) — PYQ metadata. omitempty preserves the historical
+	// payload shape for any old in-flight messages; absent => not a PYQ.
+	PyqFlag      bool    `json:"pyq_flag,omitempty"`
+	ExamYear     *int16  `json:"exam_year,omitempty"`
+	PaperSession *string `json:"paper_session,omitempty"`
 }
 
 // ContentSubscriber owns the JetStream consumer that mirrors content.question.published
@@ -161,8 +166,10 @@ func (s *ContentSubscriber) handle(msg jetstream.Msg) {
 	_, err = s.pool.Exec(ctx, `
 		INSERT INTO quiz_schema.questions
 		  (id, topic_id, stem, choices, correct_idx, difficulty_b,
-		   discrimination_a, guessing_c, language, status, explanation)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PUBLISHED', $10)
+		   discrimination_a, guessing_c, language, status, explanation,
+		   pyq_flag, exam_year, paper_session)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PUBLISHED', $10,
+		        $11, $12, $13)
 		ON CONFLICT (id) DO UPDATE SET
 		  stem = EXCLUDED.stem,
 		  choices = EXCLUDED.choices,
@@ -172,8 +179,12 @@ func (s *ContentSubscriber) handle(msg jetstream.Msg) {
 		  guessing_c = EXCLUDED.guessing_c,
 		  language = EXCLUDED.language,
 		  explanation = EXCLUDED.explanation,
-		  status = 'PUBLISHED'
-	`, ev.ID, ev.TopicID, ev.Stem, choicesJSON, ev.CorrectIdx, ev.DifficultyB, a, c, lang, ev.Explanation)
+		  status = 'PUBLISHED',
+		  pyq_flag = EXCLUDED.pyq_flag,
+		  exam_year = EXCLUDED.exam_year,
+		  paper_session = EXCLUDED.paper_session
+	`, ev.ID, ev.TopicID, ev.Stem, choicesJSON, ev.CorrectIdx, ev.DifficultyB, a, c, lang, ev.Explanation,
+		ev.PyqFlag, ev.ExamYear, ev.PaperSession)
 
 	if err != nil {
 		s.logger.Warn("content.question.published upsert failed", "id", ev.ID, "err", err)

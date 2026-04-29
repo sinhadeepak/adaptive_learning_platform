@@ -23,6 +23,7 @@ import { Placeholder } from "./pages/Placeholder";
 import { MockResult } from "./pages/MockResult";
 import { MockTest } from "./pages/MockTest";
 import { MockExam } from "./pages/MockExam";
+import { PYQDrill } from "./pages/PYQDrill";
 import { Practice } from "./pages/Practice";
 import { Profile } from "./pages/Profile";
 import { Quiz } from "./pages/Quiz";
@@ -260,6 +261,15 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <MockExam />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    // Sprint 24 (P4-S24) — PYQ chapter/year drill view.
+    path: "/pyq",
+    element: (
+      <ProtectedRoute>
+        <PYQDrill />
       </ProtectedRoute>
     ),
   },

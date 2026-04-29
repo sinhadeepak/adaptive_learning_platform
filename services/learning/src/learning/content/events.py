@@ -108,6 +108,16 @@ async def publish_question_published(question: dict[str, Any]) -> None:
             question["reviewed_at"].isoformat() if question.get("reviewed_at") else None
         ),
     }
+    # Sprint 24 (P4-S24) — PYQ metadata. Omitted when null/false to keep
+    # payload size tight and to preserve backward-compat for any consumer
+    # that hasn't been updated. The Quiz subscriber treats absent fields
+    # as "not a PYQ" — same default as the column.
+    if question.get("pyq_flag"):
+        payload["pyq_flag"] = True
+        if question.get("exam_year") is not None:
+            payload["exam_year"] = int(question["exam_year"])
+        if question.get("paper_session"):
+            payload["paper_session"] = question["paper_session"]
     try:
         await _js.publish(SUBJECT_QUESTION_PUBLISHED, json.dumps(payload).encode("utf-8"))
         log.info("content published question %s", question["id"])

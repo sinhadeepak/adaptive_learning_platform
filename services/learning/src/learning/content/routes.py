@@ -74,6 +74,10 @@ def _to_detail(row: dict) -> QuestionDetail:
         reviewedBy=row.get("reviewed_by"),
         reviewedAt=row.get("reviewed_at"),
         reviewNotes=row.get("review_notes"),
+        # Sprint 24 (P4-S24)
+        examYear=row.get("exam_year"),
+        paperSession=row.get("paper_session"),
+        pyqFlag=bool(row.get("pyq_flag", False)),
     )
 
 
@@ -135,6 +139,10 @@ async def create_question(
         language=body.language,
         created_by=principal.user_id,
         explanation=body.explanation,
+        # Sprint 24 (P4-S24) — PYQ metadata.
+        exam_year=body.examYear,
+        paper_session=body.paperSession,
+        pyq_flag=body.pyqFlag,
     )
     await session.commit()
     return _to_detail(row)

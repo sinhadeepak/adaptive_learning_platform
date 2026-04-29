@@ -16,7 +16,7 @@ def _row_to_dict(r: Any) -> dict[str, Any]:
     choices = r["choices"]
     if not isinstance(choices, list):
         choices = json.loads(choices)
-    return {
+    out = {
         "id": str(r["id"]),
         "topic_id": str(r["topic_id"]),
         "stem": r["stem"],
@@ -35,6 +35,15 @@ def _row_to_dict(r: Any) -> dict[str, Any]:
         "reviewed_at": r["reviewed_at"],
         "review_notes": r["review_notes"],
     }
+    # Sprint 24 (P4-S24) — PYQ metadata is optional; default rows have
+    # pyq_flag=False, exam_year=NULL, paper_session=NULL.
+    if "exam_year" in r.keys():
+        out["exam_year"] = int(r["exam_year"]) if r["exam_year"] is not None else None
+    if "paper_session" in r.keys():
+        out["paper_session"] = r["paper_session"]
+    if "pyq_flag" in r.keys():
+        out["pyq_flag"] = bool(r["pyq_flag"])
+    return out
 
 
 async def insert_question(
@@ -51,6 +60,11 @@ async def insert_question(
     language: str,
     created_by: str,
     explanation: str | None = None,
+    # Sprint 24 (P4-S24) — PYQ metadata. Optional; defaults match the
+    # non-PYQ authoring path.
+    exam_year: int | None = None,
+    paper_session: str | None = None,
+    pyq_flag: bool = False,
 ) -> dict[str, Any]:
     if correct_idx >= len(choices):
         raise ValueError("correctIdx out of range for choices")
@@ -59,12 +73,15 @@ async def insert_question(
             f"""
             INSERT INTO {SCHEMA}.questions
               (id, topic_id, stem, choices, correct_idx, difficulty_b,
-               discrimination_a, guessing_c, language, status, created_by, explanation)
+               discrimination_a, guessing_c, language, status, created_by, explanation,
+               exam_year, paper_session, pyq_flag)
             VALUES (:id, :tid, :stem, CAST(:choices AS JSONB), :ci, :db,
-                    :da, :gc, :lang, 'DRAFT', :cb, :exp)
+                    :da, :gc, :lang, 'DRAFT', :cb, :exp,
+                    :ey, :ps, :pyq)
             RETURNING id, topic_id, stem, choices, correct_idx, difficulty_b,
                       discrimination_a, guessing_c, language, status, explanation,
-                      created_by, created_at, submitted_at, reviewed_by, reviewed_at, review_notes
+                      created_by, created_at, submitted_at, reviewed_by, reviewed_at, review_notes,
+                      exam_year, paper_session, pyq_flag
             """
         ),
         {
@@ -79,6 +96,9 @@ async def insert_question(
             "lang": language,
             "cb": created_by,
             "exp": explanation,
+            "ey": exam_year,
+            "ps": paper_session,
+            "pyq": pyq_flag,
         },
     )
     return _row_to_dict(res.mappings().first())
@@ -106,6 +126,7 @@ async def list_questions(
             SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
                    discrimination_a, guessing_c, language, status, explanation,
                    created_by, created_at, submitted_at, reviewed_by, reviewed_at, review_notes
+                   , exam_year, paper_session, pyq_flag
               FROM {SCHEMA}.questions {where_clause}
           ORDER BY created_at DESC LIMIT :lim
             """
@@ -120,7 +141,8 @@ async def get_question(session: AsyncSession, question_id: str) -> dict[str, Any
         text(
             f"SELECT id, topic_id, stem, choices, correct_idx, difficulty_b, "
             f"discrimination_a, guessing_c, language, status, explanation, "
-            f"created_by, created_at, submitted_at, reviewed_by, reviewed_at, review_notes "
+            f"created_by, created_at, submitted_at, reviewed_by, reviewed_at, review_notes, "
+            f"exam_year, paper_session, pyq_flag "
             f"FROM {SCHEMA}.questions WHERE id = :id"
         ),
         {"id": question_id},

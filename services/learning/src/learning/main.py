@@ -40,6 +40,9 @@ from learning.catalog.routes import router as catalog_router
 # exam blueprints (P4-S23)
 from learning.exam_blueprints.routes import router as exam_blueprints_router
 
+# PYQ catalog (P4-S24)
+from learning.pyq.routes import router as pyq_router
+
 # content
 from learning.content import events as content_events
 from learning.content import quiz_session_subscriber as content_quiz_sub
@@ -129,6 +132,7 @@ app.add_middleware(TraceContextMiddleware)
 # Mount every old service's router at its original URL prefix.
 app.include_router(catalog_router)
 app.include_router(exam_blueprints_router)
+app.include_router(pyq_router)
 app.include_router(content_router)
 app.include_router(assignments_router)
 app.include_router(doubts_router)
