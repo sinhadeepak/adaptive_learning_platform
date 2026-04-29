@@ -25,6 +25,7 @@ import { MockTest } from "./pages/MockTest";
 import { MockExam } from "./pages/MockExam";
 import { Mocks } from "./pages/Mocks";
 import { PYQDrill } from "./pages/PYQDrill";
+import { Revision } from "./pages/Revision";
 import { Practice } from "./pages/Practice";
 import { Profile } from "./pages/Profile";
 import { Quiz } from "./pages/Quiz";
@@ -280,6 +281,15 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <Mocks />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    // Sprint 27 (P4-S27) — Daily revision queue.
+    path: "/revision",
+    element: (
+      <ProtectedRoute>
+        <Revision />
       </ProtectedRoute>
     ),
   },

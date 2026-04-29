@@ -528,6 +528,17 @@ PREREQS=$(curl -s "$LEARNING_URL/catalog/topics/$THERMO_TOPIC_ID/prereqs")
 assert "prereq endpoint returns directPrereqs containing Mechanics" \
   bash -c "echo '$PREREQS' | python3 -c \"import sys,json; d=json.load(sys.stdin); ids=[p['topicId'] for p in d.get('directPrereqs') or []]; assert '33333333-0000-0000-0000-000000000001' in ids, d\""
 
+# -- 16. Sprint 27 (P4-S27): spaced-repetition revision queue -------------
+
+echo "==> Sprint 27 (P4-S27) — daily revision queue"
+
+# After the canonical quiz submit (steps 11-14) the consumer should have
+# upserted a revision_queue row. Items count may be zero if SM-2 schedules
+# next due to tomorrow on a correct first-attempt; assert shape only.
+REVISION=$(curl -s "$ENGAGEMENT_URL/analytics/revision/$STUDENT_ID?limit=10")
+assert "revision queue endpoint returns shape {userId, now, items}" \
+  bash -c "echo '$REVISION' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('userId')=='$STUDENT_ID' and 'now' in d and isinstance(d.get('items'), list)\""
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then

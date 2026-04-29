@@ -132,6 +132,24 @@ async def process_session(
         minutes_inc=max(0, study_minutes),
     )
 
+    # Sprint 27 (P4-S27) — SM-2 + EWA-clamp revision queue. Best-effort: a
+    # transient failure here logs but doesn't roll back the mastery update
+    # above. The queue is rebuildable in principle (last attempts live on
+    # processed_sessions), so a missed write is recoverable.
+    try:
+        from engagement.analytics.revision import update_revision_queue
+
+        await update_revision_queue(
+            session,
+            user_id=user_id,
+            topic_id=topic_id,
+            accuracy=float(score),
+            mastery_ewa=new_ewa,
+            now=datetime.now(tz=UTC),
+        )
+    except Exception:
+        log.exception("revision_queue.update_failed user=%s topic=%s", user_id, topic_id)
+
     await mark_session_processed(session, session_id)
 
     # Side-effect notifications — the in-app inbox surfaces these so the

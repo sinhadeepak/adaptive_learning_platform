@@ -370,3 +370,39 @@ async def session_breakdown(session_id: str) -> dict:
     async with sessionmaker()() as session:
         sections = await _section_stats.load_session_breakdown(session, session_id)
         return {"sessionId": session_id, "sections": sections}
+
+
+# Sprint 27 (P4-S27) — daily revision queue.
+from datetime import UTC, datetime  # noqa: E402
+
+from engagement.analytics import revision_queue_repo as _revision_repo  # noqa: E402
+from engagement.analytics.srs import overdue_days  # noqa: E402
+
+
+@router.get("/analytics/revision/{user_id}")
+async def revision_due(user_id: str, limit: int = 10) -> dict:
+    """Top-N topics due today for the user, ordered most-overdue-first.
+
+    Per ADR-0014. Each row carries the SM-2 state (interval, ease factor,
+    attempt count) plus a derived `overdueDays` for UI sorting.
+    """
+    now = datetime.now(tz=UTC)
+    limit = max(1, min(limit, 50))
+    async with sessionmaker()() as session:
+        rows = await _revision_repo.list_due(
+            session, user_id, now=now, limit=limit
+        )
+    items = [
+        {
+            **r,
+            "lastAttemptAt": r["lastAttemptAt"].isoformat() if r["lastAttemptAt"] else None,
+            "dueAt": r["dueAt"].isoformat() if r["dueAt"] else None,
+            "overdueDays": overdue_days(r["dueAt"], now=now),
+        }
+        for r in rows
+    ]
+    return {
+        "userId": user_id,
+        "now": now.isoformat(),
+        "items": items,
+    }

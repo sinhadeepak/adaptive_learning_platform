@@ -66,6 +66,22 @@ def render_email(notif_type: str, payload: dict[str, Any]) -> tuple[str, str]:
                 "— ALP\n"
             ),
         )
+    # Sprint 27 (P4-S27) — daily revision reminder. The actual periodic
+    # firing from a scheduler is wired in S30; this template registration
+    # makes the type recognised by the prefs-based mute toggle in the
+    # meantime.
+    if notif_type == "revision.due":
+        count = int(payload.get("count", 0) or 0)
+        return (
+            f"You have {count} topics due for revision",
+            (
+                "Hi,\n\n"
+                f"{count} topics are due for review today. Spaced repetition "
+                "keeps weak topics from decaying — even 10 minutes counts.\n\n"
+                "Open the Revision tab to start.\n\n"
+                "— ALP\n"
+            ),
+        )
     return (
         f"Update from ALP: {notif_type}",
         f"Notification payload: {payload}\n\n— ALP\n",
