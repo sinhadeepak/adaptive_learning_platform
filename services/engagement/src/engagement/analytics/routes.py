@@ -399,6 +399,22 @@ async def syllabus_coverage_route(user_id: str, examId: str) -> dict:
     return compute_coverage(tree, mastery)
 
 
+# Sprint 29 (P4-S29) — error-pattern rollup.
+from engagement.analytics import error_classifier_repo as _error_repo  # noqa: E402
+
+
+@router.get("/analytics/student/{user_id}/error-patterns")
+async def error_patterns_route(user_id: str, since: str | None = None) -> dict:
+    """Per-classification rollup for a user. `since` is an ISO timestamp;
+    when omitted, returns the full history capped at 1000 rows."""
+    async with sessionmaker()() as session:
+        rows = await _error_repo.list_classifications_for_user(
+            session, user_id, since_iso=since
+        )
+    rollup = _error_repo.aggregate_patterns(rows)
+    return {"userId": user_id, "since": since, **rollup}
+
+
 @router.get("/analytics/revision/{user_id}")
 async def revision_due(user_id: str, limit: int = 10) -> dict:
     """Top-N topics due today for the user, ordered most-overdue-first.

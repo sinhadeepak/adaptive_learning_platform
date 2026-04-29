@@ -186,6 +186,45 @@ async def _on_session_completed(msg: Msg) -> None:
                     user_id=user_id,
                     items=items,
                 )
+                # Sprint 29 (P4-S29) — per-item error-pattern classification.
+                # Best-effort: a classifier write failure must not roll
+                # back the mastery + section-stats writes above.
+                try:
+                    from engagement.analytics.error_classifier import classify_error
+                    from engagement.analytics.error_classifier_repo import (
+                        upsert_classification,
+                    )
+
+                    for it in items:
+                        time_ms = it.get("time_spent_ms")
+                        time_int = int(time_ms) if time_ms else None
+                        answered = bool(time_int) and time_int > 0
+                        # mastery_ewa we have only for the session's
+                        # representative topic; use score as a coarse proxy
+                        # for the per-item topic (good enough for v1 — the
+                        # heuristic gates are wide).
+                        tag = classify_error(
+                            is_correct=bool(it.get("is_correct", False)),
+                            answered=answered,
+                            time_spent_ms=time_int,
+                            mastery_ewa=float(score),
+                            chosen_choice_text=str(it.get("chosen_choice_text") or ""),
+                            correct_choice_text=str(it.get("correct_choice_text") or ""),
+                        )
+                        if tag is None:
+                            continue
+                        await upsert_classification(
+                            session,
+                            session_id=session_id,
+                            item_idx=int(it.get("item_idx") or 0),
+                            user_id=user_id,
+                            topic_id=str(it.get("topic_id") or topic_id),
+                            classification=tag,
+                        )
+                except Exception:
+                    log.exception(
+                        "error_classification.failed session=%s", session_id
+                    )
             await session.commit()
         with contextlib.suppress(Exception):
             await msg.ack()

@@ -553,6 +553,14 @@ COVERAGE=$(curl -s "$ENGAGEMENT_URL/analytics/syllabus-coverage/$STUDENT_ID?exam
 assert "coverage endpoint returns shape {examId, overallPct, subjects}" \
   bash -c "echo '$COVERAGE' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('examId')=='$JEE_MAIN_ID' and 'overallPct' in d and isinstance(d.get('subjects'), list)\""
 
+# -- 18. Sprint 29 (P4-S29): error-pattern rollup -------------------------
+
+echo "==> Sprint 29 (P4-S29) — error-pattern rollup"
+
+PATTERNS=$(curl -s "$ENGAGEMENT_URL/analytics/student/$STUDENT_ID/error-patterns")
+assert "error-patterns endpoint returns shape {userId, totals, topPatterns}" \
+  bash -c "echo '$PATTERNS' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('userId')=='$STUDENT_ID' and isinstance(d.get('totals'), dict) and isinstance(d.get('topPatterns'), list)\""
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then
