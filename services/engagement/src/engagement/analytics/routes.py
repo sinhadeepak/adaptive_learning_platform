@@ -378,6 +378,26 @@ from datetime import UTC, datetime  # noqa: E402
 from engagement.analytics import revision_queue_repo as _revision_repo  # noqa: E402
 from engagement.analytics.srs import overdue_days  # noqa: E402
 
+# Sprint 28 (P4-S28) — syllabus coverage.
+from engagement.analytics import learning_client as _learning_client  # noqa: E402
+from engagement.analytics.repositories import list_user_mastery  # noqa: E402
+from engagement.analytics.syllabus_coverage import compute_coverage  # noqa: E402
+
+
+@router.get("/analytics/syllabus-coverage/{user_id}")
+async def syllabus_coverage_route(user_id: str, examId: str) -> dict:
+    """Per-chapter coverage stats for a user against an exam syllabus.
+
+    Joins the syllabus tree (fetched from alp-learning) with the user's
+    mastery rows. Chapters with no mapped topics surface as `missing` so
+    students see content gaps + their own progress in the same view.
+    """
+    tree = await _learning_client.fetch_syllabus_tree(examId)
+    async with sessionmaker()() as session:
+        mastery_rows = await list_user_mastery(session, user_id)
+    mastery = {str(row.topic_id): float(row.ewa) for row in mastery_rows}
+    return compute_coverage(tree, mastery)
+
 
 @router.get("/analytics/revision/{user_id}")
 async def revision_due(user_id: str, limit: int = 10) -> dict:

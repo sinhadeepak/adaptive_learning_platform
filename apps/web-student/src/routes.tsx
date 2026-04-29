@@ -26,6 +26,7 @@ import { MockExam } from "./pages/MockExam";
 import { Mocks } from "./pages/Mocks";
 import { PYQDrill } from "./pages/PYQDrill";
 import { Revision } from "./pages/Revision";
+import { SyllabusCoverage } from "./pages/SyllabusCoverage";
 import { Practice } from "./pages/Practice";
 import { Profile } from "./pages/Profile";
 import { Quiz } from "./pages/Quiz";
@@ -290,6 +291,15 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <Revision />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    // Sprint 28 (P4-S28) — Syllabus coverage audit.
+    path: "/syllabus",
+    element: (
+      <ProtectedRoute>
+        <SyllabusCoverage />
       </ProtectedRoute>
     ),
   },

@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # (cohort leaderboard endpoint joins membership → readiness via HTTP
     # rather than a cross-schema SQL JOIN, per AP-01).
     institution_base_url: str = Field(default="http://institution:8000")
+    # Sprint 28 (P4-S28) — alp-learning base URL for the syllabus-tree
+    # fetch in the coverage aggregator.
+    learning_base_url: str = Field(default="http://learning:8000")
 
 
 settings = Settings()

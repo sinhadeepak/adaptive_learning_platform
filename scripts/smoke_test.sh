@@ -539,6 +539,20 @@ REVISION=$(curl -s "$ENGAGEMENT_URL/analytics/revision/$STUDENT_ID?limit=10")
 assert "revision queue endpoint returns shape {userId, now, items}" \
   bash -c "echo '$REVISION' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('userId')=='$STUDENT_ID' and 'now' in d and isinstance(d.get('items'), list)\""
 
+# -- 17. Sprint 28 (P4-S28): syllabus coverage audit ----------------------
+
+echo "==> Sprint 28 (P4-S28) — syllabus coverage audit"
+
+# Catalog tree under JEE Main should have 3 subjects (Phys/Chem/Math)
+# from migration 011, with chapters seeded.
+TREE=$(curl -s "$LEARNING_URL/catalog/syllabus-tree?examId=$JEE_MAIN_ID")
+assert "syllabus tree returns 3 subjects with chapters" \
+  bash -c "echo '$TREE' | python3 -c \"import sys,json; d=json.load(sys.stdin); subjects=d.get('subjects') or []; assert len(subjects)>=3 and any(len(s.get('chapters') or [])>=3 for s in subjects), d\""
+
+COVERAGE=$(curl -s "$ENGAGEMENT_URL/analytics/syllabus-coverage/$STUDENT_ID?examId=$JEE_MAIN_ID")
+assert "coverage endpoint returns shape {examId, overallPct, subjects}" \
+  bash -c "echo '$COVERAGE' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('examId')=='$JEE_MAIN_ID' and 'overallPct' in d and isinstance(d.get('subjects'), list)\""
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then
