@@ -225,6 +225,100 @@ async def _on_session_completed(msg: Msg) -> None:
                     log.exception(
                         "error_classification.failed session=%s", session_id
                     )
+
+                # Phase 5 (P5-S39) — multi-parameter mastery fan-out.
+                # Per ADR-0017 dims 1, 2, 3, 6: concept_mastery,
+                # bloom_mastery, fluency, confidence_calibration. Each
+                # update is best-effort try/except (matches S22 / S27 /
+                # S29 pattern); a transient failure here MUST NOT roll
+                # back the load-bearing topic-mastery + readiness updates.
+                try:
+                    from engagement.analytics import (
+                        bloom_mastery as _bloom,
+                    )
+                    from engagement.analytics import (
+                        concept_mastery as _concept,
+                    )
+                    from engagement.analytics import (
+                        confidence as _conf,
+                    )
+                    from engagement.analytics import (
+                        fluency_model as _flu,
+                    )
+
+                    for it in items:
+                        qid = str(it.get("question_id") or "")
+                        if not qid:
+                            continue
+                        score_item = 1.0 if bool(it.get("is_correct")) else 0.0
+                        time_ms = int(it.get("time_spent_ms") or 0)
+                        # For v1, the question's primary concept defaults
+                        # to its topic_id (topic-as-root-concept backfill
+                        # makes this a no-op identity). Richer concept
+                        # tagging comes via author UI in S45.
+                        concept_id = str(it.get("topic_id") or topic_id)
+                        bloom_lvl = str(it.get("bloom_level") or "")
+                        confidence = it.get("confidence")
+                        try:
+                            await _concept.update_concept_mastery(
+                                session,
+                                user_id=user_id,
+                                concept_id=concept_id,
+                                score=score_item,
+                                now=datetime.now(tz=UTC),
+                            )
+                        except Exception:
+                            log.exception(
+                                "concept_mastery.update failed user=%s "
+                                "concept=%s", user_id, concept_id,
+                            )
+                        if bloom_lvl:
+                            try:
+                                await _bloom.update_bloom_mastery(
+                                    session,
+                                    user_id=user_id,
+                                    concept_id=concept_id,
+                                    bloom_level=bloom_lvl,
+                                    score=score_item,
+                                )
+                            except Exception:
+                                log.exception(
+                                    "bloom_mastery.update failed user=%s "
+                                    "concept=%s bloom=%s",
+                                    user_id, concept_id, bloom_lvl,
+                                )
+                        if time_ms > 0:
+                            try:
+                                await _flu.update_fluency(
+                                    session,
+                                    user_id=user_id,
+                                    concept_id=concept_id,
+                                    time_spent_ms=time_ms,
+                                )
+                            except Exception:
+                                log.exception(
+                                    "fluency.update failed user=%s concept=%s",
+                                    user_id, concept_id,
+                                )
+                        if confidence is not None:
+                            try:
+                                await _conf.record_confidence(
+                                    session,
+                                    user_id=user_id,
+                                    question_id=qid,
+                                    predicted_correct=float(confidence),
+                                    actual_correct=bool(it.get("is_correct", False)),
+                                )
+                            except Exception:
+                                log.exception(
+                                    "confidence.record failed user=%s qid=%s",
+                                    user_id, qid,
+                                )
+                except Exception:
+                    log.exception(
+                        "multi_parameter_fanout.failed session=%s", session_id
+                    )
+
             await session.commit()
         with contextlib.suppress(Exception):
             await msg.ack()

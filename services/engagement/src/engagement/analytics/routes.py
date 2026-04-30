@@ -536,3 +536,52 @@ async def revision_due(user_id: str, limit: int = 10) -> dict:
         "now": now.isoformat(),
         "items": items,
     }
+
+
+# ── Phase 5 (P5-S39) — multi-parameter mastery surface ────────────────────────
+
+@router.get("/analytics/concept-mastery/{user_id}")
+async def concept_mastery_route(user_id: str) -> dict:
+    """Per-concept EWA mastery list. Per ADR-0017 dim 1.
+
+    Returns rows ordered by EWA ascending (weakest concepts first), so
+    the UI can highlight where the student needs work without sorting
+    client-side. Each row includes `n` so the honest-signalling pattern
+    holds — small n = "early days, take this with salt".
+    """
+    from engagement.analytics import concept_mastery as _cm
+
+    async with sessionmaker()() as s:
+        rows = await _cm.list_for_user(s, user_id)
+    return {"userId": user_id, "concepts": rows}
+
+
+@router.get("/analytics/student/{user_id}/multi-profile")
+async def multi_profile_route(user_id: str, since: str | None = None) -> dict:
+    """The 9-dimension assessment substrate per ADR-0017.
+
+    Returns concept-mastery + bloom-matrix + fluency + confidence
+    Brier in one shape. The UI radar chart consumes this directly.
+
+    `since` is an ISO timestamp filtering the confidence Brier window;
+    when omitted, returns the full history capped at 1000 rows.
+    """
+    from engagement.analytics import bloom_mastery as _bm
+    from engagement.analytics import concept_mastery as _cm
+    from engagement.analytics import confidence as _conf
+    from engagement.analytics import fluency_model as _flu
+
+    async with sessionmaker()() as s:
+        concepts = await _cm.list_for_user(s, user_id)
+        bloom_matrix = await _bm.list_matrix_for_user(s, user_id)
+        fluency = await _flu.list_for_user(s, user_id)
+        brier = await _conf.get_brier_for_user(s, user_id, since_iso=since)
+
+    return {
+        "userId": user_id,
+        "since": since,
+        "concepts": concepts,
+        "bloomMatrix": bloom_matrix,
+        "fluency": fluency,
+        "confidenceBrier": brier,
+    }

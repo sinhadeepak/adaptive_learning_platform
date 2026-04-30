@@ -10,6 +10,16 @@ registration failure (missing Protocol method/attr) blocks deployment.
 
 from __future__ import annotations
 
+from learning.types.fill_in.handlers import (
+    ClozePassageHandler,
+    FillBlankMultiHandler,
+    FillBlankSingleHandler,
+)
+from learning.types.matching.handlers import (
+    ClassificationHandler,
+    MatchTheFollowingHandler,
+    SequencingHandler,
+)
 from learning.types.numeric.handlers import (
     FormulaInputHandler,
     NumericDecimalHandler,
@@ -40,8 +50,15 @@ def register_all_v1_handlers() -> None:
     register_handler(NumericDecimalHandler())
     register_handler(NumericRangeHandler())
     register_handler(FormulaInputHandler())
-    # Matching family (3) — wires up in S39
-    # Fill-in family (4) — wires up in S39
+    # Matching family (3) — P5-S39
+    register_handler(MatchTheFollowingHandler())
+    register_handler(SequencingHandler())
+    register_handler(ClassificationHandler())
+    # Fill-in deterministic (3) — P5-S39
+    # SHORT_TEXT is AI_ASSISTED → wires up in S42 with the AI Gateway evaluator.
+    register_handler(FillBlankSingleHandler())
+    register_handler(FillBlankMultiHandler())
+    register_handler(ClozePassageHandler())
     # Subjective family (4) — wires up in S42
     # Visual family (4) — wires up in S44
     # Audio/Video + Interactive (5 gated stubs) — wire up in S47
