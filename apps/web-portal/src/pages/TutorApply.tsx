@@ -36,10 +36,6 @@ function rupeesToPaise(rs: number): number {
   return Math.round(rs * 100);
 }
 
-function paiseToRupees(paise: number): number {
-  return Math.round(paise / 100);
-}
-
 export function TutorApply() {
   const nav = useNavigate();
 

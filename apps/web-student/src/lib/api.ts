@@ -23,6 +23,20 @@ export const api: ApiClient = createApiClient({
   auth,
 });
 
+async function asJson<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    let msg = res.statusText;
+    try {
+      const body = (await res.json()) as { detail?: { message?: string; code?: string } };
+      if (body.detail?.message) msg = body.detail.message;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
+  return (await res.json()) as T;
+}
+
 // ── Sprint 17 (P3-S2) — Marketplace tutor browsing + booking ──────────
 
 export interface TutorListingItem {
