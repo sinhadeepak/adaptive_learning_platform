@@ -508,3 +508,144 @@ async def post_tutor_chat(req: TutorChatRequest) -> StreamingResponse:
             yield b"data: [DONE]\n\n"
 
     return StreamingResponse(sse(), media_type="text/event-stream")
+
+
+# ── Phase 5 (P5-S41) — diagnostic root-cause + multi-dim selection ────────────
+
+
+from learning.adaptive.multi_dim_selector import (
+    CandidateQuestion,
+    MasteryRow,
+    Selection,
+    select_next_multi_dim,
+)
+from learning.kg import Edge, RootCauseResult, root_cause_concept
+
+
+class MasteryRowIn(BaseModel):
+    ewa: float = Field(ge=0.0, le=1.0)
+    n: int = Field(ge=0)
+
+
+class EdgeIn(BaseModel):
+    fromConceptId: str
+    toConceptId: str
+    weight: float | None = None
+
+
+class RootCauseRequest(BaseModel):
+    """Caller hands in the user's concept-mastery snapshot + the
+    relevant prereq edges. The route is pure — no DB read — so the
+    walker stays unit-testable and the caller controls cache freshness.
+
+    For UI use the typical pattern is:
+      1. fetch user_concept_mastery from engagement /multi-profile
+      2. fetch prereq edges via existing /catalog/prereqs/{topic_id}
+         (transitive + 1 level deeper)
+      3. POST both here.
+    """
+
+    primaryConceptId: str = Field(min_length=1)
+    userConceptMastery: dict[str, float] = Field(default_factory=dict)
+    edges: list[EdgeIn] = Field(default_factory=list)
+    weakThreshold: float = Field(default=0.4, ge=0.0, le=1.0)
+
+
+class RootCauseResponse(BaseModel):
+    primaryConceptId: str
+    rootCauseConceptId: str | None
+    path: list[str]
+    weakConcepts: list[str]
+    notes: list[str]
+
+
+@router.post("/adaptive/diagnostic/root-cause", response_model=RootCauseResponse)
+async def post_root_cause(req: RootCauseRequest) -> RootCauseResponse:
+    """Walk the prereq chain rooted at `primaryConceptId` and surface
+    the deepest concept whose mastery is below `weakThreshold`."""
+    edges = [
+        Edge(
+            from_concept_id=e.fromConceptId,
+            to_concept_id=e.toConceptId,
+            weight=e.weight,
+        )
+        for e in req.edges
+    ]
+    out: RootCauseResult = root_cause_concept(
+        primary_concept_id=req.primaryConceptId,
+        user_concept_mastery=req.userConceptMastery,
+        edges=edges,
+        weak_threshold=req.weakThreshold,
+    )
+    return RootCauseResponse(
+        primaryConceptId=out.primary_concept_id,
+        rootCauseConceptId=out.root_cause_concept_id,
+        path=out.path,
+        weakConcepts=out.weak_concepts,
+        notes=out.notes,
+    )
+
+
+class CandidateIn(BaseModel):
+    questionId: str = Field(min_length=1)
+    conceptIds: list[str] = Field(min_length=1)
+    bloom: str
+    difficulty: str = "MEDIUM"
+
+
+class SelectMultiDimRequest(BaseModel):
+    conceptMastery: dict[str, MasteryRowIn] = Field(default_factory=dict)
+    bloomMastery: dict[str, MasteryRowIn] = Field(default_factory=dict)
+    # bloomMastery key form is "{conceptId}|{bloomLevel}" so JSON
+    # round-trips cleanly. Server splits on the pipe.
+    candidates: list[CandidateIn]
+    exposure: dict[str, int] = Field(default_factory=dict)
+    exposureCap: int = Field(default=5, ge=1)
+    exclude: list[str] = Field(default_factory=list)
+
+
+class SelectMultiDimResponse(BaseModel):
+    questionId: str | None
+    targetsConceptId: str | None
+    targetsBloom: str | None
+    reason: str | None
+
+
+@router.post("/adaptive/select-multi-dim", response_model=SelectMultiDimResponse)
+async def post_select_multi_dim(req: SelectMultiDimRequest) -> SelectMultiDimResponse:
+    """Pick the candidate that maximises uncertainty across the most-
+    uncertain (concept × bloom) cell."""
+    cm = {k: MasteryRow(ewa=v.ewa, n=v.n) for k, v in req.conceptMastery.items()}
+    bm: dict[tuple[str, str], MasteryRow] = {}
+    for key, val in req.bloomMastery.items():
+        if "|" not in key:
+            continue
+        c, b = key.split("|", 1)
+        bm[(c, b)] = MasteryRow(ewa=val.ewa, n=val.n)
+    cands = [
+        CandidateQuestion(
+            question_id=c.questionId,
+            concept_ids=c.conceptIds,
+            bloom=c.bloom,
+            difficulty=c.difficulty,
+        )
+        for c in req.candidates
+    ]
+    sel: Selection | None = select_next_multi_dim(
+        concept_mastery=cm,
+        bloom_mastery=bm,
+        candidates=cands,
+        exposure=req.exposure,
+        exposure_cap=req.exposureCap,
+        exclude=set(req.exclude),
+    )
+    if sel is None:
+        return SelectMultiDimResponse(
+            questionId=None, targetsConceptId=None, targetsBloom=None, reason=None,
+        )
+    return SelectMultiDimResponse(
+        questionId=sel.question_id,
+        targetsConceptId=sel.targets_concept_id,
+        targetsBloom=sel.targets_bloom,
+        reason=sel.reason,
+    )

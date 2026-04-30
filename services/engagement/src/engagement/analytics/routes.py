@@ -585,3 +585,26 @@ async def multi_profile_route(user_id: str, since: str | None = None) -> dict:
         "fluency": fluency,
         "confidenceBrier": brier,
     }
+
+
+# ── Phase 5 (P5-S41) — transfer-ability metric ────────────────────────────────
+
+
+@router.get("/analytics/transfer/{user_id}")
+async def transfer_route(
+    user_id: str, min_n_per_bucket: int = 3,
+) -> dict:
+    """Per-concept transfer-ability score per ADR-0017 dim 7.
+
+    Score is null when either single-tag or multi-tag attempts are
+    below `min_n_per_bucket` — honest signalling, not theatre numbers.
+    Empty list when user has no per-item outcomes recorded yet
+    (pre-S39 sessions or pre-S45 multi-tagged content).
+    """
+    from engagement.analytics import transfer as _transfer
+
+    async with sessionmaker()() as s:
+        rows = await _transfer.get_transfer_for_user(
+            s, user_id=user_id, min_n_per_bucket=min_n_per_bucket,
+        )
+    return {"userId": user_id, "transfer": rows, "minNPerBucket": min_n_per_bucket}

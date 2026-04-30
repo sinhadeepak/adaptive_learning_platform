@@ -319,6 +319,51 @@ async def _on_session_completed(msg: Msg) -> None:
                         "multi_parameter_fanout.failed session=%s", session_id
                     )
 
+                # Phase 5 (P5-S41) — per-item outcomes for transfer-ability
+                # metric. Items emit concept_tag_count; pre-S45 producers
+                # default to 1 (single-tag), so transfer scores remain
+                # null until multi-tag authoring lands. Best-effort: a
+                # write failure here MUST NOT roll back the mastery /
+                # readiness writes above.
+                try:
+                    from engagement.analytics import transfer as _transfer
+
+                    outcomes_payload = []
+                    for it in items:
+                        qid = it.get("question_id")
+                        if not qid:
+                            continue
+                        outcomes_payload.append(
+                            {
+                                "item_idx": int(it.get("item_idx") or 0),
+                                "question_id": str(qid),
+                                # v1: topic-as-root-concept identity holds, so
+                                # primary_concept_id = topic_id of the item.
+                                "primary_concept_id": str(it.get("topic_id") or topic_id),
+                                # Pre-S45 publishers omit this field → 1.
+                                "concept_tag_count": int(
+                                    it.get("concept_tag_count") or 1
+                                ),
+                                "is_correct": bool(it.get("is_correct", False)),
+                                "time_spent_ms": (
+                                    int(it["time_spent_ms"])
+                                    if it.get("time_spent_ms")
+                                    else None
+                                ),
+                            }
+                        )
+                    if outcomes_payload:
+                        await _transfer.upsert_session_item_outcomes(
+                            session,
+                            session_id=session_id,
+                            user_id=user_id,
+                            items_with_concepts=outcomes_payload,
+                        )
+                except Exception:
+                    log.exception(
+                        "transfer_outcomes.failed session=%s", session_id
+                    )
+
             await session.commit()
         with contextlib.suppress(Exception):
             await msg.ack()
