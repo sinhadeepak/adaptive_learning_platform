@@ -16,9 +16,10 @@ dependencies = [
     "nats-py>=2.9",
     "opensearch-py[async]>=2.7",
     "redis>=5.0",
-    "openai>=1.50",
+    "openai>=1.50",  # P5-S38 — sole LLM provider per user direction 2026-04-30
     "pyjwt>=2.9",
     "sympy>=1.13",  # P5-S38 — FORMULA_INPUT symbolic equivalence
+    "pyyaml>=6.0",  # P5-S38 — AI routing config + prompt template registry
     "alp-flags",
     "alp-telemetry",
 ]

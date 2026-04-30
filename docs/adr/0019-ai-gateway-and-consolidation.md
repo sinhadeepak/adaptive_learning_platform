@@ -32,13 +32,17 @@ ADR-0005 sets the service ceiling at **6 deployable services** (5 today + 1 rese
 
 **Every LLM call (authoring, quality, evaluation, translation, vision) goes through a single internal AI Gateway running as a module inside `alp-learning`. AI Authoring, Localisation, and Evaluation likewise fold into `alp-learning` as modules. No 7th service.** ADR-0005's service ceiling is preserved.
 
+**Per user direction 2026-04-30: OpenAI is the sole real LLM provider in v1** (primary `gpt-4o`, fallback `gpt-4o-mini`; structured outputs via `response_format`). The provider-abstraction architecture stays in place so a future vendor flip (Anthropic / Google / Llama) remains a config change in `ai_routing.yaml`, not a code change — but Anthropic / Google / Llama clients ship later, only when needed. The provider Literal in `ai_gateway/routing.py` is narrowed to `{openai, stub}` so a YAML typo fails Pydantic validation rather than silently routing to a non-existent provider.
+
 ### Module layout inside `alp-learning`
 
 ```
 services/learning/src/learning/
 ├── ai_gateway/        # NEW (S38) — single door for every LLM call
 │   ├── router.py             # routing config + provider dispatch
-│   ├── providers/{anthropic,openai,google,llama}.py
+│   ├── providers/{openai,stub}.py  # v1: OpenAI only + stub for tests
+│   │                                # (anthropic / google / llama deferred —
+│   │                                #  per user direction 2026-04-30)
 │   ├── pii_scrubber.py       # pre-call regex + anonymisation token map
 │   ├── quotas.py             # Redis-backed per-touchpoint + per-creator
 │   ├── prompt_registry.py    # versioned YAML loader
@@ -140,7 +144,7 @@ Per-call audit row: `(call_id, touchpoint, prompt_version, input_hash, provider,
 ### Follow-up work
 
 - [ ] `services/learning/src/learning/ai_gateway/` package — router + providers + PII scrubber + quotas + prompt registry + telemetry (P5-S38).
-- [ ] `/config/ai_routing.yaml` seeded with Anthropic primary + OpenAI fallback per touchpoint (P5-S38).
+- [x] `/config/ai_routing.yaml` seeded with OpenAI primary + OpenAI fallback per touchpoint (P5-S38). Anthropic primary deferred per user direction 2026-04-30.
 - [ ] Prompt template registry under `prompts/{authoring,quality_check,evaluation,translation,vision}/*.yaml` (P5-S38).
 - [ ] Provider clients with circuit breaker + retry + fallback wiring (P5-S38).
 - [ ] PII scrubbing middleware + anonymisation token map (P5-S38).

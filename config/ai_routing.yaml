@@ -1,0 +1,55 @@
+# AI Gateway routing config — Phase 5 (P5-S38).
+# Per ADR-0019. Reload on config-change event (future); v1 reads at
+# service startup.
+#
+# Touchpoints (fixed set; ADR amendment required to add):
+#   authoring · quality_check · evaluation · translation · vision
+#
+# Per user direction 2026-04-30: **OpenAI is the sole LLM provider in v1**.
+# The Gateway's routing-config + provider-abstraction architecture is
+# preserved (so a future vendor flip remains a config change, not a
+# code change), but Anthropic / Google / Llama clients ship later if
+# needed. Fallback uses a cheaper / faster OpenAI model so a primary
+# outage still degrades gracefully (smaller model rather than no AI).
+#
+# DPDP gating (ENG-OAQ-2) closes against OpenAI's enterprise
+# zero-data-retention tier before S38 close.
+
+routing:
+  authoring:
+    primary:    { provider: openai, model: gpt-4o,      max_tokens: 2000 }
+    fallback:   { provider: openai, model: gpt-4o-mini, max_tokens: 2000 }
+    timeout_ms: 12000
+    cost_target_per_call_usd: 0.05
+
+  quality_check:
+    primary:    { provider: openai, model: gpt-4o-mini, max_tokens: 800 }
+    fallback:   { provider: openai, model: gpt-4o-mini, max_tokens: 800 }
+    timeout_ms: 5000
+    cost_target_per_call_usd: 0.005
+
+  evaluation:
+    primary:    { provider: openai, model: gpt-4o,      max_tokens: 1500 }
+    fallback:   { provider: openai, model: gpt-4o-mini, max_tokens: 1500 }
+    timeout_ms: 15000
+    cost_target_per_call_usd: 0.03
+
+  translation:
+    primary:    { provider: openai, model: gpt-4o-mini, max_tokens: 1500 }
+    fallback:   { provider: openai, model: gpt-4o-mini, max_tokens: 1500 }
+    timeout_ms: 8000
+    cost_target_per_call_usd: 0.01
+
+  vision:
+    primary:    { provider: openai, model: gpt-4o,      max_tokens: 1000 }
+    fallback:   { provider: openai, model: gpt-4o-mini, max_tokens: 1000 }
+    timeout_ms: 10000
+
+rate_limits:
+  per_creator_per_day:
+    authoring: 50
+    quality_check: unlimited
+    translation: 100
+  platform_per_minute:
+    authoring: 200
+    evaluation: 500
