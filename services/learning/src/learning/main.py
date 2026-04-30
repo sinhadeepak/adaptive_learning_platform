@@ -52,6 +52,9 @@ from learning.localisation.routes import router as localisation_router
 # Phase 5 (P5-S45) — Admin cost dashboard
 from learning.ai_gateway.routes import router as ai_admin_router
 
+# Phase 5 (P5-S47) — Re-evaluation + calibration dashboard
+from learning.evaluation.routes import router as evaluation_router
+
 # exam blueprints (P4-S23)
 from learning.exam_blueprints.routes import router as exam_blueprints_router
 
@@ -193,6 +196,7 @@ app.include_router(grading_router)  # Phase 5 (P5-S38)
 app.include_router(ai_authoring_router)  # Phase 5 (P5-S40)
 app.include_router(localisation_router)  # Phase 5 (P5-S43)
 app.include_router(ai_admin_router)      # Phase 5 (P5-S45)
+app.include_router(evaluation_router)    # Phase 5 (P5-S47)
 app.include_router(exam_blueprints_router)
 app.include_router(pyq_router)
 app.include_router(prereqs_router)

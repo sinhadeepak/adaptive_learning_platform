@@ -83,6 +83,20 @@ def register_all_v1_handlers() -> None:
     register_handler(DiagramLabelHandler())
     register_handler(MapLocationHandler())
     register_handler(PictorialIdentifyHandler())
-    # Audio/Video + Interactive (5 gated stubs) — wire up in S47
+    # Audio/Video (2) + Interactive (3) — gated stubs (P5-S47)
+    from learning.types.audio_video.handlers import (
+        ListeningCompHandler,
+        VideoQuestionHandler,
+    )
+    from learning.types.interactive.handlers import (
+        AdaptiveDifficultyHandler,
+        KBCLifelineHandler,
+        TimedRevealHandler,
+    )
+    register_handler(ListeningCompHandler())
+    register_handler(VideoQuestionHandler())
+    register_handler(KBCLifelineHandler())
+    register_handler(TimedRevealHandler())
+    register_handler(AdaptiveDifficultyHandler())
 
     freeze_registry()
