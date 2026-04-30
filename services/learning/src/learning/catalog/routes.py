@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from learning.catalog.db import get_session
@@ -253,6 +253,39 @@ async def admin_delete_assignment(
     deleted = await CatalogRepo(session).delete_assignment(assignment_id)
     if not deleted:
         raise _not_found(f"Assignment {assignment_id} not found")
+
+
+@router.get("/topics/bulk")
+async def topics_bulk_route(
+    session: SessionDep,
+    ids: Annotated[list[str], Query()] = [],
+) -> dict:
+    """Phase 5 (P5-S37.5) — bulk topic lookup by id.
+
+    Used by alp-engagement's `learning_catalog_client` in place of
+    cross-DB JOINs against `catalog_schema.topics`. Returns
+    `{topics: [{id, title, titleHi, subjectId, examId}]}`. Missing ids
+    are absent from the result (no error). Caller passes ids via
+    repeated `?ids=…&ids=…`. Supports up to 200 ids per call.
+    """
+    if len(ids) > 200:
+        raise HTTPException(
+            status_code=400,
+            detail=Problem(code="too_many_ids", message="ids cap is 200").model_dump(),
+        )
+    rows = await CatalogRepo(session).topics_bulk(ids)
+    return {
+        "topics": [
+            {
+                "id": str(r["id"]),
+                "title": r["title"],
+                "titleHi": r.get("title_hi"),
+                "subjectId": str(r["subject_id"]),
+                "examId": str(r["exam_id"]),
+            }
+            for r in rows
+        ]
+    }
 
 
 @router.get("/topics/{topic_id}", response_model=TopicDetail)

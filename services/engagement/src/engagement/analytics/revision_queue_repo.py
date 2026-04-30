@@ -104,16 +104,19 @@ async def list_due(
     limit: int = 10,
 ) -> list[dict[str, Any]]:
     """Items where due_at <= now, ordered by due_at ASC (most overdue first).
-    Topic title is left-joined; missing titles fall back to empty string."""
+
+    Phase 5 (P5-S37.5): the previous cross-DB JOIN against
+    catalog_schema.topics for the title is removed. Caller HTTP-fetches
+    titles in bulk via `learning_client.fetch_topics_bulk`. Returns
+    rows with topicTitle="" — caller merges in the title.
+    """
     rows = (
         await session.execute(
             text(
                 f"""
                 SELECT q.topic_id, q.last_attempt_at, q.due_at,
-                       q.interval_days, q.ease_factor, q.attempts,
-                       t.title AS topic_title
+                       q.interval_days, q.ease_factor, q.attempts
                   FROM {SCHEMA}.revision_queue q
-             LEFT JOIN catalog_schema.topics t ON t.id = q.topic_id
                  WHERE q.user_id = :uid
                    AND q.due_at <= :now
                  ORDER BY q.due_at ASC, q.last_attempt_at ASC
@@ -126,7 +129,7 @@ async def list_due(
     return [
         {
             "topicId": str(r["topic_id"]),
-            "topicTitle": r["topic_title"] or "",
+            "topicTitle": "",  # filled by caller via learning_client
             "lastAttemptAt": r["last_attempt_at"],
             "dueAt": r["due_at"],
             "intervalDays": int(r["interval_days"]),

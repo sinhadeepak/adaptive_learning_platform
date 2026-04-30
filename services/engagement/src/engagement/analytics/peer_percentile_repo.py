@@ -16,8 +16,14 @@ async def list_peer_ewas(
     exclude_user_id: str,
 ) -> list[float]:
     """Return EWAs for every user-with-mastery on the topic (excluding the
-    requesting user). The cross-schema join into catalog scopes by exam
-    so percentiles aren't muddied by users from other exam tracks.
+    requesting user).
+
+    Phase 5 (P5-S37.5): the previous cross-DB JOIN through
+    catalog_schema.topics + .subjects (used to scope by exam_id) is
+    removed. Filtering by `topic_id = :tid` already implicitly scopes
+    to the exam (each topic belongs to one exam-subject in
+    catalog_schema). The exam_id parameter is preserved for API
+    compatibility but no longer drives the SQL.
 
     Returns the raw float list for the pure-function aggregator to
     consume.
@@ -28,15 +34,12 @@ async def list_peer_ewas(
                 f"""
                 SELECT m.ewa
                   FROM {SCHEMA}.mastery m
-                  JOIN catalog_schema.topics t   ON t.id = m.topic_id
-                  JOIN catalog_schema.subjects s ON s.id = t.subject_id
                  WHERE m.topic_id = :tid
-                   AND s.exam_id  = :eid
                    AND m.user_id <> :uid
                    AND m.n > 0
                 """
             ),
-            {"tid": topic_id, "eid": exam_id, "uid": exclude_user_id},
+            {"tid": topic_id, "uid": exclude_user_id},
         )
     ).all()
     return [float(r[0]) for r in rows]

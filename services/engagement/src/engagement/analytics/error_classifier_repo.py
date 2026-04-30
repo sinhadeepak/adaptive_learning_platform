@@ -50,8 +50,13 @@ async def list_classifications_for_user(
     limit: int = 1000,
 ) -> list[dict[str, Any]]:
     """Returns raw classification rows for a user, optionally filtered by
-    since_iso (an ISO-8601 timestamp string). Joins catalog_schema.topics
-    for the title."""
+    since_iso (an ISO-8601 timestamp string).
+
+    Phase 5 (P5-S37.5): the previous cross-DB JOIN against
+    catalog_schema.topics for the title is removed. Caller HTTP-fetches
+    titles in bulk via `learning_client.fetch_topics_bulk` and merges
+    into the response. Returns rows with topicTitle="".
+    """
     where = ["e.user_id = :uid"]
     params: dict[str, Any] = {"uid": user_id, "lim": limit}
     if since_iso:
@@ -63,9 +68,8 @@ async def list_classifications_for_user(
             text(
                 f"""
                 SELECT e.session_id, e.item_idx, e.topic_id, e.classification,
-                       e.classified_at, t.title AS topic_title
+                       e.classified_at
                   FROM {SCHEMA}.error_classifications e
-             LEFT JOIN catalog_schema.topics t ON t.id = e.topic_id
                  WHERE {where_clause}
                  ORDER BY e.classified_at DESC
                  LIMIT :lim
@@ -79,7 +83,7 @@ async def list_classifications_for_user(
             "sessionId": str(r["session_id"]),
             "itemIdx": int(r["item_idx"]),
             "topicId": str(r["topic_id"]),
-            "topicTitle": r["topic_title"] or "",
+            "topicTitle": "",  # filled by caller via learning_client
             "classification": r["classification"],
             "classifiedAt": r["classified_at"].isoformat() if r["classified_at"] else None,
         }

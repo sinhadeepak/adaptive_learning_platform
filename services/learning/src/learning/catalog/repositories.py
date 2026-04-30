@@ -54,6 +54,27 @@ class CatalogRepo:
         ).mappings().all()
         return [dict(r) for r in rows]
 
+    async def topics_bulk(self, topic_ids: list[str]) -> list[dict[str, Any]]:
+        """Phase 5 (P5-S37.5) — bulk topic lookup by id. Used by
+        alp-engagement's HTTP shim in place of cross-DB JOINs against
+        catalog_schema.topics. Returns id + title + subject_id + exam_id
+        per topic; missing ids are simply absent from the result."""
+        if not topic_ids:
+            return []
+        rows = (
+            await self.s.execute(
+                text(
+                    "SELECT t.id, t.title, t.title_hi, t.subject_id, "
+                    "       s.exam_id "
+                    "FROM catalog_schema.topics t "
+                    "JOIN catalog_schema.subjects s ON s.id = t.subject_id "
+                    "WHERE t.id = ANY(:ids)"
+                ),
+                {"ids": topic_ids},
+            )
+        ).mappings().all()
+        return [dict(r) for r in rows]
+
     async def topic(self, topic_id: str) -> dict[str, Any] | None:
         row = (
             await self.s.execute(

@@ -479,11 +479,22 @@ async def cohort_distribution_refresh(examId: str, topicId: str | None = None) -
 @router.get("/analytics/student/{user_id}/error-patterns")
 async def error_patterns_route(user_id: str, since: str | None = None) -> dict:
     """Per-classification rollup for a user. `since` is an ISO timestamp;
-    when omitted, returns the full history capped at 1000 rows."""
+    when omitted, returns the full history capped at 1000 rows.
+
+    Phase 5 (P5-S37.5): topic titles HTTP-merged via learning_client
+    in place of the previous cross-DB JOIN.
+    """
     async with sessionmaker()() as session:
         rows = await _error_repo.list_classifications_for_user(
             session, user_id, since_iso=since
         )
+    # HTTP-merge topic titles in bulk
+    topic_ids = list({r["topicId"] for r in rows})
+    titles = await _learning_client.fetch_topics_bulk(topic_ids)
+    for r in rows:
+        info = titles.get(r["topicId"])
+        if info:
+            r["topicTitle"] = info.get("title", "")
     rollup = _error_repo.aggregate_patterns(rows)
     return {"userId": user_id, "since": since, **rollup}
 
@@ -494,6 +505,9 @@ async def revision_due(user_id: str, limit: int = 10) -> dict:
 
     Per ADR-0014. Each row carries the SM-2 state (interval, ease factor,
     attempt count) plus a derived `overdueDays` for UI sorting.
+
+    Phase 5 (P5-S37.5): topic titles HTTP-merged via learning_client
+    in place of the previous cross-DB JOIN.
     """
     now = datetime.now(tz=UTC)
     limit = max(1, min(limit, 50))
@@ -501,6 +515,13 @@ async def revision_due(user_id: str, limit: int = 10) -> dict:
         rows = await _revision_repo.list_due(
             session, user_id, now=now, limit=limit
         )
+    # HTTP-merge topic titles in bulk
+    topic_ids = list({r["topicId"] for r in rows})
+    titles = await _learning_client.fetch_topics_bulk(topic_ids)
+    for r in rows:
+        info = titles.get(r["topicId"])
+        if info:
+            r["topicTitle"] = info.get("title", "")
     items = [
         {
             **r,
