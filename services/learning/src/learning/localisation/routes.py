@@ -192,3 +192,96 @@ async def post_glossary_upsert(
     eid = await upsert_entry(session, forced)
     await session.commit()
     return {"id": eid, "status": "upserted"}
+
+
+# ── /analytics — translation quality dashboard (P5-S48) ──────────────────────
+
+
+from learning.localisation.analytics import (  # noqa: E402
+    ACCEPTANCE_RATE_TARGET,
+    LEAD_TIME_P95_HOURS,
+    RETRANSLATION_RATE_CEILING,
+    glossary_size_per_lang_pair,
+    per_language_summary,
+)
+
+
+class TranslationAnalyticsRowOut(BaseModel):
+    language: str
+    translationsTotal: int
+    translationsPublished: int
+    translationsDraft: int
+    translationsInReview: int
+    avgAiConfidence: float | None
+    acceptanceRate: float | None
+    retranslationRate: float | None
+    culturalFlagRate: float | None
+    leadTimeP50Hours: float | None
+    leadTimeP95Hours: float | None
+
+
+class GlossaryGrowthRow(BaseModel):
+    subject: str
+    sourceLang: str
+    targetLang: str
+    entryCount: int
+
+
+class TranslationTargets(BaseModel):
+    acceptanceRateTarget: float
+    retranslationRateCeiling: float
+    leadTimeP95HoursTarget: float
+
+
+class TranslationAnalyticsResponse(BaseModel):
+    weeks: int
+    targets: TranslationTargets
+    perLanguage: list[TranslationAnalyticsRowOut]
+    glossarySize: list[GlossaryGrowthRow]
+
+
+@router.get("/analytics", response_model=TranslationAnalyticsResponse)
+async def get_translation_analytics(
+    weeks: int = 12,
+    session: AsyncSession = Depends(get_session),
+) -> TranslationAnalyticsResponse:
+    """Translation quality dashboard data.
+
+    Six metrics per ADR-0019 + glossary growth. The UI compares the
+    surfaced values against the `targets` block to render quality
+    bars without re-implementing the thresholds client-side.
+    """
+    if weeks < 1 or weeks > 52:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "bad_weeks", "message": "weeks must be between 1 and 52"},
+        )
+
+    rows = await per_language_summary(session, weeks=weeks)
+    glossary = await glossary_size_per_lang_pair(session)
+
+    return TranslationAnalyticsResponse(
+        weeks=weeks,
+        targets=TranslationTargets(
+            acceptanceRateTarget=ACCEPTANCE_RATE_TARGET,
+            retranslationRateCeiling=RETRANSLATION_RATE_CEILING,
+            leadTimeP95HoursTarget=LEAD_TIME_P95_HOURS,
+        ),
+        perLanguage=[
+            TranslationAnalyticsRowOut(
+                language=r.language,
+                translationsTotal=r.translations_total,
+                translationsPublished=r.translations_published,
+                translationsDraft=r.translations_draft,
+                translationsInReview=r.translations_in_review,
+                avgAiConfidence=r.avg_ai_confidence,
+                acceptanceRate=r.acceptance_rate,
+                retranslationRate=r.retranslation_rate,
+                culturalFlagRate=r.cultural_flag_rate,
+                leadTimeP50Hours=r.lead_time_p50_hours,
+                leadTimeP95Hours=r.lead_time_p95_hours,
+            )
+            for r in rows
+        ],
+        glossarySize=[GlossaryGrowthRow(**g) for g in glossary],
+    )
