@@ -673,21 +673,18 @@ func (svc *SessionService) Answer(logger *slog.Logger) http.HandlerFunc {
 			}
 			isCorrect = req.AnswerIdx == q.CorrectIdx
 		} else {
-			// Polymorphic types — payload + response come over the wire.
-			// We don't yet know the question's full payload here (Quiz
-			// only mirrors choices/correct_idx); alp-learning is the
-			// source of truth for the typed payload. We pass an empty
-			// payload — the grading service loads it server-side via
-			// the question_id (TODO when grading service supports
-			// id-based payload lookup; for v1 the route requires the
-			// payload, so non-MCQ submissions must include it).
+			// Polymorphic types — Quiz Go only mirrors
+			// choices/correct_idx; alp-learning is the source of truth
+			// for the typed payload. Quiz Go submits an empty payload;
+			// /grading/grade does id-based lookup against
+			// content_schema.questions (P5-S50).
 			if svc.learningClient == nil {
 				writeProblem(w, http.StatusServiceUnavailable,
 					"grading_unavailable",
 					"Quiz Go has no learning client configured for non-MCQ grading")
 				return
 			}
-			payload := map[string]any{} // TODO: id-based lookup in grading service (S39+)
+			payload := map[string]any{} // empty -> grading service does id-based lookup (P5-S50)
 			res, gradeErr := svc.learningClient.GradeRemote(
 				r.Context(),
 				"", // bearer not required for internal grading
