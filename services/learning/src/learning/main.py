@@ -37,6 +37,10 @@ from learning.catalog.flags import close_flags as close_catalog_flags
 from learning.catalog.flags import connect_flags as connect_catalog_flags
 from learning.catalog.routes import router as catalog_router
 
+# Phase 5 (P5-S38) — Type Handler registry + grading endpoint
+from learning.grading.routes import router as grading_router
+from learning.types.bootstrap import register_all_v1_handlers
+
 # exam blueprints (P4-S23)
 from learning.exam_blueprints.routes import router as exam_blueprints_router
 
@@ -100,6 +104,14 @@ async def _try(name: str, coro_factory) -> None:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
 
+    # Phase 5 (P5-S38): register all Type Handlers + freeze registry.
+    # Done before any traffic-serving connect. Sync call (not via
+    # _try) — Protocol-conformance failures must abort startup loudly,
+    # never be silently skipped. The registry's _FROZEN flag also makes
+    # this idempotent across uvicorn worker restarts since the module-
+    # global state persists per process.
+    register_all_v1_handlers()
+
     await _try("catalog.flags", connect_catalog_flags)
     await _try("content.events", content_events.connect)
     await _try("content.quiz_subscriber", content_quiz_sub.connect)
@@ -140,6 +152,7 @@ app.add_middleware(TraceContextMiddleware)
 
 # Mount every old service's router at its original URL prefix.
 app.include_router(catalog_router)
+app.include_router(grading_router)  # Phase 5 (P5-S38)
 app.include_router(exam_blueprints_router)
 app.include_router(pyq_router)
 app.include_router(prereqs_router)

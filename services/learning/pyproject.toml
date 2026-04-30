@@ -18,6 +18,7 @@ dependencies = [
     "redis>=5.0",
     "openai>=1.50",
     "pyjwt>=2.9",
+    "sympy>=1.13",  # P5-S38 — FORMULA_INPUT symbolic equivalence
     "alp-flags",
     "alp-telemetry",
 ]
