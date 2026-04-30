@@ -331,3 +331,42 @@ This is not a refactor. It is a strategic alignment between what the platform cl
 - Catalog schema (prerequisites column declared, unused): [`services/learning/alembic/catalog/versions/001_create_catalog_schema.py`](../../services/learning/alembic/catalog/versions/001_create_catalog_schema.py)
 - Master phase index: [`docs/02_planning/00_MasterPhaseIndex.md`](00_MasterPhaseIndex.md)
 - Phase 3 retrospective (closed 2026-04-28): [`docs/02_planning/22_Phase3_Retrospective.md`](22_Phase3_Retrospective.md)
+
+---
+
+# Phase 4 close-out (added 2026-04-28 at S36)
+
+Phase 4 (Sprints 22–36) executed against this audit. Each of the 16 originally-named gaps has a status row below. **Backend foundation closed for all 16 gaps**; the remaining work is content (W1), UI consolidation, mobile port, and scheduler-cron wiring — all named explicitly in carry-over lists.
+
+| # | Gap (as named in this audit) | Status | Sprint(s) | Notes |
+|---|---|---|---|---|
+| 1 | Time-per-question tracking | ✅ closed | S22 | `time_spent_ms` column + server-computed at submit (NFR-P4-02); per-section breakdown endpoint |
+| 2 | PYQ catalog | ✅ closed | S22 + S24 | Schema columns + ingest CLI + 6 sample seed; bulk content (~16K JEE) is W1 |
+| 3 | Exam paper blueprint (real-pattern, not 20Q stub) | ✅ closed | S23 | 3 seeded JEE blueprints (Main 75Q/180min + Adv P1/P2 54Q/180min) + composer + StartFromBlueprint |
+| 4 | Topic prerequisites declared but unused | ✅ closed | S26 | Migration 010 populates 7 edges over 9 topics; pure-function traversal + gate endpoint + study-plan integration + TopicDetail pill |
+| 5 | Mock orchestrator shallow (no per-section budgets, no OMR, no review queue) | ✅ closed | S23 + S25 | Section navigation + global timer + marked-for-review queue + sticky OMR-style 5-col palette + Mocks series |
+| 6 | No spaced-repetition revision queue | ✅ closed | S27 | SM-2 + EWA-clamp scheduler + revision_queue table + daily endpoint + Revision.tsx |
+| 7 | No syllabus coverage audit | ✅ closed | S28 | syllabus_chapters table + 12-chapter seed + tree endpoint + 4-band coverage aggregator + SyllabusCoverage.tsx |
+| 8 | Heuristic rank prediction dressed as calibration | ✅ closed | S31 | cohort_percentile_distribution table + idempotent aggregator + rank.py honest fallback (`percentileSource`+`cohortSize` fields) |
+| 9 | No error-pattern classification | ✅ closed | S29 | 6-axis taxonomy heuristic v1 + sign-flip + unit-pair detection + endpoint + UI helpers |
+| 10 | Section-wise analytics only on mocks | ✅ closed | S22 | Per-section breakdown on every submit via `items` array + `session_section_stats` table |
+| 11 | No peer percentile per topic | ✅ closed | S32 | Pure-function aggregator with anonymity threshold (NFR-P4-06) + endpoint + UI helpers |
+| 12 | No goal/target rank + gap analysis | ✅ closed | S30 + S33 | target_* columns + PATCH /profile/me/goals + pacing helpers + gap_analysis composer + UI helpers |
+| 13 | No reference material integration | ✅ closed | S34 | topic_references table + 16-entry seed + URL safety helper + endpoint + UI helpers; bulk W1 |
+| 14 | No real exam-mode UI | ✅ closed | S23 + S25 | Full exam-mode shell with section nav + timers + OMR palette + marked-for-review queue |
+| 15 | Achievements catalogue is generic engagement only | ✅ closed | S35 | 8 exam-prep-tied kinds via pure-function eligibility checkers; live `process_session` wiring deferred to cutover |
+| 16 | Static one-shot study plan | 🟨 partial | S30 + S33 | Pacing primitives + gap composer ship; full closed-loop recalibration with cross-service goals fetch + LLM prompt v2 + StudyPlan.tsx UI deferred to cutover |
+
+## Final reckoning
+
+When this audit was written (2026-04-28 morning), the platform's marketing claim ("AI-powered competitive exam preparation for India") was un-earned on every dimension this audit named. By Phase 4 close (2026-04-28 same day, after 15 sprints of focused depth work), **the platform has the structural primitives to defend that claim on JEE for every dimension catalogued — pending bulk content, UI consolidation, and mobile port**.
+
+The audit's three strategic gates ("quiz vs exam-prep / which exam first / depth bar") were never closed. Phase 4 was deliberately additive and reversible — the schema additions and pure-function modules are useful in either direction. If the gates ultimately favour the exam-prep narrative, the foundation is in place. If they favour staying a quiz/marketplace platform, none of the Phase 4 work was wasted: time-per-question, prereq graphs, syllabus chapters, and peer percentiles are signals quiz apps benefit from too.
+
+What remains:
+
+1. **Content workstream W1** — ~16K JEE PYQs + ~50 chapter mappings + ~150 references + 5 full-length JEE mocks. Engineering can't substitute for content effort.
+2. **AWS staging cutover sprint** — absorbs the cron-scheduling + cross-service goals fetch + UI consolidation + S35 trigger wiring. See [Phase 4 retrospective §"Inputs to AWS staging cutover"](24_Phase4_Retrospective.md).
+3. **Phase-4-Mobile standalone sprint** — Flutter port of 6 screens + 7 helper ports per the [scope catalog](Phase4_Mobile_Parity_Scope.md). All 16 backend endpoints already live.
+
+The platform engineering is no longer the bottleneck on the marketing claim. Content + scheduling are.
