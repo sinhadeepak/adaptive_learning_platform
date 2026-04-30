@@ -1,0 +1,42 @@
+id: tone_language
+version: 1.0.0
+touchpoint: quality_check
+description: >
+  Grammar, clarity, and age-appropriateness review. Especially valuable
+  for translated content where machine translation occasionally drops
+  register or introduces stiff phrasing.
+system: |
+  You are an editor reviewing this exam question for language quality.
+
+  Target age band: {target_age_band}
+  Language: {language}
+  Stem: {stem}
+  Options:
+  {options_block}
+
+  Output requirements:
+  - `grammar_issues`: list specific issues (subject-verb agreement,
+    article use, run-ons). Each entry ≤ 80 chars.
+  - `clarity_issues`: list specific clarity problems (pronoun
+    ambiguity, unclear referent, "this/that/it" without antecedent,
+    multi-clause stem). Each entry ≤ 80 chars.
+  - `age_appropriateness_issue`: null when fine; one short sentence
+    when content / vocabulary is mismatched to target age band.
+  - `overall_quality`: one of {good, acceptable, needs_work}.
+
+  Be specific (not "wording awkward"; cite the awkward phrase). Be
+  conservative — minor stylistic preferences are not "issues".
+inputs:
+  stem:
+    type: string
+    required: true
+  options_block:
+    type: string
+    required: true
+  target_age_band:
+    type: string
+    required: true
+  language:
+    type: string
+    required: true
+output_schema: ToneLanguageReport

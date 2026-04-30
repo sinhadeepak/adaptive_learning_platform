@@ -51,6 +51,34 @@ class DistractorPlausibilityReport(BaseModel):
     scores: dict[str, float]
 
 
+class SyllabusTaggingReport(BaseModel):
+    """AI-suggested concept tags + confidence per tag, plus an
+    overall confidence in the existing author tags. Caller compares
+    `ai_suggested` against author-supplied tags and flags mismatches."""
+
+    ai_suggested: list[str] = []
+    author_alignment_confidence: float = 0.0
+    reasoning: str = ""
+
+
+class DifficultyEstimationReport(BaseModel):
+    """AI difficulty prediction. Caller compares against author claim."""
+
+    predicted: Literal["EASY", "MEDIUM", "HARD"]
+    confidence: float = 0.0
+    reasoning: str = ""
+
+
+class ToneLanguageReport(BaseModel):
+    """Grammar / clarity / age-appropriateness. Each issue is a flag
+    surfaced in the moderation queue; never blocks submit."""
+
+    grammar_issues: list[str] = []
+    clarity_issues: list[str] = []
+    age_appropriateness_issue: str | None = None
+    overall_quality: Literal["good", "acceptable", "needs_work"] = "acceptable"
+
+
 # Duplicate detection is embedding-similarity-based; the v1 stub
 # returns a single similarity score against a hypothetical existing-bank
 # nearest neighbour. Real wiring lives in the duplicate_detection.py
@@ -168,6 +196,142 @@ def check_duplicate_via_similarity(
 # ── Composite runner ────────────────────────────────────────────────────────
 
 
+async def check_syllabus_tagging(
+    gateway: AIGateway,
+    *,
+    stem: str,
+    options_block: str,
+    author_concept_tags: list[str],
+    subject: str,
+    alignment_floor: float = 0.7,
+) -> QualityWarning | None:
+    """AI maps the stem to syllabus concepts; flags when the author's
+    tags drift from what the AI sees. Surfaces only when alignment
+    confidence is below `alignment_floor` (default 0.7)."""
+    report: SyllabusTaggingReport = await gateway.call(
+        touchpoint="quality_check",
+        prompt_template_id="syllabus_tagging",
+        prompt_template_version="1.0.0",
+        prompt_inputs={
+            "stem": stem,
+            "options_block": options_block,
+            "author_concept_tags": ", ".join(author_concept_tags),
+            "subject": subject,
+        },
+        schema=SyllabusTaggingReport,
+    )
+    if report.author_alignment_confidence >= alignment_floor:
+        return None
+    return QualityWarning(
+        code="syllabus_tagging",
+        severity="warning",
+        message=(
+            f"AI sees this question testing concepts {report.ai_suggested!r}; "
+            f"author tagged {author_concept_tags!r}. "
+            f"Alignment confidence: {report.author_alignment_confidence:.2f}."
+        ),
+        metadata={
+            "ai_suggested": report.ai_suggested,
+            "author_tags": author_concept_tags,
+            "alignment_confidence": report.author_alignment_confidence,
+            "reasoning": report.reasoning,
+        },
+    )
+
+
+async def check_difficulty_estimation(
+    gateway: AIGateway,
+    *,
+    stem: str,
+    options_block: str,
+    author_claimed: Literal["EASY", "MEDIUM", "HARD"],
+) -> QualityWarning | None:
+    """AI predicts difficulty; flags when prediction differs from
+    author claim. Only flagged when the AI is confident (≥0.7)."""
+    report: DifficultyEstimationReport = await gateway.call(
+        touchpoint="quality_check",
+        prompt_template_id="difficulty_estimation",
+        prompt_template_version="1.0.0",
+        prompt_inputs={
+            "stem": stem,
+            "options_block": options_block,
+            "author_claimed": author_claimed,
+        },
+        schema=DifficultyEstimationReport,
+    )
+    if report.predicted == author_claimed:
+        return None
+    if report.confidence < 0.7:
+        return None
+    return QualityWarning(
+        code="difficulty_estimation",
+        severity="info",
+        message=(
+            f"AI predicted difficulty {report.predicted!r} (conf "
+            f"{report.confidence:.2f}); author claimed {author_claimed!r}."
+        ),
+        metadata={
+            "predicted": report.predicted,
+            "author_claimed": author_claimed,
+            "confidence": report.confidence,
+            "reasoning": report.reasoning,
+        },
+    )
+
+
+async def check_tone_language(
+    gateway: AIGateway,
+    *,
+    stem: str,
+    options_block: str,
+    target_age_band: str = "high_school",
+    language: str = "en",
+) -> list[QualityWarning]:
+    """Grammar / clarity / age-appropriateness. Returns a warning per
+    issue type so the moderator queue surfaces them individually."""
+    report: ToneLanguageReport = await gateway.call(
+        touchpoint="quality_check",
+        prompt_template_id="tone_language",
+        prompt_template_version="1.0.0",
+        prompt_inputs={
+            "stem": stem,
+            "options_block": options_block,
+            "target_age_band": target_age_band,
+            "language": language,
+        },
+        schema=ToneLanguageReport,
+    )
+    out: list[QualityWarning] = []
+    if report.grammar_issues:
+        out.append(
+            QualityWarning(
+                code="tone_language",
+                severity="info",
+                message=f"Grammar issues: {'; '.join(report.grammar_issues)}",
+                metadata={"issues": report.grammar_issues, "kind": "grammar"},
+            )
+        )
+    if report.clarity_issues:
+        out.append(
+            QualityWarning(
+                code="tone_language",
+                severity="info",
+                message=f"Clarity issues: {'; '.join(report.clarity_issues)}",
+                metadata={"issues": report.clarity_issues, "kind": "clarity"},
+            )
+        )
+    if report.age_appropriateness_issue:
+        out.append(
+            QualityWarning(
+                code="tone_language",
+                severity="warning",
+                message=f"Age-appropriateness: {report.age_appropriateness_issue}",
+                metadata={"kind": "age_appropriateness"},
+            )
+        )
+    return out
+
+
 async def run_quality_checks(
     gateway: AIGateway,
     *,
@@ -175,17 +339,24 @@ async def run_quality_checks(
     correct_id: str,
     options: dict[str, str],
     nearest_neighbour: tuple[str, float] | None = None,
+    author_concept_tags: list[str] | None = None,
+    author_claimed_difficulty: Literal["EASY", "MEDIUM", "HARD"] | None = None,
+    subject: str = "general",
+    target_age_band: str = "high_school",
+    language: str = "en",
 ) -> list[QualityWarning]:
-    """Run the 3 v1 quality checks (S40). Each check is independent;
-    a single check failure logs but doesn't block the others.
+    """Run all 6 quality checks. Each check is independent; a single
+    check failure logs but doesn't block the others.
 
-    `nearest_neighbour` is an optional (text, similarity) tuple from
-    a precomputed embedding-search; absent → duplicate check skipped.
+    Checks 1-3 (S40) always run when provided their inputs.
+    Checks 4-6 (S45) only run when the relevant author signal is
+    supplied (concept_tags, claimed_difficulty) so the function stays
+    backward-compatible with S40 callers.
     """
     warnings: list[QualityWarning] = []
+    options_block = "\n".join(f"{oid}: {text}" for oid, text in options.items())
 
     # 1. Ambiguity
-    options_block = "\n".join(f"{oid}: {text}" for oid, text in options.items())
     try:
         amb = await check_ambiguity(
             gateway, stem=stem, options_block=options_block, correct_id=correct_id
@@ -193,10 +364,6 @@ async def run_quality_checks(
         if amb:
             warnings.append(amb)
     except Exception:
-        # Defensive — a Gateway failure on one check should not block
-        # the other checks. The submit path proceeds with whatever
-        # warnings did come back. Logging happens via the Gateway's
-        # own audit log + record_call metric.
         pass
 
     # 2. Distractor plausibility
@@ -220,5 +387,48 @@ async def run_quality_checks(
         )
         if dup:
             warnings.append(dup)
+
+    # 4. Syllabus tagging (S45) — needs author tags to compare against.
+    if author_concept_tags is not None:
+        try:
+            syl = await check_syllabus_tagging(
+                gateway,
+                stem=stem,
+                options_block=options_block,
+                author_concept_tags=author_concept_tags,
+                subject=subject,
+            )
+            if syl:
+                warnings.append(syl)
+        except Exception:
+            pass
+
+    # 5. Difficulty estimation (S45) — needs author claim.
+    if author_claimed_difficulty is not None:
+        try:
+            diff = await check_difficulty_estimation(
+                gateway,
+                stem=stem,
+                options_block=options_block,
+                author_claimed=author_claimed_difficulty,
+            )
+            if diff:
+                warnings.append(diff)
+        except Exception:
+            pass
+
+    # 6. Tone & language (S45) — always runs once gateway is wired.
+    try:
+        warnings.extend(
+            await check_tone_language(
+                gateway,
+                stem=stem,
+                options_block=options_block,
+                target_age_band=target_age_band,
+                language=language,
+            )
+        )
+    except Exception:
+        pass
 
     return warnings

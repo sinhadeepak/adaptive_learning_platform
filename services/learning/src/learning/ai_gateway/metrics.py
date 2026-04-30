@@ -90,9 +90,13 @@ def record_call(
     tokens_in: int = 0,
     tokens_out: int = 0,
     cost_usd: float = 0.0,
+    creator_id: str | None = None,
 ) -> None:
     """Emit metrics for one Gateway call. Cheap; safe to call on every
-    call site without conditional guards."""
+    call site without conditional guards.
+
+    Also dispatches to the in-process cost dashboard tracker (P5-S45)
+    so the admin /admin/ai-cost route has a rolling-window view."""
     _METRICS["calls"].labels(touchpoint=touchpoint, provider=provider, status=status).inc()
     _METRICS["latency"].labels(touchpoint=touchpoint, provider=provider).observe(latency_ms / 1000.0)
     if cost_usd > 0:
@@ -101,6 +105,16 @@ def record_call(
         _METRICS["tokens"].labels(touchpoint=touchpoint, provider=provider, kind="input").inc(tokens_in)
     if tokens_out > 0:
         _METRICS["tokens"].labels(touchpoint=touchpoint, provider=provider, kind="output").inc(tokens_out)
+
+    # Dispatch to dashboard tracker. Local import avoids module-load
+    # cycle (cost_dashboard does not import metrics).
+    if status == "success":
+        from learning.ai_gateway.cost_dashboard import record_cost
+        record_cost(
+            touchpoint=touchpoint, provider=provider,
+            cost_usd=cost_usd, creator_id=creator_id,
+            tokens_in=tokens_in, tokens_out=tokens_out,
+        )
 
 
 def record_cache_hit(touchpoint: str) -> None:
