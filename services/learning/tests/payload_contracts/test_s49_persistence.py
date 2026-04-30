@@ -225,6 +225,7 @@ def test_audit_log_purge_returns_zero_without_session() -> None:
     assert n == 0
     sql, params = s.calls[0]
     assert "DELETE FROM content_schema.ai_generation_jobs" in sql
+    assert "make_interval" in sql
     assert params["days"] == 90
 
 

@@ -40,7 +40,7 @@ async def upsert_translation_draft(
                 INSERT INTO {CONTENT_SCHEMA}.content_artifact_translations
                   (artifact_id, language, payload_translation, status,
                    ai_confidence, version, created_at, updated_at)
-                VALUES (:aid, :lang, :payload::jsonb, 'DRAFT',
+                VALUES (:aid, :lang, CAST(:payload AS jsonb), 'DRAFT',
                         :conf, 1, now(), now())
                 ON CONFLICT (artifact_id, language) DO UPDATE
                   SET payload_translation = EXCLUDED.payload_translation,

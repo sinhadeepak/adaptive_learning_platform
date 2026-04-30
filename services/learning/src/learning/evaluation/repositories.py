@@ -50,7 +50,7 @@ async def insert_evaluation_record(
             INSERT INTO {CONTENT_SCHEMA}.evaluation_records
               (id, response_id, evaluator_kind, evaluator_id, resolution,
                confidence, prompt_version, rubric_version, evaluated_at)
-            VALUES (:id, :rid, :kind, :eid, :resolution::jsonb,
+            VALUES (:id, :rid, :kind, :eid, CAST(:resolution AS jsonb),
                     :conf, :pv, :rv, now())
         """),
         {
@@ -106,7 +106,7 @@ async def insert_calibration_sample(
         text(f"""
             INSERT INTO {CONTENT_SCHEMA}.calibration_samples
               (id, response_id, ai_resolution, criterion, ai_score, sampled_at)
-            VALUES (:id, :rid, :res::jsonb, :cri, :s, now())
+            VALUES (:id, :rid, CAST(:res AS jsonb), :cri, :s, now())
         """),
         {
             "id": sample_id,
@@ -132,7 +132,7 @@ async def update_calibration_human_score(
         text(f"""
             UPDATE {CONTENT_SCHEMA}.calibration_samples
                SET human_score      = :hs,
-                   human_resolution = :hres::jsonb,
+                   human_resolution = CAST(:hres AS jsonb),
                    human_graded_at  = now()
              WHERE id = :id
         """),

@@ -589,6 +589,174 @@ PEER_PCT=$(curl -s "$ENGAGEMENT_URL/analytics/peer-percentile/$STUDENT_ID?examId
 assert "peer-percentile endpoint returns shape with hidden|cohortSize" \
   bash -c "echo '$PEER_PCT' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('userId')=='$STUDENT_ID' and 'cohortSize' in d and 'hidden' in d\""
 
+# =========================================================================
+# PHASE 5 (P5-S37 .. P5-S50) — multi-parameter adaptive engine
+# =========================================================================
+
+# -- 22. P5-S38: AI Gateway + grading endpoint (deterministic) -----------
+
+echo "==> P5-S38 — AI Gateway + /grading/grade (deterministic types)"
+
+# MCQ_SINGLE — payload provided.
+GRADE_MCQ=$(curl -s -X POST "$LEARNING_URL/grading/grade" \
+  -H "Content-Type: application/json" \
+  -d '{"question_id":"q-mcq","question_type":"MCQ_SINGLE","payload":{"stem":"What is 2+2?","options":[{"id":"A","text":"3"},{"id":"B","text":"4"}],"correct_id":"B"},"response":{"selected_id":"B"}}')
+assert "MCQ_SINGLE grade returns CORRECT + DETERMINISTIC mode" \
+  bash -c "echo '$GRADE_MCQ' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('status')=='CORRECT' and d.get('evaluation_mode')=='DETERMINISTIC'\""
+
+# NUMERIC_DECIMAL with tolerance.
+GRADE_NUM=$(curl -s -X POST "$LEARNING_URL/grading/grade" \
+  -H "Content-Type: application/json" \
+  -d '{"question_id":"q-num","question_type":"NUMERIC_DECIMAL","payload":{"stem":"What is pi to 2 decimals?","correct":3.14,"tolerance":0.05},"response":{"answer":3.13}}')
+assert "NUMERIC_DECIMAL grade accepts within tolerance" \
+  bash -c "echo '$GRADE_NUM' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('status')=='CORRECT'\""
+
+# Unknown question_type → 400.
+UNKNOWN_TYPE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$LEARNING_URL/grading/grade" \
+  -H "Content-Type: application/json" \
+  -d '{"question_id":"q","question_type":"WHO_KNOWS","payload":{},"response":{}}')
+assert "unknown question_type returns 400" \
+  bash -c "[ '$UNKNOWN_TYPE' = '400' ]"
+
+# P5-S50 — id-based payload lookup (legacy MCQ rows).
+SEED_QID=$(psql_q learning "SELECT id FROM content_schema.questions LIMIT 1")
+GRADE_LOOKUP=$(curl -s -X POST "$LEARNING_URL/grading/grade" \
+  -H "Content-Type: application/json" \
+  -d "{\"question_id\":\"$SEED_QID\",\"question_type\":\"MCQ_SINGLE\",\"response\":{\"selected_id\":\"A\"}}")
+assert "id-based payload lookup grades legacy MCQ rows" \
+  bash -c "echo '$GRADE_LOOKUP' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('status') in ('CORRECT','INCORRECT','UNATTEMPTED')\""
+
+# -- 23. P5-S39: multi-parameter mastery profile -------------------------
+
+echo "==> P5-S39 — multi-parameter mastery profile"
+
+PROFILE=$(curl -s "$ENGAGEMENT_URL/analytics/student/$STUDENT_ID/multi-profile")
+assert "multi-profile returns 9-dim shape (concepts, bloomMatrix, fluency, brier)" \
+  bash -c "echo '$PROFILE' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('userId')=='$STUDENT_ID' and 'concepts' in d and 'bloomMatrix' in d and 'fluency' in d and 'confidenceBrier' in d\""
+
+CONCEPT_M=$(curl -s "$ENGAGEMENT_URL/analytics/concept-mastery/$STUDENT_ID")
+assert "concept-mastery endpoint returns {userId, concepts}" \
+  bash -c "echo '$CONCEPT_M' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('userId')=='$STUDENT_ID' and isinstance(d.get('concepts'), list)\""
+
+# -- 24. P5-S40 + P5-S45: AI Authoring + 6 quality checks ---------------
+
+echo "==> P5-S40/45 — AI Authoring + quality checks"
+
+# Quality-check returns warnings list (may be empty without real AI).
+QC=$(curl -s -X POST "$LEARNING_URL/content/ai/quality-check" \
+  -H "Content-Type: application/json" \
+  -d '{"stem":"What is the capital of India?","correct_id":"B","options":{"A":"Mumbai","B":"New Delhi","C":"Kolkata","D":"Chennai"}}')
+assert "quality-check route returns warnings array" \
+  bash -c "echo '$QC' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert isinstance(d.get('warnings'), list)\""
+
+# Edit-distance helper — pure function, must always work.
+ED=$(curl -s -X POST "$LEARNING_URL/content/ai/edit-distance" \
+  -H "Content-Type: application/json" \
+  -d '{"original":{"stem":"hello world"},"current":{"stem":"hello earth"}}')
+assert "edit-distance returns per-field Levenshtein" \
+  bash -c "echo '$ED' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['distances']['stem'] > 0\""
+
+# Cost dashboard — empty totals fine; structure must hold.
+COST=$(curl -s "$LEARNING_URL/admin/ai-cost")
+assert "cost dashboard returns day/week/month rollup + alerts" \
+  bash -c "echo '$COST' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert all(k in d for k in ('day','week','month','alerts'))\""
+
+# -- 25. P5-S41: diagnostic root-cause + multi-dim selector ---------------
+
+echo "==> P5-S41 — diagnostic root-cause + multi-dim selector"
+
+ROOT=$(curl -s -X POST "$LEARNING_URL/adaptive/diagnostic/root-cause" \
+  -H "Content-Type: application/json" \
+  -d '{"primaryConceptId":"newton2","userConceptMastery":{"newton2":0.3,"newton1":0.2,"vectors":0.1},"edges":[{"fromConceptId":"newton2","toConceptId":"newton1"},{"fromConceptId":"newton1","toConceptId":"vectors"}]}')
+assert "root-cause walks prereq chain to deepest weak concept" \
+  bash -c "echo '$ROOT' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('rootCauseConceptId')=='vectors' and 'vectors' in d.get('path', [])\""
+
+SELECT=$(curl -s -X POST "$LEARNING_URL/adaptive/select-multi-dim" \
+  -H "Content-Type: application/json" \
+  -d '{"conceptMastery":{"a":{"ewa":0.95,"n":20},"b":{"ewa":0.5,"n":20}},"bloomMastery":{"a|APPLY":{"ewa":0.95,"n":20},"b|APPLY":{"ewa":0.5,"n":20}},"candidates":[{"questionId":"q1","conceptIds":["a"],"bloom":"APPLY"},{"questionId":"q2","conceptIds":["b"],"bloom":"APPLY"}]}')
+assert "multi-dim selector picks the more-uncertain (concept × bloom) cell" \
+  bash -c "echo '$SELECT' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('questionId')=='q2' and d.get('targetsConceptId')=='b'\""
+
+TRANSFER=$(curl -s "$ENGAGEMENT_URL/analytics/transfer/$STUDENT_ID")
+assert "transfer endpoint returns {userId, transfer, minNPerBucket}" \
+  bash -c "echo '$TRANSFER' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('userId')=='$STUDENT_ID' and 'transfer' in d and 'minNPerBucket' in d\""
+
+# -- 26. P5-S43: Localisation pipeline + glossary -------------------------
+
+echo "==> P5-S43 — localisation + glossary"
+
+# Glossary upsert + read-back.
+GLOSS_UP=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$LEARNING_URL/localisation/glossary/biology/en-hi" \
+  -H "Content-Type: application/json" \
+  -d '{"subject":"biology","source_lang":"en","target_lang":"hi","source_term":"photosynthesis","target_term":"प्रकाश संश्लेषण","category":"subject"}')
+assert "glossary upsert returns 200" \
+  bash -c "[ '$GLOSS_UP' = '200' ]"
+
+GLOSS=$(curl -s "$LEARNING_URL/localisation/glossary/biology/en-hi")
+assert "glossary lookup returns the upserted entry" \
+  bash -c "echo '$GLOSS' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert any(e['source_term']=='photosynthesis' for e in d.get('entries', []))\""
+
+# Translate route — uses a real seeded question id (FK to questions).
+TRANSLATE_QID=$(psql_q learning "SELECT id FROM content_schema.questions LIMIT 1")
+TRANSLATE=$(curl -s -X POST "$LEARNING_URL/localisation/translate" \
+  -H "Content-Type: application/json" \
+  -d "{\"artifactId\":\"$TRANSLATE_QID\",\"targetLang\":\"hi\",\"payload\":{\"stem\":\"What is photosynthesis?\"},\"translatablePaths\":[\"stem\"],\"sourceLang\":\"en\",\"subject\":\"biology\"}")
+assert "translate route returns persisted draft + version" \
+  bash -c "echo '$TRANSLATE' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('targetLang')=='hi' and 'persistedVersion' in d and 'payloadTranslation' in d\""
+
+# -- 27. P5-S47: gated families + re-evaluation + calibration -----------
+
+echo "==> P5-S47 — gated families + re-evaluation + calibration"
+
+# Gated handler returns PENDING_HUMAN_REVIEW with feature_disabled note.
+GATED=$(curl -s -X POST "$LEARNING_URL/grading/grade" \
+  -H "Content-Type: application/json" \
+  -d '{"question_id":"q-listen","question_type":"LISTENING_COMP","payload":{"audio_media_id":"m1","transcript":"Hello world this is a transcript with sufficient length","transcript_language":"en","child_questions":[{"question_id":"c1","ordinal":1}]},"response":{"children":[]}}')
+assert "LISTENING_COMP returns PENDING_HUMAN_REVIEW (gated)" \
+  bash -c "echo '$GATED' | python3 -c \"import sys,json; d=json.load(sys.stdin); meta=d.get('evaluator_metadata') or {}; assert d.get('status')=='PENDING_HUMAN_REVIEW' and 'feature_disabled' in (meta.get('prompt_version') or '')\""
+
+# Calibration dashboard — empty data fine; shape must hold.
+CALIB=$(curl -s "$LEARNING_URL/evaluation/calibration/dashboard?weeks=12")
+assert "calibration dashboard returns floorKappa + autoPausedCriteria" \
+  bash -c "echo '$CALIB' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('floorKappa')==0.7 and isinstance(d.get('autoPausedCriteria'), list)\""
+
+# Re-evaluation — eligibility check at first attempt is OK.
+REEVAL=$(curl -s -X POST "$LEARNING_URL/evaluation/responses/00000000-0000-0000-0000-000000000099/re-evaluate" \
+  -H "Content-Type: application/json" -d '{}')
+assert "re-evaluation route eligibility check returns triggered=true on first attempt" \
+  bash -c "echo '$REEVAL' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('eligible')==True and d.get('triggered')==True\""
+
+# -- 28. P5-S48: translation analytics dashboard --------------------------
+
+echo "==> P5-S48 — translation analytics"
+
+TR_ANL=$(curl -s "$LEARNING_URL/localisation/analytics?weeks=12")
+assert "translation analytics returns targets + per-language rows" \
+  bash -c "echo '$TR_ANL' | python3 -c \"import sys,json; d=json.load(sys.stdin); t=d.get('targets', {}); assert t.get('acceptanceRateTarget')==0.7 and t.get('retranslationRateCeiling')==0.1 and isinstance(d.get('perLanguage'), list)\""
+
+# -- 29. P5-S49: persistence — evaluation_records writer round-trip ------
+
+echo "==> P5-S49 — persistence writers"
+
+# After the translate call above, content_artifact_translations should have a DRAFT row.
+TR_DRAFT_COUNT=$(psql_q learning "SELECT COUNT(*) FROM content_schema.content_artifact_translations WHERE artifact_id='$TRANSLATE_QID' AND language='hi' AND status='DRAFT'")
+assert "translate route persists a content_artifact_translations DRAFT row" \
+  bash -c "[ '$TR_DRAFT_COUNT' -ge 1 ]"
+
+# Tables for evaluation persistence + audit log + calibration must all exist.
+TABLES=$(psql_q learning "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='content_schema' AND table_name IN ('evaluation_records','calibration_samples','ai_generation_jobs','content_artifact_translations','localisation_glossary')")
+assert "5 P5 persistence tables present in content_schema" \
+  bash -c "[ '$TABLES' -eq 5 ]"
+
+# -- 30. P5-S50: admin audit log purge -----------------------------------
+
+echo "==> P5-S50 — admin audit log purge"
+
+PURGE=$(curl -s -X POST "$LEARNING_URL/admin/ai-audit-log/purge" \
+  -H "Content-Type: application/json" -d '{"days":90}')
+assert "audit log purge returns rowsDeleted + days echo" \
+  bash -c "echo '$PURGE' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('days')==90 and 'rowsDeleted' in d\""
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then

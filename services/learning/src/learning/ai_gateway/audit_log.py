@@ -54,7 +54,7 @@ async def write_audit_row(
                        model, status, output, error_message,
                        created_at, completed_at)
                     VALUES (:id, :aid, :ptid, :pv,
-                            :model, :status, :output::jsonb, :err,
+                            :model, :status, CAST(:output AS jsonb), :err,
                             now(), now())
                 """),
                 {
@@ -84,7 +84,7 @@ async def purge_older_than_days(
         await session.execute(
             text(f"""
                 DELETE FROM {CONTENT_SCHEMA}.ai_generation_jobs
-                 WHERE created_at < now() - (:days || ' days')::interval
+                 WHERE created_at < now() - make_interval(days => :days)
                  RETURNING id
             """),
             {"days": days},
