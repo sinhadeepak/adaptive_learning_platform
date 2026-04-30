@@ -59,7 +59,19 @@ def register_all_v1_handlers() -> None:
     register_handler(FillBlankSingleHandler())
     register_handler(FillBlankMultiHandler())
     register_handler(ClozePassageHandler())
-    # Subjective family (4) — wires up in S42
+    # Subjective family (4) + SHORT_TEXT (AI_ASSISTED) — P5-S42
+    from learning.types.subjective.handlers import (
+        CaseStudyHandler,
+        ComprehensionLongHandler,
+        DescriptiveLongHandler,
+        EssayHandler,
+        ShortTextHandler,
+    )
+    register_handler(EssayHandler())
+    register_handler(DescriptiveLongHandler())
+    register_handler(CaseStudyHandler())
+    register_handler(ComprehensionLongHandler())
+    register_handler(ShortTextHandler())
     # Visual family (4) — wires up in S44
     # Audio/Video + Interactive (5 gated stubs) — wire up in S47
 

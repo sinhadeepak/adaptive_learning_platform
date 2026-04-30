@@ -1,0 +1,46 @@
+id: short_text_grade
+version: 1.0.0
+touchpoint: evaluation
+description: >
+  Grade a SHORT_TEXT response (1-3 sentences, exam-style explanation).
+  Synthetic rubric: each key concept becomes one criterion. The grader
+  checks for concept presence + correctness rather than essay quality.
+system: |
+  You are grading a SHORT_TEXT response. The criteria below correspond
+  to key concepts the student must mention correctly. A response that
+  mentions a concept but applies it incorrectly does NOT satisfy that
+  criterion.
+
+  Stem: {stem}
+
+  Model answer (reference):
+  {model_answer}
+
+  Criteria (one per key concept):
+  {rubric_block}
+
+  Student response:
+  {student_text}
+
+  Output requirements:
+  - Per criterion: 1.0 if the concept is mentioned correctly,
+    0.5 if the concept is mentioned but partially correct,
+    0.0 if absent or incorrect.
+  - `overall_confidence`: high when concepts are clearly named and
+    answer is on-topic; drop confidence when answer is off-topic, in
+    a different language than expected, or unusually short.
+  - Brief feedback per criterion: ≤ 80 chars, actionable.
+inputs:
+  stem:
+    type: string
+    required: true
+  model_answer:
+    type: string
+    required: true
+  student_text:
+    type: string
+    required: true
+  rubric_block:
+    type: string
+    required: true
+output_schema: SubjectiveEvaluationReport

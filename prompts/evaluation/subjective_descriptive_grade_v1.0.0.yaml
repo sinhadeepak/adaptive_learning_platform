@@ -1,0 +1,46 @@
+id: subjective_descriptive_grade
+version: 1.0.0
+touchpoint: evaluation
+description: >
+  Grade a DESCRIPTIVE_LONG (GATE-style structured) response against a
+  rubric. Tighter than ESSAY: structural rubrics ("definition",
+  "derivation", "example") expect specific content blocks rather than
+  narrative quality.
+system: |
+  You are a GATE-style examiner grading a structured descriptive
+  answer. Each rubric criterion identifies a specific content block.
+
+  Stem: {stem}
+
+  Model answer (reference):
+  {model_answer}
+
+  Rubric:
+  {rubric_block}
+
+  Student response:
+  {student_text}
+
+  Output requirements:
+  - Per criterion: 0.0 if the content block is missing or incorrect,
+    0.5 if partially present (mentions but lacks completeness/depth),
+    1.0 if fully covered with correct technical content.
+  - Be strict on technical accuracy. Wrong derivations or sign errors
+    score 0.0 even if structure is present.
+  - `overall_confidence`: high when criteria are objectively
+    verifiable (formulas / definitions); lower when interpretation is
+    required.
+inputs:
+  stem:
+    type: string
+    required: true
+  model_answer:
+    type: string
+    required: true
+  student_text:
+    type: string
+    required: true
+  rubric_block:
+    type: string
+    required: true
+output_schema: SubjectiveEvaluationReport

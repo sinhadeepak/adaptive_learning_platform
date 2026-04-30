@@ -133,6 +133,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if prompts_dir.exists():
             registry.load_directory(prompts_dir)
         app.state.ai_gateway = AIGateway(routing=routing, prompts=registry)
+        # P5-S42: register the singleton with the subjective handlers
+        # so type-handler evaluate() paths can grade via the same
+        # gateway without dependency-injection plumbing through Quiz.
+        from learning.types.subjective.handlers import set_singleton_gateway
+
+        set_singleton_gateway(app.state.ai_gateway)
     except Exception as exc:  # noqa: BLE001
         log.warning("learning startup: ai_gateway not available: %s", exc)
         app.state.ai_gateway = None
