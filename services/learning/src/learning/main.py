@@ -46,8 +46,11 @@ from learning.pyq.routes import router as pyq_router
 # Concept prereq graph (P4-S26)
 from learning.prereqs.routes import router as prereqs_router
 
-# Syllabus tree (P4-S28)
-from learning.syllabus.routes import router as syllabus_router
+# Syllabus tree (P4-S28) + topic references (P4-S34)
+from learning.syllabus.routes import (
+    references_router as syllabus_references_router,
+    router as syllabus_router,
+)
 
 # content
 from learning.content import events as content_events
@@ -141,6 +144,7 @@ app.include_router(exam_blueprints_router)
 app.include_router(pyq_router)
 app.include_router(prereqs_router)
 app.include_router(syllabus_router)
+app.include_router(syllabus_references_router)
 app.include_router(content_router)
 app.include_router(assignments_router)
 app.include_router(doubts_router)

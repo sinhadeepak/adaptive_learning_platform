@@ -1,4 +1,6 @@
-"""Sprint 28 (P4-S28) — syllabus tree read helpers."""
+"""Sprint 28 (P4-S28) — syllabus tree read helpers.
+Sprint 34 (P4-S34) — adds topic_references read helper.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +9,41 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from learning.syllabus.url_safety import is_safe_reference_url
+
 SCHEMA = "catalog_schema"
+
+
+async def list_topic_references(
+    session: AsyncSession, topic_id: str
+) -> list[dict[str, Any]]:
+    """Return topic references in display order. URLs are filtered through
+    `is_safe_reference_url` so a malformed/unsafe entry never reaches the
+    student UI even if it slipped through authoring."""
+    rows = (
+        await session.execute(
+            text(
+                f"""
+                SELECT id, kind, title, url, position
+                  FROM {SCHEMA}.topic_references
+                 WHERE topic_id = :tid
+                 ORDER BY position ASC, created_at ASC
+                """
+            ),
+            {"tid": topic_id},
+        )
+    ).mappings().all()
+    return [
+        {
+            "id": str(r["id"]),
+            "kind": r["kind"],
+            "title": r["title"],
+            "url": r["url"],
+            "position": int(r["position"]),
+        }
+        for r in rows
+        if is_safe_reference_url(r["url"])
+    ]
 
 
 async def load_syllabus_tree(
