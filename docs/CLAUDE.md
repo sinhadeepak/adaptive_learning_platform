@@ -1,6 +1,6 @@
 # AdaptiveLearn Platform — Claude Project Context
 
-**Last refresh**: 2026-04-26 — reconciled after end-to-end smoke of S4 deliverables on the running stack (bridge, Hindi seed, drift recovery all verified live).
+**Last refresh**: 2026-04-30 — Phase 4 closed (S22–S36 all shipped, exam-prep depth gap closed); Phase 5 multi-parameter engine plan locked via [ADR-0017](adr/0017-multi-parameter-assessment-engine.md), [ADR-0018](adr/0018-polymorphic-question-types-and-resolution.md), [ADR-0019](adr/0019-ai-gateway-and-consolidation.md).
 **Authoritative cross-link**: [`docs/02_planning/00_MasterPhaseIndex.md`](02_planning/00_MasterPhaseIndex.md) — phase + sprint state.
 **For UI/design work**: [`docs/ui/00_MASTER_README.md`](ui/00_MASTER_README.md) — design tokens, 109 screens, ALP.* component library.
 
@@ -21,12 +21,15 @@ Full-stack AI developer. I own the entire codebase — backend services, three w
 | Phase | Sprints | Status |
 |---|---|---|
 | Phase 0 — Foundation | 1 | ✅ done |
-| Phase 1 — India launch | 4 | ✅ S1+S2+S3+S4 closed; **S5 = staging deploy + remaining carry-overs (AWS-blocked)** |
-| Phase 2 — Global expansion (Q4 2026) | 5 | ❌ all pending |
-| Phase 3 — Platform evolution (2027) | 6 | ❌ all pending |
-| **Total** | **16** | **~11 pending** (Phase 1 complete bar staging-deploy carry-over) |
+| Phase 1 — India launch | 4 + 3 emergent | ✅ S1+S2+S3+S4 closed + S5/S6/S7 emergent closed; **staging cutover sprint = AWS-blocked** |
+| Phase 2 — Payment + Educator + Realtime + Insights | 5 + 2 emergent | ✅ all 7 sprints closed (S8–S14) |
+| Phase 3 — Platform Evolution (Marketplaces) | 6 (S15–S21 = P3-S0..S6) | ✅ all closed |
+| Phase 4 — Exam-Prep Depth | 15 (S22–S36 = P4-S22..S36) | ✅ all closed 2026-04-30 |
+| Phase 5 — Multi-Parameter Engine | 12 (S37–S48 = P5-S37..S48) | 🟡 DRAFT — 3 ADRs proposed (0017, 0018, 0019); S37 schema + payload contracts next |
+| **Final cutover sprint** | 1 | AWS-blocked (gates Phase 1+2+3+4 launch) |
+| **Total** | **49 sprints** to staging push | ~13 pending (Phase 5 + cutover) |
 
-Master index: [`docs/02_planning/00_MasterPhaseIndex.md`](02_planning/00_MasterPhaseIndex.md). Per-PR map of what shipped lives in that index too.
+Master index: [`docs/02_planning/00_MasterPhaseIndex.md`](02_planning/00_MasterPhaseIndex.md). Per-PR map of what shipped lives in that index too. Phase 5 build plan: [`/home/deepak/.claude/plans/gentle-popping-diffie.md`](../../.claude/plans/gentle-popping-diffie.md). Phase 5 sprint plan in repo: [`docs/02_planning/54_Phase5_MultiParameterEngine_SprintPlan.md`](02_planning/54_Phase5_MultiParameterEngine_SprintPlan.md).
 
 ---
 
@@ -50,13 +53,27 @@ ADRs are four-digit-numbered: `docs/adr/0001-*.md`, etc.
 - **Mobile**: **Flutter** (per ADR-0002). Not native Swift/Kotlin.
 - **Design system**: `packages/design-system` (TS + CSS tokens), `packages/design-tokens-flutter` (Dart tokens). Source of truth: [`docs/ui/`](ui/).
 
-**AI/ML**:
+**AI/ML** (today):
 - **Adaptive Engine**: 3PL IRT (a, b, c per item — calibrated since PR #25) + EAP estimator + MFI selector. Pure stdlib Python, no numpy yet.
 - **Mastery model**: EWA with **α = 0.4** (`services/engagement/src/engagement/analytics/mastery.py`). Cold-start seeds with first score.
 - **Readiness score**: `mean(per-topic EWAs)` over user's mastery set. Range 0–1 (UI may render as 0–100).
 - **Streak**: consecutive UTC days of activity, current + longest (PR #34).
-- **Predictive (drop-out, recommendations)**: Phase 3 — see [`docs/02_planning/21_Phase3_SprintDevelopmentPlan.md`](02_planning/21_Phase3_SprintDevelopmentPlan.md).
-- **LLM**: Anthropic Claude — currently not wired in production code paths; staged for Phase 2+.
+- **Predictive (drop-out, recommendations)**: Phase 3 (P3-S5) — heuristic v1 in `services/engagement/src/engagement/analytics/predictive*.py`.
+- **6-axis error classifier** (S29 / [ADR-0016](adr/0016-error-pattern-classification.md)): silly_mistake / conceptual_gap / time_pressure / formula_error / sign_or_unit_error / unattempted.
+- **SM-2 spaced repetition with EWA-clamp** (S27 / [ADR-0014](adr/0014-spaced-repetition-scheduling.md)): per-(user, topic) revision queue.
+- **Cohort percentile + peer percentile** (S31, S32 / [ADR-0015](adr/0015-calibrated-rank-prediction.md)): honest fallback signalling — `percentileSource: "cohort" | "fallback"`, anonymity threshold (cohort < 30 → hidden).
+- **LLM**: Anthropic Claude — Phase 3 study-plan / weakness diagnosis / tutor chat ship with heuristic-degrade fallback when no API key. Phase 5 wires Claude through the AI Gateway for authoring + quality + evaluation + translation + vision.
+
+**AI/ML — Phase 5 build (DRAFT, S37–S48)** per [ADR-0017](adr/0017-multi-parameter-assessment-engine.md), [ADR-0018](adr/0018-polymorphic-question-types-and-resolution.md), [ADR-0019](adr/0019-ai-gateway-and-consolidation.md):
+- **9-dimension multi-parameter assessment** at concept grain — concept mastery, Bloom-level cognitive depth, fluency, accuracy patterns, retention, confidence calibration, transfer ability, procedural skill, strategic test-taking.
+- **Knowledge Graph**: `catalog_schema.concepts` + `concept_edges` + `skills` (S37). Topics seed as `kind='topic_root'` concepts (UUID reused). Edge types: `is_prerequisite_of`, `is_specialisation_of`, `is_applied_in`, `is_example_of`, `is_tested_by`, `is_taught_by`, `appears_in_blueprint`, `is_common_mistake_for`.
+- **22 question types via Type Handler Protocol** (8 families: objective / numeric / matching / fill-in / subjective / visual / audio-video / interactive). Each type registers in `learning.types.registry`; adding a 23rd type is one new module + one registry line.
+- **Resolution contract** (never marks): `{status, matched_count, total_count, per_part, evaluation_mode, evaluator_metadata}`. Marks live in Quiz/Test orchestration only.
+- **AI Gateway as module inside alp-learning** (no 7th service per ADR-0005). Provider-agnostic (Anthropic / OpenAI / Google / self-hosted Llama). Routing config per touchpoint (authoring / quality_check / evaluation / translation / vision). Structured-output enforcement, PII scrubbing, per-touchpoint + per-creator quotas, 90-day audit log, cost dashboard.
+- **AI Authoring**: `draft_question` / `expand_explanation` / `suggest_distractors` + 6 quality checks (ambiguity / plausibility / duplicate / syllabus / difficulty / tone). AI_DRAFT marker on outputs; never publishes without human review.
+- **AI Evaluation**: HYBRID mode for ESSAY / DESCRIPTIVE_LONG / CASE_STUDY / COMPREHENSION_LONG. Confidence-based escalation (≥0.95 auto, 0.75–0.95 sample 5%, < 0.75 to human). Cohen's kappa per criterion; auto-pause at < 0.7.
+- **Localisation pipeline**: Hindi at v1; Tamil/Telugu/Bengali/Marathi at Phase 2. Per-type `translatable_fields()` walker + glossary injection + per-language reviewer + cultural review queue. Publish independence per language.
+- **Multi-parameter mastery tables** (S39): `analytics_schema.{concept_mastery, bloom_mastery, fluency, confidence_calibration, procedure_attempts}`. process_session fan-out is best-effort try/except per existing pattern.
 
 ---
 
@@ -145,6 +162,13 @@ Defined in `docs/ui/00_MASTER_README.md`. Implementing screens MUST consume thes
 | Readiness update latency p95 | < 1s | within SLO under live JetStream consumer; backfill is async batch |
 | 5xx error rate | < 0.1% | not measured yet |
 | Recommendation latency p95 | < 800ms | feature is Phase 3 |
+| AI Gateway availability (Phase 5+) | 99.5% | Phase 5 design; not yet built |
+| AI authoring draft latency p95 | < 15 s | Phase 5 design |
+| AI evaluation latency p95 (AI_ASSISTED) | < 8 s | Phase 5 design |
+| AI evaluation kappa per criterion (HYBRID) | ≥ 0.7 | Phase 5 design; auto-pause if below |
+| Translation lead time HI p95 | < 36 h | Phase 5 design |
+| Cost per published question (authoring + quality + translation) | ≤ ₹0.20 | Phase 5 design |
+| Cost per evaluated subjective response | ≤ ₹0.05 | Phase 5 design |
 
 ---
 
@@ -171,12 +195,12 @@ The 12 original services collapsed into **5 deployables + 1 reserved P3 slot**. 
 |---|---|---|---|---|---|
 | **alp-identity** | Py/FastAPI | auth, user-profile (renamed to `profile` sub-package), institution | `/auth/* /profile/* /institution/* /flags/*` | `identity` (3 schemas) | publishes `user.created`, `flag.changed`; subscribes `payment.subscription.changed` |
 | **alp-payment** | Py/FastAPI | payment (standalone, see ADR-0005 triggers) | `/payment/*` | `payment` | publishes `payment.subscription.changed` |
-| **alp-learning** | Py/FastAPI | catalog, content, doubts, search, adaptive-engine (renamed to `adaptive`) | `/catalog/* /content/* /doubts/* /search/* /adaptive/* /irt/* /strategy/select /admin/reindex` | `learning` (3 schemas; search has none) + OpenSearch + Redis | publishes `content.question.published`, `content.assignment.created`; subscribes `quiz.session.completed` |
-| **alp-quiz** | Go | quiz | `/quiz/*` | `quiz` (1 schema) | publishes `quiz.session.completed`; subscribes `content.question.published` |
-| **alp-engagement** | Py/FastAPI | analytics, notification | `/analytics/* /notifications/*` | `engagement` (2 schemas) | subscribes `quiz.session.completed`, `content.assignment.created` |
-| **alp-marketplace** | TBD | tutor, creator marketplace, revenue-share | TBD | TBD | TBD (Phase 3) |
+| **alp-learning** | Py/FastAPI | catalog, content, doubts, search, adaptive-engine (renamed to `adaptive`) + Phase 5 modules: `types`, `kg`, `ai_gateway`, `ai_authoring`, `localisation`, `evaluation`, `grading` | `/catalog/* /content/* /doubts/* /search/* /adaptive/* /irt/* /strategy/select /admin/reindex /grading/* /localisation/*` (Phase 5+) | `learning` (3 schemas + Phase 5 additions: concepts, concept_edges, skills, evaluation_rubrics, evaluation_records, ai_generation_jobs, content_artifact_translations, content_media, localisation_glossary, calibration_samples, exam_question_type_support) + OpenSearch + Redis | publishes `content.question.published`, `content.assignment.created`; subscribes `quiz.session.completed` |
+| **alp-quiz** | Go | quiz (Phase 5 extends with type-aware grading branch + Go ports of DETERMINISTIC handlers) | `/quiz/*` | `quiz` (1 schema) | publishes `quiz.session.completed` (Phase 5: extends `SessionItemEvent` with `student_response_payload` + `confidence`, both omitempty); subscribes `content.question.published` |
+| **alp-engagement** | Py/FastAPI | analytics, notification (Phase 5 extends with concept_mastery, bloom_mastery, fluency, confidence_calibration, procedure_attempts) | `/analytics/* /notifications/*` | `engagement` (2 schemas + Phase 5 additions) | subscribes `quiz.session.completed`, `content.assignment.created` |
+| **alp-marketplace** | Py/FastAPI | tutor, creator marketplace, revenue-share | `/marketplace/*` | `marketplace` (1 schema) | publishes `marketplace.*` |
 
-**Service ceiling = 6** (5 today + Marketplace). New domains in Phase 2/3 land as *modules* inside one of the existing services unless a new ADR justifies a boundary.
+**Service ceiling = 6** (5 today + Marketplace). New domains in Phase 2/3/4/5 land as *modules* inside one of the existing services unless a new ADR justifies a boundary. Phase 5 (per [ADR-0019](adr/0019-ai-gateway-and-consolidation.md)) folds AI Gateway + AI Authoring + Localisation + Evaluation as modules inside `alp-learning` — **no 7th service**.
 
 Frontend (unchanged by consolidation): three React+Vite apps (`apps/web-student`, `apps/web-portal`, `apps/web-admin`) + Flutter mobile (`apps/mobile`).
 
