@@ -46,6 +46,9 @@ from learning.ai_authoring.routes import router as ai_authoring_router
 from learning.ai_gateway import AIGateway, PromptRegistry, load_routing
 from learning.ai_gateway.routing import default_stub_config
 
+# Phase 5 (P5-S43) — Localisation (depends on AI Gateway)
+from learning.localisation.routes import router as localisation_router
+
 # exam blueprints (P4-S23)
 from learning.exam_blueprints.routes import router as exam_blueprints_router
 
@@ -185,6 +188,7 @@ app.add_middleware(TraceContextMiddleware)
 app.include_router(catalog_router)
 app.include_router(grading_router)  # Phase 5 (P5-S38)
 app.include_router(ai_authoring_router)  # Phase 5 (P5-S40)
+app.include_router(localisation_router)  # Phase 5 (P5-S43)
 app.include_router(exam_blueprints_router)
 app.include_router(pyq_router)
 app.include_router(prereqs_router)
