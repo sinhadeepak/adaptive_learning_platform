@@ -198,7 +198,7 @@ class PictorialOption(BaseModel):
 
 
 class PictorialIdentifyResponse(BaseModel):
-    selected_id: str | None
+    selected_id: str | None = None
 
 
 PictorialIdentifyPayload.model_rebuild()

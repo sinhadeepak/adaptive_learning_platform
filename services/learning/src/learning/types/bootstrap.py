@@ -72,7 +72,17 @@ def register_all_v1_handlers() -> None:
     register_handler(CaseStudyHandler())
     register_handler(ComprehensionLongHandler())
     register_handler(ShortTextHandler())
-    # Visual family (4) — wires up in S44
+    # Visual family (4) — P5-S44
+    from learning.types.visual.handlers import (
+        DiagramHotspotHandler,
+        DiagramLabelHandler,
+        MapLocationHandler,
+        PictorialIdentifyHandler,
+    )
+    register_handler(DiagramHotspotHandler())
+    register_handler(DiagramLabelHandler())
+    register_handler(MapLocationHandler())
+    register_handler(PictorialIdentifyHandler())
     # Audio/Video + Interactive (5 gated stubs) — wire up in S47
 
     freeze_registry()
