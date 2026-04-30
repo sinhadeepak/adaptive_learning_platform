@@ -405,6 +405,41 @@ from engagement.analytics import error_classifier_repo as _error_repo  # noqa: E
 # Sprint 31 (P4-S31) — cohort percentile distribution.
 from engagement.analytics import cohort_percentile as _cohort  # noqa: E402
 
+# Sprint 32 (P4-S32) — peer percentile per topic.
+from engagement.analytics import peer_percentile as _peer_pct  # noqa: E402
+from engagement.analytics import peer_percentile_repo as _peer_repo  # noqa: E402
+
+
+@router.get("/analytics/peer-percentile/{user_id}")
+async def peer_percentile_route(
+    user_id: str, examId: str, topicId: str
+) -> dict:
+    """Per-(user, topic, exam) percentile vs cohort. Hidden when cohort
+    < 30 (NFR-P4-06)."""
+    async with sessionmaker()() as session:
+        user_ewa = await _peer_repo.get_user_topic_ewa(
+            session, user_id=user_id, topic_id=topicId
+        )
+        if user_ewa is None:
+            return {
+                "userId": user_id,
+                "examId": examId,
+                "topicId": topicId,
+                "hidden": True,
+                "reason": "user_has_no_mastery",
+                "cohortSize": 0,
+            }
+        peers = await _peer_repo.list_peer_ewas(
+            session, exam_id=examId, topic_id=topicId, exclude_user_id=user_id
+        )
+    summary = _peer_pct.summarise_percentile(user_ewa, peers)
+    return {
+        "userId": user_id,
+        "examId": examId,
+        "topicId": topicId,
+        **summary,
+    }
+
 
 @router.get("/analytics/cohort-distribution")
 async def cohort_distribution_route(examId: str, topicId: str | None = None) -> dict:

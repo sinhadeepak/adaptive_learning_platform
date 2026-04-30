@@ -561,6 +561,34 @@ PATTERNS=$(curl -s "$ENGAGEMENT_URL/analytics/student/$STUDENT_ID/error-patterns
 assert "error-patterns endpoint returns shape {userId, totals, topPatterns}" \
   bash -c "echo '$PATTERNS' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('userId')=='$STUDENT_ID' and isinstance(d.get('totals'), dict) and isinstance(d.get('topPatterns'), list)\""
 
+# -- 19. Sprint 30 (P4-S30): target goals ---------------------------------
+
+echo "==> Sprint 30 (P4-S30) — target goals"
+
+GOALS_RESP=$(curl -s -X PATCH "$IDENTITY_URL/profile/me/goals" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"targetExamId\":\"$JEE_MAIN_ID\",\"targetExamDate\":\"2027-01-15\",\"targetRank\":5000}")
+assert "goals patch returns persisted target_rank" \
+  bash -c "echo '$GOALS_RESP' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('targetRank')==5000 and d.get('targetExamDate')=='2027-01-15'\""
+
+# -- 20. Sprint 31 (P4-S31): cohort percentile distribution ---------------
+
+echo "==> Sprint 31 (P4-S31) — cohort percentile distribution"
+
+COHORT_DIST=$(curl -s "$ENGAGEMENT_URL/analytics/cohort-distribution?examId=$JEE_MAIN_ID")
+assert "cohort distribution endpoint returns shape {examId, totalUsers, buckets}" \
+  bash -c "echo '$COHORT_DIST' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('examId')=='$JEE_MAIN_ID' and 'totalUsers' in d and isinstance(d.get('buckets'), list)\""
+
+# -- 21. Sprint 32 (P4-S32): peer percentile per topic --------------------
+
+echo "==> Sprint 32 (P4-S32) — peer percentile per topic"
+
+MECH_TOPIC_ID="33333333-0000-0000-0000-000000000001"
+PEER_PCT=$(curl -s "$ENGAGEMENT_URL/analytics/peer-percentile/$STUDENT_ID?examId=$JEE_MAIN_ID&topicId=$MECH_TOPIC_ID")
+assert "peer-percentile endpoint returns shape with hidden|cohortSize" \
+  bash -c "echo '$PEER_PCT' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('userId')=='$STUDENT_ID' and 'cohortSize' in d and 'hidden' in d\""
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then
