@@ -471,12 +471,17 @@ func (s *Store) GetCurrentItem(ctx context.Context, sessionID uuid.UUID) (domain
 func (s *Store) GetQuestion(ctx context.Context, id uuid.UUID) (domain.Question, error) {
 	var q domain.Question
 	var choicesJSON []byte
+	// COALESCE handles environments where the question_type column
+	// hasn't been migrated yet (defensive — pre-S38 backfill assumed
+	// MCQ_SINGLE for all 480 rows; the column default also handles this).
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
-		       discrimination_a, guessing_c, language, status, explanation
+		       discrimination_a, guessing_c, language, status, explanation,
+		       COALESCE(question_type, 'MCQ_SINGLE')
 		FROM quiz_schema.questions WHERE id = $1`, id,
 	).Scan(&q.ID, &q.TopicID, &q.Stem, &choicesJSON, &q.CorrectIdx, &q.DifficultyB,
-		&q.DiscriminationA, &q.GuessingC, &q.Language, &q.Status, &q.Explanation)
+		&q.DiscriminationA, &q.GuessingC, &q.Language, &q.Status, &q.Explanation,
+		&q.QuestionType)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return q, ErrQuestionNotFound
 	}

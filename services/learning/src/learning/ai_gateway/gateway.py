@@ -17,9 +17,11 @@ import time
 import uuid
 from typing import Any
 
+from learning.ai_gateway.metrics import record_call
 from learning.ai_gateway.pii_scrubber import scrub_payload
 from learning.ai_gateway.prompt_registry import PromptRegistry
 from learning.ai_gateway.providers import OpenAIProvider, Provider, ProviderError, StubProvider
+from learning.ai_gateway.quotas import QuotaChecker, QuotaConfig, QuotaExceededError
 from learning.ai_gateway.routing import RoutingConfig, default_stub_config
 
 log = logging.getLogger(__name__)
@@ -47,6 +49,7 @@ class AIGateway:
         routing: RoutingConfig | None = None,
         prompts: PromptRegistry | None = None,
         providers: dict[str, Provider] | None = None,
+        quotas: QuotaChecker | None = None,
     ) -> None:
         self.routing = routing or default_stub_config()
         self.prompts = prompts or PromptRegistry()
@@ -54,6 +57,10 @@ class AIGateway:
         # works without API keys; OpenAI lazy-loads when first used.
         self._providers: dict[str, Provider] = providers or {"stub": StubProvider()}
         self._openai_lazy: OpenAIProvider | None = None
+        # Quota check is opt-in. None = no enforcement (fail-open).
+        # S40+ wires the Redis-backed checker via Depends() — see
+        # ai_gateway/quotas.make_redis_incr_fn.
+        self._quotas = quotas or QuotaChecker(QuotaConfig(), incr_fn=None)
 
     # ── Public API ───────────────────────────────────────────────────────
 
@@ -65,18 +72,26 @@ class AIGateway:
         prompt_template_version: str,
         prompt_inputs: dict[str, Any],
         schema: type,
+        creator_id: str | None = None,
     ) -> Any:
         """Make an LLM call. Returns a validated `schema` instance.
 
         Per ADR-0019: explicit `(prompt_template_id, version)`; no
-        implicit "latest". PII scrubbing pre-call. Fallback on primary
-        failure. Audit log per call. AIGatewayError raised when both
-        primary and fallback fail.
+        implicit "latest". PII scrubbing pre-call. Quota check before
+        provider dispatch. Fallback on primary failure. Audit log per
+        call. AIGatewayError raised when both primary and fallback
+        fail. QuotaExceededError raised when over-quota (caller
+        surfaces as 429 with reset_at).
         """
         if touchpoint not in self.routing.routing:
             raise AIGatewayError(
                 f"no routing config for touchpoint {touchpoint!r}"
             )
+
+        # Quota check — pre-provider so over-quota fails fast without
+        # burning a token. QuotaExceededError propagates to caller.
+        await self._quotas.check(touchpoint=touchpoint, creator_id=creator_id)
+
         tp_routing = self.routing.routing[touchpoint]
 
         # Look up prompt template — explicit version, no fallback.
@@ -126,8 +141,17 @@ class AIGateway:
                     tokens_out=result.tokens_out,
                     status="success",
                 )
+                record_call(
+                    touchpoint=touchpoint,
+                    provider=provider.name,
+                    status="success",
+                    latency_ms=result.latency_ms,
+                    tokens_in=result.tokens_in,
+                    tokens_out=result.tokens_out,
+                )
                 return validated
             except ProviderError as e:
+                err_latency_ms = int((time.monotonic() - started) * 1000)
                 _audit(
                     call_id=call_id,
                     touchpoint=touchpoint,
@@ -137,10 +161,16 @@ class AIGateway:
                     provider=provider.name,
                     model=provider_cfg.model,
                     attempt_role=attempt_role,
-                    latency_ms=int((time.monotonic() - started) * 1000),
+                    latency_ms=err_latency_ms,
                     tokens_in=0,
                     tokens_out=0,
                     status=f"error:{type(e).__name__}",
+                )
+                record_call(
+                    touchpoint=touchpoint,
+                    provider=provider.name,
+                    status=f"error:{attempt_role}",
+                    latency_ms=err_latency_ms,
                 )
                 if not e.retryable:
                     # Non-retryable on primary still tries fallback;

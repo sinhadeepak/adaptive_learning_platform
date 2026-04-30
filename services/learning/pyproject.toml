@@ -20,6 +20,7 @@ dependencies = [
     "pyjwt>=2.9",
     "sympy>=1.13",  # P5-S38 — FORMULA_INPUT symbolic equivalence
     "pyyaml>=6.0",  # P5-S38 — AI routing config + prompt template registry
+    "prometheus-client>=0.20",  # P5-S38 — AI Gateway metrics (calls, latency, cost, tokens, cache)
     "alp-flags",
     "alp-telemetry",
 ]

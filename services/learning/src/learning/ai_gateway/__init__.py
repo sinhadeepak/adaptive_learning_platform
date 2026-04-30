@@ -15,8 +15,14 @@ Public surface:
 from __future__ import annotations
 
 from learning.ai_gateway.gateway import AIGateway, AIGatewayError
-from learning.ai_gateway.routing import RoutingConfig, TouchpointRouting, load_routing
 from learning.ai_gateway.prompt_registry import PromptRegistry, PromptTemplate
+from learning.ai_gateway.quotas import (
+    QuotaChecker,
+    QuotaConfig,
+    QuotaExceededError,
+    make_redis_incr_fn,
+)
+from learning.ai_gateway.routing import RoutingConfig, TouchpointRouting, load_routing
 
 __all__ = [
     "AIGateway",
@@ -26,4 +32,8 @@ __all__ = [
     "load_routing",
     "PromptRegistry",
     "PromptTemplate",
+    "QuotaChecker",
+    "QuotaConfig",
+    "QuotaExceededError",
+    "make_redis_incr_fn",
 ]

@@ -6,6 +6,7 @@
 package learning
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -107,6 +108,80 @@ func (c *Client) FetchComposedPaper(
 	}
 	if len(out.Items) == 0 {
 		return &out, ErrEmptyPaper
+	}
+	return &out, nil
+}
+
+// GradeRequest is the wire shape Quiz Go sends to alp-learning's
+// /grading/grade endpoint for non-MCQ types per ADR-0018.
+type GradeRequest struct {
+	QuestionID   string                 `json:"question_id"`
+	QuestionType string                 `json:"question_type"`
+	Payload      map[string]interface{} `json:"payload"`
+	Response     map[string]interface{} `json:"response"`
+	Language     string                 `json:"language"`
+}
+
+// Resolution is the wire shape /grading/grade returns. Mirrors the
+// Pydantic Resolution model; never carries marks (per ADR-0018).
+type Resolution struct {
+	QuestionID        string                 `json:"question_id"`
+	TypeID            string                 `json:"type_id"`
+	Status            string                 `json:"status"` // CORRECT|PARTIAL_CORRECT|INCORRECT|UNATTEMPTED|PENDING_HUMAN_REVIEW
+	MatchedCount      int                    `json:"matched_count"`
+	TotalCount        int                    `json:"total_count"`
+	PerPart           []map[string]interface{} `json:"per_part"`
+	EvaluationMode    string                 `json:"evaluation_mode"`
+	EvaluatorMetadata map[string]interface{} `json:"evaluator_metadata"`
+}
+
+// GradeRemote calls POST /grading/grade for non-MCQ question types.
+// Per ADR-0018: DETERMINISTIC types eligible for inline Go grading
+// stay on the existing answer-idx-equality path; AI_ASSISTED / HYBRID
+// / HUMAN types and any non-MCQ DETERMINISTIC type that lacks a Go
+// port route here.
+func (c *Client) GradeRemote(
+	ctx context.Context,
+	bearerToken string,
+	questionID string,
+	questionType string,
+	payload map[string]interface{},
+	response map[string]interface{},
+	language string,
+) (*Resolution, error) {
+	if language == "" {
+		language = "en"
+	}
+	body, err := json.Marshal(GradeRequest{
+		QuestionID:   questionID,
+		QuestionType: questionType,
+		Payload:      payload,
+		Response:     response,
+		Language:     language,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal grade request: %w", err)
+	}
+	url := fmt.Sprintf("%s/grading/grade", c.BaseURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("build grade request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if bearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+bearerToken)
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("call grading: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return nil, fmt.Errorf("grading responded %d", resp.StatusCode)
+	}
+	var out Resolution
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("decode grade response: %w", err)
 	}
 	return &out, nil
 }

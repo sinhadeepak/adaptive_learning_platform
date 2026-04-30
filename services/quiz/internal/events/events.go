@@ -70,6 +70,14 @@ type SessionItemEvent struct {
 	SectionID   string `json:"section_id,omitempty"`
 	IsCorrect   bool   `json:"is_correct"`
 	TimeSpentMs int32  `json:"time_spent_ms,omitempty"`
+	// Phase 5 (P5-S38) — polymorphic types carry the structured
+	// student response payload so engagement can drive concept-mastery
+	// + bloom-mastery + fluency fan-out without re-fetching the
+	// per-item details. omitempty for MCQ_SINGLE rows (their is_correct
+	// + answerIdx already encode the response). Pre-S38 consumers
+	// ignore these fields.
+	StudentResponsePayload map[string]any `json:"student_response_payload,omitempty"`
+	Confidence             *float32       `json:"confidence,omitempty"`
 }
 
 // JetStreamPublisher publishes to the QUIZ_EVENTS JetStream stream.

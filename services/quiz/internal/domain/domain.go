@@ -55,6 +55,9 @@ type Question struct {
 	Language        string
 	Status          string
 	Explanation     *string
+	// Phase 5 (P5-S38) — polymorphic type discriminator. Defaults to
+	// "MCQ_SINGLE" via the column DEFAULT for all 480 existing rows.
+	QuestionType string
 }
 
 type Session struct {

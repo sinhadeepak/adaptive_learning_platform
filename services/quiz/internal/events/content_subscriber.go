@@ -50,6 +50,10 @@ type QuestionPublished struct {
 	PyqFlag      bool    `json:"pyq_flag,omitempty"`
 	ExamYear     *int16  `json:"exam_year,omitempty"`
 	PaperSession *string `json:"paper_session,omitempty"`
+	// Phase 5 (P5-S38) — polymorphic question_type discriminator.
+	// omitempty preserves backward compat: pre-S38 publishers omit this
+	// field, and the upsert defaults to MCQ_SINGLE via the column DEFAULT.
+	QuestionType *string `json:"question_type,omitempty"`
 }
 
 // ContentSubscriber owns the JetStream consumer that mirrors content.question.published
@@ -157,6 +161,12 @@ func (s *ContentSubscriber) handle(msg jetstream.Msg) {
 	if ev.GuessingC != nil {
 		c = *ev.GuessingC
 	}
+	// Phase 5 (P5-S38): default to MCQ_SINGLE when publisher omits the field
+	// (preserves backward compat with pre-S38 in-flight events).
+	qtype := "MCQ_SINGLE"
+	if ev.QuestionType != nil && *ev.QuestionType != "" {
+		qtype = *ev.QuestionType
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -167,9 +177,9 @@ func (s *ContentSubscriber) handle(msg jetstream.Msg) {
 		INSERT INTO quiz_schema.questions
 		  (id, topic_id, stem, choices, correct_idx, difficulty_b,
 		   discrimination_a, guessing_c, language, status, explanation,
-		   pyq_flag, exam_year, paper_session)
+		   pyq_flag, exam_year, paper_session, question_type)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PUBLISHED', $10,
-		        $11, $12, $13)
+		        $11, $12, $13, $14)
 		ON CONFLICT (id) DO UPDATE SET
 		  stem = EXCLUDED.stem,
 		  choices = EXCLUDED.choices,
@@ -182,9 +192,10 @@ func (s *ContentSubscriber) handle(msg jetstream.Msg) {
 		  status = 'PUBLISHED',
 		  pyq_flag = EXCLUDED.pyq_flag,
 		  exam_year = EXCLUDED.exam_year,
-		  paper_session = EXCLUDED.paper_session
+		  paper_session = EXCLUDED.paper_session,
+		  question_type = EXCLUDED.question_type
 	`, ev.ID, ev.TopicID, ev.Stem, choicesJSON, ev.CorrectIdx, ev.DifficultyB, a, c, lang, ev.Explanation,
-		ev.PyqFlag, ev.ExamYear, ev.PaperSession)
+		ev.PyqFlag, ev.ExamYear, ev.PaperSession, qtype)
 
 	if err != nil {
 		s.logger.Warn("content.question.published upsert failed", "id", ev.ID, "err", err)

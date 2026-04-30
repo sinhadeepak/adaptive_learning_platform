@@ -118,6 +118,12 @@ async def publish_question_published(question: dict[str, Any]) -> None:
             payload["exam_year"] = int(question["exam_year"])
         if question.get("paper_session"):
             payload["paper_session"] = question["paper_session"]
+    # Phase 5 (P5-S38) — polymorphic question_type. Omit when MCQ_SINGLE
+    # (the column DEFAULT) so existing in-flight events stay byte-shape
+    # identical; non-MCQ types carry the explicit field.
+    qtype = question.get("question_type")
+    if qtype and qtype != "MCQ_SINGLE":
+        payload["question_type"] = qtype
     try:
         await _js.publish(SUBJECT_QUESTION_PUBLISHED, json.dumps(payload).encode("utf-8"))
         log.info("content published question %s", question["id"])

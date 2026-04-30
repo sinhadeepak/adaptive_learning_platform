@@ -601,6 +601,15 @@ func (svc *SessionService) Next(logger *slog.Logger) http.HandlerFunc {
 type answerRequest struct {
 	ItemIdx   int16 `json:"itemIdx"`
 	AnswerIdx int16 `json:"answerIdx"`
+	// Phase 5 (P5-S38) — non-MCQ types submit a structured response
+	// payload (e.g. {"answer": 30} for NUMERIC_INTEGER). Ignored when
+	// the question is MCQ_SINGLE (existing path); AnswerIdx remains
+	// the source of truth there. Wire shape mirrors what alp-learning's
+	// /grading/grade expects.
+	ResponsePayload map[string]any `json:"responsePayload,omitempty"`
+	// Optional self-reported confidence (0..1). Pass-through to NATS
+	// payload — S39 confidence-calibration aggregator consumes it.
+	Confidence *float32 `json:"confidence,omitempty"`
 }
 
 type answerResponse struct {
@@ -647,12 +656,56 @@ func (svc *SessionService) Answer(logger *slog.Logger) http.HandlerFunc {
 			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load question")
 			return
 		}
-		if int(req.AnswerIdx) >= len(q.Choices) {
-			writeProblem(w, http.StatusBadRequest, "invalid_answer", "answerIdx out of range for question choices")
-			return
+		// Phase 5 (P5-S38) — branch on question_type. The existing
+		// inline path stays for MCQ_SINGLE (which is what all 480 seeded
+		// items today are). Non-MCQ types route through alp-learning's
+		// /grading/grade and store the Resolution-derived is_correct.
+		var isCorrect bool
+		qtype := q.QuestionType
+		if qtype == "" {
+			qtype = "MCQ_SINGLE"
 		}
-
-		isCorrect := req.AnswerIdx == q.CorrectIdx
+		if qtype == "MCQ_SINGLE" {
+			if int(req.AnswerIdx) >= len(q.Choices) {
+				writeProblem(w, http.StatusBadRequest, "invalid_answer",
+					"answerIdx out of range for question choices")
+				return
+			}
+			isCorrect = req.AnswerIdx == q.CorrectIdx
+		} else {
+			// Polymorphic types — payload + response come over the wire.
+			// We don't yet know the question's full payload here (Quiz
+			// only mirrors choices/correct_idx); alp-learning is the
+			// source of truth for the typed payload. We pass an empty
+			// payload — the grading service loads it server-side via
+			// the question_id (TODO when grading service supports
+			// id-based payload lookup; for v1 the route requires the
+			// payload, so non-MCQ submissions must include it).
+			if svc.learningClient == nil {
+				writeProblem(w, http.StatusServiceUnavailable,
+					"grading_unavailable",
+					"Quiz Go has no learning client configured for non-MCQ grading")
+				return
+			}
+			payload := map[string]any{} // TODO: id-based lookup in grading service (S39+)
+			res, gradeErr := svc.learningClient.GradeRemote(
+				r.Context(),
+				"", // bearer not required for internal grading
+				q.ID.String(),
+				qtype,
+				payload,
+				req.ResponsePayload,
+				q.Language,
+			)
+			if gradeErr != nil {
+				logger.Error("grade_remote.failed", "err", gradeErr,
+					"question_type", qtype)
+				writeProblem(w, http.StatusServiceUnavailable, "grading_failed",
+					"Failed to grade non-MCQ response remotely")
+				return
+			}
+			isCorrect = res.Status == "CORRECT"
+		}
 		newAbility := nextAbility(sess.AbilityEstimate, isCorrect, sess.ServedCount)
 		recorded, err := svc.store.RecordAnswer(r.Context(), sess.ID, req.ItemIdx, req.AnswerIdx, isCorrect, svc.clock(), newAbility)
 		if err != nil {
