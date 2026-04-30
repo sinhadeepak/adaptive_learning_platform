@@ -1,6 +1,6 @@
 # AdaptiveLearn Platform — Claude Project Context
 
-**Last refresh**: 2026-04-30 — Phase 4 closed (S22–S36 all shipped, exam-prep depth gap closed); Phase 5 multi-parameter engine plan locked via [ADR-0017](adr/0017-multi-parameter-assessment-engine.md), [ADR-0018](adr/0018-polymorphic-question-types-and-resolution.md), [ADR-0019](adr/0019-ai-gateway-and-consolidation.md).
+**Last refresh**: 2026-04-30 — Phase 4 closed (S22–S36 all shipped, exam-prep depth gap closed); Phase 5 multi-parameter engine plan locked via [ADR-0017](adr/0017-multi-parameter-assessment-engine.md), [ADR-0018](adr/0018-polymorphic-question-types-and-resolution.md), [ADR-0019](adr/0019-ai-gateway-and-consolidation.md). Architecture + LLD addenda landed: [`01_design/12_Phase5_Architecture_Addendum`](01_design/12_Phase5_Architecture_Addendum.md), [`04_low_level_design/08_Phase5_LLD_Addenda`](04_low_level_design/08_Phase5_LLD_Addenda.md).
 **Authoritative cross-link**: [`docs/02_planning/00_MasterPhaseIndex.md`](02_planning/00_MasterPhaseIndex.md) — phase + sprint state.
 **For UI/design work**: [`docs/ui/00_MASTER_README.md`](ui/00_MASTER_README.md) — design tokens, 109 screens, ALP.* component library.
 
