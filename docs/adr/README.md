@@ -26,3 +26,6 @@ We document significant architectural decisions here. Use the [template](0000-te
 | [0014](0014-spaced-repetition-scheduling.md) | Spaced-repetition scheduling (SM-2 + EWA tie-in) (Phase 4) | proposed | 2026-04-28 |
 | [0015](0015-calibrated-rank-prediction.md) | Calibrated rank prediction (cohort-driven) (Phase 4) | proposed | 2026-04-28 |
 | [0016](0016-error-pattern-classification.md) | Error-pattern classification taxonomy (Phase 4) | proposed | 2026-04-28 |
+| [0017](0017-multi-parameter-assessment-engine.md) | Multi-parameter assessment engine (9 dimensions, concept grain) (Phase 5) | proposed | 2026-04-30 |
+| [0018](0018-polymorphic-question-types-and-resolution.md) | Polymorphic question types via Type Handler Protocol + Resolution contract (Phase 5) | proposed | 2026-04-30 |
+| [0019](0019-ai-gateway-and-consolidation.md) | AI Gateway as module inside alp-learning (preserves ADR-0005 ceiling) (Phase 5) | proposed | 2026-04-30 |

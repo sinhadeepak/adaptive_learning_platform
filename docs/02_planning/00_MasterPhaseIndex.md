@@ -2,7 +2,7 @@
 
 **Purpose**: single jump-off point for everything plan-related across all phases. If you're not sure which doc is current, start here.
 
-**Updated**: 2026-04-30 (after Sprint 36 closure — Phase 4 closed; only AWS staging cutover sprint remains).
+**Updated**: 2026-04-30 (Phase 5 multi-parameter engine — 3 ADRs proposed: 0017/0018/0019).
 
 ---
 
@@ -18,7 +18,8 @@
 | **Ph 2** Global Expansion | Q4 2026 | Global English + RTL/Arabic; live sessions; native video; B2B API reads | [19_Phase2_SprintDevelopmentPlan](19_Phase2_SprintDevelopmentPlan.md) | ❌ all 5 sprints pending |
 | **Ph 3** Platform Evolution | 2026-04-28 | Marketplaces (live tutors + content), B2B API writes, predictive analytics | [21_Phase3_SprintDevelopmentPlan](21_Phase3_SprintDevelopmentPlan.md) | ✅ all 6 sprints closed (S15–S21 = P3-S0..S6) |
 | **Ph 4** Exam-Prep Depth | 2026-04-28→30 | Close the gap to Allen / Vedantu / Unacademy on the exam-prep dimensions: PYQ catalogue, real exam blueprints, time-per-question, exam-mode UI, spaced repetition, syllabus coverage, calibrated rank, error patterns, target rank, reference materials | [53_Phase4_ExamPrepDepth_SprintPlan](53_Phase4_ExamPrepDepth_SprintPlan.md) → [24_Phase4_Retrospective](24_Phase4_Retrospective.md) | ✅ all 15 sprints closed (S22–S36 = P4-S22..S36) |
-| Phase 4+ | TBD | Out of scope today | — | (no plan) |
+| **Ph 5** Multi-Parameter Engine | 2026-04-30→ | Build best-in-industry adaptive engine: 9 assessment dimensions × 22 question types × 4 evaluation modes × N languages. Concept-grain Knowledge Graph + Type Handler Protocol + AI Gateway + localisation pipeline. Per-concept mastery, Bloom-depth, fluency, confidence calibration, transfer ability. | Build plan at [`/home/deepak/.claude/plans/gentle-popping-diffie.md`](../../.claude/plans/gentle-popping-diffie.md) · ADRs [0017](../adr/0017-multi-parameter-assessment-engine.md), [0018](../adr/0018-polymorphic-question-types-and-resolution.md), [0019](../adr/0019-ai-gateway-and-consolidation.md) | 🟡 DRAFT — 3 ADRs proposed; S37 schema + payload contracts next |
+| Phase 5+ | TBD | Out of scope today | — | (no plan) |
 
 ---
 
@@ -31,10 +32,11 @@
 | Phase 2 | **5** (S8 Payment + Institution = next; S9 i18n; S10 Live sessions/video; S11 Inst-analytics + B2B API; S12 stabilization). Existing [Phase 2 plan](19_Phase2_SprintDevelopmentPlan.md) covers themes; sprint numbering aligned to global counter post-rebaseline. |
 | Phase 3 | 6 (S15–S21, all closed) |
 | Phase 4 | 15 (S22–S36, all closed) — closes the exam-prep depth gap |
+| Phase 5 | 12 (S37–S48, DRAFT) — multi-parameter engine: KG + Type Handler Protocol + AI Gateway + Localisation. 3 ADRs proposed 2026-04-30. |
 | **Final cutover sprint** | 1 — Staging deploy + drills, deferred per user direction until all Phase 1+2+3+4 sprints land + Stripe ready. Plan preserved at [24_DEPRECATED_Staging_Cutover_Plan](24_DEPRECATED_Staging_Cutover_Plan.md). |
-| **Total** | **37** sprints to staging push (S0–S36 if Phase 4 ships) |
+| **Total** | **49** sprints to staging push (S0–S48 if Phase 5 ships) |
 
-**Pending today**: Final Cutover (AWS-blocked). Phase 4 closed 2026-04-30 with all 15 sprints shipped; the staging cutover absorbs 6 new gates (G-12..G-17) per [`Phase4_Cutover_Addendum.md`](Phase4_Cutover_Addendum.md) plus a standalone Phase-4-Mobile sprint (G-18) per [`Phase4_Mobile_Parity_Scope.md`](Phase4_Mobile_Parity_Scope.md). Engineering is no longer the bottleneck; AWS access, content workstream W1, and the mobile port are.
+**Pending today**: Phase 5 (12 sprints, DRAFT — 3 ADRs proposed) + Final Cutover (AWS-blocked). Phase 4 closed 2026-04-30 with all 15 sprints shipped; the staging cutover absorbs 6 new gates (G-12..G-17) per [`Phase4_Cutover_Addendum.md`](Phase4_Cutover_Addendum.md) plus a standalone Phase-4-Mobile sprint (G-18) per [`Phase4_Mobile_Parity_Scope.md`](Phase4_Mobile_Parity_Scope.md). Phase 5 builds the multi-parameter engine substrate that closes the structural gap to Embibe and lifts ALP to industry-leading on 5 unique differentiators (Bloom-depth, error patterns, confidence calibration, transfer, calibration discipline). Engineering is no longer the bottleneck on Phase 1–4 launch readiness; AWS access, content workstream W1, and the mobile port are.
 
 ---
 
