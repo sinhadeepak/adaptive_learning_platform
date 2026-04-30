@@ -178,6 +178,7 @@ async def grade_subjective(
     rubric_criteria: list[dict[str, Any]],
     rubric_version: int,
     prompt_template_version: str = "1.0.0",
+    persist: bool = True,
 ) -> Resolution:
     """Grade one subjective response via the Gateway.
 
@@ -250,7 +251,7 @@ async def grade_subjective(
         # criterion verdicts will come from the human grader.
         report = SubjectiveEvaluationReport(overall_confidence=0.0, criteria=[])
 
-    return aggregate_resolution(
+    resolution = aggregate_resolution(
         question_id=question_id,
         type_id=type_id,
         rubric_criteria=rubric_criteria,
@@ -260,3 +261,69 @@ async def grade_subjective(
         prompt_version=f"{template_id}@{prompt_template_version}",
         model=model_used,
     )
+
+    # P5-S49 — persist the immutable evaluation_record + 5% calibration
+    # sample (deterministic via response_id hash). Best-effort writes:
+    # the Resolution returns to caller regardless of DB outcome.
+    if persist:
+        try:
+            await _persist_evaluation(
+                response_id=response_id,
+                resolution=resolution,
+                confidence=confidence,
+                rubric_criteria=rubric_criteria,
+                report=report,
+                decision=decision,
+            )
+        except Exception:  # noqa: BLE001
+            import logging
+            logging.getLogger(__name__).warning(
+                "evaluation persistence failed for response_id=%s", response_id,
+            )
+
+    return resolution
+
+
+async def _persist_evaluation(
+    *,
+    response_id: str,
+    resolution: Resolution,
+    confidence: float | None,
+    rubric_criteria: list[dict[str, Any]],
+    report: SubjectiveEvaluationReport,
+    decision: EvalDecision,
+) -> None:
+    """Write evaluation_records + (when sampled) calibration_samples.
+
+    Lazy-imports content_sessionmaker so the subjective grader still
+    runs in tests that don't bring up the DB.
+    """
+    from learning.content.db import sessionmaker as content_sessionmaker
+    from learning.evaluation.repositories import (
+        insert_calibration_sample,
+        insert_evaluation_record,
+    )
+
+    async with content_sessionmaker()() as session:
+        await insert_evaluation_record(
+            session,
+            response_id=response_id,
+            resolution=resolution,
+            evaluator_kind="AI",
+            evaluator_id=resolution.evaluator_metadata.model
+            if resolution.evaluator_metadata
+            else "ai_gateway",
+            confidence=confidence,
+        )
+        if decision.sampled_for_calibration:
+            # Persist one row per criterion the AI scored, so weekly
+            # kappa rolls up per criterion.
+            for v in report.criteria:
+                await insert_calibration_sample(
+                    session,
+                    response_id=response_id,
+                    criterion=v.criterion_id,
+                    ai_score=v.satisfied,
+                    ai_resolution=resolution.model_dump(mode="json"),
+                )
+        await session.commit()

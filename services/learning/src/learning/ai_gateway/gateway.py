@@ -24,6 +24,13 @@ from learning.ai_gateway.providers import OpenAIProvider, Provider, ProviderErro
 from learning.ai_gateway.quotas import QuotaChecker, QuotaConfig, QuotaExceededError
 from learning.ai_gateway.routing import RoutingConfig, default_stub_config
 
+# P5-S49 — audit log writer; lazy-imported so the gateway still works
+# when content_schema isn't reachable (early dev, tests without DB).
+try:  # noqa: SIM105
+    from learning.ai_gateway.audit_log import write_audit_row
+except Exception:  # pragma: no cover
+    write_audit_row = None  # type: ignore[assignment]
+
 log = logging.getLogger(__name__)
 
 
@@ -148,7 +155,21 @@ class AIGateway:
                     latency_ms=result.latency_ms,
                     tokens_in=result.tokens_in,
                     tokens_out=result.tokens_out,
+                    creator_id=creator_id,
                 )
+                # P5-S49 — fire-and-forget audit row. Failure here MUST
+                # NOT block the call return; the warning lands in logs.
+                if write_audit_row is not None:
+                    import asyncio as _asyncio
+
+                    _asyncio.create_task(write_audit_row(
+                        artifact_id=None,
+                        prompt_template_id=prompt_template_id,
+                        prompt_version=prompt_template_version,
+                        model=f"{provider.name}:{result.model}",
+                        status="succeeded",
+                        output=result.data if isinstance(result.data, dict) else None,
+                    ))
                 return validated
             except ProviderError as e:
                 err_latency_ms = int((time.monotonic() - started) * 1000)

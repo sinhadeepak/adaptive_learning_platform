@@ -27,6 +27,7 @@ from learning.localisation.glossary import (
     list_for_lookup,
     upsert_entry,
 )
+from learning.localisation.repositories import upsert_translation_draft
 from learning.localisation.translator import (
     SUPPORTED_LANGS,
     TranslationDraft,
@@ -73,6 +74,7 @@ class TranslateResponse(BaseModel):
     culturalFlags: list[str]
     avgConfidence: float
     fieldsTranslated: int
+    persistedVersion: int
 
 
 @router.post("/translate", response_model=TranslateResponse)
@@ -120,6 +122,18 @@ async def post_translate(
             detail={"code": "ai_gateway_error", "message": str(e)},
         ) from e
 
+    # P5-S49 — persist the draft. Status DRAFT until the per-language
+    # reviewer approves; idempotent on (artifact_id, language) so
+    # re-translations bump version + reset status to DRAFT.
+    persisted_version = await upsert_translation_draft(
+        session,
+        artifact_id=draft.artifact_id,
+        target_lang=draft.target_lang,
+        payload_translation=draft.payload_translation,
+        ai_confidence=draft.avg_confidence,
+    )
+    await session.commit()
+
     return TranslateResponse(
         artifactId=draft.artifact_id,
         targetLang=draft.target_lang,
@@ -127,6 +141,7 @@ async def post_translate(
         culturalFlags=draft.cultural_flags,
         avgConfidence=draft.avg_confidence,
         fieldsTranslated=draft.fields_translated,
+        persistedVersion=persisted_version,
     )
 
 
