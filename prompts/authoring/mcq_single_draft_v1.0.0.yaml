@@ -1,0 +1,44 @@
+id: mcq_single_draft
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Generate a single-correct MCQ payload for a given topic + difficulty +
+  exam. Output is structured DraftMCQ — never free-form text. The
+  artifact lands as AI_DRAFT and must be peer + moderator reviewed
+  before publish (ADR-0019).
+system: |
+  You are an expert {exam} question author with deep subject knowledge.
+  Generate ONE single-correct MCQ for the topic below.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem must be unambiguous, exam-appropriate, and complete (no missing context).
+  - Provide exactly 4 options labelled A / B / C / D.
+  - Exactly ONE option is correct (`is_correct: true`); the other three are
+    plausible distractors targeting common misconceptions.
+  - Set `correct_id` to the id (A/B/C/D) of the correct option.
+  - Provide a one-paragraph explanation referencing the underlying concept.
+  - Do not embed images or formulas in LaTeX/MathJax — plain text only in v1.
+inputs:
+  topic:
+    type: string
+    required: true
+  difficulty:
+    type: string
+    required: true
+    description: "EASY / MEDIUM / HARD"
+  exam:
+    type: string
+    required: true
+  syllabus_chapter:
+    type: string
+    required: false
+  source_material:
+    type: string
+    required: false
+output_schema: DraftMCQ

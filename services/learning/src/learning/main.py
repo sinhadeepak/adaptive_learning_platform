@@ -41,6 +41,11 @@ from learning.catalog.routes import router as catalog_router
 from learning.grading.routes import router as grading_router
 from learning.types.bootstrap import register_all_v1_handlers
 
+# Phase 5 (P5-S40) — AI Authoring (depends on AI Gateway)
+from learning.ai_authoring.routes import router as ai_authoring_router
+from learning.ai_gateway import AIGateway, PromptRegistry, load_routing
+from learning.ai_gateway.routing import default_stub_config
+
 # exam blueprints (P4-S23)
 from learning.exam_blueprints.routes import router as exam_blueprints_router
 
@@ -112,6 +117,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # global state persists per process.
     register_all_v1_handlers()
 
+    # Phase 5 (P5-S40): construct the AI Gateway singleton + load
+    # prompt templates. Failure here only disables AI features — the
+    # rest of the service continues serving (degraded). Routes use the
+    # `get_gateway` dependency which 503s when state is missing.
+    try:
+        from pathlib import Path
+        repo_root = Path(__file__).resolve().parents[4]
+        routing_path = repo_root / "config" / "ai_routing.yaml"
+        prompts_dir = repo_root / "prompts"
+        routing = (
+            load_routing(routing_path) if routing_path.exists() else default_stub_config()
+        )
+        registry = PromptRegistry()
+        if prompts_dir.exists():
+            registry.load_directory(prompts_dir)
+        app.state.ai_gateway = AIGateway(routing=routing, prompts=registry)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("learning startup: ai_gateway not available: %s", exc)
+        app.state.ai_gateway = None
+
     await _try("catalog.flags", connect_catalog_flags)
     await _try("content.events", content_events.connect)
     await _try("content.quiz_subscriber", content_quiz_sub.connect)
@@ -153,6 +178,7 @@ app.add_middleware(TraceContextMiddleware)
 # Mount every old service's router at its original URL prefix.
 app.include_router(catalog_router)
 app.include_router(grading_router)  # Phase 5 (P5-S38)
+app.include_router(ai_authoring_router)  # Phase 5 (P5-S40)
 app.include_router(exam_blueprints_router)
 app.include_router(pyq_router)
 app.include_router(prereqs_router)

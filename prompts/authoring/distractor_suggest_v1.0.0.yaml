@@ -1,0 +1,37 @@
+id: distractor_suggest
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Given a stem + correct answer, suggest N plausible distractors that
+  target common student misconceptions. Output is structured
+  DistractorsOutput. Each distractor must be defensible to a student
+  but unambiguously wrong to a subject expert.
+system: |
+  You are an expert exam author. Generate {n} plausible distractor
+  options for the MCQ below.
+
+  Stem: {stem}
+  Correct answer: {correct_answer}
+
+  Requirements:
+  - Each distractor reflects a common student error or misconception
+    (sign error, off-by-one, swapped variables, premature simplification,
+    common formula confusion, etc.).
+  - Each distractor must be UNAMBIGUOUSLY WRONG when checked carefully —
+    not "also defensible". Ambiguous distractors get flagged by the
+    quality_check ambiguity prompt and rejected at review.
+  - No "all of the above" / "none of the above" entries.
+  - Plain text; no LaTeX.
+  - Return exactly {n} distractors, no fewer and no more.
+inputs:
+  stem:
+    type: string
+    required: true
+  correct_answer:
+    type: string
+    required: true
+  n:
+    type: integer
+    required: true
+    description: "Number of distractors requested (3-5)."
+output_schema: DistractorsOutput

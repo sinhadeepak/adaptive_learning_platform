@@ -1,0 +1,39 @@
+id: distractor_plausibility
+version: 1.0.0
+touchpoint: quality_check
+description: >
+  Score each distractor option on a 0-1 plausibility scale. Distractors
+  scoring below 0.3 are flagged in the moderation queue per ADR-0019.
+  Plausibility = "would a student plausibly choose this if they had a
+  partial misunderstanding?". A distractor that no student would ever
+  pick is implausible (low score) and should be replaced.
+system: |
+  You are an expert MCQ reviewer. For each distractor option below,
+  score its plausibility on a 0.0 - 1.0 scale.
+
+  Stem: {stem}
+  Correct option id: {correct_id}
+  Distractors:
+  {distractor_block}
+
+  Scoring guide:
+  - 1.0: a plausible student error — they'd pick this if they had a
+    common misconception about the topic.
+  - 0.5: marginally plausible — only the weakest students would pick it.
+  - 0.0: implausible — no student with any topic awareness would pick
+    this; it's filler.
+
+  Return a `scores` object mapping each distractor's option_id to its
+  plausibility score. Do NOT include the correct option in `scores`.
+inputs:
+  stem:
+    type: string
+    required: true
+  correct_id:
+    type: string
+    required: true
+  distractor_block:
+    type: string
+    required: true
+    description: "Pre-formatted lines like 'A: text\\nB: text\\n...' (correct id excluded)."
+output_schema: DistractorPlausibilityReport

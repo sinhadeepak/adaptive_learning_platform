@@ -16,6 +16,13 @@ RUN pip install --no-cache-dir uv==0.5.*
 COPY libs/python ./libs/python
 COPY ruff.toml ./
 
+# Phase 5 (P5-S40) — AI Gateway prompts + routing config. Top-level
+# `prompts/` and `config/` are referenced by alp-learning's lifespan
+# loader; absent on services that don't need them, so we use wildcard
+# COPY which silently succeeds when the dir is empty.
+COPY prompts ./prompts
+COPY config ./config
+
 # Service files
 COPY services/${SERVICE}/pyproject.toml ./services/${SERVICE}/pyproject.toml
 COPY services/${SERVICE}/src ./services/${SERVICE}/src
