@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill } from "../components/primitives";
-import { AIDraftPanel } from "../components/AIDraftPanel";
+import { AIDraftPanel, AI_DRAFT_SUPPORTED_TYPES } from "../components/AIDraftPanel";
 import { ConceptTagger, type ConceptTag } from "../components/ConceptTagger";
 import { RubricEditor, type RubricCriterion } from "../components/RubricEditor";
 import {
@@ -77,6 +77,29 @@ export function MultiTypeAuthor() {
   const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [shapes, setShapes] = useState<Shape[]>([]);
   const [markers, setMarkers] = useState<Marker[]>([]);
+
+  // Numeric-family fields
+  const [numericAnswer, setNumericAnswer] = useState("");
+  const [numericTolerance, setNumericTolerance] = useState("0");
+  const [numericUnit, setNumericUnit] = useState("");
+  const [numericRangeLow, setNumericRangeLow] = useState("");
+  const [numericRangeHigh, setNumericRangeHigh] = useState("");
+  const [formulaExpr, setFormulaExpr] = useState("");
+
+  // Matching-family fields
+  const [pairs, setPairs] = useState<{ left: string; right: string }[]>([
+    { left: "", right: "" },
+    { left: "", right: "" },
+  ]);
+  const [sequenceItems, setSequenceItems] = useState<string[]>(["", "", ""]);
+  const [classifyCategories, setClassifyCategories] = useState<string[]>(["", ""]);
+  const [classifyItems, setClassifyItems] = useState<{ text: string; category: string }[]>([
+    { text: "", category: "" },
+  ]);
+
+  // Fill-in-family fields
+  const [fillTemplate, setFillTemplate] = useState("");
+  const [fillAccepted, setFillAccepted] = useState<string[]>([""]);
 
   // Quality + lifecycle
   const [warnings, setWarnings] = useState<QualityWarning[]>([]);
@@ -234,22 +257,25 @@ export function MultiTypeAuthor() {
           )}
         </section>
 
-        {/* ── AI Draft assist ───────────────────────────────────── */}
-        <section style={{ marginBottom: 16 }}>
-          <AIDraftPanel
-            onDraftGenerated={(draft, marker) => {
-              setAiOrigin({ ...marker });
-              const stemVal = draft.stem;
-              if (typeof stemVal === "string") setStem(stemVal);
-              const optsVal = draft.options as { id: string; text: string; is_correct: boolean }[] | undefined;
-              if (Array.isArray(optsVal)) {
-                setOptions(optsVal);
-              }
-              const expVal = draft.explanation;
-              if (typeof expVal === "string") setExplanation(expVal);
-            }}
-          />
-        </section>
+        {/* ── AI Draft assist (objective + numeric only in v1) ── */}
+        {AI_DRAFT_SUPPORTED_TYPES.includes(typeId) && (
+          <section style={{ marginBottom: 16 }}>
+            <AIDraftPanel
+              typeId={typeId}
+              onDraftGenerated={(draft, marker) => {
+                setAiOrigin({ ...marker });
+                const stemVal = draft.stem;
+                if (typeof stemVal === "string") setStem(stemVal);
+                const optsVal = draft.options as { id: string; text: string; is_correct: boolean }[] | undefined;
+                if (Array.isArray(optsVal)) {
+                  setOptions(optsVal);
+                }
+                const expVal = draft.explanation;
+                if (typeof expVal === "string") setExplanation(expVal);
+              }}
+            />
+          </section>
+        )}
 
         {/* ── Stem ───────────────────────────────────────────────── */}
         <section style={{ marginBottom: 16 }}>
@@ -336,7 +362,311 @@ export function MultiTypeAuthor() {
           </section>
         )}
 
-        {family === "Subjective" && (
+        {family === "Numeric" && (
+          <section style={{ marginBottom: 16 }}>
+            {typeId === "FORMULA_INPUT" ? (
+              <>
+                <label style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, display: "block" }}>
+                  Canonical formula (sympy expression)
+                </label>
+                <input
+                  value={formulaExpr}
+                  onChange={(e) => setFormulaExpr(e.target.value)}
+                  placeholder="e.g. v**2 = u**2 + 2*a*s"
+                  style={{ width: "100%", padding: 8, borderRadius: 4, fontFamily: "monospace" }}
+                />
+                <p style={{ fontSize: 12, marginTop: 6, opacity: 0.7 }}>
+                  Student's submitted expression is symbolically simplified
+                  via sympy and compared for algebraic equivalence.
+                </p>
+              </>
+            ) : typeId === "NUMERIC_RANGE" ? (
+              <>
+                <label style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, display: "block" }}>
+                  Accepted range
+                </label>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="number"
+                    value={numericRangeLow}
+                    onChange={(e) => setNumericRangeLow(e.target.value)}
+                    placeholder="low"
+                    style={{ width: 140, padding: 6, borderRadius: 4 }}
+                  />
+                  <span>to</span>
+                  <input
+                    type="number"
+                    value={numericRangeHigh}
+                    onChange={(e) => setNumericRangeHigh(e.target.value)}
+                    placeholder="high"
+                    style={{ width: 140, padding: 6, borderRadius: 4 }}
+                  />
+                  <input
+                    value={numericUnit}
+                    onChange={(e) => setNumericUnit(e.target.value)}
+                    placeholder="unit (e.g. m/s)"
+                    style={{ width: 160, padding: 6, borderRadius: 4 }}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <label style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, display: "block" }}>
+                  Correct answer
+                </label>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="number"
+                    step={typeId === "NUMERIC_DECIMAL" ? "0.01" : "1"}
+                    value={numericAnswer}
+                    onChange={(e) => setNumericAnswer(e.target.value)}
+                    placeholder="answer"
+                    style={{ width: 180, padding: 6, borderRadius: 4 }}
+                  />
+                  {typeId === "NUMERIC_DECIMAL" && (
+                    <>
+                      <span style={{ fontSize: 12, opacity: 0.8 }}>±</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={numericTolerance}
+                        onChange={(e) => setNumericTolerance(e.target.value)}
+                        placeholder="tolerance"
+                        style={{ width: 140, padding: 6, borderRadius: 4 }}
+                      />
+                    </>
+                  )}
+                  <input
+                    value={numericUnit}
+                    onChange={(e) => setNumericUnit(e.target.value)}
+                    placeholder="unit (optional)"
+                    style={{ width: 180, padding: 6, borderRadius: 4 }}
+                  />
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
+        {family === "Matching" && (
+          <section style={{ marginBottom: 16 }}>
+            {typeId === "MATCH_THE_FOLLOWING" && (
+              <>
+                <label style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, display: "block" }}>
+                  Match pairs
+                </label>
+                {pairs.map((p, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 24px 1fr 60px",
+                      gap: 8,
+                      alignItems: "center",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <input
+                      value={p.left}
+                      onChange={(e) =>
+                        setPairs(pairs.map((x, i) => (i === idx ? { ...x, left: e.target.value } : x)))
+                      }
+                      placeholder={`Left ${idx + 1}`}
+                      style={{ padding: 6, borderRadius: 4 }}
+                    />
+                    <span style={{ textAlign: "center", opacity: 0.6 }}>↔</span>
+                    <input
+                      value={p.right}
+                      onChange={(e) =>
+                        setPairs(pairs.map((x, i) => (i === idx ? { ...x, right: e.target.value } : x)))
+                      }
+                      placeholder={`Right ${idx + 1}`}
+                      style={{ padding: 6, borderRadius: 4 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPairs(pairs.filter((_, i) => i !== idx))}
+                      disabled={pairs.length <= 2}
+                      style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setPairs([...pairs, { left: "", right: "" }])}
+                  style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                >
+                  + Add pair
+                </button>
+              </>
+            )}
+            {typeId === "SEQUENCING" && (
+              <>
+                <label style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, display: "block" }}>
+                  Items in correct order
+                </label>
+                {sequenceItems.map((s, idx) => (
+                  <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                    <span style={{ width: 24, opacity: 0.7, fontFamily: "monospace" }}>{idx + 1}.</span>
+                    <input
+                      value={s}
+                      onChange={(e) =>
+                        setSequenceItems(sequenceItems.map((x, i) => (i === idx ? e.target.value : x)))
+                      }
+                      style={{ flex: 1, padding: 6, borderRadius: 4 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSequenceItems(sequenceItems.filter((_, i) => i !== idx))}
+                      disabled={sequenceItems.length <= 2}
+                      style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setSequenceItems([...sequenceItems, ""])}
+                  style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                >
+                  + Add item
+                </button>
+              </>
+            )}
+            {typeId === "CLASSIFICATION" && (
+              <>
+                <label style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, display: "block" }}>
+                  Categories
+                </label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                  {classifyCategories.map((c, idx) => (
+                    <input
+                      key={idx}
+                      value={c}
+                      onChange={(e) =>
+                        setClassifyCategories(classifyCategories.map((x, i) => (i === idx ? e.target.value : x)))
+                      }
+                      placeholder={`Category ${idx + 1}`}
+                      style={{ padding: 6, borderRadius: 4, width: 200 }}
+                    />
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setClassifyCategories([...classifyCategories, ""])}
+                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                  >
+                    + Category
+                  </button>
+                </div>
+                <label style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, display: "block" }}>
+                  Items + correct category
+                </label>
+                {classifyItems.map((it, idx) => (
+                  <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                    <input
+                      value={it.text}
+                      onChange={(e) =>
+                        setClassifyItems(classifyItems.map((x, i) => (i === idx ? { ...x, text: e.target.value } : x)))
+                      }
+                      placeholder={`Item ${idx + 1}`}
+                      style={{ flex: 1, padding: 6, borderRadius: 4 }}
+                    />
+                    <select
+                      value={it.category}
+                      onChange={(e) =>
+                        setClassifyItems(classifyItems.map((x, i) => (i === idx ? { ...x, category: e.target.value } : x)))
+                      }
+                      style={{ padding: 6, borderRadius: 4, width: 200 }}
+                    >
+                      <option value="">— select category —</option>
+                      {classifyCategories.filter(Boolean).map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setClassifyItems(classifyItems.filter((_, i) => i !== idx))}
+                      style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setClassifyItems([...classifyItems, { text: "", category: "" }])}
+                  style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                >
+                  + Add item
+                </button>
+              </>
+            )}
+          </section>
+        )}
+
+        {family === "Fill-in" && (
+          <section style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, display: "block" }}>
+              {typeId === "CLOZE_PASSAGE" ? "Passage with [BLANK] markers" : "Sentence with [BLANK] markers"}
+            </label>
+            <textarea
+              value={fillTemplate}
+              onChange={(e) => setFillTemplate(e.target.value)}
+              rows={typeId === "CLOZE_PASSAGE" ? 6 : 3}
+              placeholder={
+                typeId === "CLOZE_PASSAGE"
+                  ? "The mitochondria are the [BLANK] of the cell, where [BLANK] is converted into ATP…"
+                  : "The capital of France is [BLANK]."
+              }
+              style={{ width: "100%", padding: 8, borderRadius: 4, fontFamily: "inherit" }}
+            />
+            <label style={{ fontSize: 13, fontWeight: 500, marginTop: 12, marginBottom: 6, display: "block" }}>
+              Accepted answers per blank (one row per blank, comma-separated synonyms)
+            </label>
+            {fillAccepted.map((row, idx) => (
+              <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                <span style={{ width: 60, opacity: 0.7, fontFamily: "monospace" }}>#{idx + 1}</span>
+                <input
+                  value={row}
+                  onChange={(e) =>
+                    setFillAccepted(fillAccepted.map((x, i) => (i === idx ? e.target.value : x)))
+                  }
+                  placeholder="powerhouse, पावरहाउस, energy producer"
+                  style={{ flex: 1, padding: 6, borderRadius: 4 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setFillAccepted(fillAccepted.filter((_, i) => i !== idx))}
+                  disabled={fillAccepted.length <= 1}
+                  style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setFillAccepted([...fillAccepted, ""])}
+              style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+            >
+              + Add blank
+            </button>
+          </section>
+        )}
+
+        {family === "Subjective" && (typeId === "CASE_STUDY" || typeId === "COMPREHENSION_LONG") && (
+          <Banner tone="info">
+            <strong>Composite type.</strong> {typeId} is a parent that
+            references existing child questions. Author each child question
+            separately (any type), then attach them by ID via the Composite
+            children panel that lands in a follow-up sprint.
+          </Banner>
+        )}
+
+        {family === "Subjective" && typeId !== "CASE_STUDY" && typeId !== "COMPREHENSION_LONG" && (
           <>
             <section style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, display: "block" }}>

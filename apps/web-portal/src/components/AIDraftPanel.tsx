@@ -15,17 +15,25 @@ import { aiAuthoring, type AIDraftMarker } from "../lib/phase5-api";
 // are edited (edit_distance > 0).
 // ─────────────────────────────────────────────────────────────────────────
 
-const SUPPORTED_TYPES: string[] = [
+export const AI_DRAFT_SUPPORTED_TYPES: string[] = [
   "MCQ_SINGLE", "MCQ_MULTI", "TRUE_FALSE", "ASSERTION_REASON", "MULTI_STATEMENT",
   "NUMERIC_INTEGER", "NUMERIC_DECIMAL", "NUMERIC_RANGE", "FORMULA_INPUT",
 ];
 
 interface AIDraftPanelProps {
   onDraftGenerated?: (draft: Record<string, unknown>, marker: AIDraftMarker) => void;
+  // P5 — when supplied, the panel runs in controlled mode and inherits
+  // the page's question type instead of showing a duplicate dropdown.
+  typeId?: string;
 }
 
-export function AIDraftPanel({ onDraftGenerated }: AIDraftPanelProps): ReactNode {
-  const [typeId, setTypeId] = useState("MCQ_SINGLE");
+export function AIDraftPanel({ onDraftGenerated, typeId: typeIdProp }: AIDraftPanelProps): ReactNode {
+  const [typeIdLocal, setTypeIdLocal] = useState("MCQ_SINGLE");
+  const typeId = typeIdProp ?? typeIdLocal;
+  const setTypeId = (v: string) => {
+    if (typeIdProp === undefined) setTypeIdLocal(v);
+  };
+  const showInternalTypePicker = typeIdProp === undefined;
   const [topic, setTopic] = useState("");
   const [difficulty, setDifficulty] = useState<"EASY" | "MEDIUM" | "HARD">("MEDIUM");
   const [exam, setExam] = useState("JEE-MAIN");
@@ -87,26 +95,28 @@ export function AIDraftPanel({ onDraftGenerated }: AIDraftPanelProps): ReactNode
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <label style={{ fontSize: 13 }}>
-          <div style={{ marginBottom: 4 }}>Question type</div>
-          <select
-            value={typeId}
-            onChange={(e) => setTypeId(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "6px 8px",
-              border: "1px solid var(--border, #e1e5ee)",
-              borderRadius: 4,
-              fontSize: 13,
-            }}
-          >
-            {SUPPORTED_TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </label>
+        {showInternalTypePicker && (
+          <label style={{ fontSize: 13 }}>
+            <div style={{ marginBottom: 4 }}>Question type</div>
+            <select
+              value={typeId}
+              onChange={(e) => setTypeId(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "6px 8px",
+                border: "1px solid var(--border, #e1e5ee)",
+                borderRadius: 4,
+                fontSize: 13,
+              }}
+            >
+              {AI_DRAFT_SUPPORTED_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </label>
+        )}
 
-        <label style={{ fontSize: 13 }}>
+        <label style={{ fontSize: 13, gridColumn: showInternalTypePicker ? undefined : "1 / -1" }}>
           <div style={{ marginBottom: 4 }}>Topic *</div>
           <input
             value={topic}
