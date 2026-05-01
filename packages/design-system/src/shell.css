@@ -1038,6 +1038,92 @@
 .form-fieldset > legend {
   padding: 0 6px;
 }
+
+/* ── Author-form theme ─────────────────────────────────────────────
+   Catches bare <input>, <textarea>, <select>, <button>, <label> in
+   pages composed of multiple sub-components (MultiTypeAuthor +
+   AIDraftPanel + ConceptTagger + RubricEditor + DiagramAuthoringCanvas).
+   The components ship inline styles for layout but no background/color,
+   so native browser defaults (white bg + black text) leak into the
+   dark portal theme. Scoped under .author-form so it can't bleed
+   into other portal pages. */
+.author-form {
+  color: var(--text-primary);
+}
+.author-form section { color: inherit; }
+.author-form label,
+.author-form label > div {
+  color: var(--text-secondary);
+}
+.author-form input[type="text"],
+.author-form input[type="number"],
+.author-form input[type="email"],
+.author-form input[type="search"],
+.author-form input:not([type]),
+.author-form textarea,
+.author-form select {
+  background: var(--bg-surface3);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+}
+.author-form input[type="text"]::placeholder,
+.author-form input[type="number"]::placeholder,
+.author-form input:not([type])::placeholder,
+.author-form textarea::placeholder {
+  color: var(--text-faint);
+}
+.author-form input:focus,
+.author-form textarea:focus,
+.author-form select:focus {
+  outline: none;
+  border-color: var(--color-blue);
+  background: var(--bg-surface2);
+}
+.author-form input[type="radio"],
+.author-form input[type="checkbox"] {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+}
+/* Cancel / ghost buttons in the author form (bg=transparent inline). */
+.author-form button[type="button"] {
+  color: var(--text-secondary);
+}
+.author-form button[type="button"]:hover {
+  color: var(--text-primary);
+}
+/* Cards inside the form (AIDraftPanel container, AI_DRAFT footer
+   notice, concept-tagger card) carried light gradient fallbacks. */
+.author-form .ai-draft-card {
+  background: linear-gradient(
+    180deg,
+    var(--bg-surface2),
+    var(--bg-surface1)
+  ) !important;
+  border-color: var(--border-strong) !important;
+  color: var(--text-primary);
+}
+.author-form .ai-draft-disclaimer {
+  background: var(--bg-surface3) !important;
+  color: var(--text-secondary) !important;
+  opacity: 1 !important;
+}
+.author-form .ai-origin-banner {
+  background: rgba(79, 135, 246, 0.12) !important;
+  color: var(--color-blue) !important;
+}
+.author-form .author-card {
+  background: var(--bg-surface2) !important;
+  border-color: var(--border-strong) !important;
+  color: var(--text-primary);
+}
+.author-form .author-card h3 {
+  color: var(--text-primary);
+}
+.author-form .author-card p {
+  color: var(--text-secondary);
+}
 .form-row {
   display: flex;
   gap: var(--sp-4);

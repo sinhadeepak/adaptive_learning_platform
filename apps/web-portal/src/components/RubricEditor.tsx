@@ -62,6 +62,7 @@ export function RubricEditor({
 
   return (
     <div
+      className="author-card"
       style={{
         padding: 12,
         border: "1px solid var(--border, #e1e5ee)",
@@ -98,8 +99,9 @@ export function RubricEditor({
             style={{
               padding: "4px 10px",
               fontSize: 12,
-              border: "1px solid var(--border, #e1e5ee)",
-              background: "white",
+              border: "1px solid var(--border-strong, #e1e5ee)",
+              background: "transparent",
+              color: "var(--text-secondary, #B8C5E0)",
               borderRadius: 4,
               cursor: "pointer",
             }}

@@ -65,6 +65,7 @@ export function AIDraftPanel({ onDraftGenerated }: AIDraftPanelProps): ReactNode
 
   return (
     <div
+      className="ai-draft-card"
       style={{
         padding: 16,
         border: "1px solid var(--border, #e1e5ee)",
@@ -236,13 +237,12 @@ export function AIDraftPanel({ onDraftGenerated }: AIDraftPanelProps): ReactNode
       </div>
 
       <div
+        className="ai-draft-disclaimer"
         style={{
           marginTop: 12,
           padding: 8,
           fontSize: 12,
-          background: "var(--bg-subtle, #f8f9fc)",
           borderRadius: 4,
-          opacity: 0.85,
         }}
       >
         💡 AI drafts are marked <strong>AI_DRAFT</strong> and never bypass

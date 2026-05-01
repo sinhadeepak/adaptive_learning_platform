@@ -194,7 +194,7 @@ export function MultiTypeAuthor() {
     <AppShell title="Author question" chips={[{ label: "Multi-type" }]}>
       {registryError && <Banner tone="danger">{registryError}</Banner>}
 
-      <form onSubmit={handleSubmit}>
+      <form className="author-form" onSubmit={handleSubmit}>
         {/* ── Type picker ───────────────────────────────────────── */}
         <section style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 13, fontWeight: 500 }}>
@@ -534,11 +534,11 @@ export function MultiTypeAuthor() {
 
         {aiOrigin && (
           <div
+            className="ai-origin-banner"
             style={{
               marginTop: 12,
               padding: 8,
               fontSize: 12,
-              background: "var(--color-blue-bg, #dbeafe)",
               borderRadius: 4,
             }}
           >

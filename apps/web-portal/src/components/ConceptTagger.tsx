@@ -52,6 +52,7 @@ export function ConceptTagger({
 
   return (
     <div
+      className="author-card"
       style={{
         padding: 12,
         border: "1px solid var(--border, #e1e5ee)",
