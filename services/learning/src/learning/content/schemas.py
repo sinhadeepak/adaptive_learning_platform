@@ -29,6 +29,12 @@ class QuestionCreate(BaseModel):
     examYear: int | None = Field(default=None, ge=1990, le=2100)
     paperSession: str | None = Field(default=None, max_length=120)
     pyqFlag: bool = False
+    # Phase 5 (P5-S58) — polymorphic discriminator + per-type payload
+    # written through the multi-type author. When omitted the row
+    # behaves identically to the legacy MCQ_SINGLE creation path.
+    questionType: str = "MCQ_SINGLE"
+    payload: dict | None = None
+    aiOrigin: dict | None = None
 
 
 class QuestionDetail(BaseModel):

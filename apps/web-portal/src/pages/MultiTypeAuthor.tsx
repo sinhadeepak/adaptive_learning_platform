@@ -12,6 +12,13 @@ import {
   type Shape,
 } from "../components/DiagramAuthoringCanvas";
 import { types, type TypeMeta, aiAuthoring } from "../lib/phase5-api";
+import {
+  catalog,
+  content,
+  type CatalogExam,
+  type CatalogSubject,
+  type CatalogTopic,
+} from "../lib/api";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Multi-type Question Author (P5-S58, closes the page-level integration
@@ -53,6 +60,17 @@ export function MultiTypeAuthor() {
   const [allTypes, setAllTypes] = useState<TypeMeta[]>([]);
   const [typeId, setTypeId] = useState("MCQ_SINGLE");
   const [registryError, setRegistryError] = useState<string | null>(null);
+
+  // Topic cascade — Exam → Subject → Topic. Same shape as NewQuestion
+  // so the catalog scope (educator's assigned exams + subjects)
+  // governs what authors can create against.
+  const [exams, setExams] = useState<CatalogExam[]>([]);
+  const [subjects, setSubjects] = useState<CatalogSubject[]>([]);
+  const [topics, setTopics] = useState<CatalogTopic[]>([]);
+  const [examId, setExamId] = useState("");
+  const [subjectId, setSubjectId] = useState("");
+  const [topicId, setTopicId] = useState("");
+  const [scopeError, setScopeError] = useState<string | null>(null);
 
   // Common fields
   const [stem, setStem] = useState("");
@@ -120,6 +138,84 @@ export function MultiTypeAuthor() {
     })();
   }, []);
 
+  // Cascade: load assigned exams once on mount.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await catalog.myExams();
+        if (!cancelled) setExams(list);
+      } catch (e) {
+        if (!cancelled) {
+          setScopeError(
+            e instanceof Error ? e.message : "Couldn't load exam assignments.",
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Cascade: when exam changes, reload subjects + reset downstream.
+  useEffect(() => {
+    if (!examId) {
+      setSubjects([]);
+      setSubjectId("");
+      setTopics([]);
+      setTopicId("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await catalog.mySubjects(examId);
+        if (cancelled) return;
+        setSubjects(list);
+        setSubjectId("");
+        setTopics([]);
+        setTopicId("");
+      } catch (e) {
+        if (!cancelled) {
+          setScopeError(
+            e instanceof Error ? e.message : "Couldn't load subjects.",
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [examId]);
+
+  // Cascade: when subject changes, reload topics.
+  useEffect(() => {
+    if (!subjectId) {
+      setTopics([]);
+      setTopicId("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await catalog.topics(subjectId);
+        if (cancelled) return;
+        setTopics(list);
+        setTopicId("");
+      } catch (e) {
+        if (!cancelled) {
+          setScopeError(
+            e instanceof Error ? e.message : "Couldn't load topics.",
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [subjectId]);
+
   const meta = allTypes.find((t) => t.type_id === typeId);
   const family = (meta?.family ?? "Objective") as Family;
 
@@ -172,38 +268,103 @@ export function MultiTypeAuthor() {
   async function handleSubmit(evt: FormEvent) {
     evt.preventDefault();
     setSubmitError(null);
+
+    if (!topicId) {
+      setSubmitError("Pick an exam, subject, and topic before saving.");
+      return;
+    }
+    if (!stem.trim()) {
+      setSubmitError("Stem is required.");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      // For v1, we POST through the existing /content/questions
-      // endpoint shape (MCQ field-style). Per-family rich payloads
-      // land when content/routes accepts the new typed payload column.
-      // Preserves backward-compatibility with the legacy authoring
-      // path.
-      const correctIdx = options.findIndex((o) => o.is_correct);
-      const body = {
-        stem,
-        choices: options.map((o) => o.text),
-        correct_idx: correctIdx,
-        language,
-        difficulty_b: 0,
-        discrimination_a: 1.0,
-        guessing_c: 0.0,
-        explanation,
-        question_type: typeId,
-        // ai_origin is round-tripped to questions.ai_origin JSONB.
-        ai_origin: aiOrigin,
-        concept_tags: tags,
-      };
-      const resp = await fetch("/api/v1/content/questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!resp.ok) {
-        throw new Error(`submit failed: ${resp.status}`);
+      // P5-S58 — every type ships with the legacy MCQ-shape fields
+      // (stem / choices / correct_idx) so the row remains readable
+      // by pre-S37 code paths, plus the polymorphic discriminator
+      // (questionType) and per-type structure (payload). For
+      // non-MCQ types choices is a stub list because the backend
+      // schema still requires NOT NULL on the column.
+      const isObjective = family === "Objective";
+      const correctIdx = isObjective
+        ? Math.max(0, options.findIndex((o) => o.is_correct))
+        : 0;
+      const choicesPayload = isObjective
+        ? options.map((o) => o.text || "—")
+        : ["See payload."];
+
+      // Build the per-family payload — same shape the seed uses,
+      // so the polymorphic renderer / grader paths can consume it
+      // identically to seeded UPSC items.
+      let typedPayload: Record<string, unknown> | null = null;
+      if (isObjective && typeId !== "MCQ_SINGLE") {
+        typedPayload = {
+          options: options.map((o) => ({ id: o.id, text: o.text })),
+          correct_ids: options.filter((o) => o.is_correct).map((o) => o.id),
+          partial_credit: typeId === "MCQ_MULTI",
+        };
+      } else if (family === "Numeric") {
+        typedPayload = {
+          answer: numericAnswer ? Number(numericAnswer) : null,
+          tolerance: numericTolerance ? Number(numericTolerance) : 0,
+          unit: numericUnit || null,
+          range_low: numericRangeLow ? Number(numericRangeLow) : null,
+          range_high: numericRangeHigh ? Number(numericRangeHigh) : null,
+          formula: formulaExpr || null,
+        };
+      } else if (family === "Matching") {
+        if (typeId === "MATCH_THE_FOLLOWING") {
+          typedPayload = { pairs };
+        } else if (typeId === "SEQUENCING") {
+          typedPayload = { items: sequenceItems };
+        } else if (typeId === "CLASSIFICATION") {
+          typedPayload = {
+            categories: classifyCategories,
+            items: classifyItems,
+          };
+        }
+      } else if (family === "Fill-in") {
+        typedPayload = {
+          template: fillTemplate,
+          accepted: fillAccepted.map((row) =>
+            row.split(",").map((s) => s.trim()).filter(Boolean),
+          ),
+        };
+      } else if (family === "Subjective") {
+        typedPayload = {
+          model_answer: modelAnswer,
+          expected_word_count_range: expectedWordRange,
+          rubric: rubric.map((r) => ({
+            criterion: r.text,
+            weight: r.weight,
+            keywords: r.keywords,
+            descriptors: r.descriptors,
+          })),
+        };
+      } else if (family === "Visual & Spatial") {
+        typedPayload = {
+          image_url: imageUrl ?? null,
+          shapes,
+          markers,
+        };
       }
-      const created = await resp.json();
-      navigate(`/my-questions/${created.id}`);
+
+      const created = await content.create({
+        topicId,
+        stem: stem.trim(),
+        choices: choicesPayload,
+        correctIdx,
+        language,
+        explanation: explanation.trim() || null,
+        questionType: typeId,
+        payload: typedPayload,
+        aiOrigin: aiOrigin ?? null,
+      });
+      // P5-S58 — go to the My questions list (route /questions).
+      // Detail-route per question is a follow-up surface.
+      navigate("/questions", { replace: true });
+      void created;
     } catch (e) {
       setSubmitError(
         e instanceof Error ? e.message : "Couldn't submit question",
@@ -218,6 +379,80 @@ export function MultiTypeAuthor() {
       {registryError && <Banner tone="danger">{registryError}</Banner>}
 
       <form className="author-form" onSubmit={handleSubmit}>
+        {scopeError && (
+          <Banner tone="danger">{scopeError}</Banner>
+        )}
+
+        {/* ── Topic cascade (Exam → Subject → Topic) ──────────── */}
+        <section style={{ marginBottom: 16 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gap: 12,
+            }}
+          >
+            <label style={{ fontSize: 13, fontWeight: 500 }}>
+              <div style={{ marginBottom: 4 }}>Exam *</div>
+              <select
+                value={examId}
+                onChange={(e) => setExamId(e.target.value)}
+                required
+                style={{ width: "100%", padding: "6px 8px", borderRadius: 4 }}
+              >
+                <option value="">— select exam —</option>
+                {exams.map((ex) => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.name || ex.code}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ fontSize: 13, fontWeight: 500 }}>
+              <div style={{ marginBottom: 4 }}>Subject *</div>
+              <select
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+                disabled={!examId}
+                required
+                style={{ width: "100%", padding: "6px 8px", borderRadius: 4 }}
+              >
+                <option value="">
+                  {examId ? "— select subject —" : "(pick exam first)"}
+                </option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name || s.id}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ fontSize: 13, fontWeight: 500 }}>
+              <div style={{ marginBottom: 4 }}>Topic *</div>
+              <select
+                value={topicId}
+                onChange={(e) => setTopicId(e.target.value)}
+                disabled={!subjectId}
+                required
+                style={{ width: "100%", padding: "6px 8px", borderRadius: 4 }}
+              >
+                <option value="">
+                  {subjectId
+                    ? topics.length === 0
+                      ? "(no topics yet)"
+                      : "— select topic —"
+                    : "(pick subject first)"}
+                </option>
+                {topics.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </section>
+
         {/* ── Type picker ───────────────────────────────────────── */}
         <section style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 13, fontWeight: 500 }}>

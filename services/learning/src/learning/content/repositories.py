@@ -65,6 +65,11 @@ async def insert_question(
     exam_year: int | None = None,
     paper_session: str | None = None,
     pyq_flag: bool = False,
+    # Phase 5 (P5-S58) — polymorphic fields. Default to MCQ_SINGLE so
+    # the legacy NewQuestion path stays byte-for-byte unchanged.
+    question_type: str = "MCQ_SINGLE",
+    payload: dict | None = None,
+    ai_origin: dict | None = None,
 ) -> dict[str, Any]:
     if correct_idx >= len(choices):
         raise ValueError("correctIdx out of range for choices")
@@ -74,14 +79,18 @@ async def insert_question(
             INSERT INTO {SCHEMA}.questions
               (id, topic_id, stem, choices, correct_idx, difficulty_b,
                discrimination_a, guessing_c, language, status, created_by, explanation,
-               exam_year, paper_session, pyq_flag)
+               exam_year, paper_session, pyq_flag,
+               question_type, payload, ai_origin)
             VALUES (:id, :tid, :stem, CAST(:choices AS JSONB), :ci, :db,
                     :da, :gc, :lang, 'DRAFT', :cb, :exp,
-                    :ey, :ps, :pyq)
+                    :ey, :ps, :pyq,
+                    :qtype,
+                    CAST(:payload AS JSONB),
+                    CAST(:ai_origin AS JSONB))
             RETURNING id, topic_id, stem, choices, correct_idx, difficulty_b,
                       discrimination_a, guessing_c, language, status, explanation,
                       created_by, created_at, submitted_at, reviewed_by, reviewed_at, review_notes,
-                      exam_year, paper_session, pyq_flag
+                      exam_year, paper_session, pyq_flag, question_type
             """
         ),
         {
@@ -99,6 +108,9 @@ async def insert_question(
             "ey": exam_year,
             "ps": paper_session,
             "pyq": pyq_flag,
+            "qtype": question_type,
+            "payload": json.dumps(payload) if payload is not None else None,
+            "ai_origin": json.dumps(ai_origin) if ai_origin is not None else None,
         },
     )
     return _row_to_dict(res.mappings().first())

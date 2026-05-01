@@ -51,6 +51,11 @@ export interface CreateQuestionInput {
   language?: "en" | "hi";
   // Teaching note shown alongside the correct answer in QuizResult.
   explanation?: string | null;
+  // Phase 5 — polymorphic discriminator + per-type payload + AI
+  // origin marker. Default questionType is MCQ_SINGLE on the server.
+  questionType?: string;
+  payload?: Record<string, unknown> | null;
+  aiOrigin?: Record<string, unknown> | null;
 }
 
 async function asJson<T>(res: Response): Promise<T> {

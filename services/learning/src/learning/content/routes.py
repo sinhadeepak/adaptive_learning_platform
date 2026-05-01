@@ -145,6 +145,10 @@ async def create_question(
         exam_year=body.examYear,
         paper_session=body.paperSession,
         pyq_flag=body.pyqFlag,
+        # Phase 5 (P5-S58) — polymorphic.
+        question_type=body.questionType,
+        payload=body.payload,
+        ai_origin=body.aiOrigin,
     )
     await session.commit()
     return _to_detail(row)
