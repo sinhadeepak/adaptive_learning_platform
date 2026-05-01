@@ -184,7 +184,7 @@ async def get_question(session: AsyncSession, question_id: str) -> dict[str, Any
             f"SELECT id, topic_id, stem, choices, correct_idx, difficulty_b, "
             f"discrimination_a, guessing_c, language, status, explanation, "
             f"created_by, created_at, submitted_at, reviewed_by, reviewed_at, review_notes, "
-            f"exam_year, paper_session, pyq_flag "
+            f"exam_year, paper_session, pyq_flag, question_type "
             f"FROM {SCHEMA}.questions WHERE id = :id"
         ),
         {"id": question_id},
