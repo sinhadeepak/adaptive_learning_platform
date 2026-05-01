@@ -43,6 +43,11 @@ def _row_to_dict(r: Any) -> dict[str, Any]:
         out["paper_session"] = r["paper_session"]
     if "pyq_flag" in r.keys():
         out["pyq_flag"] = bool(r["pyq_flag"])
+    # Phase 5 (P5-S37) — polymorphic discriminator. Optional in
+    # _row_to_dict because some legacy SELECTs (translation_routes
+    # etc.) still hand-roll their own row mapping.
+    if "question_type" in r.keys():
+        out["question_type"] = r["question_type"] or "MCQ_SINGLE"
     return out
 
 

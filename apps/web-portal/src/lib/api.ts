@@ -33,6 +33,8 @@ export interface Question {
   reviewedBy?: string | null;
   reviewedAt?: string | null;
   reviewNotes?: string | null;
+  // Optional teaching note shown alongside the correct answer.
+  explanation?: string | null;
   // Phase 5 — polymorphic question type discriminator. Defaults to
   // MCQ_SINGLE when the API hasn't been redeployed.
   questionType?: string;

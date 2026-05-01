@@ -15,6 +15,7 @@ export function MyQuestions() {
   const [questions, setQuestions] = useState<Question[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   async function refresh() {
     setError(null);
@@ -188,35 +189,93 @@ export function MyQuestions() {
         </div>
       ) : (
         <ul className="row-list">
-          {(filtered ?? []).map((q) => (
-            <li key={q.id} className="row-link" style={{ cursor: "default" }}>
-              <div className="row-link-body">
-                <p className="row-link-title">{q.stem.slice(0, 120)}{q.stem.length > 120 ? "…" : ""}</p>
-                <p className="row-link-meta">
-                  {new Date(q.createdAt).toLocaleDateString()}
-                  {q.reviewNotes ? (
-                    <span style={{ color: "var(--color-red)" }}> · {q.reviewNotes}</span>
-                  ) : null}
-                </p>
-              </div>
-              <div className="row-link-trail">
-                {q.questionType && q.questionType !== "MCQ_SINGLE" && (
-                  <Pill tone="info">{q.questionType}</Pill>
-                )}
-                <StatusPill status={q.status} />
-                {q.status === "DRAFT" ? (
-                  <button
-                    type="button"
-                    onClick={() => void submitForReview(q.id)}
-                    disabled={submittingId === q.id}
-                    className="btn btn-ghost"
+          {(filtered ?? []).map((q) => {
+            const expanded = expandedId === q.id;
+            return (
+              <li
+                key={q.id}
+                className="row-link"
+                style={{
+                  cursor: "pointer",
+                  display: "block",
+                  padding: 0,
+                }}
+              >
+                <div
+                  onClick={() => setExpandedId(expanded ? null : q.id)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${expanded ? "Collapse" : "Expand"} question details`}
+                  aria-expanded={expanded}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setExpandedId(expanded ? null : q.id);
+                    }
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: "12px 16px",
+                  }}
+                >
+                  <div className="row-link-body" style={{ flex: 1, minWidth: 0 }}>
+                    <p className="row-link-title">
+                      <span style={{ color: "var(--text-faint, #7A8BAD)", marginRight: 6 }}>
+                        {expanded ? "▾" : "▸"}
+                      </span>
+                      {q.stem.slice(0, 120)}
+                      {q.stem.length > 120 ? "…" : ""}
+                    </p>
+                    <p
+                      className="row-link-meta"
+                      style={{ display: "flex", gap: 10, flexWrap: "wrap" }}
+                    >
+                      <span>{new Date(q.createdAt).toLocaleDateString()}</span>
+                      <span style={{ color: "var(--text-faint, #7A8BAD)" }}>·</span>
+                      <span>type: {q.questionType ?? "MCQ_SINGLE"}</span>
+                      <span style={{ color: "var(--text-faint, #7A8BAD)" }}>·</span>
+                      <span>lang: {q.language?.toUpperCase()}</span>
+                      <span style={{ color: "var(--text-faint, #7A8BAD)" }}>·</span>
+                      <span>diff b={q.difficultyB.toFixed(2)}</span>
+                      <span style={{ color: "var(--text-faint, #7A8BAD)" }}>·</span>
+                      <span>{q.choices.length} choices</span>
+                      {q.reviewNotes ? (
+                        <span style={{ color: "var(--color-red)" }}>
+                          · {q.reviewNotes}
+                        </span>
+                      ) : null}
+                    </p>
+                  </div>
+                  <div
+                    className="row-link-trail"
+                    style={{ display: "flex", gap: 6, alignItems: "center" }}
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    {submittingId === q.id ? "Submitting…" : "Submit for review"}
-                  </button>
-                ) : null}
-              </div>
-            </li>
-          ))}
+                    {q.questionType && q.questionType !== "MCQ_SINGLE" && (
+                      <Pill tone="info">{q.questionType}</Pill>
+                    )}
+                    <StatusPill status={q.status} />
+                    {q.status === "DRAFT" ? (
+                      <button
+                        type="button"
+                        onClick={() => void submitForReview(q.id)}
+                        disabled={submittingId === q.id}
+                        className="btn btn-ghost"
+                      >
+                        {submittingId === q.id
+                          ? "Submitting…"
+                          : "Submit for review"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                {expanded && <QuestionDetailPanel questionId={q.id} />}
+              </li>
+            );
+          })}
         </ul>
       )}
     </AppShell>
@@ -233,4 +292,173 @@ const STATUS_TONE: Record<Question["status"], PillTone> = {
 
 export function StatusPill({ status }: { status: Question["status"] }) {
   return <Pill tone={STATUS_TONE[status]}>{status}</Pill>;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// QuestionDetailPanel — expanded view shown beneath a question row
+// when the operator clicks. Lazily fetches the full QuestionDetail
+// (which carries explanation, payload, ai_origin, etc. that the
+// list endpoint omits) and renders a compact two-column read-only
+// summary. Lives inside MyQuestions.tsx because it's the only call
+// site; promote to its own component if more pages adopt it.
+// ─────────────────────────────────────────────────────────────────────
+function QuestionDetailPanel({ questionId }: { questionId: string }) {
+  const [detail, setDetail] = useState<Question | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDetail(null);
+    setError(null);
+    (async () => {
+      try {
+        const q = await content.get(questionId);
+        if (!cancelled) setDetail(q);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Couldn't load question.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [questionId]);
+
+  return (
+    <div
+      style={{
+        padding: "12px 20px 16px 36px",
+        background: "var(--bg-surface1, #0C1422)",
+        borderTop: "1px solid var(--border, rgba(255,255,255,.07))",
+        fontSize: 13,
+        color: "var(--text-secondary, #B8C5E0)",
+      }}
+    >
+      {error && <Banner tone="danger">{error}</Banner>}
+      {!detail && !error && <p style={{ opacity: 0.7 }}>Loading…</p>}
+      {detail && (
+        <div style={{ display: "grid", gap: 12 }}>
+          <div>
+            <strong style={{ color: "var(--text-primary, #EEF2FF)" }}>Stem</strong>
+            <p style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>{detail.stem}</p>
+          </div>
+
+          {detail.choices.length > 1 && (
+            <div>
+              <strong style={{ color: "var(--text-primary, #EEF2FF)" }}>
+                Choices
+              </strong>
+              <ol style={{ marginTop: 4, paddingLeft: 20 }}>
+                {detail.choices.map((c, i) => (
+                  <li
+                    key={i}
+                    style={{
+                      color:
+                        i === detail.correctIdx
+                          ? "var(--color-green, #10C47A)"
+                          : "inherit",
+                      fontWeight: i === detail.correctIdx ? 600 : 400,
+                    }}
+                  >
+                    {c}
+                    {i === detail.correctIdx && (
+                      <span style={{ marginLeft: 8 }}>✓ correct</span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {detail.explanation && (
+            <div>
+              <strong style={{ color: "var(--text-primary, #EEF2FF)" }}>
+                Explanation
+              </strong>
+              <p style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>
+                {detail.explanation}
+              </p>
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 12,
+              fontSize: 12,
+              borderTop: "1px solid var(--border, rgba(255,255,255,.07))",
+              paddingTop: 10,
+            }}
+          >
+            <Meta label="ID" value={detail.id} mono />
+            <Meta label="Topic ID" value={detail.topicId} mono />
+            <Meta label="Type" value={detail.questionType ?? "MCQ_SINGLE"} />
+            <Meta label="Difficulty (b)" value={detail.difficultyB.toFixed(2)} />
+            <Meta
+              label="Discrimination (a)"
+              value={detail.discriminationA.toFixed(2)}
+            />
+            <Meta label="Guessing (c)" value={detail.guessingC.toFixed(2)} />
+            <Meta label="Language" value={detail.language.toUpperCase()} />
+            <Meta label="Status" value={detail.status} />
+            <Meta
+              label="Created"
+              value={new Date(detail.createdAt).toLocaleString()}
+            />
+            {detail.submittedAt && (
+              <Meta
+                label="Submitted"
+                value={new Date(detail.submittedAt).toLocaleString()}
+              />
+            )}
+            {detail.reviewedAt && (
+              <Meta
+                label="Reviewed"
+                value={new Date(detail.reviewedAt).toLocaleString()}
+              />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Meta({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div>
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: 0.5,
+          textTransform: "uppercase",
+          color: "var(--text-faint, #7A8BAD)",
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          marginTop: 2,
+          fontFamily: mono ? "var(--font-mono, monospace)" : "inherit",
+          color: "var(--text-primary, #EEF2FF)",
+          fontSize: mono ? 11 : 13,
+          wordBreak: mono ? "break-all" : "normal",
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  );
 }
