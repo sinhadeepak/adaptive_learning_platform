@@ -55,6 +55,57 @@ dev-logs: ## Tail logs for the local stack
 dev-seed: ## Run seed script against local Postgres + NATS (placeholder until Sprint 1)
 	@echo "→ dev-seed: implemented in Sprint 1 (scripts/seed_staging.py, GAP-09)"
 
+# ── migrate-all ────────────────────────────────────────────────────
+# Apply alembic head across every consolidated service module by
+# `docker exec`-ing into the running service containers. The
+# containers already carry the right env vars (DATABASE_URL,
+# *_SEED_LOCAL) baked in via docker-compose, so we don't need to
+# replicate that wiring on the host.
+#
+# Run after rebuilding an image (compose build + up) — alembic is
+# idempotent; re-running on a stack already at head is a no-op.
+.PHONY: migrate-all
+migrate-all: ## Apply alembic head across every service in the running stack.
+	@for cfg in alembic_auth.ini alembic_institution.ini alembic_profile.ini; do \
+		echo "→ identity: $$cfg"; \
+		docker exec alp-local-identity-1 sh -c "cd /repo/services/identity && alembic -c $$cfg upgrade head" || exit 1; \
+	done
+	@echo "→ payment"
+	@docker exec alp-local-payment-1 sh -c "cd /repo/services/payment && alembic upgrade head" || exit 1
+	@for cfg in alembic_catalog.ini alembic_content.ini alembic_doubts.ini; do \
+		echo "→ learning: $$cfg"; \
+		docker exec alp-local-learning-1 sh -c "cd /repo/services/learning && alembic -c $$cfg upgrade head" || exit 1; \
+	done
+	@for cfg in alembic_analytics.ini alembic_notification.ini; do \
+		echo "→ engagement: $$cfg"; \
+		docker exec alp-local-engagement-1 sh -c "cd /repo/services/engagement && alembic -c $$cfg upgrade head" || exit 1; \
+	done
+	@echo "→ quiz: go-migrate runs at container start (cmd/migrate up) — already applied by entrypoint"
+
+# ── local-up ────────────────────────────────────────────────────────
+# One-command bring-up: stack containers, every alembic head applied,
+# auth + content seed in place. Idempotent — re-running on a healthy
+# stack is a no-op.
+.PHONY: local-up
+local-up: ## Bring up the local stack with migrations + seeds applied (one command).
+	@$(MAKE) dev
+	@echo "→ waiting 8s for postgres + service containers to settle..."
+	@sleep 8
+	@$(MAKE) migrate-all
+	@$(MAKE) seed-restore
+	@echo ""
+	@echo "✓ local stack is up: web-student → http://localhost:35173 · web-portal → http://localhost:35174 · web-admin → http://localhost:35175"
+
+# ── seed-upsc ──────────────────────────────────────────────────────
+# Targeted helper for the Phase-5 polymorphic UPSC seed (24 active
+# question types × 100 questions). Migration 019 is the inline
+# seed — running alembic upgrade head on the content module is all
+# that's required. Convenience target so a UAT operator who only
+# wants the UPSC bank does not have to run the full migrate-all.
+.PHONY: seed-upsc
+seed-upsc: ## Apply the Phase-5 UPSC polymorphic seed (24 types × 100 = 2,400 questions).
+	@docker exec alp-local-learning-1 sh -c "cd /repo/services/learning && alembic -c alembic_content.ini upgrade head"
+
 .PHONY: smoke
 smoke: ## Run end-to-end golden-path smoke against the running stack (99 assertions through S63).
 	@bash scripts/smoke_test.sh
