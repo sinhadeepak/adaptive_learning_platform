@@ -2,6 +2,9 @@ import { Navigate, type RouteObject } from "react-router-dom";
 import { GuestOnlyRoute, ProtectedRoute } from "./lib/protected-route";
 import { AddExam } from "./pages/AddExam";
 import { Analysis } from "./pages/Analysis";
+// Phase 5 (P5-S56) — multi-parameter profile + diagnostic deep dive.
+import { ConceptProfile } from "./pages/ConceptProfile";
+import { DiagnosticDeepDive } from "./pages/DiagnosticDeepDive";
 import { AssignmentDetail } from "./pages/AssignmentDetail";
 import { Assignments } from "./pages/Assignments";
 import { Billing } from "./pages/Billing";
@@ -476,6 +479,24 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <CourseRead />
+      </ProtectedRoute>
+    ),
+  },
+
+  // Phase 5 (P5-S56) — multi-parameter substrate surface.
+  {
+    path: "/concept-profile",
+    element: (
+      <ProtectedRoute>
+        <ConceptProfile />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/diagnostic-deep-dive",
+    element: (
+      <ProtectedRoute>
+        <DiagnosticDeepDive />
       </ProtectedRoute>
     ),
   },
