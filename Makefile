@@ -56,8 +56,16 @@ dev-seed: ## Run seed script against local Postgres + NATS (placeholder until Sp
 	@echo "→ dev-seed: implemented in Sprint 1 (scripts/seed_staging.py, GAP-09)"
 
 .PHONY: smoke
-smoke: ## Run end-to-end golden-path smoke against the running stack (16 assertions).
+smoke: ## Run end-to-end golden-path smoke against the running stack (99 assertions through S63).
 	@bash scripts/smoke_test.sh
+
+.PHONY: static-verify
+static-verify: ## Pre-deploy static checks (no Docker): migration linearity + route registration + tests.
+	@bash scripts/static_verify.sh
+
+.PHONY: deploy-phase5
+deploy-phase5: ## Phase 5 staging deploy: rebuild learning+engagement, migrate, restart, smoke, probe.
+	@bash scripts/deploy_phase5.sh
 
 # -- consolidation (ADR-0005) — historical contract-test harness left in place
 #    for any future module-level boundary changes.
