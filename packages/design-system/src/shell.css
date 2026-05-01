@@ -2562,7 +2562,11 @@
   margin: calc(-1 * var(--sp-6));
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  /* Fill the app-main area exactly: viewport height minus the
+     56px AppShell topbar. With this height the flex column pins
+     .q-footer to the bottom and lets .q-area scroll internally
+     so the Submit / Next button is always visible. */
+  height: calc(100vh - 56px);
   background: var(--bg-base);
 }
 
