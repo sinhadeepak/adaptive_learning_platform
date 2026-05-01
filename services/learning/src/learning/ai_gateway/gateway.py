@@ -17,6 +17,7 @@ import time
 import uuid
 from typing import Any
 
+from learning.ai_gateway.cache import CACHEABLE_TOUCHPOINTS, get_cache
 from learning.ai_gateway.metrics import record_call
 from learning.ai_gateway.pii_scrubber import scrub_payload
 from learning.ai_gateway.prompt_registry import PromptRegistry
@@ -118,6 +119,19 @@ class AIGateway:
         call_id = str(uuid.uuid4())
         started = time.monotonic()
 
+        # P5-S52 — deterministic-input cache lookup (touchpoint-gated).
+        # Idempotent touchpoints (translation, quality_check, vision)
+        # cache by (touchpoint, input_hash). Returns the cached
+        # validated instance when present + unexpired.
+        cache = get_cache()
+        if touchpoint in CACHEABLE_TOUCHPOINTS:
+            cache_key = f"{touchpoint}:{input_hash}"
+            cached = cache.get(touchpoint=touchpoint, key=cache_key)
+            if cached is not None:
+                # Re-validate the cached payload through the schema so
+                # the caller always gets a fresh model instance.
+                return schema.model_validate(cached)
+
         # Try primary, then fallback.
         for attempt_role, provider_cfg in _candidates(tp_routing):
             provider = self._get_provider(provider_cfg.provider)
@@ -170,6 +184,13 @@ class AIGateway:
                         status="succeeded",
                         output=result.data if isinstance(result.data, dict) else None,
                     ))
+                # P5-S52 — populate cache for idempotent touchpoints.
+                if touchpoint in CACHEABLE_TOUCHPOINTS and isinstance(result.data, dict):
+                    cache.put(
+                        touchpoint=touchpoint,
+                        key=f"{touchpoint}:{input_hash}",
+                        value=result.data,
+                    )
                 return validated
             except ProviderError as e:
                 err_latency_ms = int((time.monotonic() - started) * 1000)

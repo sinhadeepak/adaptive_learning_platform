@@ -176,9 +176,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.photo_doubt_limiter = PhotoDoubtRateLimiter(adaptive_settings.redis_url)
     await _try("adaptive.photo_doubt_limiter", app.state.photo_doubt_limiter.connect)
 
+    # P5-S52 — start auto-pause refresh task. Polls calibration_samples
+    # every 5 minutes and rebuilds the paused-criteria set so subjective
+    # grader's runtime gate sees fresh kappa data.
+    async def _start_auto_pause() -> None:
+        from learning.evaluation.auto_pause import start_refresh_task
+
+        app.state.auto_pause_task = await start_refresh_task()
+
+    await _try("evaluation.auto_pause", _start_auto_pause)
+
     try:
         yield
     finally:
+        # Cancel auto-pause task before disposing DB connections so its
+        # in-flight query doesn't see a closing pool.
+        task = getattr(app.state, "auto_pause_task", None)
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except Exception:  # noqa: BLE001
+                pass
         await _try("photo_doubt_limiter.close", app.state.photo_doubt_limiter.close)
         await _try("adaptive.flags.close", close_adaptive_flags)
         await _try("search.os_client.close", close_os_client)

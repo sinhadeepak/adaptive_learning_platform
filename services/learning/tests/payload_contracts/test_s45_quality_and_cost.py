@@ -40,6 +40,17 @@ def _run(coro):
     return asyncio.run(coro)
 
 
+@pytest.fixture(autouse=True)
+def _reset_gateway_cache():
+    """P5-S52 cache is process-wide; each quality-check test injects
+    its own canned responses. Reset between tests so stub responses
+    don't leak through the cache."""
+    from learning.ai_gateway.cache import reset_for_tests as _cache_reset
+    _cache_reset()
+    yield
+    _cache_reset()
+
+
 def _make_qc_gateway(canned: dict[str, dict]) -> AIGateway:
     reg = PromptRegistry()
     template_specs = {

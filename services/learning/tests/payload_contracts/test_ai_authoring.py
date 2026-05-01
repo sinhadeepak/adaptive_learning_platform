@@ -48,6 +48,16 @@ def _run(coro):
     return asyncio.run(coro)
 
 
+@pytest.fixture(autouse=True)
+def _reset_gateway_cache():
+    """quality_check is a cacheable touchpoint (P5-S52); reset between
+    tests so stub responses don't leak across distinct test cases."""
+    from learning.ai_gateway.cache import reset_for_tests as _cache_reset
+    _cache_reset()
+    yield
+    _cache_reset()
+
+
 # ── Levenshtein ──────────────────────────────────────────────────────────────
 
 

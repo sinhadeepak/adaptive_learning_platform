@@ -245,6 +245,27 @@ async def grade_subjective(
 
     decision = decide_routing(confidence=confidence, response_id=response_id)
 
+    # P5-S52 — runtime auto-pause check. If any rubric criterion has
+    # been paused for low rolling kappa, route the response to humans
+    # regardless of AI confidence. The override is per-rubric: a
+    # rubric with one paused criterion fully escapes auto-finalise.
+    from learning.evaluation.auto_pause import get_paused_set
+
+    paused_set = get_paused_set()
+    if paused_set:
+        rubric_ids = {c["id"] for c in rubric_criteria}
+        if rubric_ids & paused_set:
+            from learning.evaluation.routing import EvalDecision
+
+            decision = EvalDecision(
+                action="HUMAN_REQUIRED",
+                sampled_for_calibration=False,
+                rationale=(
+                    f"runtime_auto_pause:criteria_overlap="
+                    f"{sorted(rubric_ids & paused_set)}"
+                ),
+            )
+
     if report is None:
         # Fabricate an empty report so aggregator can produce the
         # PENDING_HUMAN_REVIEW Resolution with per_part=[]; concrete

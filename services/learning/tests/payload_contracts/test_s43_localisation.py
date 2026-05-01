@@ -33,6 +33,16 @@ def _run(coro):
     return asyncio.run(coro)
 
 
+@pytest.fixture(autouse=True)
+def _reset_gateway_cache():
+    """Translation is a cacheable touchpoint (P5-S52). Reset between
+    tests so stub responses don't leak through the cache."""
+    from learning.ai_gateway.cache import reset_for_tests as _cache_reset
+    _cache_reset()
+    yield
+    _cache_reset()
+
+
 # ── extract_translatable_strings ─────────────────────────────────────────────
 
 
