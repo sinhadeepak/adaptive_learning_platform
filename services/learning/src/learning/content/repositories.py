@@ -109,7 +109,7 @@ async def list_questions(
     *,
     created_by: str | None = None,
     status_filter: str | None = None,
-    limit: int = 50,
+    limit: int = 200,
 ) -> list[dict[str, Any]]:
     where = []
     params: dict[str, Any] = {"lim": limit}
@@ -126,7 +126,7 @@ async def list_questions(
             SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
                    discrimination_a, guessing_c, language, status, explanation,
                    created_by, created_at, submitted_at, reviewed_by, reviewed_at, review_notes
-                   , exam_year, paper_session, pyq_flag
+                   , exam_year, paper_session, pyq_flag, question_type
               FROM {SCHEMA}.questions {where_clause}
           ORDER BY created_at DESC LIMIT :lim
             """

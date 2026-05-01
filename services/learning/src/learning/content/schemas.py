@@ -53,6 +53,8 @@ class QuestionDetail(BaseModel):
     examYear: int | None = None
     paperSession: str | None = None
     pyqFlag: bool = False
+    # Phase 5 (P5-S37) — polymorphic question type discriminator.
+    questionType: str = "MCQ_SINGLE"
 
 
 class QuestionList(BaseModel):

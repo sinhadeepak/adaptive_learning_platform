@@ -78,6 +78,8 @@ def _to_detail(row: dict) -> QuestionDetail:
         examYear=row.get("exam_year"),
         paperSession=row.get("paper_session"),
         pyqFlag=bool(row.get("pyq_flag", False)),
+        # Phase 5 (P5-S37) — polymorphic discriminator.
+        questionType=row.get("question_type") or "MCQ_SINGLE",
     )
 
 
