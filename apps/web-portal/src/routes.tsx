@@ -6,6 +6,8 @@ import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { MyQuestions } from "./pages/MyQuestions";
 import { NewQuestion } from "./pages/NewQuestion";
+// Phase 5 (P5-S58) — multi-type Author page.
+import { MultiTypeAuthor } from "./pages/MultiTypeAuthor";
 import { ReviewQueue } from "./pages/ReviewQueue";
 import { Students } from "./pages/Students";
 import { Doubts } from "./pages/Doubts";
@@ -47,6 +49,18 @@ export const routes: RouteObject[] = [
       <ProtectedRoute>
         <RoleGate allow={canAuthor}>
           <NewQuestion />
+        </RoleGate>
+      </ProtectedRoute>
+    ),
+  },
+  // Phase 5 (P5-S58) — multi-type Author. Lives at /questions/new-multi
+  // alongside the legacy single-type form so authors can opt in.
+  {
+    path: "/questions/new-multi",
+    element: (
+      <ProtectedRoute>
+        <RoleGate allow={canAuthor}>
+          <MultiTypeAuthor />
         </RoleGate>
       </ProtectedRoute>
     ),
