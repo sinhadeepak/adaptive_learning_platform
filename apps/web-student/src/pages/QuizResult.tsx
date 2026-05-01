@@ -70,6 +70,17 @@ export function QuizResult() {
   const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
   const [reportFor, setReportFor] = useState<ItemSummary | null>(null);
   const [reported, setReported] = useState<Set<string>>(new Set());
+  const [aiInsights, setAiInsights] = useState<{
+    diagnosis: string;
+    weak_concepts: { concept: string; why: string }[];
+    next_step: string;
+    confidence_note: string;
+    source: "ai" | "heuristic";
+    model?: string | null;
+    prompt_template_id?: string | null;
+    prompt_template_version?: string | null;
+  } | null>(null);
+  const [aiInsightsError, setAiInsightsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -110,6 +121,45 @@ export function QuizResult() {
       }
     })();
   }, [user, session]);
+
+  // P5 — call /adaptive/session-insights once we have items + topic.
+  // Falls back to a deterministic heuristic when OPENAI_API_KEY is
+  // unset; either way the panel renders within ~2-5 seconds.
+  useEffect(() => {
+    if (!session || !session.items || session.items.length === 0) return;
+    (async () => {
+      setAiInsights(null);
+      setAiInsightsError(null);
+      try {
+        const r = await auth.fetch(`/api/v1/adaptive/session-insights`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            correct: session.correctCount,
+            total: session.servedCount || session.items.length,
+            topicTitle: topic?.title ?? null,
+            language: "en",
+            items: session.items
+              .filter((it) => it.answered)
+              .map((it) => ({
+                stem: it.stem ?? "",
+                choices: it.choices ?? [],
+                correctIdx: it.correctIdx ?? -1,
+                pickedIdx: it.answerIdx ?? null,
+                isCorrect: it.isCorrect ?? null,
+                topicTitle: topic?.title ?? null,
+              })),
+          }),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        setAiInsights(await r.json());
+      } catch (e) {
+        setAiInsightsError(
+          e instanceof Error ? e.message : "Couldn't load insights.",
+        );
+      }
+    })();
+  }, [session, topic]);
 
   // Hydrate the bookmark set so the row UI can show filled vs. outline icons
   // without per-row round-trips.
@@ -335,7 +385,7 @@ export function QuizResult() {
       >
         <div className="eh-left">
           <div className="eh-tag" style={{ flexWrap: "wrap" }}>
-            <span className="ai-pill">◈ AI PRACTICE RESULT</span>
+            <span className="ai-pill">◈ PRACTICE RESULT</span>
             {topic ? (
               <Link
                 to={`/catalog/topic/${topic.id}`}
@@ -417,10 +467,12 @@ export function QuizResult() {
 
       {/* ── Zone 2: Two-column — AI UPDATE + (reco + mastery delta) ── */}
       <div className="dashboard-bottom-grid" style={{ marginTop: "var(--sp-4)" }}>
-        {/* Left: AI UPDATE card with 2x2 transition tiles */}
+        {/* Left: Session breakdown — basic stats. Honest naming:
+            this card is just arithmetic over correct/wrong/time, no
+            LLM is involved. The real AI insights live below. */}
         <div className="insight-card">
           <div className="ins-eyebrow">
-            <span>◈</span> AI UPDATE · session complete
+            <span>📊</span> Session breakdown
           </div>
 
           <div className="au-grid">
@@ -633,6 +685,174 @@ export function QuizResult() {
           ) : null}
         </div>
       </div>
+
+      {/* ── Zone 2.5: Real AI insights — the LLM analyses the
+          pattern of mistakes, not just the count. Replaces the
+          rule-based "AI UPDATE" theatre that was here before. ── */}
+      <section
+        aria-label="AI insights"
+        style={{
+          marginTop: "var(--sp-5)",
+          padding: "20px 22px",
+          background:
+            "linear-gradient(135deg, rgba(34,212,238,0.08), rgba(79,135,246,0.06))",
+          border: "1px solid rgba(34,212,238,0.25)",
+          borderRadius: "var(--radius-lg, 13px)",
+          color: "var(--text-primary, #EEF2FF)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: 0.6,
+              textTransform: "uppercase",
+              color: "var(--color-ai, #22D4EE)",
+            }}
+          >
+            ✨ AI insights — pattern analysis
+          </div>
+          {aiInsights && (
+            <div
+              style={{
+                fontSize: 10,
+                color: "var(--text-faint, #7A8BAD)",
+                fontFamily: "var(--font-mono, monospace)",
+              }}
+            >
+              {aiInsights.source === "ai"
+                ? `${aiInsights.model ?? "ai"} · ${aiInsights.prompt_template_id}@${aiInsights.prompt_template_version}`
+                : "deterministic fallback (no OPENAI_API_KEY)"}
+            </div>
+          )}
+        </div>
+
+        {!aiInsights && !aiInsightsError && (
+          <div style={{ color: "var(--text-faint, #7A8BAD)", fontSize: 13 }}>
+            Analysing your answer pattern…
+          </div>
+        )}
+        {aiInsightsError && (
+          <div style={{ color: "var(--color-amber, #F5A623)", fontSize: 13 }}>
+            Insights unavailable: {aiInsightsError}
+          </div>
+        )}
+        {aiInsights && (
+          <div style={{ display: "grid", gap: 14 }}>
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  letterSpacing: 0.5,
+                  textTransform: "uppercase",
+                  color: "var(--text-faint, #7A8BAD)",
+                  marginBottom: 4,
+                }}
+              >
+                Diagnosis
+              </div>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55 }}>
+                {aiInsights.diagnosis}
+              </p>
+            </div>
+
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  letterSpacing: 0.5,
+                  textTransform: "uppercase",
+                  color: "var(--text-faint, #7A8BAD)",
+                  marginBottom: 6,
+                }}
+              >
+                Where to drill next
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                {aiInsights.weak_concepts.map((c, i) => (
+                  <li key={i} style={{ marginBottom: 6, fontSize: 13 }}>
+                    <strong style={{ color: "var(--color-blue, #4F87F6)" }}>
+                      {c.concept}
+                    </strong>
+                    <span style={{ color: "var(--text-secondary, #B8C5E0)" }}>
+                      {" "}
+                      — {c.why}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                flexWrap: "wrap",
+                paddingTop: 8,
+                borderTop: "1px solid rgba(34,212,238,0.15)",
+              }}
+            >
+              <div style={{ flex: "1 1 320px" }}>
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    letterSpacing: 0.5,
+                    textTransform: "uppercase",
+                    color: "var(--text-faint, #7A8BAD)",
+                  }}
+                >
+                  Next step
+                </div>
+                <p
+                  style={{
+                    margin: "2px 0 0 0",
+                    fontSize: 13,
+                    color: "var(--color-green, #10C47A)",
+                    fontWeight: 500,
+                  }}
+                >
+                  → {aiInsights.next_step}
+                </p>
+              </div>
+              <div style={{ flex: "1 1 280px" }}>
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    letterSpacing: 0.5,
+                    textTransform: "uppercase",
+                    color: "var(--text-faint, #7A8BAD)",
+                  }}
+                >
+                  Confidence
+                </div>
+                <p
+                  style={{
+                    margin: "2px 0 0 0",
+                    fontSize: 12,
+                    color: "var(--text-secondary, #B8C5E0)",
+                    fontStyle: "italic",
+                  }}
+                >
+                  {aiInsights.confidence_note}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* ── Zone 3: Question review (rows) ─────────────────────────── */}
       <section id="question-review" style={{ marginTop: "var(--sp-5)" }}>

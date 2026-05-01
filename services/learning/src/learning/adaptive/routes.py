@@ -31,6 +31,7 @@ log = logging.getLogger(__name__)
 from learning.adaptive.authoring import generate_questions
 from learning.adaptive.doubt import solve_doubt
 from learning.adaptive.explain import explain_question
+from learning.adaptive.session_insights import generate_session_insights
 from learning.adaptive.mock import get_active_mock, plan_mock, score_mock
 from learning.adaptive.rank import project_rank
 from learning.adaptive.weakness import diagnose_weakness
@@ -389,6 +390,54 @@ async def post_explain(req: ExplainRequest) -> dict:
         correct_idx=req.correctIdx,
         picked_idx=req.pickedIdx,
         topic_title=req.topicTitle,
+        language=req.language,
+    )
+
+
+class SessionInsightsItem(BaseModel):
+    stem: str
+    choices: list[str] = Field(default_factory=list)
+    correctIdx: int = -1
+    pickedIdx: int | None = None
+    isCorrect: bool | None = None
+    topicTitle: str | None = None
+
+
+class SessionInsightsRequest(BaseModel):
+    correct: int = Field(ge=0)
+    total: int = Field(ge=0)
+    topicTitle: str | None = None
+    language: str = Field(default="en", pattern="^(en|hi)$")
+    items: list[SessionInsightsItem] = Field(default_factory=list)
+
+
+@router.post("/adaptive/session-insights")
+async def post_session_insights(req: SessionInsightsRequest) -> dict:
+    """LLM-backed insights for a finished practice round.
+
+    Replaces the basic-arithmetic "AI UPDATE" tile on the QuizResult
+    page. Output is structured (diagnosis + weak_concepts + next_step
+    + confidence_note) and pinned to a versioned prompt template per
+    ADR-0019. Falls back to a deterministic heuristic when
+    OPENAI_API_KEY is unset; the `source` field tells callers which
+    path ran.
+    """
+    items_dicts = [
+        {
+            "stem": it.stem,
+            "choices": it.choices,
+            "correct_idx": it.correctIdx,
+            "picked_idx": it.pickedIdx,
+            "is_correct": it.isCorrect,
+            "topic_title": it.topicTitle,
+        }
+        for it in req.items
+    ]
+    return await generate_session_insights(
+        correct=req.correct,
+        total=req.total,
+        topic_title=req.topicTitle,
+        items=items_dicts,
         language=req.language,
     )
 
