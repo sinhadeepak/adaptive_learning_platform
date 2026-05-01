@@ -59,6 +59,9 @@ from learning.content.translation_routes import router as content_translations_r
 from learning.grading.queue_routes import router as grader_queue_router
 from learning.localisation.cultural_routes import router as cultural_router
 
+# Phase 5 (P5-S62) — Whisper transcription pipeline
+from learning.transcription.routes import router as transcription_router
+
 # Phase 5 (P5-S45) — Admin cost dashboard
 from learning.ai_gateway.routes import router as ai_admin_router
 
@@ -162,6 +165,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         log.warning("learning startup: ai_gateway not available: %s", exc)
         app.state.ai_gateway = None
 
+    # P5-S62: register the Whisper transcription provider when an
+    # OpenAI API key is set; fall back to the stub otherwise so the
+    # /content/ai/transcribe route stays exercisable in dev. Failure
+    # to construct the OpenAI client surfaces as a warning + the
+    # route returns 503.
+    try:
+        import os
+        from learning.transcription.provider import (
+            OpenAIWhisperProvider,
+            StubTranscriptionProvider,
+            set_provider,
+        )
+
+        if os.environ.get("OPENAI_API_KEY"):
+            set_provider(OpenAIWhisperProvider())
+            log.info("transcription provider: openai-whisper")
+        else:
+            set_provider(StubTranscriptionProvider())
+            log.info("transcription provider: stub (no OPENAI_API_KEY)")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("learning startup: transcription not available: %s", exc)
+
     await _try("catalog.flags", connect_catalog_flags)
     await _try("content.events", content_events.connect)
     await _try("content.quiz_subscriber", content_quiz_sub.connect)
@@ -230,6 +255,7 @@ app.include_router(types_router)         # Phase 5 (P5-S51 — CE-104)
 app.include_router(content_translations_router)  # Phase 5 (P5-S51 — Cat §8.1)
 app.include_router(grader_queue_router)          # Phase 5 (P5-S57 — CE-308)
 app.include_router(cultural_router)              # Phase 5 (P5-S57 — CE-404)
+app.include_router(transcription_router)         # Phase 5 (P5-S62 — Whisper)
 app.include_router(exam_blueprints_router)
 app.include_router(pyq_router)
 app.include_router(prereqs_router)

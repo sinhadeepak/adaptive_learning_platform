@@ -21,6 +21,7 @@ dependencies = [
     "sympy>=1.13",  # P5-S38 — FORMULA_INPUT symbolic equivalence
     "pyyaml>=6.0",  # P5-S38 — AI routing config + prompt template registry
     "prometheus-client>=0.20",  # P5-S38 — AI Gateway metrics (calls, latency, cost, tokens, cache)
+    "python-multipart>=0.0.9",  # P5-S62 — multipart audio upload for Whisper transcription
     "alp-flags",
     "alp-telemetry",
 ]
