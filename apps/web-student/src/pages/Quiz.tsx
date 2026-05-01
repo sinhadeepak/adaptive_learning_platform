@@ -111,6 +111,22 @@ export function Quiz() {
   const [topicMastery, setTopicMastery] = useState<{ ewa: number; n: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0); // seconds since page load
+  // Bookmarks live in localStorage until backend persistence ships —
+  // session-scoped key so a single quiz's flagged questions stay
+  // together. Hydrated once on mount.
+  const bookmarkStorageKey = `quiz:${sessionId}:bookmarks`;
+  const [bookmarks, setBookmarks] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(`quiz:${sessionId}:bookmarks`);
+      return new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch {
+      return new Set<string>();
+    }
+  });
+  // Hint state: a transient inline note next to the question. Hints
+  // aren't authored on questions yet, so the click surfaces an
+  // honest "not available" message instead of silently doing nothing.
+  const [hintNote, setHintNote] = useState<string | null>(null);
 
   // Timer — counts up from page load. Until quiz/sessions exposes
   // expires_at this is the closest stand-in for the mockup's MM:SS chip.
@@ -125,6 +141,7 @@ export function Quiz() {
     setSelectedIdx(null);
     setResponsePayload(null);
     setVerdict(null);
+    setHintNote(null);
     try {
       const r = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/next`);
       if (r.status === 409) {
@@ -405,6 +422,39 @@ export function Quiz() {
               {(!item.questionType || item.questionType === "MCQ_SINGLE") && (
                 <h1 className="q-text">{item.stem}</h1>
               )}
+              {hintNote && (
+                <div
+                  role="status"
+                  style={{
+                    marginTop: 12,
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    background: "rgba(245,166,35,0.08)",
+                    border: "1px solid rgba(245,166,35,0.3)",
+                    color: "var(--text-secondary, #B8C5E0)",
+                    fontSize: 13,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <span>💡 {hintNote}</span>
+                  <button
+                    type="button"
+                    onClick={() => setHintNote(null)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "var(--text-faint, #7A8BAD)",
+                      cursor: "pointer",
+                      fontSize: 14,
+                    }}
+                    aria-label="Dismiss hint"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* P5-S60 — non-MCQ types render through the polymorphic
@@ -646,27 +696,56 @@ export function Quiz() {
             <button
               type="button"
               className="btn-q-ghost"
-              disabled
-              title="Hints land in a future sprint"
+              onClick={() =>
+                setHintNote(
+                  "Hints aren't authored on this question yet — try eliminating wrong options first.",
+                )
+              }
+              title="Show a hint for this question"
             >
               💡 Hint
             </button>
             <button
               type="button"
-              className="btn-q-ghost"
-              disabled
-              title="Bookmarks land in a future sprint"
+              className={`btn-q-ghost${
+                item && bookmarks.has(item.questionId) ? " is-bookmarked" : ""
+              }`}
+              onClick={() => {
+                if (!item) return;
+                setBookmarks((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(item.questionId)) next.delete(item.questionId);
+                  else next.add(item.questionId);
+                  try {
+                    localStorage.setItem(
+                      bookmarkStorageKey,
+                      JSON.stringify([...next]),
+                    );
+                  } catch {
+                    /* storage may be disabled — ignore */
+                  }
+                  return next;
+                });
+              }}
+              title={
+                item && bookmarks.has(item.questionId)
+                  ? "Remove bookmark"
+                  : "Bookmark this question for later review"
+              }
             >
-              🔖 Bookmark
+              {item && bookmarks.has(item.questionId)
+                ? "🔖 Bookmarked"
+                : "🔖 Bookmark"}
             </button>
             <button
               type="button"
               className="btn-q-ghost"
               onClick={() => {
-                if (counts.served >= counts.target) setDone(true);
+                setHintNote(null);
+                if (counts.served + 1 >= counts.target) setDone(true);
                 else fetchNext();
               }}
-              disabled={!showFeedback}
+              title="Skip this question and move on"
             >
               Skip
             </button>

@@ -3079,6 +3079,11 @@
 }
 .btn-q-ghost:hover { color: var(--text-primary); border-color: var(--border-strong); }
 .btn-q-ghost:disabled { opacity: 0.5; cursor: default; }
+.btn-q-ghost.is-bookmarked {
+  color: var(--color-amber);
+  border-color: rgba(245, 166, 35, 0.5);
+  background: rgba(245, 166, 35, 0.08);
+}
 .btn-q-primary {
   font-size: 13px;
   font-weight: 700;
