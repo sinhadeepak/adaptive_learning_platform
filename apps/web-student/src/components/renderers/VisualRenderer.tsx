@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Renderer } from "./types";
+import { LeafletMap } from "./LeafletMap";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Visual & Spatial family renderers (P5-S59).
@@ -236,54 +237,25 @@ export const MapLocationRenderer: Renderer<MapLocationPayload, MapLocationRespon
   onChange,
   disabled,
 }): ReactNode => {
-  // v1 ships an image-tile fallback (Mapbox/OSM tile renderer is
-  // S44 frontend deferred per the audit). We render the base map
-  // image and let the student click; click coords map to lat/lng
-  // via the visible image's lat-lng range (hard-coded for India for
-  // v1). Real interactive map renderer lands when ENG-OAQ-8 closes.
-  const [latRange, lngRange] = inferRanges(payload.base_map);
-  const imgRef = useRef<HTMLImageElement>(null);
-
-  function handleClick(evt: React.MouseEvent<HTMLImageElement>) {
-    if (disabled || !imgRef.current) return;
-    const rect = imgRef.current.getBoundingClientRect();
-    const xFrac = (evt.clientX - rect.left) / rect.width;
-    const yFrac = (evt.clientY - rect.top) / rect.height;
-    const lng = lngRange[0] + xFrac * (lngRange[1] - lngRange[0]);
-    const lat = latRange[1] - yFrac * (latRange[1] - latRange[0]);
-    onChange({
-      click_lat: Math.round(lat * 1000) / 1000,
-      click_lng: Math.round(lng * 1000) / 1000,
-    });
-  }
-
+  // P5-S61 — Leaflet-backed interactive map. Tiles via OpenStreetMap
+  // (no API key, free for production traffic; attribution surfaces
+  // inline per OSM policy). Click anywhere → emits lat/lng with full
+  // precision. Initial view + bounds derived from base_map.
   return (
     <div>
       <p style={{ fontSize: 16, lineHeight: 1.5, marginBottom: 16 }}>
         {payload.stem}
       </p>
-      <div style={{ position: "relative", display: "inline-block", maxWidth: "100%" }}>
-        <img
-          ref={imgRef}
-          src={
-            payload.custom_map_media_id
-              ? resolveMediaUrl(payload.custom_map_media_id)
-              : `/maps/${payload.base_map}.png`
-          }
-          alt={`${payload.base_map} map`}
-          onClick={handleClick}
-          style={{
-            maxWidth: "100%",
-            maxHeight: 600,
-            cursor: disabled ? "not-allowed" : "crosshair",
-            border: "1px solid var(--border, #e1e5ee)",
-            borderRadius: 6,
-          }}
-        />
-      </div>
+      <LeafletMap
+        baseMap={payload.base_map}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+      />
       {value && (
         <div style={{ marginTop: 8, fontSize: 13 }}>
-          Clicked at lat {value.click_lat}, lng {value.click_lng}
+          Clicked at lat {value.click_lat.toFixed(4)}, lng{" "}
+          {value.click_lng.toFixed(4)}
         </div>
       )}
     </div>
@@ -365,17 +337,3 @@ function resolveMediaUrl(mediaId: string): string {
   return `/api/v1/content/media/${encodeURIComponent(mediaId)}/file`;
 }
 
-function inferRanges(
-  baseMap: "india" | "world" | "custom",
-): [[number, number], [number, number]] {
-  if (baseMap === "india") {
-    // Approximate India bounding box: lat 6 to 36, lng 68 to 98.
-    return [[6, 36], [68, 98]];
-  }
-  if (baseMap === "world") {
-    return [[-90, 90], [-180, 180]];
-  }
-  // Custom map — caller supplies the image; lat/lng range is
-  // unknown, so we return [0,1]² as fractional coords.
-  return [[0, 1], [0, 1]];
-}
