@@ -19,6 +19,13 @@ const NAV: NavEntry[] = [
   { id: "educator-scope", to: "/educator-scope", icon: "🎓", label: "Educator scope" },
   { id: "audit", to: "/audit", icon: "📜", label: "Audit log" },
   { id: "ops", to: "/ops", icon: "⚙", label: "Ops dashboard" },
+  // Phase 5 (P5-S54) — admin operator surfaces.
+  { id: "ai-cost", to: "/ai-cost", icon: "💸", label: "AI cost" },
+  { id: "calibration", to: "/calibration-dashboard", icon: "🎯", label: "Calibration" },
+  { id: "translation-analytics", to: "/translation-analytics", icon: "🌐", label: "Translations" },
+  { id: "translation-review", to: "/translation-review", icon: "✓", label: "T-review" },
+  { id: "cultural-review", to: "/cultural-review", icon: "🪷", label: "Cultural review" },
+  { id: "grader-queue", to: "/grader-queue", icon: "📝", label: "Grader queue" },
   { id: "profile", to: "/profile", icon: "🪪", label: "Profile" },
   { id: "settings", to: "/settings", icon: "⚙️", label: "Settings" },
 ];

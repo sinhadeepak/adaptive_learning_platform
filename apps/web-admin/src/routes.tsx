@@ -16,6 +16,13 @@ import { Settings } from "./pages/Settings";
 import { TutorAdminActions } from "./pages/TutorAdminActions";
 import { TutorModerationQueue } from "./pages/TutorModerationQueue";
 import { RatingModeration } from "./pages/RatingModeration";
+// Phase 5 (P5-S54) — admin operator surfaces.
+import { CostDashboard } from "./pages/CostDashboard";
+import { CalibrationDashboard } from "./pages/CalibrationDashboard";
+import { TranslationAnalytics } from "./pages/TranslationAnalytics";
+import { TranslationReview } from "./pages/TranslationReview";
+import { CulturalReview } from "./pages/CulturalReview";
+import { GraderQueue } from "./pages/GraderQueue";
 
 const adminRoute = (path: string, element: ReactElement): RouteObject => ({
   path,
@@ -54,5 +61,12 @@ export const routes: RouteObject[] = [
   adminRoute("/tutors-admin/:userId", <TutorAdminActions />),
   // Sprint 20 (P3-S5) — Rating moderation.
   adminRoute("/ratings-mod", <RatingModeration />),
+  // Phase 5 (P5-S54) — admin operator surfaces.
+  adminRoute("/ai-cost", <CostDashboard />),
+  adminRoute("/calibration-dashboard", <CalibrationDashboard />),
+  adminRoute("/translation-analytics", <TranslationAnalytics />),
+  adminRoute("/translation-review", <TranslationReview />),
+  adminRoute("/cultural-review", <CulturalReview />),
+  adminRoute("/grader-queue", <GraderQueue />),
   { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];
