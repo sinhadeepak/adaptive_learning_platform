@@ -4,6 +4,8 @@ import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
 import { Banner, SkeletonRows } from "../components/dashboard";
+// P5-S60 — polymorphic question renderer dispatcher.
+import { QuestionRenderer } from "../components/renderers";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Quiz play (AI Practice) — React port of
@@ -35,6 +37,11 @@ interface QuizItem {
   questionId: string;
   stem: string;
   choices: string[];
+  // P5-S60 — polymorphic types. Quiz Go's /next response now carries
+  // question_type + the typed payload for non-MCQ types. MCQ_SINGLE
+  // ignores `payload` and uses the legacy choices array.
+  questionType?: string;
+  payload?: Record<string, unknown>;
 }
 
 interface NextResponse {
@@ -93,6 +100,10 @@ export function Quiz() {
   const [item, setItem] = useState<QuizItem | null>(null);
   const [done, setDone] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  // P5-S60 — generic response payload for non-MCQ types. The
+  // dispatcher's renderer drives this; MCQ_SINGLE keeps using
+  // selectedIdx because Quiz Go inlines the grade for that path.
+  const [responsePayload, setResponsePayload] = useState<unknown>(null);
   const [verdict, setVerdict] = useState<AnswerResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [session, setSession] = useState<SessionDetail | null>(null);
@@ -112,6 +123,7 @@ export function Quiz() {
     if (!sessionId) return;
     setError(null);
     setSelectedIdx(null);
+    setResponsePayload(null);
     setVerdict(null);
     try {
       const r = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/next`);
@@ -183,17 +195,31 @@ export function Quiz() {
   }, [fetchSession, fetchNext]);
 
   async function submitAnswer() {
-    if (!sessionId || !item || selectedIdx === null || submitting) return;
+    if (!sessionId || !item || submitting) return;
+
+    // P5-S60 — branch on question_type. MCQ_SINGLE keeps the
+    // legacy answerIdx path (Quiz Go inlines the grade in <5 ms).
+    // Other types ship the responsePayload through Quiz Go's
+    // generic branch which routes to /grading/grade in alp-learning.
+    const isLegacyMcq =
+      !item.questionType || item.questionType === "MCQ_SINGLE";
+
+    if (isLegacyMcq && selectedIdx === null) return;
+    if (!isLegacyMcq && responsePayload === null) return;
+
     setSubmitting(true);
     try {
+      const body = isLegacyMcq
+        ? { itemIdx: item.itemIdx, answerIdx: selectedIdx }
+        : { itemIdx: item.itemIdx, responsePayload };
       const r = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/answers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemIdx: item.itemIdx, answerIdx: selectedIdx }),
+        body: JSON.stringify(body),
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const body = (await r.json()) as AnswerResponse;
-      setVerdict(body);
+      const respBody = (await r.json()) as AnswerResponse;
+      setVerdict(respBody);
       // Re-fetch the session so the items[] (q-grid) updates.
       fetchSession();
     } catch {
@@ -376,38 +402,63 @@ export function Quiz() {
                   ◈ AI-SELECTED · IRT-driven
                 </span>
               </div>
-              <h1 className="q-text">{item.stem}</h1>
+              {(!item.questionType || item.questionType === "MCQ_SINGLE") && (
+                <h1 className="q-text">{item.stem}</h1>
+              )}
             </div>
 
-            <ol className="options" role="radiogroup" aria-label="Answer choices">
-              {item.choices.map((choice, idx) => {
-                const isSelected = selectedIdx === idx;
-                const isCorrectAnswer =
-                  showFeedback && idx === verdict!.correctIdx;
-                const isWrongPick =
-                  showFeedback && idx === selectedIdx && !verdict!.isCorrect;
-                let variant = "";
-                if (isCorrectAnswer) variant = "opt-correct";
-                else if (isWrongPick) variant = "opt-wrong";
-                else if (isSelected) variant = "opt-selected";
-                return (
-                  <li key={idx}>
-                    <button
-                      type="button"
-                      onClick={() => !showFeedback && setSelectedIdx(idx)}
-                      disabled={showFeedback}
-                      className={`opt ${variant}`.trim()}
-                      aria-pressed={isSelected}
-                    >
-                      <div className="opt-key">
-                        {String.fromCharCode(65 + idx)}
-                      </div>
-                      <div className="opt-text">{choice}</div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
+            {/* P5-S60 — non-MCQ types render through the polymorphic
+                dispatcher. MCQ_SINGLE keeps the legacy two-column +
+                option-button layout because Quiz Go inlines the grade
+                for that path (no /grading/grade round-trip). */}
+            {item.questionType && item.questionType !== "MCQ_SINGLE" ? (
+              <div style={{ marginTop: 8 }}>
+                <QuestionRenderer
+                  typeId={item.questionType}
+                  payload={item.payload ?? {}}
+                  value={responsePayload}
+                  onChange={setResponsePayload}
+                  language="en"
+                  disabled={showFeedback}
+                />
+              </div>
+            ) : (
+              <ol
+                className="options"
+                role="radiogroup"
+                aria-label="Answer choices"
+              >
+                {item.choices.map((choice, idx) => {
+                  const isSelected = selectedIdx === idx;
+                  const isCorrectAnswer =
+                    showFeedback && idx === verdict!.correctIdx;
+                  const isWrongPick =
+                    showFeedback &&
+                    idx === selectedIdx &&
+                    !verdict!.isCorrect;
+                  let variant = "";
+                  if (isCorrectAnswer) variant = "opt-correct";
+                  else if (isWrongPick) variant = "opt-wrong";
+                  else if (isSelected) variant = "opt-selected";
+                  return (
+                    <li key={idx}>
+                      <button
+                        type="button"
+                        onClick={() => !showFeedback && setSelectedIdx(idx)}
+                        disabled={showFeedback}
+                        className={`opt ${variant}`.trim()}
+                        aria-pressed={isSelected}
+                      >
+                        <div className="opt-key">
+                          {String.fromCharCode(65 + idx)}
+                        </div>
+                        <div className="opt-text">{choice}</div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
 
             {showFeedback ? (
               <>
@@ -635,7 +686,11 @@ export function Quiz() {
             <button
               type="button"
               className="btn-q-primary"
-              disabled={selectedIdx === null || submitting}
+              disabled={
+                ((!item?.questionType || item.questionType === "MCQ_SINGLE")
+                  ? selectedIdx === null
+                  : responsePayload === null) || submitting
+              }
               onClick={submitAnswer}
             >
               {submitting ? "Submitting…" : "Submit answer"}
