@@ -62,6 +62,9 @@ from learning.localisation.cultural_routes import router as cultural_router
 # Phase 5 (P5-S62) — Whisper transcription pipeline
 from learning.transcription.routes import router as transcription_router
 
+# Phase 5 (P5-S63) — Reviewer staffing tracker
+from learning.localisation.staffing_routes import router as staffing_router
+
 # Phase 5 (P5-S45) — Admin cost dashboard
 from learning.ai_gateway.routes import router as ai_admin_router
 
@@ -187,6 +190,41 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as exc:  # noqa: BLE001
         log.warning("learning startup: transcription not available: %s", exc)
 
+    # P5-S63: register the AWS Rekognition image moderator when AWS
+    # creds are present; fall back to StubImageModerator (S53) so the
+    # upload pipeline always functions. Stub routes everything to
+    # pre-moderation rather than blocking.
+    try:
+        import os
+        from learning.content.image_moderation import (
+            StubImageModerator,
+            set_moderator,
+        )
+
+        if os.environ.get("AWS_REGION") and os.environ.get("AWS_ACCESS_KEY_ID"):
+            from learning.content.rekognition_moderator import (
+                RekognitionModerator,
+            )
+
+            set_moderator(RekognitionModerator())
+            log.info("image moderator: aws-rekognition")
+        else:
+            set_moderator(StubImageModerator())
+            log.info("image moderator: stub (no AWS creds)")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("learning startup: image moderator not available: %s", exc)
+
+    # P5-S63: spawn the audit-log retention task. Weekly purge of
+    # ai_generation_jobs rows older than 90 days per ADR-0019.
+    async def _start_retention() -> None:
+        from learning.ai_gateway.audit_retention_task import (
+            start_retention_task,
+        )
+
+        app.state.audit_retention_task = await start_retention_task()
+
+    await _try("ai_gateway.audit_retention", _start_retention)
+
     await _try("catalog.flags", connect_catalog_flags)
     await _try("content.events", content_events.connect)
     await _try("content.quiz_subscriber", content_quiz_sub.connect)
@@ -218,15 +256,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
-        # Cancel auto-pause task before disposing DB connections so its
-        # in-flight query doesn't see a closing pool.
-        task = getattr(app.state, "auto_pause_task", None)
-        if task is not None:
-            task.cancel()
-            try:
-                await task
-            except Exception:  # noqa: BLE001
-                pass
+        # Cancel background tasks before disposing DB connections so
+        # their in-flight queries don't see a closing pool.
+        for task_attr in ("auto_pause_task", "audit_retention_task"):
+            task = getattr(app.state, task_attr, None)
+            if task is not None:
+                task.cancel()
+                try:
+                    await task
+                except Exception:  # noqa: BLE001
+                    pass
         await _try("photo_doubt_limiter.close", app.state.photo_doubt_limiter.close)
         await _try("adaptive.flags.close", close_adaptive_flags)
         await _try("search.os_client.close", close_os_client)
@@ -256,6 +295,7 @@ app.include_router(content_translations_router)  # Phase 5 (P5-S51 — Cat §8.1
 app.include_router(grader_queue_router)          # Phase 5 (P5-S57 — CE-308)
 app.include_router(cultural_router)              # Phase 5 (P5-S57 — CE-404)
 app.include_router(transcription_router)         # Phase 5 (P5-S62 — Whisper)
+app.include_router(staffing_router)              # Phase 5 (P5-S63 — staffing)
 app.include_router(exam_blueprints_router)
 app.include_router(pyq_router)
 app.include_router(prereqs_router)
