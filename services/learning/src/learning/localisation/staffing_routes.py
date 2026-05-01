@@ -60,7 +60,7 @@ async def list_staffing(
                 SELECT s.language, s.reviewer_count, s.sla_first_review_hours,
                        s.sla_resolution_hours, s.cultural_sla_hours,
                        s.staffing_model, s.notes,
-                       COALESCE(t.pending_count, 0)            AS pending_count,
+                       COALESCE(t.pending_count, 0)            AS pending_review_count,
                        COALESCE(t.cultural_pending_count, 0)   AS cultural_pending_count,
                        COALESCE(t.breach_count, 0)             AS breach_count
                   FROM {CONTENT_SCHEMA}.reviewer_staffing s
@@ -100,7 +100,7 @@ async def get_one(
                 SELECT s.language, s.reviewer_count, s.sla_first_review_hours,
                        s.sla_resolution_hours, s.cultural_sla_hours,
                        s.staffing_model, s.notes,
-                       COALESCE(p.pending_count, 0) AS pending_count,
+                       COALESCE(p.pending_count, 0) AS pending_review_count,
                        COALESCE(p.cultural_pending_count, 0) AS cultural_pending_count,
                        COALESCE(p.breach_count, 0) AS breach_count
                   FROM {CONTENT_SCHEMA}.reviewer_staffing s

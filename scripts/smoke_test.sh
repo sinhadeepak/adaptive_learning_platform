@@ -64,6 +64,23 @@ assert_msg() {
   fi
 }
 
+# pyassert — feeds the named variable to python3 via stdin so apostrophes
+# and parens in JSON bodies don't break the shell single-quoted echo
+# trick used by `assert "$JSON" | python3 -c "..."`. Usage:
+#   pyassert "step description" "$JSON_BODY" 'python expression'
+pyassert() {
+  step=$((step + 1))
+  local what="$1"
+  local body="$2"
+  local expr="$3"
+  if printf '%s' "$body" | python3 -c "$expr" >/dev/null 2>&1; then
+    printf "  ${GREEN}✓${RST} step %02d  %s\n" "$step" "$what"
+  else
+    printf "  ${RED}✗${RST} step %02d  %s\n" "$step" "$what"
+    fail=$((fail + 1))
+  fi
+}
+
 psql_q() {
   docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$1" -t -A -c "$2"
 }
@@ -701,8 +718,8 @@ TRANSLATE_QID=$(psql_q learning "SELECT id FROM content_schema.questions LIMIT 1
 TRANSLATE=$(curl -s -X POST "$LEARNING_URL/localisation/translate" \
   -H "Content-Type: application/json" \
   -d "{\"artifactId\":\"$TRANSLATE_QID\",\"targetLang\":\"hi\",\"payload\":{\"stem\":\"What is photosynthesis?\"},\"translatablePaths\":[\"stem\"],\"sourceLang\":\"en\",\"subject\":\"biology\"}")
-assert "translate route returns persisted draft + version" \
-  bash -c "echo '$TRANSLATE' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('targetLang')=='hi' and 'persistedVersion' in d and 'payloadTranslation' in d\""
+pyassert "translate route returns persisted draft + version" "$TRANSLATE" \
+  "import sys,json; d=json.load(sys.stdin); assert d.get('targetLang')=='hi' and 'persistedVersion' in d and 'payloadTranslation' in d"
 
 # -- 27. P5-S47: gated families + re-evaluation + calibration -----------
 
@@ -712,8 +729,8 @@ echo "==> P5-S47 — gated families + re-evaluation + calibration"
 GATED=$(curl -s -X POST "$LEARNING_URL/grading/grade" \
   -H "Content-Type: application/json" \
   -d '{"question_id":"q-listen","question_type":"LISTENING_COMP","payload":{"audio_media_id":"m1","transcript":"Hello world this is a transcript with sufficient length","transcript_language":"en","child_questions":[{"question_id":"c1","ordinal":1}]},"response":{"children":[]}}')
-assert "LISTENING_COMP returns PENDING_HUMAN_REVIEW (gated)" \
-  bash -c "echo '$GATED' | python3 -c \"import sys,json; d=json.load(sys.stdin); meta=d.get('evaluator_metadata') or {}; assert d.get('status')=='PENDING_HUMAN_REVIEW' and 'feature_disabled' in (meta.get('prompt_version') or '')\""
+pyassert "LISTENING_COMP returns PENDING_HUMAN_REVIEW (gated)" "$GATED" \
+  "import sys,json; d=json.load(sys.stdin); meta=d.get('evaluator_metadata') or {}; assert d.get('status')=='PENDING_HUMAN_REVIEW' and 'feature_disabled' in (meta.get('prompt_version') or '')"
 
 # Calibration dashboard — empty data fine; shape must hold.
 CALIB=$(curl -s "$LEARNING_URL/evaluation/calibration/dashboard?weeks=12")
@@ -782,12 +799,12 @@ assert "/content/types/{id}/translatable-fields returns rubric paths for ESSAY" 
 echo "==> P5-S57 — human grader queue"
 
 GQUEUE=$(curl -s "$LEARNING_URL/grading/queue?limit=5")
-assert "grader queue returns shape {items, pendingReviewCount, calibrationSampleCount}" \
-  bash -c "echo '$GQUEUE' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert all(k in d for k in ('items','pendingReviewCount','calibrationSampleCount'))\""
+pyassert "grader queue returns shape {items, pendingReviewCount, calibrationSampleCount}" "$GQUEUE" \
+  "import sys,json; d=json.load(sys.stdin); assert all(k in d for k in ('items','pendingReviewCount','calibrationSampleCount'))"
 
 CALSET=$(curl -s "$LEARNING_URL/grading/calibration-set")
-assert "grader calibration-set returns 3 pre-graded items" \
-  bash -c "echo '$CALSET' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert len(d['items'])==3\""
+pyassert "grader calibration-set returns 3 pre-graded items" "$CALSET" \
+  "import sys,json; d=json.load(sys.stdin); assert len(d['items'])==3"
 
 # Bad limit → 400
 BAD_LIMIT=$(curl -s -o /dev/null -w '%{http_code}' "$LEARNING_URL/grading/queue?limit=0")
@@ -799,8 +816,8 @@ assert "grader queue rejects bad limit (400)" \
 echo "==> P5-S57 — cultural review queue"
 
 CULQ=$(curl -s "$LEARNING_URL/localisation/cultural-review/queue?limit=10")
-assert "cultural-review queue returns shape {items, pendingCount}" \
-  bash -c "echo '$CULQ' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert 'items' in d and 'pendingCount' in d\""
+pyassert "cultural-review queue returns shape {items, pendingCount}" "$CULQ" \
+  "import sys,json; d=json.load(sys.stdin); assert 'items' in d and 'pendingCount' in d"
 
 # -- 34. P5-S62: Whisper transcription route ------------------------------
 
@@ -811,11 +828,29 @@ TRANSCRIBE_BAD=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$LEARNING_URL/c
 assert "transcribe rejects non-audio content type (400)" \
   bash -c "[ '$TRANSCRIBE_BAD' = '400' ]"
 
-# Real transcription needs an audio file + provider. The stub provider
-# is auto-registered when no OPENAI_API_KEY is set, so a 200 with a
-# stub transcript is the expected dev-mode happy path.
+# Build a 1-second silent WAV (44-byte header + 16-bit PCM zeros, mono
+# 8 kHz) so the route can reach a real OpenAI Whisper call when
+# OPENAI_API_KEY is set, and the stub provider when it isn't. Either
+# path returns 200; an invalid-audio 502 from OpenAI is what we want
+# to avoid.
+TMPWAV=$(mktemp --suffix=.wav)
+python3 - <<'PY' "$TMPWAV"
+import struct, sys
+path = sys.argv[1]
+sample_rate = 8000
+seconds = 1
+n = sample_rate * seconds
+data_size = n * 2
+header = b'RIFF' + struct.pack('<I', 36 + data_size) + b'WAVE'
+header += b'fmt ' + struct.pack('<IHHIIHH', 16, 1, 1, sample_rate, sample_rate*2, 2, 16)
+header += b'data' + struct.pack('<I', data_size)
+with open(path, 'wb') as f:
+    f.write(header)
+    f.write(b'\x00' * data_size)
+PY
 TRANSCRIBE_OK=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$LEARNING_URL/content/ai/transcribe" \
-  -F "audio=@/etc/hostname;type=audio/mp3")
+  -F "audio=@$TMPWAV;type=audio/wav")
+rm -f "$TMPWAV"
 assert "transcribe accepts audio content type (200)" \
   bash -c "[ '$TRANSCRIBE_OK' = '200' ]"
 
@@ -824,12 +859,12 @@ assert "transcribe accepts audio content type (200)" \
 echo "==> P5-S63 — reviewer staffing"
 
 STAFFING=$(curl -s "$LEARNING_URL/localisation/staffing")
-assert "staffing list returns seeded language rows" \
-  bash -c "echo '$STAFFING' | python3 -c \"import sys,json; d=json.load(sys.stdin); langs={r['language'] for r in d}; assert 'hi' in langs\""
+pyassert "staffing list returns seeded language rows" "$STAFFING" \
+  "import sys,json; d=json.load(sys.stdin); langs={r['language'] for r in d}; assert 'hi' in langs"
 
 STAFFING_HI=$(curl -s "$LEARNING_URL/localisation/staffing/hi")
-assert "staffing/{lang} returns Hindi panel staffing config" \
-  bash -c "echo '$STAFFING_HI' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d.get('language')=='hi' and d.get('reviewer_count') >= 1\""
+pyassert "staffing/{lang} returns Hindi panel staffing config" "$STAFFING_HI" \
+  "import sys,json; d=json.load(sys.stdin); assert d.get('language')=='hi' and d.get('reviewer_count') >= 1"
 
 STAFFING_404=$(curl -s -o /dev/null -w '%{http_code}' "$LEARNING_URL/localisation/staffing/zz")
 assert "staffing/{lang} returns 404 for unknown lang" \

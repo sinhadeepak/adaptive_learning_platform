@@ -75,33 +75,80 @@ export function PersonalisedNextStep({ userId }: Props) {
     <section
       style={{
         padding: 20,
-        background: "var(--bg-surface-1, #fff)",
-        border: `1px solid ${dropout.risk_band === "HIGH" ? "var(--color-red, #F43F5E)" : "var(--border-faint)"}`,
+        // Per design-system tokens.css: --bg-surface2 (no hyphen) is the
+        // dark-theme card surface. The earlier `--bg-surface-1` was a
+        // typo that didn't resolve and fell back to white, making text
+        // invisible on the dark theme.
+        background: "var(--bg-surface2, #101A30)",
+        color: "var(--text-base, #E5E7EB)",
+        border: `1px solid ${
+          dropout.risk_band === "HIGH"
+            ? "var(--color-red, #F43F5E)"
+            : "var(--border, #1F2A3D)"
+        }`,
         borderRadius: 12,
         marginBottom: 16,
       }}
     >
-      <div style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div
+        style={{
+          fontSize: 12,
+          color: "var(--text-muted, #94A3B8)",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+        }}
+      >
         For you
       </div>
 
       {intervention ? (
         <>
-          <h2 style={{ margin: "8px 0", fontSize: 22 }}>{intervention.title}</h2>
+          <h2
+            style={{
+              margin: "8px 0",
+              fontSize: 22,
+              color: "var(--text-base, #E5E7EB)",
+            }}
+          >
+            {intervention.title}
+          </h2>
           {topRec && (
-            <p style={{ color: "var(--text-muted)" }}>{topRec.reasonString}</p>
+            <p style={{ color: "var(--text-muted, #94A3B8)" }}>
+              {topRec.reasonString}
+            </p>
           )}
-          <Link to={intervention.ctaHref}>{intervention.cta}</Link>
+          <Link
+            to={intervention.ctaHref}
+            style={{ color: "var(--color-blue, #4F87F6)" }}
+          >
+            {intervention.cta}
+          </Link>
         </>
       ) : topRec ? (
         <>
-          <h2 style={{ margin: "8px 0", fontSize: 22 }}>Up next</h2>
-          <p>{topRec.reasonString}</p>
-          <Link to="/practice">Open practice →</Link>
+          <h2
+            style={{
+              margin: "8px 0",
+              fontSize: 22,
+              color: "var(--text-base, #E5E7EB)",
+            }}
+          >
+            Up next
+          </h2>
+          <p style={{ color: "var(--text-base, #E5E7EB)" }}>
+            {topRec.reasonString}
+          </p>
+          <Link
+            to="/practice"
+            style={{ color: "var(--color-blue, #4F87F6)" }}
+          >
+            Open practice →
+          </Link>
         </>
       ) : (
-        <p style={{ color: "var(--text-muted)" }}>
-          No personalised next step yet — start a practice session and we'll learn your pattern.
+        <p style={{ color: "var(--text-muted, #94A3B8)" }}>
+          No personalised next step yet — start a practice session and we'll
+          learn your pattern.
         </p>
       )}
 
