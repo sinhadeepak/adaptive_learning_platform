@@ -43,24 +43,30 @@ export const routes: RouteObject[] = [
   },
   protectedRoute("/dashboard", <Dashboard />),
   protectedRoute("/questions", <MyQuestions />),
+  // Phase 5 (P5-S58) — /questions/new is the multi-type author so all
+  // 22 supported types are reachable from the navigation. The legacy
+  // single-type IRT form lives at /questions/new-mcq for tests and
+  // any author who needs the older flow.
   {
     path: "/questions/new",
     element: (
       <ProtectedRoute>
         <RoleGate allow={canAuthor}>
-          <NewQuestion />
+          <MultiTypeAuthor />
         </RoleGate>
       </ProtectedRoute>
     ),
   },
-  // Phase 5 (P5-S58) — multi-type Author. Lives at /questions/new-multi
-  // alongside the legacy single-type form so authors can opt in.
   {
     path: "/questions/new-multi",
+    element: <Navigate to="/questions/new" replace />,
+  },
+  {
+    path: "/questions/new-mcq",
     element: (
       <ProtectedRoute>
         <RoleGate allow={canAuthor}>
-          <MultiTypeAuthor />
+          <NewQuestion />
         </RoleGate>
       </ProtectedRoute>
     ),
