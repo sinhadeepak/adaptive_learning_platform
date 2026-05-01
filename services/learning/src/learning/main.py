@@ -55,6 +55,10 @@ from learning.types.routes import router as types_router
 # Phase 5 (P5-S51) — Per-artifact translation routes (Cat §8.1, CE-401/402)
 from learning.content.translation_routes import router as content_translations_router
 
+# Phase 5 (P5-S57) — Human grader queue + cultural review queue
+from learning.grading.queue_routes import router as grader_queue_router
+from learning.localisation.cultural_routes import router as cultural_router
+
 # Phase 5 (P5-S45) — Admin cost dashboard
 from learning.ai_gateway.routes import router as ai_admin_router
 
@@ -224,6 +228,8 @@ app.include_router(ai_admin_router)      # Phase 5 (P5-S45)
 app.include_router(evaluation_router)    # Phase 5 (P5-S47)
 app.include_router(types_router)         # Phase 5 (P5-S51 — CE-104)
 app.include_router(content_translations_router)  # Phase 5 (P5-S51 — Cat §8.1)
+app.include_router(grader_queue_router)          # Phase 5 (P5-S57 — CE-308)
+app.include_router(cultural_router)              # Phase 5 (P5-S57 — CE-404)
 app.include_router(exam_blueprints_router)
 app.include_router(pyq_router)
 app.include_router(prereqs_router)

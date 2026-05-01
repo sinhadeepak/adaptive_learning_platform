@@ -238,6 +238,7 @@ async def request_translation(
             target_lang=lang,
             payload_translation=draft.payload_translation,
             ai_confidence=draft.avg_confidence,
+            cultural_flags=draft.cultural_flags,
         )
         await complete_translation_job(
             session,

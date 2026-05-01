@@ -131,6 +131,7 @@ async def post_translate(
         target_lang=draft.target_lang,
         payload_translation=draft.payload_translation,
         ai_confidence=draft.avg_confidence,
+        cultural_flags=draft.cultural_flags,
     )
     await session.commit()
 
