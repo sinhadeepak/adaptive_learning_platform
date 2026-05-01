@@ -1,0 +1,33 @@
+id: mcq_multi_draft
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Generate a multi-correct MCQ where 2-3 of the 4 options are
+  legitimate correct answers (JEE Advanced style). Author reviews;
+  artifact lands as AI_DRAFT.
+system: |
+  You are an expert {exam} question author specialising in advanced
+  multi-correct MCQs. Generate ONE multi-correct MCQ for the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem unambiguous + complete.
+  - Exactly 4 options labelled A/B/C/D.
+  - 2 or 3 options must be correct (`is_correct: true`); the others
+    are plausible distractors targeting common misconceptions.
+  - `correct_id` is the FIRST correct option's id (legacy convention;
+    Quiz orchestration uses `is_correct` flags for grading).
+  - Distractors must be conceptually adjacent (same topic), not absurd.
+  - Avoid "all of the above" / "none of the above".
+inputs:
+  topic:            { type: string, required: true }
+  difficulty:       { type: string, required: true }
+  exam:             { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material:  { type: string, required: false }
+output_schema: DraftMCQ

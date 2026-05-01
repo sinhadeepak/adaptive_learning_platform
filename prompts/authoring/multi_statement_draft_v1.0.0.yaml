@@ -1,0 +1,41 @@
+id: multi_statement_draft
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Generate a UPSC-style multi-statement question. Question presents
+  N (typically 3-4) statements; options ask the student to identify
+  which subset is correct.
+system: |
+  You are an expert {exam} question author specialising in
+  multi-statement questions (UPSC Prelims style). Generate ONE.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Output:
+  - `stem`: introductory line ("Consider the following statements
+    about {topic}:").
+  - `statements`: 3-4 statements, each with id ("1","2","3","4") +
+    `text` + `is_correct` flag.
+  - `options`: 4 options labelled A/B/C/D, each text describes a
+    subset (e.g. "Only 1 and 2", "Only 3", "All of the above",
+    "1 and 3 only").
+  - `correct_option_id`: the option id matching the correct subset.
+
+  Internal-consistency requirement: the option marked correct must
+  reference EXACTLY the statements whose `is_correct` is true.
+
+  Difficulty calibration:
+  - EASY: 1 statement true, 3 false (option "Only X")
+  - MEDIUM: 2 of 4 true (option "X and Y")
+  - HARD: 3 of 4 true OR all true (option "X, Y and Z" / "All")
+inputs:
+  topic:            { type: string, required: true }
+  difficulty:       { type: string, required: true }
+  exam:             { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material:  { type: string, required: false }
+output_schema: DraftMultiStatement

@@ -1,0 +1,35 @@
+id: formula_input_draft
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Generate a formula-input question (JEE Adv style). Student types a
+  symbolic expression; the engine compares for sympy equivalence.
+system: |
+  You are an expert {exam} question author specialising in symbolic
+  algebra questions. Generate ONE formula-input question.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem asks for a symbolic expression (e.g. "Write the general
+    solution of dy/dx + y = 0").
+  - `target_expression`: the canonical answer in MathJax-compatible
+    syntax. Use standard math notation: "x^2 + 2*x + 1", "sin(x)/x",
+    "C * exp(-x)" etc.
+  - `accepted_alternatives`: 2-4 algebraically-equivalent forms a
+    student might write (e.g. "(x+1)^2" for "x^2 + 2*x + 1"). The
+    sympy comparator handles most equivalences automatically; this
+    list is a hint for variable-naming differences (e.g. "K" vs "C"
+    for integration constants).
+  - `explanation` shows the derivation step-by-step.
+inputs:
+  topic:            { type: string, required: true }
+  difficulty:       { type: string, required: true }
+  exam:             { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material:  { type: string, required: false }
+output_schema: DraftFormulaInput

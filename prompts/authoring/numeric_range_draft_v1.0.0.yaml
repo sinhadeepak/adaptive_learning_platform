@@ -1,0 +1,33 @@
+id: numeric_range_draft
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Generate a numeric range question (any value in [low, high] is
+  accepted). Used when the answer depends on assumptions the student
+  may make differently.
+system: |
+  You are an expert {exam} question author. Generate ONE numeric
+  range question for the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem describes a quantity whose computed value depends on
+    well-defined assumptions.
+  - `low` and `high` bracket all defensible answers given typical
+    assumption choices. `low <= high`.
+  - Choose `low` and `high` to be tight: a wide range invites
+    guessing.
+  - Verify the bounds by solving with each plausible assumption.
+  - Optional `unit`. `explanation` describes the assumption space.
+inputs:
+  topic:            { type: string, required: true }
+  difficulty:       { type: string, required: true }
+  exam:             { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material:  { type: string, required: false }
+output_schema: DraftNumericRange

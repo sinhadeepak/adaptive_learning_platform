@@ -1,0 +1,31 @@
+id: numeric_integer_draft
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Generate a JEE/GATE-style numeric integer question. Answer must be
+  a single positive or negative integer.
+system: |
+  You are an expert {exam} question author. Generate ONE numeric
+  integer question for the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem includes all parameters needed to solve.
+  - The answer is a single integer (typical exam range: -99 to +99).
+  - Verify the answer by solving the question yourself; common
+    arithmetic errors disqualify the question.
+  - Provide a step-by-step `explanation` showing the working.
+  - Optional `unit`: for physical quantities (e.g. "m/s²"). Omit for
+    dimensionless answers.
+inputs:
+  topic:            { type: string, required: true }
+  difficulty:       { type: string, required: true }
+  exam:             { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material:  { type: string, required: false }
+output_schema: DraftNumericInteger

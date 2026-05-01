@@ -56,7 +56,70 @@ class DistractorsOutput(BaseModel):
     distractors: list[str] = Field(min_length=3, max_length=5)
 
 
+# P5-S53 — output schemas for non-MCQ_SINGLE objective + numeric drafts.
+
+
+class DraftTrueFalse(BaseModel):
+    stem: str
+    correct: bool
+    explanation: str | None = None
+
+
+class DraftAssertionReason(BaseModel):
+    assertion: str
+    reason: str
+    assertion_true: bool
+    reason_true: bool
+    reason_explains_assertion: bool
+    explanation: str | None = None
+
+
+class DraftMultiStatement(BaseModel):
+    stem: str
+    statements: list["DraftStatement"]
+    correct_option_id: str  # e.g. "A" — the canonical (1-only true / 1+2 / etc) bucket
+    options: list["DraftMCQOption"]
+    explanation: str | None = None
+
+
+class DraftStatement(BaseModel):
+    id: str
+    text: str
+    is_correct: bool
+
+
+class DraftNumericInteger(BaseModel):
+    stem: str
+    correct: int
+    unit: str | None = None
+    explanation: str | None = None
+
+
+class DraftNumericDecimal(BaseModel):
+    stem: str
+    correct: float
+    tolerance: float = Field(gt=0)
+    unit: str | None = None
+    explanation: str | None = None
+
+
+class DraftNumericRange(BaseModel):
+    stem: str
+    low: float
+    high: float
+    unit: str | None = None
+    explanation: str | None = None
+
+
+class DraftFormulaInput(BaseModel):
+    stem: str
+    target_expression: str  # MathJax-compatible
+    accepted_alternatives: list[str] = Field(default_factory=list)
+    explanation: str | None = None
+
+
 DraftMCQ.model_rebuild()
+DraftMultiStatement.model_rebuild()
 
 
 # ── AI_DRAFT marker ──────────────────────────────────────────────────────────
@@ -81,8 +144,17 @@ class AIDraftMarker(BaseModel):
 # ── Operations ───────────────────────────────────────────────────────────────
 
 
+SUPPORTED_DRAFT_TYPES = (
+    "MCQ_SINGLE", "MCQ_MULTI", "TRUE_FALSE", "ASSERTION_REASON", "MULTI_STATEMENT",
+    "NUMERIC_INTEGER", "NUMERIC_DECIMAL", "NUMERIC_RANGE", "FORMULA_INPUT",
+)
+
+
 class DraftQuestionRequest(BaseModel):
-    type_id: Literal["MCQ_SINGLE", "MCQ_MULTI", "NUMERIC_INTEGER", "NUMERIC_DECIMAL"]
+    type_id: Literal[
+        "MCQ_SINGLE", "MCQ_MULTI", "TRUE_FALSE", "ASSERTION_REASON", "MULTI_STATEMENT",
+        "NUMERIC_INTEGER", "NUMERIC_DECIMAL", "NUMERIC_RANGE", "FORMULA_INPUT",
+    ]
     topic: str
     difficulty: Literal["EASY", "MEDIUM", "HARD"] = "MEDIUM"
     exam: str = "JEE-MAIN"
@@ -90,27 +162,42 @@ class DraftQuestionRequest(BaseModel):
     source_material: str | None = None
 
 
+# Per-type-id mapping: prompt template id, output schema. Each entry's
+# prompt YAML lives under prompts/authoring/{template_id}_v1.0.0.yaml.
+_DRAFT_TYPE_MAP: dict[str, tuple[str, type[BaseModel]]] = {
+    "MCQ_SINGLE":         ("mcq_single_draft",         DraftMCQ),
+    "MCQ_MULTI":          ("mcq_multi_draft",          DraftMCQ),
+    "TRUE_FALSE":         ("true_false_draft",         DraftTrueFalse),
+    "ASSERTION_REASON":   ("assertion_reason_draft",   DraftAssertionReason),
+    "MULTI_STATEMENT":    ("multi_statement_draft",    DraftMultiStatement),
+    "NUMERIC_INTEGER":    ("numeric_integer_draft",    DraftNumericInteger),
+    "NUMERIC_DECIMAL":    ("numeric_decimal_draft",    DraftNumericDecimal),
+    "NUMERIC_RANGE":      ("numeric_range_draft",      DraftNumericRange),
+    "FORMULA_INPUT":      ("formula_input_draft",      DraftFormulaInput),
+}
+
+
 async def draft_question(
     gateway: AIGateway,
     *,
     request: DraftQuestionRequest,
     creator_id: str | None = None,
-) -> tuple[DraftMCQ, AIDraftMarker]:
-    """Produce a complete MCQ payload via the AI Gateway.
+) -> tuple[BaseModel, AIDraftMarker]:
+    """Produce a complete typed payload via the AI Gateway.
 
-    Returns (validated payload, AI_DRAFT marker). Caller persists both:
-    the payload onto content_schema.questions, the marker onto
-    questions.ai_origin (JSONB column from S37 migration 008).
+    Dispatches on `request.type_id` to the matching prompt template
+    + output schema. Returns (validated payload, AI_DRAFT marker).
+    Caller persists both: the payload onto content_schema.questions
+    (JSONB), the marker onto questions.ai_origin.
 
     QuotaExceededError propagates when the creator is over their
     daily cap (default 50/day). Caller surfaces as 429 with reset_at.
     """
-    if request.type_id != "MCQ_SINGLE":
-        # v1: only MCQ_SINGLE prompt template ships. Numeric / others
-        # land in S40 follow-up + S42 for subjective.
+    if request.type_id not in _DRAFT_TYPE_MAP:
         raise NotImplementedError(
             f"AI authoring for type_id={request.type_id!r} not yet wired"
         )
+    template_id, schema = _DRAFT_TYPE_MAP[request.type_id]
 
     inputs = {
         "topic": request.topic,
@@ -121,15 +208,15 @@ async def draft_question(
     }
     draft = await gateway.call(
         touchpoint="authoring",
-        prompt_template_id="mcq_single_draft",
+        prompt_template_id=template_id,
         prompt_template_version="1.0.0",
         prompt_inputs=inputs,
-        schema=DraftMCQ,
+        schema=schema,
         creator_id=creator_id,
     )
     marker = AIDraftMarker(
         original_payload=draft.model_dump(),
-        prompt_template_id="mcq_single_draft",
+        prompt_template_id=template_id,
         prompt_template_version="1.0.0",
         model="openai:gpt-4o",  # routing config-resolved; record what we used
         created_at=datetime.now(tz=UTC),
