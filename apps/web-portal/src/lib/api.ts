@@ -149,6 +149,30 @@ export const content = {
     return body.items;
   },
 
+  // Phase 5 (P5-S58) — paged + searchable list. Returns both items
+  // and the unfiltered-by-pagination total so the UI can render
+  // "page X of Y" without an extra count call.
+  async listPaged(opts: {
+    scope?: "mine" | "all";
+    status?: string;
+    type?: string;
+    q?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ items: Question[]; total: number }> {
+    const params = new URLSearchParams();
+    if (opts.scope) params.set("scope", opts.scope);
+    if (opts.status) params.set("status", opts.status);
+    if (opts.type) params.set("type", opts.type);
+    if (opts.q) params.set("q", opts.q);
+    if (opts.limit !== undefined) params.set("limit", String(opts.limit));
+    if (opts.offset !== undefined) params.set("offset", String(opts.offset));
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/questions?${params}`,
+    );
+    return asJson<{ items: Question[]; total: number }>(res);
+  },
+
   async get(id: string): Promise<Question> {
     const res = await auth.fetch(`${env.apiBaseUrl}/content/questions/${id}`);
     return asJson<Question>(res);

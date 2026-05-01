@@ -160,18 +160,33 @@ async def list_questions_endpoint(
     principal: PrincipalDep,
     status_filter: Annotated[str | None, Query(alias="status")] = None,
     scope: Annotated[str, Query(pattern="^(mine|all)$")] = "mine",
+    question_type: Annotated[str | None, Query(alias="type")] = None,
+    search: Annotated[str | None, Query(alias="q", max_length=200)] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> QuestionList:
     """
     scope=mine (default) — only questions authored by the caller.
     scope=all — every question; only MODERATOR+ may use this (review queue).
+
+    Phase 5 (P5-S58) — adds optional pagination (limit, offset),
+    type filter (?type=NUMERIC_DECIMAL), and stem ILIKE search (?q=...).
     """
     if scope == "all":
         _require_role(principal, "MODERATOR", "INSTITUTION_ADMIN", "PLATFORM_ADMIN")
         author = None
     else:
         author = principal.user_id
-    rows = await list_questions(session, created_by=author, status_filter=status_filter)
-    return QuestionList(items=[_to_detail(r) for r in rows])
+    rows, total = await list_questions(
+        session,
+        created_by=author,
+        status_filter=status_filter,
+        question_type=question_type,
+        search=search,
+        limit=limit,
+        offset=offset,
+    )
+    return QuestionList(items=[_to_detail(r) for r in rows], total=total)
 
 
 @router.get("/questions/{qid}", response_model=QuestionDetail)

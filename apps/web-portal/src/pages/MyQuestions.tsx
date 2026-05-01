@@ -7,12 +7,18 @@ import { Banner, Pill, SkeletonRows, type PillTone } from "../components/primiti
 
 type Scope = "mine" | "all";
 
+const PAGE_SIZE = 25;
+
 export function MyQuestions() {
   const { user } = useAuth();
   const isReviewer = canReview(user?.role);
   const [scope, setScope] = useState<Scope>("mine");
   const [typeFilter, setTypeFilter] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
+  const [searchInput, setSearchInput] = useState<string>("");
+  const [page, setPage] = useState(0);
   const [questions, setQuestions] = useState<Question[] | null>(null);
+  const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -21,8 +27,15 @@ export function MyQuestions() {
     setError(null);
     setQuestions(null);
     try {
-      const list = scope === "all" ? await content.listAll() : await content.listMine();
-      setQuestions(list);
+      const body = await content.listPaged({
+        scope,
+        type: typeFilter || undefined,
+        q: search || undefined,
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
+      });
+      setQuestions(body.items);
+      setTotal(body.total ?? body.items.length);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     }
@@ -30,7 +43,22 @@ export function MyQuestions() {
 
   useEffect(() => {
     void refresh();
-  }, [scope]);
+  }, [scope, typeFilter, search, page]);
+
+  // Debounce: wait 350ms after the user stops typing before issuing
+  // the search query — prevents a request per keystroke.
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(0);
+    }, 350);
+    return () => window.clearTimeout(id);
+  }, [searchInput]);
+
+  // Reset pagination when scope or type filter changes.
+  useEffect(() => {
+    setPage(0);
+  }, [scope, typeFilter]);
 
   async function submitForReview(id: string) {
     setSubmittingId(id);
@@ -44,33 +72,33 @@ export function MyQuestions() {
     }
   }
 
-  const filtered = questions
-    ? typeFilter
-      ? questions.filter((q) => q.questionType === typeFilter)
-      : questions
-    : null;
-
-  const counts = filtered
+  // Server filters now (type, search, pagination), so the UI just
+  // surfaces what the backend returned. Status counts here describe
+  // the current page only — kept in the chips for at-a-glance feedback.
+  const counts = questions
     ? {
-        draft: filtered.filter((q) => q.status === "DRAFT").length,
-        review: filtered.filter((q) => q.status === "REVIEW").length,
-        published: filtered.filter((q) => q.status === "PUBLISHED").length,
-        rejected: filtered.filter((q) => q.status === "REJECTED").length,
+        draft: questions.filter((q) => q.status === "DRAFT").length,
+        review: questions.filter((q) => q.status === "REVIEW").length,
+        published: questions.filter((q) => q.status === "PUBLISHED").length,
+        rejected: questions.filter((q) => q.status === "REJECTED").length,
       }
     : null;
 
-  // Distinct question_type values present in the loaded list — drives
-  // the type-filter dropdown so it only offers types the operator can
-  // actually click into. Sorted alphabetically.
-  const typeOptions = questions
-    ? Array.from(
-        new Set(
-          questions
-            .map((q) => q.questionType)
-            .filter((t): t is string => !!t),
-        ),
-      ).sort()
-    : [];
+  // Static catalogue of all 28 declared types (24 active + 4 gated)
+  // so the type filter offers the full menu instead of only what
+  // happened to land on the current page.
+  const TYPE_OPTIONS_STATIC = [
+    "MCQ_SINGLE", "MCQ_MULTI", "TRUE_FALSE", "ASSERTION_REASON", "MULTI_STATEMENT",
+    "NUMERIC_INTEGER", "NUMERIC_DECIMAL", "NUMERIC_RANGE", "FORMULA_INPUT",
+    "MATCH_THE_FOLLOWING", "SEQUENCING", "CLASSIFICATION",
+    "FILL_BLANK_SINGLE", "FILL_BLANK_MULTI", "CLOZE_PASSAGE", "SHORT_TEXT",
+    "ESSAY", "DESCRIPTIVE_LONG", "CASE_STUDY", "COMPREHENSION_LONG",
+    "DIAGRAM_HOTSPOT", "DIAGRAM_LABEL", "MAP_LOCATION", "PICTORIAL_IDENTIFY",
+    "LISTENING_COMP", "VIDEO_QUESTION",
+    "KBC_LIFELINE", "TIMED_REVEAL", "ADAPTIVE_DIFFICULTY",
+  ];
+
+  const filtered = questions;
 
   return (
     <AppShell
@@ -98,16 +126,16 @@ export function MyQuestions() {
         </Banner>
       ) : null}
 
-      {isReviewer && (
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            marginBottom: 12,
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 12,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        {isReviewer && (
           <div role="tablist" style={{ display: "inline-flex", gap: 4 }}>
             <button
               type="button"
@@ -130,36 +158,58 @@ export function MyQuestions() {
               All authors
             </button>
           </div>
-          {scope === "all" && typeOptions.length > 1 && (
-            <>
-              <span style={{ color: "var(--text-faint, #7A8BAD)", fontSize: 12 }}>
-                Filter by type:
-              </span>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                style={{
-                  padding: "6px 10px",
-                  background: "var(--bg-surface3)",
-                  color: "var(--text-primary)",
-                  border: "1px solid var(--border-strong)",
-                  borderRadius: 6,
-                  fontSize: 13,
-                }}
-              >
-                <option value="">All types ({questions?.length ?? 0})</option>
-                {typeOptions.map((t) => (
-                  <option key={t} value={t}>
-                    {t} (
-                    {questions?.filter((q) => q.questionType === t).length ?? 0}
-                    )
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-        </div>
-      )}
+        )}
+
+        <input
+          type="search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search question stems…"
+          aria-label="Search question stems"
+          style={{
+            flex: 1,
+            minWidth: 220,
+            padding: "8px 12px",
+            background: "var(--bg-surface3)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-strong)",
+            borderRadius: 6,
+            fontSize: 13,
+            fontFamily: "inherit",
+          }}
+        />
+
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          aria-label="Filter by question type"
+          style={{
+            padding: "8px 10px",
+            background: "var(--bg-surface3)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-strong)",
+            borderRadius: 6,
+            fontSize: 13,
+          }}
+        >
+          <option value="">All types</option>
+          {TYPE_OPTIONS_STATIC.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+
+        <span
+          style={{
+            color: "var(--text-faint, #7A8BAD)",
+            fontSize: 12,
+            marginLeft: 4,
+          }}
+        >
+          {total.toLocaleString()} match{total === 1 ? "" : "es"}
+        </span>
+      </div>
 
       {questions === null ? (
         <SkeletonRows count={3} />
@@ -277,6 +327,46 @@ export function MyQuestions() {
             );
           })}
         </ul>
+      )}
+
+      {questions !== null && total > PAGE_SIZE && (
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            marginTop: 16,
+            color: "var(--text-secondary, #B8C5E0)",
+            fontSize: 13,
+          }}
+        >
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+          >
+            ← Prev
+          </button>
+          <span>
+            Page <strong>{page + 1}</strong> of{" "}
+            <strong>{Math.max(1, Math.ceil(total / PAGE_SIZE))}</strong>{" "}
+            <span style={{ color: "var(--text-faint, #7A8BAD)" }}>
+              · showing {page * PAGE_SIZE + 1}–
+              {Math.min(total, (page + 1) * PAGE_SIZE)} of{" "}
+              {total.toLocaleString()}
+            </span>
+          </span>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setPage((p) => p + 1)}
+            disabled={(page + 1) * PAGE_SIZE >= total}
+          >
+            Next →
+          </button>
+        </div>
       )}
     </AppShell>
   );

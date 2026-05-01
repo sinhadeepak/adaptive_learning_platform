@@ -126,17 +126,41 @@ async def list_questions(
     *,
     created_by: str | None = None,
     status_filter: str | None = None,
-    limit: int = 200,
-) -> list[dict[str, Any]]:
+    question_type: str | None = None,
+    search: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int]:
+    """List questions with optional filters + pagination.
+
+    Returns (rows, total_count) where total_count is the unfiltered-by-
+    pagination match count, so the UI can render "page X of Y".
+    """
     where = []
-    params: dict[str, Any] = {"lim": limit}
+    params: dict[str, Any] = {"lim": limit, "off": offset}
     if created_by is not None:
         where.append("created_by = :cb")
         params["cb"] = created_by
     if status_filter is not None:
         where.append("status = :status")
         params["status"] = status_filter
+    if question_type is not None:
+        where.append("question_type = :qtype")
+        params["qtype"] = question_type
+    if search:
+        # ILIKE on stem; %s collation makes it case-insensitive on
+        # ASCII. Hindi text would need a separate plain-text index +
+        # ILIKE (or websearch_to_tsquery) — out of scope here.
+        where.append("stem ILIKE :search")
+        params["search"] = f"%{search}%"
     where_clause = "WHERE " + " AND ".join(where) if where else ""
+
+    count_res = await session.execute(
+        text(f"SELECT COUNT(*) FROM {SCHEMA}.questions {where_clause}"),
+        {k: v for k, v in params.items() if k not in ("lim", "off")},
+    )
+    total = int(count_res.scalar() or 0)
+
     res = await session.execute(
         text(
             f"""
@@ -145,12 +169,13 @@ async def list_questions(
                    created_by, created_at, submitted_at, reviewed_by, reviewed_at, review_notes
                    , exam_year, paper_session, pyq_flag, question_type
               FROM {SCHEMA}.questions {where_clause}
-          ORDER BY created_at DESC LIMIT :lim
+          ORDER BY created_at DESC, id ASC
+             LIMIT :lim OFFSET :off
             """
         ),
         params,
     )
-    return [_row_to_dict(r) for r in res.mappings()]
+    return [_row_to_dict(r) for r in res.mappings()], total
 
 
 async def get_question(session: AsyncSession, question_id: str) -> dict[str, Any] | None:

@@ -65,6 +65,10 @@ class QuestionDetail(BaseModel):
 
 class QuestionList(BaseModel):
     items: list[QuestionDetail]
+    # Phase 5 (P5-S58) — total match count regardless of pagination,
+    # so the client can render "page X of Y" without extra calls.
+    # Defaulted for backward-compatibility with pre-S58 callers.
+    total: int = 0
 
 
 class ReviewDecision(BaseModel):

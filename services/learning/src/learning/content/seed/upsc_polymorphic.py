@@ -45,7 +45,7 @@ ACTIVE_TYPES: tuple[str, ...] = (
     "DIAGRAM_HOTSPOT", "DIAGRAM_LABEL", "MAP_LOCATION", "PICTORIAL_IDENTIFY",
 )
 
-QUESTIONS_PER_TYPE = 100
+QUESTIONS_PER_TYPE = 200
 
 # UPSC topics (id, code) — id matches catalog migration 007.
 UPSC_TOPICS: tuple[tuple[str, str], ...] = (
