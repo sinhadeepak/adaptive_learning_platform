@@ -673,3 +673,78 @@ async def post_ux_kpis_rollup(target_date: str | None = None):
     async with sessionmaker()() as s:
         n = await _ux_events.daily_rollup(s, target_date=when)
     return {"rolled_up": n, "for_date": when.date().isoformat()}
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Phase 6 (S56) — Topic decay + readiness bands
+# ─────────────────────────────────────────────────────────────────────
+
+from engagement.analytics import topic_decay as _topic_decay
+from engagement.analytics import readiness_bands as _bands
+
+
+@router.get("/analytics/topic-decay/{user_id}")
+async def get_topic_decay(user_id: str):
+    """Compute decay severity per concept for the user."""
+    async with sessionmaker()() as s:
+        from sqlalchemy import text as _text
+        res = await s.execute(
+            _text(
+                "SELECT concept_id, ewa, n, last_seen_at "
+                "FROM analytics_schema.concept_mastery "
+                "WHERE user_id = CAST(:uid AS uuid) "
+                "ORDER BY last_seen_at DESC NULLS LAST"
+            ),
+            {"uid": user_id},
+        )
+        items = []
+        for row in res.mappings():
+            d = _topic_decay.compute_decay(
+                last_attempted_at=row["last_seen_at"],
+                current_ewa=float(row["ewa"]),
+                n_attempts=int(row["n"]),
+            )
+            items.append({
+                "concept_id": str(row["concept_id"]),
+                "ewa": float(row["ewa"]),
+                "n": int(row["n"]),
+                "decay_days": d.decay_days,
+                "decay_severity": d.decay_severity,
+            })
+    return {"user_id": user_id, "items": items}
+
+
+@router.get("/analytics/readiness-band/{user_id}")
+async def get_readiness_band(
+    user_id: str,
+    target_score: float = 0.7,
+    days_to_exam: int = 90,
+):
+    """Compute the user's current readiness band + suggested actions."""
+    # Readiness score = mean of per-topic EWAs (existing pattern)
+    async with sessionmaker()() as s:
+        from sqlalchemy import text as _text
+        res = await s.execute(
+            _text(
+                "SELECT COALESCE(AVG(ewa), 0)::float AS readiness_score "
+                "FROM analytics_schema.mastery "
+                "WHERE user_id = CAST(:uid AS uuid)"
+            ),
+            {"uid": user_id},
+        )
+        row = res.mappings().first()
+        readiness = float(row["readiness_score"]) if row else 0.0
+    band = _bands.readiness_band(
+        readiness_score=readiness,
+        days_to_exam=days_to_exam,
+        target_score=target_score,
+    )
+    actions = _bands.BAND_ACTIONS.get(band, [])
+    return {
+        "user_id": user_id,
+        "readiness_score": round(readiness, 3),
+        "target_score": target_score,
+        "days_to_exam": days_to_exam,
+        "band": band,
+        "actions": actions,
+    }
