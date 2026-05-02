@@ -21,6 +21,7 @@ export function AppShell({
   function canSee(id: string): boolean {
     if (id === "review") return canReview(user?.role);
     if (id === "questions") return true; // anyone authenticated can view their drafts (empty if non-author)
+    if (id === "resources") return canAuthor(user?.role);
     return true;
   }
 

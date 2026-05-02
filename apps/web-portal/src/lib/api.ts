@@ -816,3 +816,146 @@ export const creatorEarnings = {
     return asJson<Earnings>(res);
   },
 };
+
+// ─────────────────────────────────────────────────────────────────────
+// R-S1 — Content references (YouTube curation)
+// ─────────────────────────────────────────────────────────────────────
+
+export interface YouTubeSearchResultItem {
+  video_id: string;
+  title: string;
+  description?: string | null;
+  channel_name?: string | null;
+  duration_seconds?: number | null;
+  thumbnail_url?: string | null;
+  published_at?: string | null;
+  view_count?: number | null;
+}
+
+export interface ResourceDetail {
+  id: string;
+  topic_id: string | null;
+  concept_id: string | null;
+  question_id: string | null;
+  resource_type: "youtube_video" | "youtube_playlist" | "url" | "note";
+  external_id: string | null;
+  url: string;
+  title: string;
+  description: string | null;
+  channel_name: string | null;
+  duration_seconds: number | null;
+  thumbnail_url: string | null;
+  language: string;
+  difficulty: "EASY" | "MEDIUM" | "HARD" | null;
+  status: "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "REJECTED" | "REMOVED";
+  position: number;
+  added_by: string;
+  added_at: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  review_notes: string | null;
+  is_available: boolean;
+}
+
+export interface ResourceCreateInput {
+  topic_id?: string;
+  concept_id?: string;
+  question_id?: string;
+  resource_type?: "youtube_video" | "youtube_playlist" | "url" | "note";
+  external_id?: string;
+  url: string;
+  title: string;
+  description?: string | null;
+  channel_name?: string | null;
+  duration_seconds?: number | null;
+  thumbnail_url?: string | null;
+  language?: string;
+  difficulty?: "EASY" | "MEDIUM" | "HARD";
+  position?: number;
+}
+
+export const contentResources = {
+  async search(opts: {
+    q: string;
+    max_results?: number;
+    language?: string;
+  }): Promise<{
+    items: YouTubeSearchResultItem[];
+    source: "live" | "cache" | "stub";
+    daily_quota_remaining?: number | null;
+    note?: string | null;
+  }> {
+    const params = new URLSearchParams({ q: opts.q });
+    if (opts.max_results) params.set("max_results", String(opts.max_results));
+    if (opts.language) params.set("language", opts.language);
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/resources/search?${params}`,
+    );
+    return asJson(res);
+  },
+
+  async pin(input: ResourceCreateInput): Promise<ResourceDetail> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/content/resources`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    return asJson<ResourceDetail>(res);
+  },
+
+  async list(opts: {
+    topic_id?: string;
+    concept_id?: string;
+    question_id?: string;
+    scope?: "student" | "mine" | "all";
+    status?: string;
+    language?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ items: ResourceDetail[]; total: number }> {
+    const params = new URLSearchParams();
+    if (opts.topic_id) params.set("topic_id", opts.topic_id);
+    if (opts.concept_id) params.set("concept_id", opts.concept_id);
+    if (opts.question_id) params.set("question_id", opts.question_id);
+    if (opts.scope) params.set("scope", opts.scope);
+    if (opts.status) params.set("status", opts.status);
+    if (opts.language) params.set("language", opts.language);
+    if (opts.limit !== undefined) params.set("limit", String(opts.limit));
+    if (opts.offset !== undefined) params.set("offset", String(opts.offset));
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/resources?${params}`,
+    );
+    return asJson(res);
+  },
+
+  async submit(rid: string): Promise<ResourceDetail> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/resources/${rid}/submit`,
+      { method: "POST" },
+    );
+    return asJson<ResourceDetail>(res);
+  },
+
+  async review(
+    rid: string,
+    decision: { approve: boolean; notes?: string | null },
+  ): Promise<ResourceDetail> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/resources/${rid}/review`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(decision),
+      },
+    );
+    return asJson<ResourceDetail>(res);
+  },
+
+  async remove(rid: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/resources/${rid}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  },
+};

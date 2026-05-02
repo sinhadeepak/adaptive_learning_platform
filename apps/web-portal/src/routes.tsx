@@ -24,6 +24,7 @@ import { CreatorApply } from "./pages/CreatorApply";
 import { CreatorDashboard } from "./pages/CreatorDashboard";
 import { MyCourses } from "./pages/MyCourses";
 import { CourseAuthor } from "./pages/CourseAuthor";
+import { ResourceCurator } from "./pages/ResourceCurator";
 import { CreatorEarnings } from "./pages/CreatorEarnings";
 
 const protectedRoute = (path: string, element: ReactElement): RouteObject => ({
@@ -112,6 +113,17 @@ export const routes: RouteObject[] = [
   protectedRoute("/creator", <CreatorDashboard />),
   protectedRoute("/creator/apply", <CreatorApply />),
   protectedRoute("/creator/courses", <MyCourses />),
+  // R-S1 — content references (YouTube curation)
+  {
+    path: "/content/resources",
+    element: (
+      <ProtectedRoute>
+        <RoleGate allow={canAuthor}>
+          <ResourceCurator />
+        </RoleGate>
+      </ProtectedRoute>
+    ),
+  },
   protectedRoute("/creator/courses/new", <CourseAuthor />),
   protectedRoute("/creator/courses/:courseId/edit", <CourseAuthor />),
   protectedRoute("/creator/earnings", <CreatorEarnings />),

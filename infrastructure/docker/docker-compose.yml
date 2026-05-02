@@ -155,6 +155,10 @@ services:
       ADAPTIVE_ENGINE_REDIS_URL: redis://redis:6379/1
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ADAPTIVE_ENGINE_OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      # R-S1 — Content references (YouTube curation). Empty in dev;
+      # the search endpoint degrades to a "paste-URL" hint until set.
+      YOUTUBE_DATA_API_KEY: ${YOUTUBE_DATA_API_KEY:-}
+      REDIS_URL: redis://redis:6379/4
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }

@@ -25,6 +25,13 @@ const NAV: NavEntry[] = [
     match: (p) => p === "/questions" || p === "/questions/new",
   },
   { id: "review", to: "/review", icon: "🔎", label: "Review" },
+  {
+    id: "resources",
+    to: "/content/resources",
+    icon: "🎬",
+    label: "Resources",
+    match: (p) => p.startsWith("/content/resources"),
+  },
   { id: "analytics", to: "/analytics", icon: "📊", label: "Analytics" },
 ];
 
