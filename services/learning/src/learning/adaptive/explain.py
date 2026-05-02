@@ -13,7 +13,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from learning.adaptive import llm
+from learning.content import explanations_repo
+
+PROMPT_TEMPLATE_ID = "question_explanation"
+PROMPT_TEMPLATE_VERSION = "1.0.0"
 
 EXPLAIN_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -73,7 +79,33 @@ async def explain_question(
     picked_idx: int | None = None,
     topic_title: str | None = None,
     language: str = "en",
+    question_id: str | None = None,
+    session: AsyncSession | None = None,
 ) -> dict[str, Any]:
+    """Generate or read-through-cache a teaching note.
+
+    When `question_id` and `session` are both provided the cache
+    layer is consulted first — a hit returns immediately with no
+    LLM call. On miss the LLM runs, the result is persisted, and
+    we return it. When either is missing (e.g. tests, ad-hoc
+    previews) we skip the cache entirely.
+
+    Heuristic fallbacks are not cached — they're cheap to compute
+    and their content is stable for the same inputs anyway.
+    """
+    cache_eligible = question_id is not None and session is not None
+
+    if cache_eligible:
+        cached = await explanations_repo.get_cached_explanation(
+            session,
+            question_id=question_id,
+            picked_idx=picked_idx,
+            language=language,
+            prompt_template_version=PROMPT_TEMPLATE_VERSION,
+        )
+        if cached is not None:
+            return cached
+
     correct_text = choices[correct_idx] if 0 <= correct_idx < len(choices) else "(unknown)"
     picked_text = (
         choices[picked_idx]
@@ -104,10 +136,22 @@ async def explain_question(
     out = await llm.call_structured(
         system=SYSTEM_PROMPT,
         user="\n".join(user_lines),
-        schema_name="question_explanation",
+        schema_name=PROMPT_TEMPLATE_ID,
         schema=EXPLAIN_SCHEMA,
     )
     if out is not None:
         out["source"] = "ai"
+        out["model"] = "openai-default"
+        out["prompt_template_id"] = PROMPT_TEMPLATE_ID
+        out["prompt_template_version"] = PROMPT_TEMPLATE_VERSION
+        out["cache"] = "miss"
+        if cache_eligible:
+            await explanations_repo.upsert_explanation(
+                session,
+                question_id=question_id,
+                picked_idx=picked_idx,
+                language=language,
+                payload=out,
+            )
         return out
     return _heuristic(stem, choices, correct_idx, picked_idx)

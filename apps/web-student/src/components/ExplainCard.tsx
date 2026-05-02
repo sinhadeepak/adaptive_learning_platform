@@ -66,6 +66,9 @@ export function ExplainCard({
             correctIdx,
             pickedIdx,
             topicTitle,
+            // Threaded for the read-through cache — same questionId +
+            // pickedIdx + language served twice avoids a second LLM call.
+            questionId,
           }),
         });
         if (r.ok) setGenerated((await r.json()) as ExplainResponse);
@@ -96,7 +99,14 @@ export function ExplainCard({
       const r = await auth.fetch("/api/v1/adaptive/explain", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ stem, choices, correctIdx, pickedIdx, topicTitle }),
+        body: JSON.stringify({
+          stem,
+          choices,
+          correctIdx,
+          pickedIdx,
+          topicTitle,
+          questionId,
+        }),
       });
       if (r.ok) setGenerated((await r.json()) as ExplainResponse);
     } finally {

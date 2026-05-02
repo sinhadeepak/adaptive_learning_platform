@@ -378,12 +378,36 @@ class ExplainRequest(BaseModel):
     pickedIdx: int | None = Field(default=None, ge=0)
     topicTitle: str | None = None
     language: str = "en"
+    # Optional — when supplied the AI response is cached read-through
+    # by (question_id, picked_idx, language, prompt_template_version)
+    # so subsequent expansions of the same wrong answer don't burn
+    # an LLM call. Older clients that don't send questionId still
+    # work; they just bypass the cache.
+    questionId: str | None = None
 
 
 @router.post("/adaptive/explain")
 async def post_explain(req: ExplainRequest) -> dict:
     """On-demand teaching note. Used by QuizResult when the question's stored
-    explanation is null. Returns the same JSON shape whether the LLM is on or off."""
+    explanation is null. Returns the same JSON shape whether the LLM is on or off.
+
+    When questionId is supplied the response is read-through cached
+    in content_schema.question_explanations so repeat views don't
+    repeatedly call the LLM."""
+    if req.questionId:
+        from learning.content.db import sessionmaker as _sessionmaker
+
+        async with _sessionmaker()() as session:
+            return await explain_question(
+                stem=req.stem,
+                choices=req.choices,
+                correct_idx=req.correctIdx,
+                picked_idx=req.pickedIdx,
+                topic_title=req.topicTitle,
+                language=req.language,
+                question_id=req.questionId,
+                session=session,
+            )
     return await explain_question(
         stem=req.stem,
         choices=req.choices,
