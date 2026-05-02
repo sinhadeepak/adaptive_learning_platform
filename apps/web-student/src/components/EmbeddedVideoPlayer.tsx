@@ -92,6 +92,11 @@ export function EmbeddedVideoPlayer({
       ytPlayerRef.current = new window.YT.Player(playerRef.current, {
         videoId: resource.external_id,
         host: "https://www.youtube-nocookie.com",
+        // Fill the responsive 16:9 container; without these the
+        // YT API hard-codes width=640, height=360 on the iframe and
+        // the player floats inside a wider modal.
+        width: "100%",
+        height: "100%",
         playerVars: {
           modestbranding: 1,
           rel: 0,
