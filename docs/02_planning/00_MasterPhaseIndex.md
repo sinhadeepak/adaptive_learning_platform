@@ -190,6 +190,7 @@ These are the Single Sources of Truth — when sprint plans contradict them, the
 | What sprints are pending in any phase? | This doc (table at top) |
 | Why was a feature deferred? | The closure doc for the sprint that deferred it |
 | What's the next sprint going to ship? | The sprint plan (§Sprint X) for that sprint |
+| What journeys can a student / teacher / moderator / admin run today? | [10_UserJourneys_AdaptiveLearningPlatform.md](10_UserJourneys_AdaptiveLearningPlatform.md) — every user-facing path across the three frontends with status (functional / partial / placeholder) and the backend endpoints each touches |
 | Why was a technical decision made? | `docs/adr/` |
 | What infrastructure is in place? | [08_DevEnvironmentRequirements](08_DevEnvironmentRequirements_AdaptiveLearningPlatform.md) + Terraform files |
 | What runbook covers an incident? | [runbook/README.md](../../runbook/README.md) |
