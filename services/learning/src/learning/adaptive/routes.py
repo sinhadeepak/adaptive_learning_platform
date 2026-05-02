@@ -776,3 +776,67 @@ async def get_weekly_narrative_current(user_id: str) -> dict:
     if result is None:
         return {"narrative": None, "reason": "not_generated_yet"}
     return result
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Phase 6 (S54) — Difficulty agency
+# ─────────────────────────────────────────────────────────────────────
+
+class FrictionItemAttempt(BaseModel):
+    item_idx: int
+    is_correct: bool | None = None
+    time_spent_ms: int | None = None
+    skipped: bool = False
+
+
+class FrictionCheckRequest(BaseModel):
+    history: list[FrictionItemAttempt]
+    last_friction_at_idx: int | None = None
+
+
+@router.post("/adaptive/friction/check")
+async def post_friction_check(req: FrictionCheckRequest) -> dict:
+    """Mid-quiz friction prompt evaluator. Quiz Go calls between items.
+    Returns trigger metadata or null."""
+    from learning.adaptive.friction_prompt import (
+        ItemAttempt,
+        evaluate_friction,
+    )
+
+    history = [
+        ItemAttempt(
+            item_idx=a.item_idx,
+            is_correct=a.is_correct,
+            time_spent_ms=a.time_spent_ms,
+            skipped=a.skipped,
+        )
+        for a in req.history
+    ]
+    trigger = evaluate_friction(history, last_friction_at_idx=req.last_friction_at_idx)
+    if trigger is None:
+        return {"trigger": None}
+    return {
+        "trigger": {
+            "reason": trigger.reason,
+            "suggested_offset": trigger.suggested_offset,
+            "suggested_action": trigger.suggested_action,
+            "message": trigger.message,
+        }
+    }
+
+
+class IntentOffsetRequest(BaseModel):
+    intent_anchor: str = Field(default="match", pattern="^(match|push|build_confidence)$")
+    theta_hat: float = 0.0
+
+
+@router.post("/adaptive/intent/theta-offset")
+async def post_intent_offset(req: IntentOffsetRequest) -> dict:
+    """Translate intent_anchor → IRT θ̂ offset for initial item selection.
+    Pure function helper for Quiz Go session start."""
+    offset = {"match": 0.0, "push": +0.4, "build_confidence": -0.4}[req.intent_anchor]
+    return {
+        "intent_anchor": req.intent_anchor,
+        "offset": offset,
+        "effective_theta": req.theta_hat + offset,
+    }
