@@ -608,3 +608,68 @@ async def transfer_route(
             s, user_id=user_id, min_n_per_bucket=min_n_per_bucket,
         )
     return {"userId": user_id, "transfer": rows, "minNPerBucket": min_n_per_bucket}
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 6 (S49) — UX-34 instrumentation
+# ─────────────────────────────────────────────────────────────────────────
+
+from datetime import datetime, timedelta, date as _date
+from fastapi import Header
+from pydantic import BaseModel, Field
+from engagement.analytics import ux_events as _ux_events
+
+
+class UxEventIn(BaseModel):
+    event_name: str = Field(min_length=3, max_length=80)
+    properties: dict | None = None
+    session_id: str | None = None
+    route: str | None = Field(default=None, max_length=200)
+    variant: str | None = Field(default=None, max_length=40)
+    network_kind: str | None = Field(default=None, max_length=20)
+
+
+class UxEventBatch(BaseModel):
+    events: list[UxEventIn] = Field(min_length=1, max_length=100)
+    user_id: str | None = None    # set explicitly for guest screening events
+
+
+@router.post("/analytics/ux-events", status_code=204)
+async def post_ux_events(
+    body: UxEventBatch,
+    user_agent: str | None = Header(default=None, alias="User-Agent"),
+):
+    """Append-only UX telemetry. Drops malformed events with a warning."""
+    async with sessionmaker()() as s:
+        await _ux_events.insert_events(
+            s,
+            events=[ev.model_dump() for ev in body.events],
+            user_id=body.user_id,
+            user_agent=user_agent,
+        )
+        await s.commit()
+    return None
+
+
+@router.get("/analytics/ux-kpis")
+async def get_ux_kpis(
+    days: int = Query(default=30, ge=1, le=365),
+    kpi_name: str | None = None,
+):
+    """Pre-aggregated daily KPIs for the /admin/ux-health dashboard."""
+    today = datetime.utcnow()
+    df = today - timedelta(days=days)
+    async with sessionmaker()() as s:
+        rows = await _ux_events.kpis_daily(
+            s, date_from=df, date_to=today, kpi_name=kpi_name,
+        )
+    return {"items": rows, "days": days}
+
+
+@router.post("/analytics/ux-kpis/rollup", status_code=200)
+async def post_ux_kpis_rollup(target_date: str | None = None):
+    """Trigger daily rollup. Idempotent (ON CONFLICT DO UPDATE)."""
+    when = datetime.fromisoformat(target_date) if target_date else (datetime.utcnow() - timedelta(days=1))
+    async with sessionmaker()() as s:
+        n = await _ux_events.daily_rollup(s, target_date=when)
+    return {"rolled_up": n, "for_date": when.date().isoformat()}
