@@ -1,6 +1,8 @@
 # OS
 .DS_Store
 Thumbs.db
+# Windows alternate-data-stream metadata created on download; per-machine artefact.
+*:Zone.Identifier
 
 # Editors
 .idea/
