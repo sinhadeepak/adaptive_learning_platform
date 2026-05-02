@@ -33,8 +33,9 @@
 | Phase 3 | 6 (S15–S21, all closed) |
 | Phase 4 | 15 (S22–S36, all closed) — closes the exam-prep depth gap |
 | Phase 5 | 12 (S37–S48, DRAFT) — multi-parameter engine: KG + Type Handler Protocol + AI Gateway + Localisation. 3 ADRs proposed 2026-04-30. |
+| Phase 6 | 10 (S49–S58, DRAFT 2026-05-02) — UX Co-Pilot: turns the engine into a guided coach. 5 ADRs proposed (0020–0024). Sprint plan + architecture/LLD/schema addenda land alongside. |
 | **Final cutover sprint** | 1 — Staging deploy + drills, deferred per user direction until all Phase 1+2+3+4 sprints land + Stripe ready. Plan preserved at [24_DEPRECATED_Staging_Cutover_Plan](24_DEPRECATED_Staging_Cutover_Plan.md). |
-| **Total** | **49** sprints to staging push (S0–S48 if Phase 5 ships) |
+| **Total** | **59** sprints to staging push (S0–S58 if Phase 6 ships) |
 
 **Pending today**: Phase 5 (12 sprints, DRAFT — 3 ADRs proposed) + Final Cutover (AWS-blocked). Phase 4 closed 2026-04-30 with all 15 sprints shipped; the staging cutover absorbs 6 new gates (G-12..G-17) per [`Phase4_Cutover_Addendum.md`](Phase4_Cutover_Addendum.md) plus a standalone Phase-4-Mobile sprint (G-18) per [`Phase4_Mobile_Parity_Scope.md`](Phase4_Mobile_Parity_Scope.md). Phase 5 builds the multi-parameter engine substrate that closes the structural gap to Embibe and lifts ALP to industry-leading on 5 unique differentiators (Bloom-depth, error patterns, confidence calibration, transfer, calibration discipline). Engineering is no longer the bottleneck on Phase 1–4 launch readiness; AWS access, content workstream W1, and the mobile port are.
 

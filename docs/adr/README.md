@@ -29,3 +29,8 @@ We document significant architectural decisions here. Use the [template](0000-te
 | [0017](0017-multi-parameter-assessment-engine.md) | Multi-parameter assessment engine (9 dimensions, concept grain) (Phase 5) | proposed | 2026-04-30 |
 | [0018](0018-polymorphic-question-types-and-resolution.md) | Polymorphic question types via Type Handler Protocol + Resolution contract (Phase 5) | proposed | 2026-04-30 |
 | [0019](0019-ai-gateway-and-consolidation.md) | AI Gateway as module inside alp-learning (preserves ADR-0005 ceiling) (Phase 5) | proposed | 2026-04-30 |
+| [0020](0020-ux-copilot-scope-and-ia.md) | UX Co-Pilot scope + 4-section information architecture (Phase 6) | proposed | 2026-05-02 |
+| [0021](0021-hybrid-weekly-narrative.md) | Hybrid weekly learning narrative (Phase 6) | proposed | 2026-05-02 |
+| [0022](0022-difficulty-agency.md) | Difficulty agency model — intent · friction · calibration (Phase 6) | proposed | 2026-05-02 |
+| [0023](0023-constrained-plan-coediting.md) | Constrained plan co-editing (Phase 6) | proposed | 2026-05-02 |
+| [0024](0024-todays-mission-entrypoint.md) | Today's Mission as the primary daily entrypoint (Phase 6) | proposed | 2026-05-02 |
