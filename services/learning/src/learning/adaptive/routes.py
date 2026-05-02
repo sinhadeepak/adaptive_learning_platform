@@ -32,6 +32,10 @@ from learning.adaptive.authoring import generate_questions
 from learning.adaptive.doubt import solve_doubt
 from learning.adaptive.explain import explain_question
 from learning.adaptive.session_insights import generate_session_insights
+from learning.adaptive.weekly_narrative import (
+    generate_weekly_narrative,
+    get_current_week,
+)
 from learning.adaptive.mock import get_active_mock, plan_mock, score_mock
 from learning.adaptive.rank import project_rank
 from learning.adaptive.weakness import diagnose_weakness
@@ -722,3 +726,53 @@ async def post_select_multi_dim(req: SelectMultiDimRequest) -> SelectMultiDimRes
         targetsBloom=sel.targets_bloom,
         reason=sel.reason,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Phase 6 (S53) — Weekly narrative
+# ─────────────────────────────────────────────────────────────────────
+
+class WeeklyNarrativeRequest(BaseModel):
+    user_id: str
+    week_start: str | None = None      # YYYY-MM-DD; defaults to current Monday
+    is_delta: bool = False
+    delta_trigger: str | None = None
+    signals: dict | None = None        # injected by engagement-side caller
+
+
+@router.post("/adaptive/weekly-narrative/generate")
+async def post_weekly_narrative_generate(req: WeeklyNarrativeRequest) -> dict:
+    """Generate (or read-through-cache) a weekly narrative."""
+    from datetime import date as _date, timedelta as _td
+
+    from learning.content.db import sessionmaker as _sm
+
+    today = _date.today()
+    week_start = (
+        _date.fromisoformat(req.week_start)
+        if req.week_start
+        else today - _td(days=today.weekday())
+    )
+    signals = req.signals or {}
+    async with _sm()() as session:
+        return await generate_weekly_narrative(
+            user_id=req.user_id,
+            week_start=week_start,
+            signals=signals,
+            session=session,
+            is_delta=req.is_delta,
+            delta_trigger=req.delta_trigger,
+        )
+
+
+@router.get("/adaptive/weekly-narrative/current/{user_id}")
+async def get_weekly_narrative_current(user_id: str) -> dict:
+    """Return the user's current-week narrative (cached row only — does
+    not generate). 204 when not yet generated for this week."""
+    from learning.content.db import sessionmaker as _sm
+
+    async with _sm()() as session:
+        result = await get_current_week(session, user_id=user_id)
+    if result is None:
+        return {"narrative": None, "reason": "not_generated_yet"}
+    return result
