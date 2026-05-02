@@ -66,13 +66,24 @@ export function ResourceShelf({
     setResources(null);
     (async () => {
       try {
-        const items = await contentResources.list({
-          topic_id: topicId,
-          concept_id: conceptId,
-          question_id: questionId,
-          language,
-          limit,
-        });
+        // Hierarchical scope — the API ANDs filters server-side, so
+        // passing question_id + topic_id at once requires a row to
+        // have BOTH set. Teachers usually pin against topics, not
+        // specific questions, so we walk the scope ladder
+        // most-specific → broadest and stop at the first hit.
+        // Question-pinned content (most-relevant) wins; topic falls
+        // back when no question pin exists; concept further back.
+        const tryScope = async (
+          scope: { topic_id?: string; concept_id?: string; question_id?: string },
+        ) => contentResources.list({ ...scope, language, limit });
+
+        let items = questionId ? await tryScope({ question_id: questionId }) : [];
+        if (items.length === 0 && conceptId) {
+          items = await tryScope({ concept_id: conceptId });
+        }
+        if (items.length === 0 && topicId) {
+          items = await tryScope({ topic_id: topicId });
+        }
         if (!cancelled) setResources(items);
       } catch {
         if (!cancelled) setResources([]);
