@@ -45,6 +45,7 @@ from engagement.notification.events import close as close_notification_events
 from engagement.notification.events import connect as connect_notification_events
 from engagement.notification.flags import close_flags, connect_flags
 from engagement.notification.routes import router as notification_router
+from engagement.reflection import reflection_router  # P6-S57 / UX-27
 
 
 @asynccontextmanager
@@ -79,6 +80,7 @@ app.add_middleware(TraceContextMiddleware)
 # Mount the two sub-routers at their original prefixes so clients see no change.
 app.include_router(analytics_router)
 app.include_router(notification_router)
+app.include_router(reflection_router)  # P6-S57 — reflections + commitments
 
 
 @app.get("/health")
