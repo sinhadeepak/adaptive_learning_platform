@@ -33,7 +33,7 @@
 | Phase 3 | 6 (S15–S21, all closed) |
 | Phase 4 | 15 (S22–S36, all closed) — closes the exam-prep depth gap |
 | Phase 5 | 12 (S37–S48, DRAFT) — multi-parameter engine: KG + Type Handler Protocol + AI Gateway + Localisation. 3 ADRs proposed 2026-04-30. |
-| Phase 6 | 10 (S49–S58, DRAFT 2026-05-02) — UX Co-Pilot: turns the engine into a guided coach. 5 ADRs proposed (0020–0024). Sprint plan + architecture/LLD/schema addenda land alongside. |
+| Phase 6 | 10 (S49–S58) — UX Co-Pilot: turns the engine into a guided coach. 5 ADRs (0020–0024). 🟡 **Backends + foundation slice shipped 2026-05-02**: ux_events + KPI rollup (S49), screening blueprint (S49), Today's Mission engine + persistence (S50), Insights hub aggregator (S52), hybrid weekly narrative + LLM template (S53), difficulty agency intent + friction prompt + Quiz schema (S54), constrained plan editor schema + generator + edit ops (S55), topic decay + readiness bands (S56), reflections + commitments + recovery proposals (S57). Frontend MissionCard live on Home; full mobile-quiz redesign + command palette + UX-30/33/35 polish ship in a follow-up sprint. |
 | **Final cutover sprint** | 1 — Staging deploy + drills, deferred per user direction until all Phase 1+2+3+4 sprints land + Stripe ready. Plan preserved at [24_DEPRECATED_Staging_Cutover_Plan](24_DEPRECATED_Staging_Cutover_Plan.md). |
 | **Total** | **59** sprints to staging push (S0–S58 if Phase 6 ships) |
 
