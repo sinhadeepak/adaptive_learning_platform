@@ -234,6 +234,42 @@ async def update_status(
     return _row_to_dict(row) if row else None
 
 
+async def insert_view_event(
+    session: AsyncSession,
+    *,
+    resource_id: UUID,
+    user_id: UUID,
+    event_type: str,
+    position_seconds: int | None,
+    session_id: UUID | None,
+) -> None:
+    """Record a single view event. Append-only — fires per yt-iframe
+    state change (started/25pct/50pct/75pct/completed/closed)."""
+    await session.execute(
+        text(
+            f"""
+            INSERT INTO {SCHEMA}.resource_view_events
+              (id, resource_id, user_id, event_type,
+               position_seconds, session_id)
+            VALUES
+              (gen_random_uuid(),
+               CAST(:rid AS uuid),
+               CAST(:uid AS uuid),
+               :etype,
+               :pos,
+               CAST(:sid AS uuid))
+            """
+        ),
+        {
+            "rid": str(resource_id),
+            "uid": str(user_id),
+            "etype": event_type,
+            "pos": position_seconds,
+            "sid": str(session_id) if session_id else None,
+        },
+    )
+
+
 async def soft_delete(session: AsyncSession, resource_id: UUID) -> bool:
     res = await session.execute(
         text(

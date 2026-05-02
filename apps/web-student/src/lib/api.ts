@@ -415,3 +415,81 @@ export const predictive = {
     return body.items;
   },
 };
+
+// ─────────────────────────────────────────────────────────────────────
+// R-S2 — Content references (student-side consumer)
+// Reads PUBLISHED resources curated by teachers + emits view events.
+// ─────────────────────────────────────────────────────────────────────
+
+export interface StudentResource {
+  id: string;
+  topic_id: string | null;
+  concept_id: string | null;
+  question_id: string | null;
+  resource_type: "youtube_video" | "youtube_playlist" | "url" | "note";
+  external_id: string | null;
+  url: string;
+  title: string;
+  description: string | null;
+  channel_name: string | null;
+  duration_seconds: number | null;
+  thumbnail_url: string | null;
+  language: string;
+  difficulty: "EASY" | "MEDIUM" | "HARD" | null;
+}
+
+export type ViewEventType =
+  | "started"
+  | "25pct"
+  | "50pct"
+  | "75pct"
+  | "completed"
+  | "closed";
+
+export const contentResources = {
+  /** Lists PUBLISHED-only resources for a scope. The more specific
+   *  the scope the better the match — pass question_id when known
+   *  (a wrong-answer CTA), fall back to topic_id otherwise. */
+  async list(opts: {
+    topic_id?: string;
+    concept_id?: string;
+    question_id?: string;
+    language?: string;
+    limit?: number;
+  }): Promise<StudentResource[]> {
+    const params = new URLSearchParams({ scope: "student" });
+    if (opts.topic_id) params.set("topic_id", opts.topic_id);
+    if (opts.concept_id) params.set("concept_id", opts.concept_id);
+    if (opts.question_id) params.set("question_id", opts.question_id);
+    if (opts.language) params.set("language", opts.language);
+    if (opts.limit !== undefined) params.set("limit", String(opts.limit));
+    if (!opts.topic_id && !opts.concept_id && !opts.question_id) return [];
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/resources?${params}`,
+    );
+    if (!res.ok) return [];
+    const body = (await res.json()) as { items: StudentResource[] };
+    return body.items;
+  },
+
+  /** Append-only telemetry. Best-effort — failures are silent so a
+   *  flaky network never blocks the player. */
+  async recordView(
+    rid: string,
+    event: {
+      event_type: ViewEventType;
+      position_seconds?: number;
+      session_id?: string;
+    },
+  ): Promise<void> {
+    try {
+      await auth.fetch(`${env.apiBaseUrl}/content/resources/${rid}/view`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(event),
+      });
+    } catch {
+      /* swallow — telemetry is fire-and-forget */
+    }
+  },
+};

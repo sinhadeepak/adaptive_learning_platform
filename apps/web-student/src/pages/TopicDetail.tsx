@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill, SkeletonRows } from "../components/dashboard";
 import { AITutorChat } from "../components/AITutorChat";
+import { ResourceShelf } from "../components/ResourceShelf";
 import { blockedLabel, summariseGate, type GateResponse } from "../lib/prereq_gate";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -295,6 +296,17 @@ export function TopicDetail() {
           </div>
         </div>
       </section>
+
+      {/* ── Zone 1.5: Watch & Learn shelf (R-S2) ──────────────── */}
+      <ResourceShelf
+        topicId={topicId}
+        title="Watch & Learn"
+        subtitle={
+          isWeak
+            ? `Curated clips for ${topic.title} — pick one before your next practice round.`
+            : `Curated clips for ${topic.title}.`
+        }
+      />
 
       {/* ── Zone 2: Stats row ───────────────────────────────────── */}
       <section className="topic-stats" aria-label="Topic stats">

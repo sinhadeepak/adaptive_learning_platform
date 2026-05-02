@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill, SkeletonRows } from "../components/dashboard";
 import { ExplainCard } from "../components/ExplainCard";
+import { ResourceShelf } from "../components/ResourceShelf";
 
 // Practice Results — React port of
 // docs/ui/01_StudentPortal_Web/09_practice-results.html.
@@ -1025,6 +1026,22 @@ export function QuizResult() {
                       storedExplanation={it.explanation}
                       topicTitle={topic?.title}
                     />
+                    {/* R-S2 — When the answer is wrong, surface a
+                        compact carousel of teacher-curated clips for
+                        this question (preferred) or the topic
+                        (fallback). The shelf hides itself when nothing
+                        is pinned. */}
+                    {it.answered && !it.isCorrect && (
+                      <ResourceShelf
+                        questionId={it.questionId}
+                        topicId={session.topicId}
+                        title="Why this was wrong — watch"
+                        subtitle="Pulled from your teachers' curated shelf for this concept."
+                        sessionId={session.sessionId}
+                        compact
+                        limit={6}
+                      />
+                    )}
                   </div>
                 ) : null}
               </li>

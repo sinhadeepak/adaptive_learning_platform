@@ -22,6 +22,7 @@ from learning.content.resources import ai_suggest, cache, quotas
 from learning.content.resources.repositories import (
     get_resource,
     insert_resource,
+    insert_view_event,
     list_resources,
     soft_delete,
     update_status,
@@ -36,6 +37,7 @@ from learning.content.resources.schemas import (
     ReviewDecision,
     SearchResponse,
     SearchResultItem,
+    ViewEventCreate,
 )
 from learning.content.resources.youtube_client import (
     extract_video_id,
@@ -411,5 +413,58 @@ async def delete_resource(
             },
         )
     await soft_delete(session, rid)
+    await session.commit()
+    return None
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# View tracking — fired by the yt-nocookie embed on the student web app
+# ─────────────────────────────────────────────────────────────────────────
+
+
+@router.post("/{rid}/view", status_code=204)
+async def record_view(
+    rid: UUID,
+    body: ViewEventCreate,
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> None:
+    """Record a view-event for telemetry. Append-only.
+
+    Any authenticated principal may post — students record their own
+    watch progress via the player. The resource must exist and be
+    visible to the caller (PUBLISHED, or owned by them); we don't
+    silently drop unknown ids so the client can detect stale embeds.
+    """
+    row = await get_resource(session, rid)
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "not_found", "message": "Resource not found."},
+        )
+    # Visibility check — students should only ever fire events
+    # against PUBLISHED rows, but admins / authors may exercise the
+    # player on their own DRAFTs while curating.
+    if (
+        row["status"] != "PUBLISHED"
+        and row["added_by"] != principal.user_id
+        and principal.role
+        not in ("MODERATOR", "INSTITUTION_ADMIN", "PLATFORM_ADMIN")
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "forbidden",
+                "message": "Resource is not yet published.",
+            },
+        )
+    await insert_view_event(
+        session,
+        resource_id=rid,
+        user_id=UUID(principal.user_id),
+        event_type=body.event_type,
+        position_seconds=body.position_seconds,
+        session_id=body.session_id,
+    )
     await session.commit()
     return None
