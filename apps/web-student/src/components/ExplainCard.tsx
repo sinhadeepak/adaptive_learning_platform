@@ -276,6 +276,7 @@ export function ExplainCard({
             }
             compact
             limit={6}
+            hideWhenEmpty={false}
           />
 
           {/* ── Next steps ───────────────────────────────────── */}

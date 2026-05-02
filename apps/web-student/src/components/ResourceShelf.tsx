@@ -100,6 +100,53 @@ export function ResourceShelf({
   if (resources.length === 0 && hideWhenEmpty) {
     return null;
   }
+  if (resources.length === 0) {
+    // Render an empty-state affordance so the student knows clips will
+    // show up here once teachers curate them (R-S2 deliberate UX —
+    // visible empty > silently absent).
+    return (
+      <section
+        aria-label={title}
+        style={{
+          margin: compact ? "8px 0" : "0 0 24px",
+          padding: compact ? "10px 12px" : "16px 18px",
+          background: compact
+            ? "rgba(34,212,238,0.04)"
+            : "linear-gradient(135deg, rgba(34,212,238,0.06), rgba(79,135,246,0.04))",
+          border: "1px dashed rgba(34,212,238,0.25)",
+          borderRadius: compact ? 6 : 10,
+        }}
+      >
+        <div
+          style={{
+            fontSize: compact ? 10 : 11,
+            fontWeight: 700,
+            letterSpacing: 0.6,
+            textTransform: "uppercase",
+            color: "var(--color-ai, #22D4EE)",
+            marginBottom: 6,
+          }}
+        >
+          🎬 {title}
+        </div>
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--text-secondary, #B8C5E0)",
+            lineHeight: 1.5,
+          }}
+        >
+          No clips curated yet for this{" "}
+          {questionId ? "question" : conceptId ? "concept" : "topic"}.
+          {" "}
+          <span style={{ color: "var(--text-faint, #7A8BAD)" }}>
+            Your teachers pin YouTube content here as the curation queue
+            catches up — check back soon.
+          </span>
+        </div>
+      </section>
+    );
+  }
 
   const cardWidth = compact ? 220 : 280;
   const thumbHeight = compact ? 124 : 158;

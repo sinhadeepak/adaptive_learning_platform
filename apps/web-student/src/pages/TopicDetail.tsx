@@ -306,6 +306,7 @@ export function TopicDetail() {
             ? `Curated clips for ${topic.title} — pick one before your next practice round.`
             : `Curated clips for ${topic.title}.`
         }
+        hideWhenEmpty={false}
       />
 
       {/* ── Zone 2: Stats row ───────────────────────────────────── */}
