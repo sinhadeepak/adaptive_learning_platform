@@ -714,6 +714,88 @@ async def get_topic_decay(user_id: str):
     return {"user_id": user_id, "items": items}
 
 
+@router.get("/analytics/insights/{user_id}/snapshot")
+async def get_insights_snapshot(user_id: str):
+    """Phase 6 S52 — single batched call backing the Insights hub.
+
+    Returns the aggregate (My State / What This Means / What To Do)
+    so the hub renders in one round-trip rather than 6.
+    """
+    from sqlalchemy import text as _t
+
+    out: dict = {
+        "user_id": user_id,
+        "my_state": {
+            "concept_mastery": [],
+            "topic_decay": [],
+            "readiness": None,
+        },
+        "what_this_means": {
+            "weak_concepts": [],
+            "decay_alerts": [],
+        },
+        "what_to_do": {
+            "missions_today_pending": False,
+            "revision_due_today": 0,
+        },
+    }
+    async with sessionmaker()() as s:
+        # Concept mastery
+        try:
+            r = await s.execute(
+                _t(
+                    "SELECT concept_id, ewa, n, last_seen_at "
+                    "FROM analytics_schema.concept_mastery "
+                    "WHERE user_id = CAST(:uid AS uuid) "
+                    "ORDER BY last_seen_at DESC NULLS LAST LIMIT 10"
+                ),
+                {"uid": user_id},
+            )
+            for row in r.mappings():
+                d = _topic_decay.compute_decay(
+                    last_attempted_at=row["last_seen_at"],
+                    current_ewa=float(row["ewa"]),
+                    n_attempts=int(row["n"]),
+                )
+                entry = {
+                    "concept_id": str(row["concept_id"]),
+                    "ewa": float(row["ewa"]),
+                    "n": int(row["n"]),
+                    "decay_severity": d.decay_severity,
+                    "decay_days": d.decay_days,
+                }
+                out["my_state"]["concept_mastery"].append(entry)
+                if d.decay_severity in ("stale", "critical"):
+                    out["my_state"]["topic_decay"].append(entry)
+                    out["what_this_means"]["decay_alerts"].append(entry)
+                if float(row["ewa"]) < 0.4 and int(row["n"]) >= 2:
+                    out["what_this_means"]["weak_concepts"].append(entry)
+        except Exception:  # noqa: BLE001
+            pass
+
+        # Readiness mean
+        try:
+            r = await s.execute(
+                _t(
+                    "SELECT COALESCE(AVG(ewa),0)::float AS r "
+                    "FROM analytics_schema.mastery WHERE user_id = CAST(:uid AS uuid)"
+                ),
+                {"uid": user_id},
+            )
+            row = r.mappings().first()
+            readiness = float(row["r"]) if row else 0.0
+            out["my_state"]["readiness"] = {
+                "score": round(readiness, 3),
+                "band": _bands.readiness_band(
+                    readiness_score=readiness, days_to_exam=90, target_score=0.7,
+                ),
+            }
+        except Exception:  # noqa: BLE001
+            pass
+
+    return out
+
+
 @router.get("/analytics/readiness-band/{user_id}")
 async def get_readiness_band(
     user_id: str,
