@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from learning.content.db import sessionmaker
-from learning.content.resources import cache, quotas
+from learning.content.resources import ai_suggest, cache, quotas
 from learning.content.resources.repositories import (
     get_resource,
     insert_resource,
@@ -27,6 +27,8 @@ from learning.content.resources.repositories import (
     update_status,
 )
 from learning.content.resources.schemas import (
+    AISuggestRequest,
+    AISuggestResponse,
     ResourceCreate,
     ResourceDetail,
     ResourceList,
@@ -126,6 +128,36 @@ async def search(
         source="live",
         daily_quota_remaining=max(0, limit - used),
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# AI suggestions — LLM proposes 4-6 search queries for the topic
+# ─────────────────────────────────────────────────────────────────────────
+
+
+@router.post("/ai-suggest", response_model=AISuggestResponse)
+async def ai_suggest_queries(
+    body: AISuggestRequest,
+    principal: PrincipalDep,
+) -> AISuggestResponse:
+    """Generate search-query suggestions for the curating teacher.
+
+    Calls the LLM via the standard adaptive.llm.call_structured path
+    (versioned prompt template, schema-validated output). Falls back
+    to a deterministic heuristic when OPENAI_API_KEY is unset, so the
+    UI keeps working in dev without a key.
+    """
+    _require_role(
+        principal, "TEACHER", "EXPERT", "MODERATOR", "INSTITUTION_ADMIN", "PLATFORM_ADMIN"
+    )
+    out = await ai_suggest.suggest_queries(
+        topic_title=body.topic_title,
+        topic_description=body.topic_description,
+        language=body.language,
+        weak_concept=body.weak_concept,
+        exam=body.exam,
+    )
+    return AISuggestResponse.model_validate(out)
 
 
 # ─────────────────────────────────────────────────────────────────────────

@@ -958,4 +958,29 @@ export const contentResources = {
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
   },
+
+  async aiSuggest(input: {
+    topic_id?: string;
+    topic_title: string;
+    topic_description?: string;
+    language?: string;
+    weak_concept?: string;
+    exam?: string;
+  }): Promise<{
+    queries: { query: string; rationale: string; difficulty: "EASY" | "MEDIUM" | "HARD" }[];
+    source: "ai" | "heuristic";
+    model: string | null;
+    prompt_template_id: string | null;
+    prompt_template_version: string | null;
+  }> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/resources/ai-suggest`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(input),
+      },
+    );
+    return asJson(res);
+  },
 };

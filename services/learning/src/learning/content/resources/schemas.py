@@ -100,3 +100,31 @@ class ViewEventCreate(BaseModel):
     event_type: Literal["started", "25pct", "50pct", "75pct", "completed", "closed"]
     position_seconds: int | None = Field(default=None, ge=0)
     session_id: UUID | None = None
+
+
+# ─────────────────────────────────────────────────────────────────────
+# AI suggestions for the teacher curator
+# ─────────────────────────────────────────────────────────────────────
+
+
+class AISuggestRequest(BaseModel):
+    topic_id: UUID | None = None
+    topic_title: str = Field(min_length=2, max_length=200)
+    topic_description: str | None = Field(default=None, max_length=1000)
+    language: str = Field(default="en", pattern="^(en|hi|ta|te|bn|mr)$")
+    weak_concept: str | None = Field(default=None, max_length=200)
+    exam: str | None = Field(default=None, max_length=60)
+
+
+class AISuggestQueryItem(BaseModel):
+    query: str
+    rationale: str
+    difficulty: Difficulty
+
+
+class AISuggestResponse(BaseModel):
+    queries: list[AISuggestQueryItem]
+    source: Literal["ai", "heuristic"] = "heuristic"
+    model: str | None = None
+    prompt_template_id: str | None = None
+    prompt_template_version: str | None = None

@@ -71,6 +71,21 @@ export function ResourceCurator() {
   const [pasteTitle, setPasteTitle] = useState("");
   const [pasting, setPasting] = useState(false);
 
+  // AI suggestions (LLM proposes search queries for the picked topic)
+  type Suggestion = {
+    query: string;
+    rationale: string;
+    difficulty: "EASY" | "MEDIUM" | "HARD";
+  };
+  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  const [suggestSource, setSuggestSource] = useState<"ai" | "heuristic" | null>(
+    null,
+  );
+  const [suggestPromptId, setSuggestPromptId] = useState<string | null>(null);
+  const [suggestPromptVersion, setSuggestPromptVersion] = useState<string | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
+
   // ── Cascade fetches ─────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -151,8 +166,13 @@ export function ResourceCurator() {
   useEffect(() => {
     if (!topicId) {
       setPinned([]);
+      setSuggestions(null);
+      setSuggestSource(null);
       return;
     }
+    setSuggestions(null);
+    setSuggestSource(null);
+    setSuggestError(null);
     void refreshPinned();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicId]);
@@ -169,6 +189,46 @@ export function ResourceCurator() {
       // best-effort — surface as part of the search-error band
       setSearchError(e instanceof Error ? e.message : "Couldn't load pins.");
     }
+  }
+
+  // ── AI suggestions ──────────────────────────────────────────────
+  const selectedTopic = topics.find((t) => t.id === topicId);
+  const selectedExam = exams.find((e) => e.id === examId);
+
+  async function fetchSuggestions() {
+    if (!selectedTopic) return;
+    setSuggesting(true);
+    setSuggestError(null);
+    try {
+      const body = await contentResources.aiSuggest({
+        topic_id: selectedTopic.id,
+        topic_title: selectedTopic.title,
+        topic_description: selectedTopic.titleHi
+          ? `${selectedTopic.title} (${selectedTopic.titleHi})`
+          : selectedTopic.title,
+        language: searchLanguage,
+        exam: selectedExam?.code ?? undefined,
+      });
+      setSuggestions(body.queries);
+      setSuggestSource(body.source);
+      setSuggestPromptId(body.prompt_template_id);
+      setSuggestPromptVersion(body.prompt_template_version);
+    } catch (e) {
+      setSuggestError(e instanceof Error ? e.message : "Couldn't load suggestions.");
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
+  function applySuggestion(q: string) {
+    setQuery(q);
+    // Run the search immediately so the teacher can pin within a click.
+    setTimeout(() => void runSearch(), 0);
+    // Scroll the search results into view on the next frame.
+    setTimeout(() => {
+      const el = document.getElementById("rs-search-results");
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   }
 
   // ── Search ──────────────────────────────────────────────────────
@@ -367,8 +427,195 @@ export function ResourceCurator() {
         </div>
       </section>
 
+      {/* ── AI suggestions ─────────────────────────────────── */}
+      <section
+        style={{
+          ...cardStyle,
+          background:
+            "linear-gradient(135deg, rgba(34,212,238,0.08), rgba(79,135,246,0.06))",
+          border: "1px solid rgba(34,212,238,0.25)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            marginBottom: 10,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 0.6,
+                textTransform: "uppercase",
+                color: "var(--color-ai, #22D4EE)",
+              }}
+            >
+              ✨ AI search suggestions
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--text-secondary, #B8C5E0)",
+                marginTop: 2,
+              }}
+            >
+              {topicId
+                ? "Let the model propose 4-6 angles to search for, tailored to this topic."
+                : "Pick a topic first; the model will draft search angles you can run with one click."}
+            </div>
+          </div>
+          {suggestSource && suggestPromptId && (
+            <div
+              style={{
+                fontSize: 10,
+                color: "var(--text-faint, #7A8BAD)",
+                fontFamily: "var(--font-mono, monospace)",
+              }}
+            >
+              {suggestSource === "ai"
+                ? `${suggestPromptId}@${suggestPromptVersion}`
+                : "deterministic fallback"}
+            </div>
+          )}
+        </div>
+
+        {suggestError && (
+          <div
+            style={{
+              marginTop: 8,
+              padding: 10,
+              fontSize: 12,
+              color: "var(--color-red, #F43F5E)",
+              background: "rgba(244,63,94,0.08)",
+              border: "1px solid rgba(244,63,94,0.25)",
+              borderRadius: 6,
+            }}
+          >
+            {suggestError}
+          </div>
+        )}
+
+        {suggestions === null ? (
+          <button
+            type="button"
+            onClick={() => void fetchSuggestions()}
+            disabled={!topicId || suggesting}
+            className="btn btn-primary"
+            style={{ marginTop: 8 }}
+          >
+            {suggesting ? "Generating…" : "✨ Get AI suggestions"}
+          </button>
+        ) : (
+          <>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+                gap: 10,
+                marginTop: 8,
+              }}
+            >
+              {suggestions.map((s, i) => (
+                <div
+                  key={i}
+                  style={{
+                    background: "rgba(12,20,34,0.7)",
+                    border: "1px solid var(--border, rgba(255,255,255,0.07))",
+                    borderRadius: 6,
+                    padding: 12,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 8,
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "var(--text-primary, #EEF2FF)",
+                        flex: 1,
+                      }}
+                    >
+                      "{s.query}"
+                    </div>
+                    <Pill
+                      tone={
+                        s.difficulty === "HARD"
+                          ? "danger"
+                          : s.difficulty === "MEDIUM"
+                            ? "warning"
+                            : "info"
+                      }
+                    >
+                      {s.difficulty}
+                    </Pill>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-secondary, #B8C5E0)",
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {s.rationale}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => applySuggestion(s.query)}
+                    className="btn btn-ghost"
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: 11,
+                      alignSelf: "flex-start",
+                      marginTop: 2,
+                    }}
+                  >
+                    Search this →
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => void fetchSuggestions()}
+                disabled={suggesting}
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: "4px 10px" }}
+              >
+                {suggesting ? "Regenerating…" : "Regenerate"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSuggestions(null);
+                  setSuggestSource(null);
+                }}
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: "4px 10px" }}
+              >
+                Clear
+              </button>
+            </div>
+          </>
+        )}
+      </section>
+
       {/* ── Search YouTube ──────────────────────────────────── */}
-      <section style={cardStyle}>
+      <section id="rs-search-results" style={cardStyle}>
         <div
           style={{
             fontSize: 11,
