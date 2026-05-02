@@ -8,6 +8,7 @@ import { GuidedNextSteps } from "../components/GuidedNextSteps";
 import { PhotoDoubt } from "../components/PhotoDoubt";
 import { RankTrajectoryCard } from "../components/RankTrajectoryCard";
 import { WeaknessDiagnosis } from "../components/WeaknessDiagnosis";
+import { MissionCard } from "../components/MissionCard";
 import { PersonalisedNextStep } from "../components/PersonalisedNextStep";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -294,6 +295,9 @@ export function Home() {
           : []),
       ]}
     >
+      {/* ── Zone 0: Today's Mission (Phase 6 S50) ─────────────────── */}
+      <MissionCard />
+
       {/* ── Zone 1: AI hero header ─────────────────────────────────── */}
       <section className="ai-header" aria-label="Daily summary">
         <div className="ai-header-left">
