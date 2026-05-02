@@ -95,6 +95,7 @@ from learning.content.routes import router as content_router
 from learning.content.resources.routes import router as content_resources_router
 from learning.screening.routes import router as screening_router  # P6-S49
 from learning.mission.routes import router as mission_router        # P6-S50
+from learning.plans.routes import router as plans_router            # P6-S55
 
 # doubts
 from learning.doubts.db import dispose as dispose_doubts_db
@@ -308,6 +309,7 @@ app.include_router(content_router)
 app.include_router(content_resources_router)  # R-S1 — YouTube curation
 app.include_router(screening_router)            # P6-S49 — guest screening
 app.include_router(mission_router)              # P6-S50 — Today's Mission
+app.include_router(plans_router)                # P6-S55 — Constrained plan editor
 app.include_router(assignments_router)
 app.include_router(doubts_router)
 app.include_router(search_router)
