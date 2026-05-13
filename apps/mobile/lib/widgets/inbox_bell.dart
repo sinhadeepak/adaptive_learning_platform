@@ -49,7 +49,7 @@ class _InboxBellButtonState extends State<InboxBellButton> {
   Future<void> _open() async {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => InboxScreen(api: widget.api, auth: widget.auth),
-    ));
+    ),);
     if (mounted) _refresh();
   }
 

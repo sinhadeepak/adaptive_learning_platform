@@ -105,3 +105,6 @@ infrastructure/k8s/charts/*/charts/
 
 # Local agent state (per-machine, not for the repo)
 .claude/
+
+# DB backups (binary dumps + plain SQL — never commit)
+backups/

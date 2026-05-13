@@ -1,10 +1,7 @@
 // Sprint 16 (P3-S1) — Tutor dashboard.
-//
-// Lands at /tutor after applying. Shows current application status,
-// drives the KYC stub through to ACTIVE.
-//
-// P3-S2 will replace the stub button with the real Stripe Identity
-// iframe + add booking views, calendar, earnings.
+// Production-grade redesign (2026-05-11): pg-shell layout, status pill
+// in header, KPI strip for profile basics, action panel with clear
+// state-machine buttons.
 
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -26,6 +23,19 @@ const STATUS_COPY: Record<TutorProfile["applicationStatus"], string> = {
     "Application not approved. See your email for details, or contact support.",
   SUSPENDED:
     "Account temporarily suspended. Reach out to support to reactivate.",
+};
+
+const STATUS_TONE: Record<
+  TutorProfile["applicationStatus"],
+  "muted" | "info" | "warn" | "success" | "danger"
+> = {
+  APPLIED: "info",
+  KYC_PENDING: "warn",
+  KYC_VERIFIED: "info",
+  APPROVED: "warn",
+  ACTIVE: "success",
+  REJECTED: "danger",
+  SUSPENDED: "danger",
 };
 
 export function TutorDashboard() {
@@ -94,89 +104,143 @@ export function TutorDashboard() {
   if (loading) {
     return (
       <AppShell title="Tutor dashboard">
-        <main className="page" style={{ padding: 24 }}>
-          <p>Loading…</p>
-        </main>
+        <div className="pg-shell">
+          <div className="pg-stat-strip">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="pg-stat" style={{ opacity: 0.5 }} aria-hidden>
+                <div className="pg-stat-label">Loading</div>
+                <div className="pg-stat-value">—</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </AppShell>
     );
   }
   if (!profile) return null;
 
+  const status = profile.applicationStatus;
+  const isActive = status === "ACTIVE";
+
   return (
     <AppShell title="Tutor dashboard">
-      <main className="page" style={{ padding: 24, maxWidth: 760 }}>
-        <h1>{profile.displayName}</h1>
-        <p style={{ color: "var(--text-muted)" }}>{profile.headline}</p>
+      <div className="pg-shell">
+        <header className="pg-header">
+          <div className="pg-header-main">
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+              <span className={`pg-pill pg-pill-${STATUS_TONE[status]}`}>
+                {status.replace(/_/g, " ")}
+              </span>
+            </div>
+            <h1 className="pg-header-title">{profile.displayName}</h1>
+            <p className="pg-header-sub">
+              {profile.headline || "Tutor on AdaptiveLearn."}
+            </p>
+          </div>
+          <div className="pg-header-actions">
+            {isActive && (
+              <Link to="/tutor/apply" className="pg-btn pg-btn-ghost">
+                Edit profile
+              </Link>
+            )}
+          </div>
+        </header>
 
-        <section
-          style={{
-            padding: 16,
-            border: "1px solid var(--border-faint)",
-            borderRadius: 8,
-            margin: "16px 0",
-          }}
-        >
-          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+        {/* KPI strip — profile basics */}
+        <div className="pg-stat-strip">
+          <div className="pg-stat">
+            <div className="pg-stat-label">Hourly rate</div>
+            <div className="pg-stat-value" style={{ color: "var(--color-green)" }}>
+              ₹{(profile.hourlyRatePaise / 100).toLocaleString("en-IN")}
+            </div>
+            <div className="pg-stat-delta">per session hour</div>
+          </div>
+          <div className="pg-stat">
+            <div className="pg-stat-label">Topics taught</div>
+            <div className="pg-stat-value" style={{ color: "var(--color-blue)" }}>
+              {profile.topicIds.length}
+            </div>
+            <div className="pg-stat-delta">
+              {profile.topicIds.length === 0 ? "none yet" : "subject expertise"}
+            </div>
+          </div>
+          <div className="pg-stat">
+            <div className="pg-stat-label">Availability windows</div>
+            <div className="pg-stat-value" style={{ color: "var(--color-purple)" }}>
+              {profile.availability.length}
+            </div>
+            <div className="pg-stat-delta">weekly slots</div>
+          </div>
+          <div className="pg-stat">
+            <div className="pg-stat-label">Qualifications</div>
+            <div className="pg-stat-value" style={{ color: "var(--color-ai)" }}>
+              {profile.qualifications.length}
+            </div>
+            <div className="pg-stat-delta">verified credentials</div>
+          </div>
+        </div>
+
+        {/* Application-state panel */}
+        <section className="pg-section">
+          <h2 className="pg-section-title">
             Application status
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
-            {profile.applicationStatus}
-          </div>
-          <p style={{ marginTop: 8 }}>{STATUS_COPY[profile.applicationStatus]}</p>
-        </section>
+            <span className="pg-section-title-sub">{status.replace(/_/g, " ")}</span>
+          </h2>
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--text-secondary)",
+              lineHeight: 1.6,
+              margin: "0 0 14px",
+            }}
+          >
+            {STATUS_COPY[status]}
+          </p>
 
-        {error && <p className="banner banner-error">{error}</p>}
+          {error && <p className="banner banner-error">{error}</p>}
 
-        <section style={{ marginBottom: 16 }}>
-          {profile.applicationStatus === "APPLIED" && (
-            <button type="button" className="btn-primary" onClick={startKyc}>
-              Start identity verification
-            </button>
-          )}
-          {profile.applicationStatus === "KYC_PENDING" && (
-            <>
-              <button type="button" className="btn-primary" onClick={() => pollKyc()}>
-                Simulate verification complete (stub)
-              </button>{" "}
-              <button type="button" onClick={() => pollKyc("rejected")}>
-                Simulate verification rejected (stub)
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {status === "APPLIED" && (
+              <button type="button" className="pg-btn pg-btn-primary" onClick={startKyc}>
+                Start identity verification →
               </button>
-              <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
-                P3-S2 replaces these with the real Stripe Identity iframe.
-              </p>
-            </>
-          )}
-          {profile.applicationStatus === "APPROVED" && (
-            <button type="button" className="btn-primary" onClick={activate}>
-              Activate — start receiving bookings
-            </button>
-          )}
-          {profile.applicationStatus === "ACTIVE" && (
-            <p>
-              <Link to="/tutor/apply">Edit your profile</Link>
+            )}
+            {status === "KYC_PENDING" && (
+              <>
+                <button
+                  type="button"
+                  className="pg-btn pg-btn-primary"
+                  onClick={() => pollKyc()}
+                >
+                  Simulate verification complete (stub)
+                </button>
+                <button
+                  type="button"
+                  className="pg-btn pg-btn-ghost"
+                  onClick={() => pollKyc("rejected")}
+                >
+                  Simulate rejection (stub)
+                </button>
+              </>
+            )}
+            {status === "APPROVED" && (
+              <button type="button" className="pg-btn pg-btn-primary" onClick={activate}>
+                ⚡ Activate — start receiving bookings
+              </button>
+            )}
+            {status === "ACTIVE" && (
+              <Link to="/tutor/apply" className="pg-btn pg-btn-ghost">
+                Edit profile
+              </Link>
+            )}
+          </div>
+          {status === "KYC_PENDING" && (
+            <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 10 }}>
+              P3-S2 replaces these stub buttons with the real Stripe Identity iframe.
             </p>
           )}
         </section>
-
-        <section>
-          <h2>Profile</h2>
-          <ul>
-            <li>
-              <strong>Hourly rate:</strong> ₹
-              {(profile.hourlyRatePaise / 100).toLocaleString()}
-            </li>
-            <li>
-              <strong>Topics taught:</strong> {profile.topicIds.length}
-            </li>
-            <li>
-              <strong>Availability windows:</strong> {profile.availability.length}
-            </li>
-            <li>
-              <strong>Qualifications:</strong> {profile.qualifications.length}
-            </li>
-          </ul>
-        </section>
-      </main>
+      </div>
     </AppShell>
   );
 }

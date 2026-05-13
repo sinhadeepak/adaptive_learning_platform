@@ -146,7 +146,7 @@ export function PhotoDoubt() {
             style={{
               width: 180,
               borderRadius: 6,
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: "1px solid var(--border-strong)",
             }}
           />
           <div>
@@ -165,7 +165,7 @@ export function PhotoDoubt() {
               style={{
                 marginTop: 10,
                 background: "transparent",
-                border: "1px solid rgba(255,255,255,0.1)",
+                border: "1px solid var(--border-strong)",
                 color: "var(--text-muted)",
                 padding: "6px 14px",
                 borderRadius: 4,
@@ -206,7 +206,7 @@ function DoubtResult({ result }: { result: DoubtResponse }) {
             background:
               result.source === "ai"
                 ? "rgba(79,135,246,0.15)"
-                : "rgba(255,255,255,0.04)",
+                : "var(--surface-elev1)",
             color: result.source === "ai" ? "var(--color-blue)" : "var(--text-faint)",
             padding: "2px 8px",
             borderRadius: 3,
@@ -228,7 +228,7 @@ function DoubtResult({ result }: { result: DoubtResponse }) {
             style={{
               fontSize: 13,
               padding: "8px 12px",
-              background: "rgba(255,255,255,0.03)",
+              background: "var(--surface-elev1)",
               borderRadius: 4,
               fontFamily: "Georgia, serif",
             }}
@@ -297,7 +297,7 @@ function DoubtResult({ result }: { result: DoubtResponse }) {
                 style={{
                   fontSize: 12,
                   padding: "6px 10px",
-                  background: "rgba(255,255,255,0.03)",
+                  background: "var(--surface-elev1)",
                   borderRadius: 4,
                   color: "inherit",
                   textDecoration: "none",

@@ -66,21 +66,21 @@ class _DoubtsTabState extends State<DoubtsTab> {
   Future<void> _openPhotoDoubt() async {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => PhotoDoubtScreen(api: widget.api),
-    ));
+    ),);
     if (mounted) _refresh();
   }
 
   Future<void> _openTutor() async {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => TutorChatScreen(api: widget.api, auth: widget.auth),
-    ));
+    ),);
     if (mounted) _refresh();
   }
 
   Future<void> _openDetail(String doubtId) async {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => DoubtDetailScreen(api: widget.api, doubtId: doubtId),
-    ));
+    ),);
     if (mounted) _refresh();
   }
 
@@ -714,7 +714,7 @@ class _ResultPanel extends StatelessWidget {
                     '${e.key + 1}. ${e.value}',
                     style: const TextStyle(color: AlpColors.textSecondary, fontSize: 13, height: 1.5),
                   ),
-                )),
+                ),),
           ],
           if (result.finalAnswer.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -962,7 +962,7 @@ class _EmptyState extends StatelessWidget {
                   ],
                 ),
               ),
-            )),
+            ),),
       ],
     );
   }

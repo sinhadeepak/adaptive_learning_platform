@@ -4,6 +4,8 @@ import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill, strengthFor } from "../components/dashboard";
+// Phase 1B — wire existing analytics primitives.
+import { MasteryBar } from "../components/stats";
 
 // Practice hub — fast-action surface to start the next adaptive practice
 // round. Pulls AI-recommended next steps + per-topic mastery, surfaces
@@ -94,6 +96,27 @@ export function Practice() {
   const [topicTitles, setTopicTitles] = useState<Record<string, TopicDetail>>({});
   const [error, setError] = useState<string | null>(null);
   const [startingTopicId, setStartingTopicId] = useState<string | null>(null);
+  // Phase 1B — wire existing analytics primitives.
+  const [readinessBand, setReadinessBand] = useState<{
+    band: string;
+    readiness_score: number;
+    target_score: number;
+    days_to_exam: number;
+    actions: string[];
+  } | null>(null);
+  const [revisionQueue, setRevisionQueue] = useState<Array<{
+    topicId: string;
+    topicTitle: string;
+    lastAttemptAt: string;
+    dueAt: string;
+    overdueDays: number;
+  }> | null>(null);
+  const [topicDecay, setTopicDecay] = useState<Array<{
+    conceptId?: string;
+    topicId?: string;
+    severity: string;
+    daysSince: number;
+  }> | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -143,6 +166,35 @@ export function Practice() {
       try {
         const r = await auth.fetch(`/api/v1/adaptive/guided-next-steps/${user.id}`);
         if (r.ok) setGuided((await r.json()) as GuidedResponse);
+      } catch {
+        /* swallow */
+      }
+      // Phase 1B — readiness band, revision queue, topic decay (parallel).
+      try {
+        const r = await auth.fetch(
+          `/api/v1/analytics/readiness-band/${user.id}?target_score=0.7&days_to_exam=120`,
+        );
+        if (r.ok) setReadinessBand(await r.json());
+      } catch {
+        /* swallow */
+      }
+      try {
+        const r = await auth.fetch(
+          `/api/v1/analytics/revision/${user.id}?limit=5`,
+        );
+        if (r.ok) {
+          const body = await r.json();
+          setRevisionQueue(body.items ?? []);
+        }
+      } catch {
+        /* swallow */
+      }
+      try {
+        const r = await auth.fetch(`/api/v1/analytics/topic-decay/${user.id}`);
+        if (r.ok) {
+          const body = await r.json();
+          setTopicDecay(body.items ?? []);
+        }
       } catch {
         /* swallow */
       }
@@ -231,6 +283,31 @@ export function Practice() {
       }));
   }, [mastery, topicTitles]);
 
+  // F2a — lazy diagnostic gate. Show a modal once per user on their
+  // first Practice visit if they have zero attempted topics and haven't
+  // explicitly dismissed it.
+  const DISMISS_KEY = "alp.diagnostic.dismissed";
+  const [diagDismissed, setDiagDismissed] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(DISMISS_KEY) === "1";
+    } catch {
+      return true;
+    }
+  });
+  const showDiagnosticGate =
+    !diagDismissed &&
+    mastery !== null &&
+    mastery.filter((m) => m.n > 0).length === 0;
+
+  function dismissDiagnostic() {
+    try {
+      window.localStorage.setItem(DISMISS_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setDiagDismissed(true);
+  }
+
   const heroStep = guided?.steps?.[0] ?? null;
   const heroTopicTitle = heroStep
     ? topicTitles[heroStep.topicId]?.title ?? heroStep.topicTitle
@@ -248,6 +325,97 @@ export function Practice() {
           {error}
         </Banner>
       ) : null}
+
+      {/* F2a — Diagnostic placement modal */}
+      {showDiagnosticGate && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "var(--overlay-scrim)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+          onClick={dismissDiagnostic}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--bg-surface2)",
+              border: "1px solid var(--border)",
+              borderRadius: 12,
+              maxWidth: 460,
+              width: "100%",
+              padding: "22px 24px 20px",
+              boxShadow: "var(--shadow-float)",
+            }}
+          >
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "3px 9px",
+                background: "rgba(8,145,178,0.08)",
+                border: "1px solid rgba(8,145,178,0.30)",
+                color: "var(--color-ai)",
+                borderRadius: 20,
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: 0.4,
+                textTransform: "uppercase",
+                marginBottom: 12,
+              }}
+            >
+              ◈ Calibrate first
+            </div>
+            <h3
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: "var(--text-primary)",
+                margin: "0 0 8px",
+                lineHeight: 1.3,
+              }}
+            >
+              Take a 10-minute diagnostic?
+            </h3>
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--text-muted)",
+                margin: "0 0 16px",
+                lineHeight: 1.55,
+              }}
+            >
+              We'll use the result to seed the IRT engine — your first
+              real practice session will already be tuned to your level
+              instead of starting from scratch. You can skip and start
+              drilling right away if you'd rather calibrate as you go.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                type="button"
+                className="pg-btn pg-btn-ghost"
+                onClick={dismissDiagnostic}
+              >
+                Skip — start practice
+              </button>
+              <Link
+                to="/practice/diagnostic"
+                className="pg-btn pg-btn-primary"
+                onClick={dismissDiagnostic}
+              >
+                Calibrate (10 min) →
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Hero — AI recommended next practice ─────────────────────────── */}
       {heroStep && heroTopicTitle ? (
@@ -310,6 +478,163 @@ export function Practice() {
         </section>
       ) : null}
 
+      {/* ── Phase 1B — "Today's plan" panel: 3-col grid wiring readiness
+          band, revision queue, and topic decay alerts. Each card surfaces
+          its existing analytics primitive. ─────────────────────────── */}
+      {(readinessBand || revisionQueue?.length || topicDecay?.length) ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 12,
+            marginTop: "var(--sp-3)",
+            marginBottom: "var(--sp-4)",
+          }}
+        >
+          {readinessBand && (
+            <div className="card" style={{ padding: 14 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 8,
+                }}
+              >
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.04,
+                  }}
+                >
+                  Readiness band
+                </h3>
+                <Pill
+                  tone={
+                    readinessBand.band === "approaching"
+                      ? "success"
+                      : readinessBand.band === "on_track"
+                      ? "info"
+                      : readinessBand.band === "behind"
+                      ? "warning"
+                      : "danger"
+                  }
+                >
+                  {readinessBand.band.replace("_", " ")}
+                </Pill>
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <MasteryBar ewa={readinessBand.readiness_score} />
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
+                Target {Math.round(readinessBand.target_score * 100)}% in {readinessBand.days_to_exam} days
+              </div>
+              {readinessBand.actions.length > 0 && (
+                <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12, color: "var(--text-secondary)" }}>
+                  {readinessBand.actions.slice(0, 3).map((a, i) => (
+                    <li key={i} style={{ marginBottom: 2 }}>{a}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {revisionQueue && revisionQueue.length > 0 && (
+            <div className="card" style={{ padding: 14 }}>
+              <h3
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.04,
+                }}
+              >
+                Revision queue · {revisionQueue.length} due
+              </h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {revisionQueue.slice(0, 4).map((r) => (
+                  <Link
+                    key={r.topicId}
+                    to={`/catalog/topic/${r.topicId}`}
+                    style={{
+                      textDecoration: "none",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "6px 0",
+                      borderBottom: "1px solid var(--border)",
+                      fontSize: 13,
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    <span>{r.topicTitle}</span>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color:
+                          r.overdueDays > 0
+                            ? "var(--color-red, #f43f5e)"
+                            : "var(--text-muted)",
+                      }}
+                    >
+                      {r.overdueDays > 0
+                        ? `${r.overdueDays}d overdue`
+                        : "due today"}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {topicDecay && topicDecay.length > 0 && (
+            <div className="card" style={{ padding: 14 }}>
+              <h3
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.04,
+                }}
+              >
+                Decay alerts
+              </h3>
+              {topicDecay.filter((d) => d.severity !== "fresh").slice(0, 4).map((d, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 12,
+                    padding: "4px 0",
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  <span>{d.topicId?.slice(0, 8) ?? d.conceptId?.slice(0, 8) ?? "?"}…</span>
+                  <span
+                    style={{
+                      color:
+                        d.severity === "critical"
+                          ? "var(--color-red, #f43f5e)"
+                          : d.severity === "stale"
+                          ? "var(--color-amber, #fbbf24)"
+                          : "var(--text-muted)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {d.severity} · {d.daysSince}d
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+
       {/* ── Empty state — no sessions yet ────────────────────────────────── */}
       {empty ? (
         <div
@@ -327,6 +652,160 @@ export function Practice() {
           </p>
           <Link to="/catalog" className="btn-ai" style={{ display: "inline-flex" }}>
             Browse topics →
+          </Link>
+        </div>
+      ) : null}
+
+      {/* ── F1 + F3: Mistake Replay + Custom Test Builder entry cards ──
+          F1 promotes mistake replay from a single button on /analysis.
+          F3 wires the new Custom Test Builder + My Tests surface. Both
+          cards are gated by `!empty` so a brand-new user with no
+          mastery data doesn't get confused. */}
+      {!empty ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: 12,
+            marginTop: "var(--sp-4)",
+          }}
+        >
+          <Link
+            to="/practice/mistakes"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              padding: "14px 18px",
+              background:
+                "linear-gradient(135deg, rgba(245,166,35,0.10) 0%, rgba(245,166,35,0.02) 100%)",
+              border: "1px solid rgba(245,166,35,0.30)",
+              borderRadius: 10,
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <span style={{ fontSize: 26 }}>🎯</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "var(--text-primary)",
+                  marginBottom: 3,
+                }}
+              >
+                Drill your mistakes
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                Re-attempt the questions you got wrong. Filter by recency or topic.
+              </div>
+            </div>
+            <span
+              style={{
+                color: "var(--color-amber)",
+                fontWeight: 700,
+                fontSize: 13,
+                flexShrink: 0,
+              }}
+            >
+              Open →
+            </span>
+          </Link>
+
+          <Link
+            to="/practice/build"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              padding: "14px 18px",
+              background:
+                "linear-gradient(135deg, rgba(47,93,203,0.10) 0%, rgba(47,93,203,0.02) 100%)",
+              border: "1px solid rgba(47,93,203,0.30)",
+              borderRadius: 10,
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <span style={{ fontSize: 26 }}>🧩</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "var(--text-primary)",
+                  marginBottom: 3,
+                }}
+              >
+                Build a custom test
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                Pick topics + length + difficulty + marking. Save and re-use.{" "}
+                <Link
+                  to="/practice/my-tests"
+                  style={{ color: "var(--color-blue)" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  My tests →
+                </Link>
+              </div>
+            </div>
+            <span
+              style={{
+                color: "var(--color-blue)",
+                fontWeight: 700,
+                fontSize: 13,
+                flexShrink: 0,
+              }}
+            >
+              Build →
+            </span>
+          </Link>
+
+          {/* F5 — AI-suggested tests entry card */}
+          <Link
+            to="/practice/ai-suggestions"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              padding: "14px 18px",
+              background:
+                "linear-gradient(135deg, rgba(126,84,234,0.10) 0%, rgba(126,84,234,0.02) 100%)",
+              border: "1px solid rgba(126,84,234,0.30)",
+              borderRadius: 10,
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <span style={{ fontSize: 26 }}>✨</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "var(--text-primary)",
+                  marginBottom: 3,
+                }}
+              >
+                AI test of the day
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                Auto-composed test targeting your weakest topics. 4 shapes
+                to choose from.
+              </div>
+            </div>
+            <span
+              style={{
+                color: "#7e54ea",
+                fontWeight: 700,
+                fontSize: 13,
+                flexShrink: 0,
+              }}
+            >
+              Pick →
+            </span>
           </Link>
         </div>
       ) : null}

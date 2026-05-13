@@ -138,13 +138,37 @@ def _heuristic(
         )
     weak_concepts: list[dict[str, str]] = []
     for it in wrong_items[:3]:
+        picked = it.get("picked_letter")
+        correct = it.get("correct_letter")
+        # Branch on whether this was an MCQ-style item — only those
+        # have a meaningful letter. Otherwise show a content-level
+        # cue derived from the stem so the row never reads as
+        # "You picked option ?; correct was ?." (the placeholder bug
+        # surfaced on the result page for FILL_BLANK / ASSERTION_REASON
+        # / SEQUENCING / CLASSIFICATION etc.).
+        if picked and correct:
+            why = f"You picked option {picked}; correct was {correct}."
+        else:
+            stem_snip = (it.get("stem") or "").strip().rstrip(".")
+            qtype = (it.get("question_type") or "").upper()
+            type_hint = {
+                "FILL_BLANK_SINGLE": "Re-read the sentence — the blank takes a single specific term.",
+                "FILL_BLANK_MULTI":  "Re-check each blank in the passage; multi-blanks reward careful reading.",
+                "CLOZE_PASSAGE":     "Re-read the passage; cloze items reward holistic comprehension.",
+                "SEQUENCING":        "Re-order the sequence — chronology / dependency drives the answer.",
+                "CLASSIFICATION":    "Re-group the items — each row maps to exactly one category.",
+                "MATCH_THE_FOLLOWING": "Re-pair left ↔ right items; check the distractors on the right.",
+                "ASSERTION_REASON":  "Re-check both A and R independently before judging if R explains A.",
+                "MULTI_STATEMENT":   "Re-evaluate each statement; the answer is the option that selects only the true ones.",
+                "NUMERIC_DECIMAL":   "Re-do the calculation; mind the tolerance window on the accepted answer.",
+                "NUMERIC_INTEGER":   "Re-do the calculation; integer answers don't accept rounded floats.",
+                "NUMERIC_RANGE":     "Check whether your number falls inside the accepted range.",
+            }.get(qtype, "Review the explanation and re-attempt a similar item.")
+            why = f"{type_hint}{f' Stem: “{stem_snip[:70]}…”' if stem_snip else ''}"
         weak_concepts.append(
             {
                 "concept": (it.get("topic_title") or it.get("stem") or "")[:60],
-                "why": (
-                    f"You picked option {it.get('picked_letter') or '?'}; "
-                    f"correct was {it.get('correct_letter') or '?'}."
-                ),
+                "why": why,
             }
         )
     if not weak_concepts:

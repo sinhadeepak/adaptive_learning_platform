@@ -43,10 +43,12 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         _loading = false;
       });
     } catch (e) {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _error = '$e';
         _loading = false;
       });
+      }
     }
   }
 
@@ -77,7 +79,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       if (!mounted) return;
       await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => QuizScreen(client: client, sessionId: session.sessionId, api: widget.api),
-      ));
+      ),);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not start: $e')));
@@ -191,7 +193,7 @@ class _BookmarkCard extends StatelessWidget {
                     onPressed: onPractice,
                     icon: const Icon(Icons.play_arrow_rounded, size: 18, color: AlpColors.colorAi),
                     label: const Text('Practice this topic',
-                        style: TextStyle(color: AlpColors.textPrimary, fontWeight: FontWeight.w600)),
+                        style: TextStyle(color: AlpColors.textPrimary, fontWeight: FontWeight.w600),),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AlpColors.borderStrong),
                       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -220,7 +222,7 @@ class _EmptyState extends StatelessWidget {
         const SizedBox(height: 12),
         const Center(
           child: Text('No saved questions yet',
-              style: TextStyle(color: AlpColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              style: TextStyle(color: AlpColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),),
         ),
         const SizedBox(height: 6),
         const Center(
@@ -254,7 +256,7 @@ class _ErrorState extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(error,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AlpColors.colorRed)),
+                style: const TextStyle(color: AlpColors.colorRed),),
           ),
         ),
         const SizedBox(height: 12),

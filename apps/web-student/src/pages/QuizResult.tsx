@@ -1199,7 +1199,7 @@ function ScoreRing({
           cy="50"
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,0.06)"
+          stroke="var(--border)"
           strokeWidth="8"
         />
         <circle

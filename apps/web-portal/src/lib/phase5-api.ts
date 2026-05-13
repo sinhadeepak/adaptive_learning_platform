@@ -95,6 +95,43 @@ export const aiAuthoring = {
     if (!res.ok) throw new Error(`AI draft failed: ${res.status}`);
     return res.json();
   },
+  async bulkDraft(input: {
+    typeId: string;
+    topic: string;
+    count: number;
+    difficulty: "EASY" | "MEDIUM" | "HARD";
+    exam: string;
+    syllabusChapter?: string;
+    sourceMaterial?: string;
+  }): Promise<{
+    items: {
+      index: number;
+      draft: Record<string, unknown> | null;
+      marker: AIDraftMarker | null;
+      error: string | null;
+    }[];
+    requested: number;
+    succeeded: number;
+  }> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/content/ai/bulk-draft`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type_id: input.typeId,
+        topic: input.topic,
+        count: input.count,
+        difficulty: input.difficulty,
+        exam: input.exam,
+        syllabus_chapter: input.syllabusChapter,
+        source_material: input.sourceMaterial,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Bulk draft failed: ${res.status} ${body}`);
+    }
+    return res.json();
+  },
   async expandExplanation(stem: string, answer: string): Promise<{ explanation: string; steps: string[] }> {
     const res = await auth.fetch(`${env.apiBaseUrl}/content/ai/explanation`, {
       method: "POST",

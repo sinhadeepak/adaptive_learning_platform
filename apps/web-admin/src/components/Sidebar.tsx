@@ -15,11 +15,18 @@ const NAV: NavEntry[] = [
   { id: "console", to: "/dashboard", icon: "⚡", label: "Console" },
   { id: "flags", to: "/flags", icon: "⚑", label: "Feature flags" },
   { id: "tenants", to: "/tenants", icon: "🏛", label: "Tenants" },
+  { id: "exams", to: "/exams", icon: "📚", label: "Exams" },
   { id: "users", to: "/users", icon: "👤", label: "Users" },
   { id: "educator-scope", to: "/educator-scope", icon: "🎓", label: "Educator scope" },
   { id: "audit", to: "/audit", icon: "📜", label: "Audit log" },
   { id: "ops", to: "/ops", icon: "⚙", label: "Ops dashboard" },
+  // Phase 7 (P7-A1) — hierarchical analytics drill + the existing
+  // platform-wide and per-institute deep dives. Surfaced here so the
+  // richer dashboards aren't buried behind a deep-link.
+  { id: "drill", to: "/analytics/drill", icon: "🔍", label: "Analytics drill" },
+  { id: "platform-analytics", to: "/platform-analytics", icon: "📊", label: "Platform analytics" },
   // Phase 5 (P5-S54) — admin operator surfaces.
+  { id: "ai-providers", to: "/ai-providers", icon: "🤖", label: "AI providers" },
   { id: "ai-cost", to: "/ai-cost", icon: "💸", label: "AI cost" },
   { id: "calibration", to: "/calibration-dashboard", icon: "🎯", label: "Calibration" },
   { id: "translation-analytics", to: "/translation-analytics", icon: "🌐", label: "Translations" },

@@ -1,13 +1,16 @@
+// Practice history — production-grade redesign (2026-05-11).
+//
+// Layout: pg-shell → pg-header → pg-stat-strip (sessions / accuracy /
+// time / streak signal) → pg-tabs (Practice / Mock) → pg-filter-row
+// (status chips) → pg-list of rows. Each row shows mode, status,
+// accuracy, and a deep-dive link.
+
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
-import { Banner, Pill, SkeletonRows } from "../components/dashboard";
-
-// Practice history — every quiz session this user has run, newest first.
-// Quiz service supplies the slim list (status, counts, started_at, topic_id).
-// Topic titles are resolved from catalog and cached here.
+import { Banner, SkeletonRows } from "../components/dashboard";
 
 interface SessionRow {
   sessionId: string;
@@ -45,7 +48,8 @@ interface TopicMeta {
   title: string;
 }
 
-type Filter = "all" | "submitted" | "in-progress";
+type Section = "practice" | "mock";
+type StatusFilter = "all" | "submitted" | "in-progress";
 
 export function History() {
   const navigate = useNavigate();
@@ -53,7 +57,8 @@ export function History() {
   const [rows, setRows] = useState<SessionRow[] | null>(null);
   const [topics, setTopics] = useState<Map<string, string>>(new Map());
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [section, setSection] = useState<Section>("practice");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [mocks, setMocks] = useState<MockAttempt[] | null>(null);
 
   useEffect(() => {
@@ -71,9 +76,6 @@ export function History() {
         const body = (await r.json()) as { items: SessionRow[] };
         if (!alive) return;
         setRows(body.items);
-
-        // Fan out topic-title resolution. Catalog is cached so duplicate calls
-        // are free; we still de-duplicate the unique IDs to keep this small.
         const uniqueTopics = Array.from(new Set(body.items.map((s) => s.topicId)));
         const titleMap = new Map<string, string>();
         await Promise.all(
@@ -109,266 +111,333 @@ export function History() {
     };
   }, [user]);
 
-  const filtered = useMemo(() => {
+  // Aggregate KPIs across all practice sessions for the strip at top.
+  const stats = useMemo(() => {
     if (!rows) return null;
-    if (filter === "all") return rows;
-    if (filter === "submitted") return rows.filter((r) => r.status === "SUBMITTED");
-    return rows.filter((r) => r.status === "IN_PROGRESS");
-  }, [rows, filter]);
+    const submitted = rows.filter((r) => r.status === "SUBMITTED");
+    const totalAnswered = submitted.reduce((a, r) => a + r.servedCount, 0);
+    const totalCorrect = submitted.reduce((a, r) => a + r.correctCount, 0);
+    const accuracy = totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
+    const inProgress = rows.filter((r) => r.status === "IN_PROGRESS").length;
+    return {
+      total: rows.length,
+      submitted: submitted.length,
+      inProgress,
+      accuracy,
+      totalAnswered,
+      mocks: mocks?.length ?? 0,
+    };
+  }, [rows, mocks]);
+
+  const filteredPractice = useMemo(() => {
+    if (!rows) return null;
+    let out = rows;
+    if (statusFilter === "submitted") out = rows.filter((r) => r.status === "SUBMITTED");
+    if (statusFilter === "in-progress") out = rows.filter((r) => r.status === "IN_PROGRESS");
+    return out;
+  }, [rows, statusFilter]);
 
   return (
     <AppShell title="Practice history">
-      <p className="muted" style={{ marginTop: 0, marginBottom: "var(--sp-3)" }}>
-        Every quiz and mock test you've run. Tap a row to revisit the result.
-      </p>
+      <div className="pg-shell">
+        <header className="pg-header">
+          <div className="pg-header-main">
+            <h1 className="pg-header-title">Practice history</h1>
+            <p className="pg-header-sub">
+              Every quiz and mock test you've run. Tap any row to revisit the
+              result or resume an in-progress session.
+            </p>
+          </div>
+          <div className="pg-header-actions">
+            <Link to="/practice" className="pg-btn pg-btn-primary">
+              ＋ Start a session
+            </Link>
+          </div>
+        </header>
 
-      {error ? <Banner tone="danger" role="alert">{error}</Banner> : null}
-
-      <div
-        style={{
-          display: "flex",
-          gap: 6,
-          marginBottom: "var(--sp-3)",
-          flexWrap: "wrap",
-        }}
-      >
-        {(["all", "submitted", "in-progress"] as Filter[]).map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => setFilter(f)}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 999,
-              border: `1px solid ${filter === f ? "var(--color-blue)" : "var(--border-default)"}`,
-              background: filter === f ? "var(--color-blue)" : "transparent",
-              color: filter === f ? "#fff" : "var(--text-primary)",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              textTransform: "capitalize",
-            }}
-          >
-            {f === "in-progress" ? "In progress" : f}
-          </button>
-        ))}
-      </div>
-
-      {filtered === null ? (
-        <SkeletonRows count={5} />
-      ) : filtered.length === 0 ? (
-        <div
-          style={{
-            padding: "var(--sp-5)",
-            textAlign: "center",
-            color: "var(--text-muted)",
-            border: "1px dashed var(--border-default)",
-            borderRadius: 12,
-            background: "var(--bg-surface-1)",
-          }}
-        >
-          {rows && rows.length === 0 ? (
-            <>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>📚</div>
-              <div style={{ color: "var(--text-primary)", fontWeight: 600, marginBottom: 6 }}>
-                No practice sessions yet
+        {stats && (
+          <div className="pg-stat-strip">
+            <div className="pg-stat">
+              <div className="pg-stat-label">Sessions</div>
+              <div className="pg-stat-value">{stats.total}</div>
+              <div className="pg-stat-delta">
+                {stats.submitted} submitted · {stats.inProgress} in progress
               </div>
-              <div style={{ fontSize: 13, lineHeight: 1.5 }}>
-                Start your first practice run from the Practice tab — your sessions will show up here.
-              </div>
-              <div style={{ marginTop: 14 }}>
-                <Link to="/practice" className="btn btn-primary">Start a practice session</Link>
-              </div>
-            </>
-          ) : (
-            <>No sessions match this filter.</>
-          )}
-        </div>
-      ) : (
-        <ol
-          style={{
-            listStyle: "none",
-            margin: 0,
-            padding: 0,
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
-          }}
-        >
-          {filtered.map((r) => {
-            const pct = r.servedCount > 0
-              ? Math.round((r.correctCount / r.servedCount) * 100)
-              : 0;
-            const tone = r.status === "IN_PROGRESS"
-              ? "warning"
-              : r.status === "EXPIRED"
-                ? "muted"
-                : pct >= 80
-                  ? "success"
-                  : pct >= 50
-                    ? "info"
-                    : "danger";
-            const title = topics.get(r.topicId) ?? `Topic #${r.topicId.slice(0, 8)}`;
-            const onClick = () => {
-              if (r.status === "IN_PROGRESS") navigate(`/quiz/${r.sessionId}`);
-              else navigate(`/quiz/${r.sessionId}/result`);
-            };
-            return (
-              <li
-                key={r.sessionId}
+            </div>
+            <div className="pg-stat">
+              <div className="pg-stat-label">Accuracy</div>
+              <div
+                className="pg-stat-value"
                 style={{
-                  background: "var(--bg-surface-1)",
-                  border: "1px solid var(--border-default)",
-                  borderRadius: 12,
-                  padding: "var(--sp-3)",
-                  cursor: "pointer",
-                }}
-                onClick={onClick}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onClick();
-                  }
+                  color:
+                    stats.accuracy >= 75
+                      ? "var(--color-green)"
+                      : stats.accuracy >= 50
+                        ? "var(--color-blue)"
+                        : "var(--color-red)",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Pill tone="info">{r.mode === "MOCK" ? "Mock test" : "Practice"}</Pill>
-                  <Pill tone={tone}>
-                    {r.status === "IN_PROGRESS"
-                      ? "IN PROGRESS"
-                      : r.status === "EXPIRED"
-                        ? "EXPIRED"
-                        : `${pct}%`}
-                  </Pill>
-                  <span style={{ flex: 1 }} />
-                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                    {relative(r.startedAt)}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    marginTop: 8,
-                    color: "var(--text-primary)",
-                    fontWeight: 600,
-                    fontSize: 14,
-                  }}
-                >
-                  {title}
-                </div>
-                <div
-                  style={{
-                    marginTop: 4,
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  {r.correctCount} correct of {r.servedCount} answered
-                  {r.targetCount > r.servedCount && r.status === "IN_PROGRESS"
-                    ? ` · ${r.targetCount - r.servedCount} remaining`
-                    : ""}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      )}
+                {stats.accuracy}%
+              </div>
+              <div className="pg-stat-delta">
+                across {stats.totalAnswered.toLocaleString()} questions
+              </div>
+            </div>
+            <div className="pg-stat">
+              <div className="pg-stat-label">Mock tests</div>
+              <div className="pg-stat-value">{stats.mocks}</div>
+              <div className="pg-stat-delta">
+                {stats.mocks === 0 ? "try your first mock" : "exam-style runs"}
+              </div>
+            </div>
+            <div className="pg-stat">
+              <div className="pg-stat-label">In progress</div>
+              <div className="pg-stat-value" style={{ color: "var(--color-amber)" }}>
+                {stats.inProgress}
+              </div>
+              <div className="pg-stat-delta">
+                {stats.inProgress > 0 ? "resume below" : "all up to date"}
+              </div>
+            </div>
+          </div>
+        )}
 
-      {/* Mock test history — separate section since mocks live outside
-          the quiz_sessions table (in-memory plan + persisted attempts in
-          profile_schema.mock_attempts). */}
-      {mocks && mocks.length > 0 ? (
-        <section style={{ marginTop: "var(--sp-5)" }}>
-          <h2
-            style={{
-              fontSize: 13,
-              color: "var(--text-muted)",
-              fontWeight: 700,
-              letterSpacing: 0.6,
-              textTransform: "uppercase",
-              margin: "0 0 var(--sp-3) 0",
-            }}
+        <div className="pg-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={section === "practice"}
+            className={`pg-tab${section === "practice" ? " on" : ""}`}
+            onClick={() => setSection("practice")}
           >
-            Mock tests · {mocks.length}
-          </h2>
-          <ol
-            style={{
-              listStyle: "none",
-              margin: 0,
-              padding: 0,
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-            }}
+            Practice
+            <span className="pg-tab-count">{rows?.length ?? 0}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={section === "mock"}
+            className={`pg-tab${section === "mock" ? " on" : ""}`}
+            onClick={() => setSection("mock")}
           >
-            {mocks.map((m) => {
-              const pct = m.maxMarks > 0 ? Math.round((m.rawScore / m.maxMarks) * 100) : 0;
-              const tone =
-                pct >= 70 ? "success" : pct >= 40 ? "info" : "danger";
-              return (
-                <li
-                  key={m.id}
-                  onClick={() => navigate(`/mock/result?attemptId=${m.id}`)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      navigate(`/mock/result?attemptId=${m.id}`);
-                    }
-                  }}
-                  style={{
-                    background: "var(--bg-surface-1)",
-                    border: "1px solid var(--border-default)",
-                    borderRadius: 12,
-                    padding: "var(--sp-3)",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <Pill tone="info">Mock test</Pill>
-                    <Pill tone={tone}>
-                      {m.rawScore}/{m.maxMarks} · {pct}%
-                    </Pill>
-                    <span style={{ flex: 1 }} />
-                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                      {relative(m.createdAt)}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      marginTop: 8,
-                      color: "var(--text-primary)",
-                      fontWeight: 600,
-                      fontSize: 14,
-                    }}
+            Mock tests
+            <span className="pg-tab-count">{mocks?.length ?? 0}</span>
+          </button>
+        </div>
+
+        {error && <Banner tone="danger" role="alert">{error}</Banner>}
+
+        {section === "practice" && (
+          <>
+            <div className="pg-filter-row">
+              <div className="pg-filter-chips">
+                {(["all", "submitted", "in-progress"] as StatusFilter[]).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    className={`pg-chip${statusFilter === f ? " on" : ""}`}
+                    onClick={() => setStatusFilter(f)}
                   >
-                    {m.examName ?? m.examCode}
-                  </div>
-                  <div
-                    style={{
-                      marginTop: 4,
-                      fontSize: 12,
-                      color: "var(--text-muted)",
-                    }}
+                    {f === "in-progress" ? "In progress" : f.charAt(0).toUpperCase() + f.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {filteredPractice === null ? (
+              <SkeletonRows count={5} />
+            ) : filteredPractice.length === 0 ? (
+              <div className="pg-empty">
+                <div className="pg-empty-icon">📚</div>
+                <h2 className="pg-empty-title">
+                  {rows && rows.length === 0
+                    ? "No practice sessions yet"
+                    : "Nothing matches this filter"}
+                </h2>
+                <p className="pg-empty-body">
+                  {rows && rows.length === 0
+                    ? "Start your first practice run from the Practice tab — your sessions will show up here for review."
+                    : "Try switching the filter to 'All' to see everything."}
+                </p>
+                {rows && rows.length === 0 ? (
+                  <Link to="/practice" className="pg-btn pg-btn-primary">
+                    Start a practice session
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    className="pg-btn pg-btn-ghost"
+                    onClick={() => setStatusFilter("all")}
                   >
-                    {m.nCorrect} correct · {m.nWrong} wrong · {m.nUnanswered}{" "}
-                    unanswered
-                    {m.percentile !== null
-                      ? ` · ${m.percentile.toFixed(1)} percentile`
-                      : ""}
-                    {m.projectedRank
-                      ? ` · projected AIR ~${m.projectedRank.toLocaleString()}`
-                      : ""}
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-      ) : null}
+                    Show all sessions
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="pg-list">
+                {filteredPractice.map((r) => {
+                  const pct =
+                    r.servedCount > 0
+                      ? Math.round((r.correctCount / r.servedCount) * 100)
+                      : 0;
+                  const tone: "warn" | "muted" | "success" | "info" | "danger" =
+                    r.status === "IN_PROGRESS"
+                      ? "warn"
+                      : r.status === "EXPIRED"
+                        ? "muted"
+                        : pct >= 80
+                          ? "success"
+                          : pct >= 50
+                            ? "info"
+                            : "danger";
+                  const title = topics.get(r.topicId) ?? `Topic #${r.topicId.slice(0, 8)}`;
+                  const onClick = () => {
+                    if (r.status === "IN_PROGRESS") navigate(`/quiz/${r.sessionId}`);
+                    else navigate(`/quiz/${r.sessionId}/result`);
+                  };
+                  const pillLabel =
+                    r.status === "IN_PROGRESS"
+                      ? "In progress"
+                      : r.status === "EXPIRED"
+                        ? "Expired"
+                        : `${pct}%`;
+                  return (
+                    <div
+                      key={r.sessionId}
+                      className="pg-row"
+                      onClick={onClick}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onClick();
+                        }
+                      }}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <div className="pg-row-main">
+                        <p className="pg-row-title">{title}</p>
+                        <div className="pg-row-meta">
+                          <span>{r.mode === "MOCK" ? "Mock" : "Practice"}</span>
+                          <span className="pg-row-meta-dot">·</span>
+                          <span>
+                            {r.correctCount} correct of {r.servedCount} answered
+                          </span>
+                          {r.targetCount > r.servedCount && r.status === "IN_PROGRESS" && (
+                            <>
+                              <span className="pg-row-meta-dot">·</span>
+                              <span style={{ color: "var(--color-amber)" }}>
+                                {r.targetCount - r.servedCount} remaining
+                              </span>
+                            </>
+                          )}
+                          <span className="pg-row-meta-dot">·</span>
+                          <span>{relative(r.startedAt)}</span>
+                        </div>
+                      </div>
+                      <div className="pg-row-aside">
+                        <span className={`pg-pill pg-pill-${tone}`}>{pillLabel}</span>
+                        {r.status !== "IN_PROGRESS" && r.servedCount > 0 && (
+                          <Link
+                            to={`/sessions/${r.sessionId}/deep-dive`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="pg-btn pg-btn-subtle pg-btn-sm"
+                          >
+                            Deep-dive →
+                          </Link>
+                        )}
+                        {r.status === "IN_PROGRESS" && (
+                          <span className="pg-btn pg-btn-primary pg-btn-sm">
+                            Resume →
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {section === "mock" && (
+          <>
+            {mocks === null ? (
+              <SkeletonRows count={3} />
+            ) : mocks.length === 0 ? (
+              <div className="pg-empty">
+                <div className="pg-empty-icon">🎓</div>
+                <h2 className="pg-empty-title">No mock tests yet</h2>
+                <p className="pg-empty-body">
+                  Mock tests simulate the real exam environment — timed,
+                  scored, and ranked against the cohort. Try your first one
+                  when you're ready.
+                </p>
+                <Link to="/mock" className="pg-btn pg-btn-primary">
+                  Browse mock tests
+                </Link>
+              </div>
+            ) : (
+              <div className="pg-list">
+                {mocks.map((m) => {
+                  const pct =
+                    m.maxMarks > 0 ? Math.round((m.rawScore / m.maxMarks) * 100) : 0;
+                  const tone: "success" | "info" | "danger" =
+                    pct >= 70 ? "success" : pct >= 40 ? "info" : "danger";
+                  return (
+                    <div
+                      key={m.id}
+                      className="pg-row"
+                      onClick={() => navigate(`/mock/result?attemptId=${m.id}`)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/mock/result?attemptId=${m.id}`);
+                        }
+                      }}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <div className="pg-row-main">
+                        <p className="pg-row-title">
+                          {m.examName ?? m.examCode}
+                        </p>
+                        <div className="pg-row-meta">
+                          <span>
+                            {m.nCorrect} correct · {m.nWrong} wrong · {m.nUnanswered} unanswered
+                          </span>
+                          {m.percentile !== null && (
+                            <>
+                              <span className="pg-row-meta-dot">·</span>
+                              <span>{m.percentile.toFixed(1)} percentile</span>
+                            </>
+                          )}
+                          {m.projectedRank && (
+                            <>
+                              <span className="pg-row-meta-dot">·</span>
+                              <span>AIR ~{m.projectedRank.toLocaleString()}</span>
+                            </>
+                          )}
+                          <span className="pg-row-meta-dot">·</span>
+                          <span>{relative(m.createdAt)}</span>
+                        </div>
+                      </div>
+                      <div className="pg-row-aside">
+                        <span className={`pg-pill pg-pill-${tone}`}>
+                          {m.rawScore}/{m.maxMarks} · {pct}%
+                        </span>
+                        <span className="pg-btn pg-btn-subtle pg-btn-sm">View →</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </AppShell>
   );
 }

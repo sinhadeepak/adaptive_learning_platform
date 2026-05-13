@@ -28,7 +28,7 @@ class CatalogRepo:
         rows = (
             await self.s.execute(
                 text(
-                    "SELECT s.id, s.exam_id, s.name, "
+                    "SELECT s.id, s.exam_id, s.name, s.is_mandatory, s.pool_id, "
                     "  (SELECT COUNT(*) FROM catalog_schema.topics t WHERE t.subject_id = s.id "
                     "   AND t.is_published = TRUE) AS topic_count "
                     "FROM catalog_schema.subjects s "
@@ -39,6 +39,48 @@ class CatalogRepo:
             )
         ).mappings().all()
         return [dict(r) for r in rows]
+
+    async def pools_for_exam(self, exam_id: str) -> list[dict[str, Any]]:
+        """All pools for an exam, with their member subjects nested in.
+
+        Returns the shape the onboarding picker UI consumes — one row
+        per pool with `members` filled in. Honours subject's
+        is_published flag so retired members drop out.
+        """
+        rows = (
+            await self.s.execute(
+                text(
+                    "SELECT id, exam_id, code, name, description, pick_min, pick_max "
+                    "FROM catalog_schema.subject_pools "
+                    "WHERE exam_id = :eid "
+                    "ORDER BY sort_order, code"
+                ),
+                {"eid": exam_id},
+            )
+        ).mappings().all()
+        pools = [dict(r) for r in rows]
+        if not pools:
+            return []
+
+        pool_ids = [str(p["id"]) for p in pools]
+        member_rows = (
+            await self.s.execute(
+                text(
+                    "SELECT id, code, name, description, pool_id "
+                    "FROM catalog_schema.subjects "
+                    "WHERE pool_id = ANY(CAST(:pids AS uuid[])) "
+                    "AND is_published = TRUE "
+                    "ORDER BY sort_order, name"
+                ),
+                {"pids": pool_ids},
+            )
+        ).mappings().all()
+        members_by_pool: dict[str, list[dict[str, Any]]] = {pid: [] for pid in pool_ids}
+        for m in member_rows:
+            members_by_pool.setdefault(str(m["pool_id"]), []).append(dict(m))
+        for p in pools:
+            p["members"] = members_by_pool.get(str(p["id"]), [])
+        return pools
 
     async def topics_for_subject(self, subject_id: str) -> list[dict[str, Any]]:
         rows = (
@@ -55,19 +97,19 @@ class CatalogRepo:
         return [dict(r) for r in rows]
 
     async def topics_bulk(self, topic_ids: list[str]) -> list[dict[str, Any]]:
-        """Phase 5 (P5-S37.5) — bulk topic lookup by id. Used by
-        alp-engagement's HTTP shim in place of cross-DB JOINs against
-        catalog_schema.topics. Returns id + title + subject_id + exam_id
-        per topic; missing ids are simply absent from the result."""
+        """Phase 5 (P5-S37.5) — bulk topic lookup by id. Phase 7 — also
+        returns subject_name + exam_code + exam_name for drill UIs."""
         if not topic_ids:
             return []
         rows = (
             await self.s.execute(
                 text(
-                    "SELECT t.id, t.title, t.title_hi, t.subject_id, "
-                    "       s.exam_id "
+                    "SELECT t.id, t.title, t.title_hi, "
+                    "       t.subject_id, s.name AS subject_name, "
+                    "       s.exam_id, e.code AS exam_code, e.name AS exam_name "
                     "FROM catalog_schema.topics t "
                     "JOIN catalog_schema.subjects s ON s.id = t.subject_id "
+                    "JOIN catalog_schema.exams e ON e.id = s.exam_id "
                     "WHERE t.id = ANY(:ids)"
                 ),
                 {"ids": topic_ids},

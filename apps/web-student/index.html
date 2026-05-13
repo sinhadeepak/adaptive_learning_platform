@@ -6,6 +6,23 @@
     <title>Adaptive Learning — Student</title>
   </head>
   <body>
+    <!-- Pre-React theme bootstrap. Reads the user's preference from
+         localStorage (set by ThemeProvider in /src/lib/theme.tsx) and
+         applies data-theme to <html> before stylesheets paint, so the
+         first paint matches the chosen theme. Without this, a user on
+         light mode sees a dark flash for ~50ms during the React boot. -->
+    <script>
+      (function () {
+        try {
+          var s = localStorage.getItem('alp.theme') || 'system';
+          var effective = s === 'system'
+            ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+            : s;
+          document.documentElement.setAttribute('data-theme', effective);
+          document.documentElement.style.colorScheme = effective;
+        } catch (e) { /* localStorage blocked — stays on default :root (dark) */ }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -9,6 +9,7 @@ import { PhotoDoubt } from "../components/PhotoDoubt";
 import { RankTrajectoryCard } from "../components/RankTrajectoryCard";
 import { WeaknessDiagnosis } from "../components/WeaknessDiagnosis";
 import { MissionCard } from "../components/MissionCard";
+import { DailyPlanCard } from "../components/DailyPlanCard";
 import { PersonalisedNextStep } from "../components/PersonalisedNextStep";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -295,7 +296,10 @@ export function Home() {
           : []),
       ]}
     >
-      {/* ── Zone 0: Today's Mission (Phase 6 S50) ─────────────────── */}
+      {/* ── Zone 0a: Today's Plan (Phase B3 — IGS) ─────────────────── */}
+      {exams[0]?.examId && <DailyPlanCard examId={exams[0].examId} />}
+
+      {/* ── Zone 0b: Today's Mission (Phase 6 S50 — shadow mode) ──── */}
       <MissionCard />
 
       {/* ── Zone 1: AI hero header ─────────────────────────────────── */}
@@ -393,7 +397,7 @@ export function Home() {
                 gap: "var(--sp-3)",
                 padding: "var(--sp-3) var(--sp-4)",
                 borderRadius: 12,
-                background: "linear-gradient(135deg, #2C1F12 0%, #3A2A18 100%)",
+                background: "linear-gradient(135deg, rgba(245,166,35,0.12) 0%, rgba(245,166,35,0.04) 100%)",
                 border: "1px solid rgba(245,166,35,0.40)",
               }}
             >
@@ -433,7 +437,7 @@ export function Home() {
             return (
               <div
                 style={{
-                  background: "linear-gradient(135deg, #1A2540 0%, #1F2C4A 100%)",
+                  background: "linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.04) 100%)",
                   border: "1px solid rgba(99,102,241,0.30)",
                   borderRadius: 14,
                   padding: "var(--sp-4)",
@@ -870,11 +874,14 @@ export function Home() {
         </div>
       </section>
 
-      {/* Topic mastery list — kept from prior version, scroll-to section */}
+      {/* Topic mastery list — kept from prior version, scroll-to section.
+          Uses the grid variant so long topic lists fill the viewport in
+          2-3 columns rather than wasting horizontal space on a single
+          column with a tiny status pill on the right. */}
       {mastery && mastery.length > 0 ? (
         <section style={{ marginTop: "var(--sp-6)", marginBottom: "var(--sp-6)" }}>
           <h2 className="section-heading">All topics</h2>
-          <ul className="row-list">
+          <ul className="row-list-grid">
             {mastery.map((m) => (
               <li key={m.topicId}>
                 <Link to={`/catalog/topic/${m.topicId}`} className="row-link">
@@ -912,7 +919,12 @@ function ExamRing({ pct }: { pct: number }) {
   const r = 21;
   const circ = 2 * Math.PI * r;
   const offset = circ - (pct / 100) * circ;
-  const stroke = pct >= 60 ? "#10C47A" : pct >= 30 ? "#4F87F6" : "#F43F5E";
+  const stroke =
+    pct >= 60
+      ? "var(--color-green)"
+      : pct >= 30
+        ? "var(--color-blue)"
+        : "var(--color-red)";
   return (
     <div className="exam-card-ring" role="img" aria-label={`Score ${pct}`}>
       <svg viewBox="0 0 52 52">
@@ -921,7 +933,7 @@ function ExamRing({ pct }: { pct: number }) {
           cy="26"
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,0.07)"
+          stroke="var(--border)"
           strokeWidth="5"
         />
         <circle

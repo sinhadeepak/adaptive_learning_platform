@@ -176,37 +176,75 @@ class CaseStudyHandler(BaseHandler):
     media_kinds: list[str] = []
 
     def translatable_fields(self, payload: dict[str, Any]) -> list[str]:
-        return ["scenario"]
+        # Cover both payload shapes — the localiser will skip unknown keys.
+        return ["scenario", "case_facts"]
 
     async def evaluate(
         self, payload: dict[str, Any], response: dict[str, Any], lang: str,
     ) -> Resolution:
-        """Composite parent — children evaluated independently by their
-        own handlers (Quiz orchestration submits children + parent in
-        the same request). The parent Resolution counts how many child
-        questions were attempted; status reflects whether the student
-        engaged with all children.
+        """Two shapes — composite (child_questions list) or flat
+        (sub_questions inline). The handler dispatches based on which
+        side of the payload is populated. See `CaseStudyPayload`.
 
-        v1 keeps the parent grading lightweight: we trust the child
-        Resolutions for content correctness, and surface only
-        attempt-completeness here. S46+ may extend this to roll up
-        child status into a parent status (CORRECT iff all children
-        CORRECT).
+        Composite path: count attempted children, mark PENDING_HUMAN_REVIEW.
+        Flat path: count sub_questions answered (text non-empty *or* at
+        least one attachment), same status semantics.
         """
         p = CaseStudyPayload.model_validate(payload)
         r = CaseStudyResponse.model_validate(response)
         qid = response.get("question_id", "<unknown>")
-        total = len(p.child_questions)
-        attempted = sum(
-            1 for c in r.children if c.response_payload
-        )
+
+        # ── Flat / inline shape ──────────────────────────────────────
+        if p.sub_questions:
+            answers = r.answers or {}
+            attachments = r.attachments or {}
+            total = len(p.sub_questions)
+            attempted = 0
+            per_part: list[PartDetail] = []
+            for sq in p.sub_questions:
+                text = (answers.get(sq.id) or "").strip()
+                files = attachments.get(sq.id) or []
+                ok = bool(text) or bool(files)
+                if ok:
+                    attempted += 1
+                per_part.append(
+                    PartDetail(
+                        id=sq.id,
+                        matched=ok,
+                        details={
+                            "answered": ok,
+                            "char_count": len(text),
+                            "attachments": len(files),
+                        },
+                    )
+                )
+            if attempted == 0:
+                status = "UNATTEMPTED"
+            elif attempted < total:
+                status = "PARTIAL_CORRECT"
+            else:
+                status = "PENDING_HUMAN_REVIEW"
+            return Resolution(
+                question_id=qid,
+                type_id=self.type_id,
+                status=status,
+                matched_count=attempted,
+                total_count=total,
+                per_part=per_part,
+                evaluation_mode="HYBRID",
+            )
+
+        # ── Composite (legacy) shape ─────────────────────────────────
+        children = list(p.child_questions or [])
+        total = len(children)
+        attempted = sum(1 for c in r.children if c.response_payload)
         per_part = [
             PartDetail(
                 id=str(spec.ordinal),
                 matched=any(c.question_id == spec.question_id for c in r.children),
                 details={"child_question_id": spec.question_id},
             )
-            for spec in p.child_questions
+            for spec in children
         ]
         if attempted == 0:
             status = "UNATTEMPTED"

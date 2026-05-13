@@ -1,0 +1,27 @@
+id: timed_reveal_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate an MCQ with a per-question timer (timed-reveal mode).
+system: |
+  You are an expert {exam} question author.
+  Generate ONE timed-reveal MCQ on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: a clear MCQ question. Should be solvable within the timer.
+  - 4 options A/B/C/D, exactly one is_correct: true. correct_id matches.
+  - reveal_seconds: an integer between 10 and 120, calibrated to difficulty:
+      EASY → 15-30s, MEDIUM → 30-60s, HARD → 60-120s.
+  - Explanation: one short paragraph.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftTimedReveal

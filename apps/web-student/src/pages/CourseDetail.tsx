@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { AppShell } from "../components/AppShell";
 import {
   type CourseDetail as CourseDetailT,
   type RatingAggregate,
@@ -23,13 +24,20 @@ export function CourseDetail() {
 
   useEffect(() => {
     if (!courseId) return;
-    courseMarketplace.get(courseId).then(setCourse).catch((e) => setError((e as Error).message));
-    courseMarketplace.ratings(courseId).then(setRatings).catch(() => setRatings(null));
+    courseMarketplace
+      .get(courseId)
+      .then(setCourse)
+      .catch((e) => setError((e as Error).message));
+    courseMarketplace
+      .ratings(courseId)
+      .then(setRatings)
+      .catch(() => setRatings(null));
   }, [courseId]);
 
   async function purchase() {
-    if (!courseId) return;
-    if (!confirm(`Purchase this course for ${paiseToRupees(course!.pricePaise)}?`)) return;
+    if (!courseId || !course) return;
+    if (!confirm(`Purchase this course for ${paiseToRupees(course.pricePaise)}?`))
+      return;
     setBusy(true);
     setError(null);
     try {
@@ -43,69 +51,163 @@ export function CourseDetail() {
     }
   }
 
-  if (!course) {
-    return (
-      <main className="page" style={{ padding: 24 }}>
-        {error ? <p className="banner banner-error">{error}</p> : <p>Loading…</p>}
-        <Link to="/courses">← Back to courses</Link>
-      </main>
-    );
-  }
-
   return (
-    <main className="page" style={{ padding: 24, maxWidth: 800 }}>
-      <Link to="/courses">← Back to courses</Link>
-      <h1>{course.title}</h1>
-      <p style={{ color: "var(--text-muted)" }}>{course.description}</p>
-      <p style={{ fontSize: 18 }}>
-        <strong>{paiseToRupees(course.pricePaise)}</strong>
-      </p>
+    <AppShell title={course?.title ?? "Course"}>
+      <div style={{ padding: "16px 24px 32px", maxWidth: 880 }}>
+        <Link to="/courses" style={{ color: "var(--color-blue)", fontSize: 13 }}>
+          ← Back to courses
+        </Link>
 
-      {ratings && ratings.count > 0 && (
-        <p>
-          ⭐ {ratings.averageStars.toFixed(1)} ({ratings.count} review
-          {ratings.count === 1 ? "" : "s"})
-        </p>
-      )}
+        {!course && error && (
+          <p className="banner banner-error" style={{ marginTop: 12 }}>
+            {error}
+          </p>
+        )}
+        {!course && !error && (
+          <p style={{ color: "var(--text-muted)", marginTop: 12 }}>Loading…</p>
+        )}
 
-      <section style={{ margin: "16px 0" }}>
-        <h2>Preview</h2>
-        <pre style={{ whiteSpace: "pre-wrap", background: "var(--bg-surface-1, #f5f5f5)", padding: 12, borderRadius: 8 }}>
-          {course.contentMd}
-          {course.contentMd.length >= 500 && "\n\n[Purchase to read the full course]"}
-        </pre>
-      </section>
+        {course && (
+          <>
+            <div
+              style={{
+                height: 140,
+                background:
+                  "linear-gradient(135deg, #4F87F6 0%, #8b5cf6 100%)",
+                borderRadius: 10,
+                marginTop: 16,
+                marginBottom: 24,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 56,
+              }}
+              aria-hidden
+            >
+              🎓
+            </div>
 
-      {error && <p className="banner banner-error">{error}</p>}
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 280 }}>
+                <h1 style={{ margin: 0, fontSize: 28 }}>{course.title}</h1>
+                <p style={{ color: "var(--text-secondary)", margin: "8px 0 0", lineHeight: 1.5 }}>
+                  {course.description}
+                </p>
+                {ratings && ratings.count > 0 && (
+                  <p style={{ marginTop: 12, color: "var(--text-muted)" }}>
+                    ⭐ {ratings.averageStars.toFixed(1)} from {ratings.count}{" "}
+                    review{ratings.count === 1 ? "" : "s"}
+                  </p>
+                )}
+              </div>
 
-      <button type="button" onClick={purchase} disabled={busy} className="btn-primary">
-        {busy ? "Processing…" : `Buy course · ${paiseToRupees(course.pricePaise)}`}
-      </button>
-
-      {ratings && ratings.recent.length > 0 && (
-        <section style={{ marginTop: 24 }}>
-          <h2>Recent reviews</h2>
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {ratings.recent.map((r) => (
-              <li
-                key={r.id}
+              <aside
                 style={{
-                  padding: 12,
-                  border: "1px solid var(--border-faint)",
-                  borderRadius: 8,
-                  marginBottom: 8,
+                  background: "var(--bg-surface1)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 10,
+                  padding: 20,
+                  minWidth: 220,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
                 }}
               >
-                <strong>{"⭐".repeat(r.stars)}</strong>
-                {r.comment && <p style={{ marginTop: 4 }}>{r.comment}</p>}
-                <small style={{ color: "var(--text-muted)" }}>
-                  {new Date(r.createdAt).toLocaleDateString()}
-                </small>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </main>
+                <div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.04 }}>
+                    Price
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: "var(--text-primary)" }}>
+                    {paiseToRupees(course.pricePaise)}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={purchase}
+                  disabled={busy}
+                  style={{
+                    padding: "10px 16px",
+                    background: "var(--color-blue)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: busy ? "not-allowed" : "pointer",
+                    fontSize: 14,
+                    fontWeight: 600,
+                  }}
+                >
+                  {busy ? "Processing…" : "Buy course"}
+                </button>
+                <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
+                  Lifetime access · Refund within 7 days
+                </p>
+              </aside>
+            </div>
+
+            {error && (
+              <p className="banner banner-error" style={{ marginTop: 16 }}>
+                {error}
+              </p>
+            )}
+
+            {course.contentMd && course.contentMd.trim().length > 20 && (
+              <section style={{ marginTop: 32 }}>
+                <h2 style={{ fontSize: 18, marginBottom: 8 }}>About this course</h2>
+                <article
+                  style={{
+                    background: "var(--bg-surface1)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    padding: 16,
+                    whiteSpace: "pre-wrap",
+                    color: "var(--text-secondary)",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {course.contentMd}
+                  {course.contentMd.length >= 500 && (
+                    <p style={{ marginTop: 12, color: "var(--text-muted)", fontStyle: "italic" }}>
+                      [Purchase to read the full course]
+                    </p>
+                  )}
+                </article>
+              </section>
+            )}
+
+            {ratings && ratings.recent.length > 0 && (
+              <section style={{ marginTop: 32 }}>
+                <h2 style={{ fontSize: 18, marginBottom: 8 }}>Recent reviews</h2>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {ratings.recent.map((r) => (
+                    <li
+                      key={r.id}
+                      style={{
+                        padding: 16,
+                        background: "var(--bg-surface1)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        marginBottom: 8,
+                      }}
+                    >
+                      <div style={{ color: "var(--color-amber, #fbbf24)" }}>
+                        {"⭐".repeat(r.stars)}
+                      </div>
+                      {r.comment && (
+                        <p style={{ margin: "6px 0", color: "var(--text-secondary)" }}>
+                          {r.comment}
+                        </p>
+                      )}
+                      <small style={{ color: "var(--text-muted)" }}>
+                        {new Date(r.createdAt).toLocaleDateString()}
+                      </small>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
+        )}
+      </div>
+    </AppShell>
   );
 }

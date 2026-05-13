@@ -200,6 +200,12 @@ async def persist(
         b["correct"] += int(r["is_correct"])
         b["total"] += 1
 
+    seed = max(0.05, min(0.95, correct / total)) if total else 0.5
+    # Gentle map from readiness percent → θ. A 12-item screening
+    # shouldn't dominate; the EAP estimator corrects quickly from real
+    # session responses.  θ = (seed - 0.5) * 3, capped to [-1.5, +1.5].
+    prior_mean = max(-1.5, min(1.5, (seed - 0.5) * 3.0))
+
     await session.execute(
         text(
             """
@@ -218,7 +224,29 @@ async def persist(
             "resp": json.dumps(payload["responses"]),
             "score": score_pct,
             "tb": json.dumps(by_topic),
-            "seed": max(0.05, min(0.95, correct / total)) if total else 0.0,
+            "seed": seed,
+        },
+    )
+    # F2a — also write the IRT prior so the adaptive engine seeds
+    # subsequent sessions from this signal instead of θ=0.0.
+    await session.execute(
+        text(
+            """
+            INSERT INTO content_schema.user_theta_prior
+              (user_id, exam_code, prior_mean, prior_sd, source, set_at)
+            VALUES
+              (CAST(:uid AS uuid), :ec, :pm, 1.0, 'SCREENING', now())
+            ON CONFLICT (user_id, exam_code) DO UPDATE
+              SET prior_mean = EXCLUDED.prior_mean,
+                  prior_sd   = EXCLUDED.prior_sd,
+                  source     = EXCLUDED.source,
+                  set_at     = EXCLUDED.set_at
+            """
+        ),
+        {
+            "uid": principal.user_id,
+            "ec": payload.get("exam_code", "JEE-MAIN"),
+            "pm": prior_mean,
         },
     )
     await session.commit()

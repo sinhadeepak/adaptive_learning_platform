@@ -80,7 +80,7 @@ export function PersonalisedNextStep({ userId }: Props) {
         // typo that didn't resolve and fell back to white, making text
         // invisible on the dark theme.
         background: "var(--bg-surface2, #101A30)",
-        color: "var(--text-base, #E5E7EB)",
+        color: "var(--text-primary)",
         border: `1px solid ${
           dropout.risk_band === "HIGH"
             ? "var(--color-red, #F43F5E)"
@@ -107,7 +107,7 @@ export function PersonalisedNextStep({ userId }: Props) {
             style={{
               margin: "8px 0",
               fontSize: 22,
-              color: "var(--text-base, #E5E7EB)",
+              color: "var(--text-primary)",
             }}
           >
             {intervention.title}
@@ -130,12 +130,12 @@ export function PersonalisedNextStep({ userId }: Props) {
             style={{
               margin: "8px 0",
               fontSize: 22,
-              color: "var(--text-base, #E5E7EB)",
+              color: "var(--text-primary)",
             }}
           >
             Up next
           </h2>
-          <p style={{ color: "var(--text-base, #E5E7EB)" }}>
+          <p style={{ color: "var(--text-primary)" }}>
             {topRec.reasonString}
           </p>
           <Link

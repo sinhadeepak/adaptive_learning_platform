@@ -10,9 +10,12 @@ import "@alp/design-system/tokens.css";
 import "@alp/design-system/portals/teacher.css";
 
 import { App } from "./App";
+import { ThemeProvider } from "./lib/theme";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
   </React.StrictMode>,
 );

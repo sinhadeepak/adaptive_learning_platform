@@ -221,7 +221,7 @@ export function DiagnosticDeepDive() {
                     <div
                       style={{
                         padding: "6px 12px",
-                        background: "white",
+                        background: "var(--bg-surface3)",
                         border:
                           idx === result.path.length - 1
                             ? "2px solid var(--color-amber, #f59e0b)"

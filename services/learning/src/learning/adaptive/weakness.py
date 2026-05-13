@@ -149,12 +149,23 @@ def _format_evidence(items: list[dict[str, Any]], topic_titles: dict[str, str]) 
     return "\n".join(lines)
 
 
-async def diagnose_weakness(*, user_id: str) -> dict[str, Any]:
+async def diagnose_weakness(
+    *, user_id: str, exam_code: str | None = None
+) -> dict[str, Any]:
     items = await fetch_user_answered_items(user_id, limit=80)
     mastery = await fetch_mastery(user_id)
-    topics = await fetch_topic_catalog()
+    topics = await fetch_topic_catalog(exam_code=exam_code)
 
     topic_titles = {t["topicId"]: t["title"] for t in topics}
+
+    # When an exam is supplied, filter mastery + items to in-exam
+    # topics only. Without this, a UPSC student's diagnosis would
+    # include Force & Pressure (CBSE Class 8) sessions from any
+    # cross-exam practice they happened to do.
+    if exam_code is not None:
+        in_exam_topic_ids = set(topic_titles.keys())
+        mastery = [m for m in mastery if m.get("topicId") in in_exam_topic_ids]
+        items = [it for it in items if it.get("topicId") in in_exam_topic_ids]
 
     # Build "weakest topic titles" surface for both the heuristic and the LLM context.
     enriched_mastery = []

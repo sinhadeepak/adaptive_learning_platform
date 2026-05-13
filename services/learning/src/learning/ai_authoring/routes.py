@@ -60,7 +60,10 @@ def get_gateway(request: Request) -> AIGateway:
 
 
 class DraftResponse(BaseModel):
-    draft: DraftMCQ
+    # Any of the 25 Draft* schemas — dict so we don't need a giant
+    # Union literal. The actual class is determined by request.type_id
+    # via _DRAFT_TYPE_MAP and validated before serialisation.
+    draft: dict[str, Any]
     marker: AIDraftMarker
 
 
@@ -102,7 +105,102 @@ async def post_draft(
             str(e),
             http_status=502,
         ) from e
-    return DraftResponse(draft=draft, marker=marker)
+    return DraftResponse(
+        draft=draft.model_dump() if hasattr(draft, "model_dump") else dict(draft),  # type: ignore[arg-type]
+        marker=marker,
+    )
+
+
+# ── /bulk-draft — generate N drafts at once for the same topic+type ─────────
+
+
+class BulkDraftRequest(BaseModel):
+    type_id: str = Field(min_length=2, max_length=64)
+    topic: str = Field(min_length=2, max_length=400)
+    # Cap raised P7 — admins want to seed real banks not 10-question
+    # samples. A semaphore in the handler caps concurrent OpenAI calls
+    # so a 100-count request doesn't fan out into 100 parallel
+    # round-trips and trip rate limits / burn quota.
+    count: int = Field(default=3, ge=1, le=100)
+    difficulty: str = Field(default="MEDIUM", pattern="^(EASY|MEDIUM|HARD)$")
+    exam: str = Field(default="JEE-MAIN", min_length=1, max_length=64)
+    syllabus_chapter: str | None = None
+    source_material: str | None = Field(default=None, max_length=4000)
+
+
+# Bound on parallel OpenAI calls per /bulk-draft request. Picked to
+# match the lower end of OpenAI's per-org concurrent-request limit
+# while still finishing 100 items in roughly 100/MAX_PARALLEL × ~3s
+# ≈ 30s — under the nginx 600s read timeout with plenty of headroom.
+MAX_PARALLEL_DRAFTS = 10
+
+
+class BulkDraftItem(BaseModel):
+    index: int
+    draft: dict[str, Any] | None = None
+    marker: AIDraftMarker | None = None
+    error: str | None = None
+
+
+class BulkDraftResponse(BaseModel):
+    items: list[BulkDraftItem]
+    requested: int
+    succeeded: int
+
+
+@router.post("/bulk-draft", response_model=BulkDraftResponse)
+async def post_bulk_draft(
+    req: BulkDraftRequest,
+    gateway: AIGateway = Depends(get_gateway),
+) -> BulkDraftResponse:
+    """Generate `count` AI drafts in parallel for the same (type, topic).
+
+    Each item is independent — partial failures don't block the others.
+    The author UI lists the results; per-item "Use" loads it into the
+    main form, "Save as draft" persists via the standard
+    POST /content/questions flow (same auth / quality-check path).
+    """
+    import asyncio
+
+    base_req = DraftQuestionRequest(
+        type_id=req.type_id,  # type: ignore[arg-type]
+        topic=req.topic,
+        difficulty=req.difficulty,  # type: ignore[arg-type]
+        exam=req.exam,
+        syllabus_chapter=req.syllabus_chapter,
+        source_material=req.source_material,
+    )
+
+    sem = asyncio.Semaphore(MAX_PARALLEL_DRAFTS)
+
+    async def _one(idx: int) -> BulkDraftItem:
+        # Throttle: never more than MAX_PARALLEL_DRAFTS in-flight at
+        # once. asyncio.gather still launches all tasks; the semaphore
+        # gates the actual OpenAI call inside each.
+        async with sem:
+            try:
+                draft, marker = await draft_question(
+                    gateway, request=base_req, creator_id=None,
+                )
+                return BulkDraftItem(
+                    index=idx,
+                    draft=draft.model_dump() if hasattr(draft, "model_dump") else dict(draft),  # type: ignore[arg-type]
+                    marker=marker,
+                )
+            except QuotaExceededError as e:
+                return BulkDraftItem(index=idx, error=f"quota_exceeded: {e}")
+            except NotImplementedError as e:
+                return BulkDraftItem(index=idx, error=f"type_not_supported: {e}")
+            except AIGatewayError as e:
+                return BulkDraftItem(index=idx, error=f"ai_gateway_error: {e}")
+            except Exception as e:  # noqa: BLE001
+                return BulkDraftItem(index=idx, error=f"unexpected: {type(e).__name__}: {e}")
+
+    results = await asyncio.gather(*(_one(i) for i in range(req.count)))
+    succeeded = sum(1 for r in results if r.draft is not None)
+    return BulkDraftResponse(
+        items=results, requested=req.count, succeeded=succeeded,
+    )
 
 
 # ── /explanation ─────────────────────────────────────────────────────────────

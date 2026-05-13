@@ -3,11 +3,15 @@
 // counts strip. Server-side section locks + 5-min disconnect recovery still
 // defer (tracked as Phase 4 stabilisation carry-over).
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
+import { AppShell } from "../components/AppShell";
+import { Banner } from "../components/dashboard";
+import { QuestionRenderer } from "../components/renderers";
 import {
   canNavigate,
   computeSectionTotals,
@@ -55,6 +59,10 @@ interface ItemView {
   questionId: string;
   stem: string;
   choices: string[];
+  // Phase 5/7 — polymorphic types. When questionType is anything other
+  // than MCQ_SINGLE (or absent), payload drives the typed renderer.
+  questionType?: string;
+  payload?: Record<string, unknown>;
   sectionId: string | null;
 }
 
@@ -69,31 +77,46 @@ export function MockExam() {
   const [items, setItems] = useState<ItemView[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  // Phase 5/7 — payload-based responses for non-MCQ types. Keyed by
+  // questionId. Presence here counts as "answered" for the palette
+  // alongside the legacy `answers` Record.
+  const [payloadAnswers, setPayloadAnswers] = useState<Record<string, unknown>>({});
   const [marked, setMarked] = useState<Set<string>>(new Set());
   const [remaining, setRemaining] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const submittedRef = useRef(false);
 
-  // Pull all served items at once — they were pre-served by Quiz at session
-  // create time (StartFromBlueprint), so we can walk them up-front rather
-  // than calling /next per question. Falls back to /next for safety.
+  // Pull every pre-served item in one round-trip via /items. Quiz Go
+  // ships all 30 (or N) items at session-create time for MOCK_BLUEPRINT
+  // so we don't need to walk /next per question — the student can
+  // navigate freely via the palette.
   async function hydrateItems(sessionId: string, sections: MockExamSection[]): Promise<ItemView[]> {
-    const out: ItemView[] = [];
-    // We don't yet expose a bulk "session items with content" endpoint;
-    // /next called repeatedly works because the server returns the next
-    // unanswered item each time. For an MVP we walk through itemCount.
-    for (let i = 0; i < items.length; i += 1) break; // placeholder
-    // Use a single /next probe — the rest will be filled lazily as the user
-    // answers each question. Section_id is derived from item position
-    // against the blueprint sections.
-    const r = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/next`);
-    if (!r.ok) return out;
-    const body = (await r.json()) as NextItemResp;
-    if (body.item) {
-      out.push({ ...body.item, sectionId: sectionForIdx(body.item.itemIdx, sections) });
+    const r = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/items`);
+    if (!r.ok) {
+      // Older Quiz builds didn't expose /items — fall back to /next.
+      const nr = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/next`);
+      if (!nr.ok) return [];
+      const body = (await nr.json()) as NextItemResp;
+      return body.item
+        ? [{ ...body.item, sectionId: sectionForIdx(body.item.itemIdx, sections) }]
+        : [];
     }
-    return out;
+    const body = (await r.json()) as {
+      sessionId: string;
+      items: Array<{
+        itemIdx: number;
+        questionId: string;
+        stem: string;
+        choices: string[];
+        questionType?: string;
+        payload?: Record<string, unknown>;
+      }>;
+    };
+    return body.items.map((it) => ({
+      ...it,
+      sectionId: sectionForIdx(it.itemIdx, sections),
+    }));
   }
 
   function sectionForIdx(itemIdx: number, sections: MockExamSection[]): string | null {
@@ -185,6 +208,26 @@ export function MockExam() {
     }
   }
 
+  // Phase 5/7 — payload-based answer recording for non-MCQ types
+  // (DIAGRAM_LABEL, ESSAY, MATCH_THE_FOLLOWING, …). The renderer owns
+  // the input UX; this just persists whatever it emits via onChange.
+  async function recordPayloadAnswer(payload: unknown) {
+    if (!session || !current) return;
+    setPayloadAnswers((m) => ({ ...m, [current.questionId]: payload }));
+    try {
+      await auth.fetch(`/api/v1/quiz/sessions/${session.sessionId}/answers`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          itemIdx: current.itemIdx,
+          responsePayload: payload,
+        }),
+      });
+    } catch (e) {
+      // soft-fail: payload is in local state; submit fans out everything
+    }
+  }
+
   function toggleMark() {
     if (!current) return;
     setMarked((s) => {
@@ -226,322 +269,624 @@ export function MockExam() {
     }
   }
 
+  // Unified "is this question answered?" map — MCQ choice indices +
+  // non-MCQ payload responses. Used by both the section totals and the
+  // palette so a DIAGRAM_LABEL with a saved payload shows green like an
+  // answered MCQ does.
+  const unifiedAnswers: Record<string, number> = useMemo(() => {
+    const merged: Record<string, number> = { ...answers };
+    for (const qid of Object.keys(payloadAnswers)) {
+      if (merged[qid] === undefined) merged[qid] = 0; // sentinel; palette only checks defined-ness
+    }
+    return merged;
+  }, [answers, payloadAnswers]);
+
   const totals = useMemo(
-    () => (session ? computeSectionTotals(items, session.sections, answers, marked) : []),
-    [items, session, answers, marked],
+    () => (session ? computeSectionTotals(items, session.sections, unifiedAnswers, marked) : []),
+    [items, session, unifiedAnswers, marked],
   );
 
   const reviewQueue = useMemo(() => markedReviewQueue(items, marked), [items, marked]);
 
   // Sprint 25 (P4-S25) — OMR-style palette state.
   const palette: PaletteCell[] = useMemo(
-    () => computePaletteState(items, answers, marked),
-    [items, answers, marked],
+    () => computePaletteState(items, unifiedAnswers, marked),
+    [items, unifiedAnswers, marked],
   );
-  const sectionCounts = useMemo(() => paletteSectionCounts(palette), [palette]);
+  // sectionCounts: still computed inline by `totals` for the tab row.
+  void paletteSectionCounts; // kept import for future per-section badge work
 
   if (!blueprintId) {
     return (
-      <main className="page" style={{ padding: 24 }}>
-        <p className="banner banner-error">Missing ?blueprintId= query parameter.</p>
-      </main>
+      <AppShell title="Mock exam">
+        <div className="pg-shell" style={{ maxWidth: 720 }}>
+          <Banner tone="danger">Missing ?blueprintId= query parameter.</Banner>
+        </div>
+      </AppShell>
     );
   }
 
   if (error) {
     return (
-      <main className="page" style={{ padding: 24 }}>
-        <p className="banner banner-error">{error}</p>
-      </main>
+      <AppShell title="Mock exam">
+        <div className="pg-shell" style={{ maxWidth: 720 }}>
+          <Banner tone="danger">{error}</Banner>
+        </div>
+      </AppShell>
     );
   }
 
   if (!acceptedRules) {
+    const instructions = [
+      {
+        icon: "⏱",
+        title: "Fixed total duration",
+        body: "The timer starts when you begin and cannot be paused. The exam auto-submits when it runs out.",
+      },
+      {
+        icon: "🧭",
+        title: "Navigate freely",
+        body: "Move between sections and questions at any time during the exam. Use the palette on the right to jump to any item.",
+      },
+      {
+        icon: "🎯",
+        title: "Negative marking",
+        body: "Each correct answer = +marks; each wrong answer carries a penalty. Skipping is safer than guessing on hard items.",
+      },
+      {
+        icon: "🚩",
+        title: "Mark for review",
+        body: "Flag questions you want to revisit before submitting. They show up in a dedicated review pane.",
+      },
+      {
+        icon: "✅",
+        title: "Submit before time",
+        body: "You can submit at any time. If you don't, the system submits whatever's there when the clock hits zero.",
+      },
+    ];
     return (
-      <main className="page" style={{ padding: 24, maxWidth: 680 }}>
-        <h1>Exam Instructions</h1>
-        <p>You are about to start a real-pattern timed mock test.</p>
-        <ul>
-          <li>The exam has a fixed total duration. Once started, the timer cannot be paused.</li>
-          <li>You may navigate between sections during the exam.</li>
-          <li>Each correct answer = +marks; each wrong answer carries negative marking.</li>
-          <li>You may mark questions for end-of-exam review.</li>
-          <li>Submit before the timer expires; otherwise the exam auto-submits.</li>
-        </ul>
-        <button type="button" onClick={() => setAcceptedRules(true)}>
-          I understand — Start exam
-        </button>
-      </main>
+      <AppShell title="Mock exam">
+        <div className="pg-shell" style={{ maxWidth: 820 }}>
+          <header className="pg-header">
+            <div className="pg-header-main">
+              <h1 className="pg-header-title">You're about to start a timed mock</h1>
+              <p className="pg-header-sub">
+                Read the rules below, then tap Start when you're ready. The
+                clock starts the moment you accept.
+              </p>
+            </div>
+          </header>
+
+          <section className="pg-section">
+            <h2 className="pg-section-title">Before you begin</h2>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: 12,
+              }}
+            >
+              {instructions.map((it) => (
+                <div
+                  key={it.title}
+                  style={{
+                    padding: 16,
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border-subtle)",
+                    borderRadius: 10,
+                    display: "flex",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ fontSize: 24, lineHeight: 1 }}>{it.icon}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
+                      {it.title}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                      {it.body}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              justifyContent: "flex-end",
+              padding: "0 4px 8px",
+            }}
+          >
+            <button
+              type="button"
+              className="pg-btn pg-btn-ghost"
+              onClick={() => window.history.back()}
+            >
+              ← Back
+            </button>
+            <button
+              type="button"
+              className="pg-btn pg-btn-primary"
+              onClick={() => setAcceptedRules(true)}
+              style={{ minWidth: 220 }}
+            >
+              I understand — Start exam
+            </button>
+          </div>
+        </div>
+      </AppShell>
     );
   }
 
   if (!session) {
     return (
-      <main className="page" style={{ padding: 24 }}>
-        <p>Composing your paper…</p>
-      </main>
+      <AppShell title="Mock exam">
+        <div className="pg-shell" style={{ maxWidth: 720 }}>
+          <div
+            className="pg-section"
+            style={{ minHeight: 200, opacity: 0.7, textAlign: "center" }}
+          >
+            Composing your paper…
+          </div>
+        </div>
+      </AppShell>
     );
   }
 
+  const timerDanger = remaining < 300; // last 5 minutes
+  const answeredCount =
+    Object.keys(answers).length + Object.keys(payloadAnswers).length;
+  const totalCount = items.length || session.itemCount;
+  const currentIsMCQ =
+    !current?.questionType || current.questionType === "MCQ_SINGLE";
+
   return (
-    <main className="page mock-exam" style={{ padding: 24, maxWidth: 1280 }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1 style={{ margin: 0 }}>{session.blueprintName}</h1>
-        <span
-          aria-label="Time remaining"
+    <AppShell title={session.blueprintName}>
+      <div className="pg-shell" style={{ maxWidth: 1280 }}>
+        {/* Sticky timer + progress bar */}
+        <div
           style={{
-            fontSize: 22,
-            fontWeight: 700,
-            color: remaining < 300 ? "var(--color-red, #F43F5E)" : "var(--text-primary)",
+            position: "sticky",
+            top: 0,
+            zIndex: 10,
+            background: "var(--bg-base)",
+            padding: "8px 4px 12px",
+            marginBottom: 12,
+            borderBottom: "1px solid var(--border-subtle)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
           }}
         >
-          {formatRemaining(remaining)}
-        </span>
-      </header>
-
-      {session.short && (
-        <p className="banner" style={{ marginTop: 8 }}>
-          ⚠ This blueprint requested {session.itemCount > 0 ? "more questions" : "a full paper"}{" "}
-          but the question bank is short. The composed paper has {session.itemCount} questions.
-        </p>
-      )}
-
-      {/* Section navigation strip */}
-      <nav
-        aria-label="Section navigation"
-        style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}
-      >
-        {totals.map((t) => {
-          const firstIdx = firstIdxOfSection(items, t.sectionId);
-          const active = current?.sectionId === t.sectionId;
-          return (
-            <button
-              key={t.sectionId}
-              type="button"
-              onClick={() => firstIdx >= 0 && gotoIdx(firstIdx)}
-              disabled={firstIdx < 0}
+          <div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 2 }}>
+              Progress
+            </div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>
+              {answeredCount} of {totalCount} answered
+              {marked.size > 0 && (
+                <span style={{ color: "var(--color-amber, #F5A623)", marginLeft: 10 }}>
+                  · {marked.size} flagged
+                </span>
+              )}
+            </div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>
+              Time remaining
+            </div>
+            <div
+              aria-label="Time remaining"
               style={{
-                padding: "8px 12px",
-                borderRadius: 6,
-                border: "1px solid var(--border-faint)",
-                background: active ? "var(--bg-elevated, #eef)" : "transparent",
+                fontSize: 28,
+                fontWeight: 800,
+                fontVariantNumeric: "tabular-nums",
+                color: timerDanger ? "var(--color-danger, #F43F5E)" : "var(--text-primary)",
+                transition: "color 250ms",
               }}
             >
-              <strong>{t.name}</strong>{" "}
-              <span style={{ color: "var(--text-muted)" }}>
-                {t.answered}/{t.served} answered{t.marked > 0 && ` · ${t.marked} ⚑`}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* Question pane + OMR-style palette side panel (S25) */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) 240px",
-          gap: 24,
-          marginTop: 24,
-        }}
-      >
-        {current ? (
-          <section>
-            <p style={{ color: "var(--text-muted)" }}>
-              Question {current.itemIdx + 1} of {session.itemCount}
-              {current.sectionId && ` · ${current.sectionId}`}
-            </p>
-            <div style={{ fontSize: 18, marginTop: 8 }}>{current.stem}</div>
-            <ol style={{ listStyle: "none", padding: 0, marginTop: 16 }}>
-              {current.choices.map((c, i) => {
-                const selected = answers[current.questionId] === i;
-                return (
-                  <li key={i}>
-                    <button
-                      type="button"
-                      onClick={() => recordAnswer(i)}
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        textAlign: "left",
-                        padding: 12,
-                        marginBottom: 8,
-                        borderRadius: 6,
-                        border: "1px solid var(--border-faint)",
-                        background: selected ? "var(--bg-elevated, #eef)" : "transparent",
-                      }}
-                    >
-                      <strong>{String.fromCharCode(65 + i)}.</strong> {c}
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-
-            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-              <button
-                type="button"
-                onClick={() => gotoIdx(currentIdx - 1)}
-                disabled={currentIdx === 0}
-              >
-                ← Previous
-              </button>
-              <button type="button" onClick={toggleMark}>
-                {marked.has(current.questionId) ? "✓ Marked for review" : "⚑ Mark for review"}
-              </button>
-              <button type="button" onClick={next}>
-                Save &amp; Next →
-              </button>
-              <button
-                type="button"
-                onClick={submit}
-                disabled={submitting}
-                className="btn-primary"
-                style={{ marginLeft: "auto" }}
-              >
-                {submitting ? "Submitting…" : "Submit exam"}
-              </button>
+              {formatRemaining(remaining)}
             </div>
-          </section>
-        ) : (
-          <p>Loading first question…</p>
+          </div>
+        </div>
+
+        {session.short && (
+          <Banner tone="warning">
+            ⚠ The question bank is short for this blueprint. Your paper has{" "}
+            {session.itemCount} questions instead of the requested length.
+          </Banner>
         )}
 
-        {/* OMR-style answer-sheet palette */}
-        <aside
-          aria-label="Answer sheet"
+        {/* Section tabs */}
+        <div className="pg-tabs" role="tablist" style={{ marginBottom: 16, overflowX: "auto" }}>
+          {totals.map((t) => {
+            const firstIdx = firstIdxOfSection(items, t.sectionId);
+            const active = current?.sectionId === t.sectionId;
+            return (
+              <button
+                key={t.sectionId}
+                type="button"
+                className={"pg-tab" + (active ? " pg-tab-active" : "")}
+                onClick={() => firstIdx >= 0 && gotoIdx(firstIdx)}
+                disabled={firstIdx < 0}
+                style={{ whiteSpace: "nowrap" }}
+              >
+                {t.name}
+                <span
+                  style={{
+                    marginLeft: 8,
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    fontWeight: 500,
+                  }}
+                >
+                  {t.answered}/{t.served}
+                  {t.marked > 0 ? ` · ${t.marked} ⚑` : ""}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Two-column: question on left, palette on right */}
+        <div
           style={{
-            background: "var(--bg-surface-1, #fff)",
-            border: "1px solid var(--border-faint)",
-            borderRadius: 8,
-            padding: 12,
-            alignSelf: "start",
-            position: "sticky",
-            top: 16,
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr) 260px",
+            gap: 20,
+            alignItems: "start",
           }}
         >
-          <h2 style={{ fontSize: 14, marginTop: 0, marginBottom: 8 }}>
-            Answer sheet
-          </h2>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 8px" }}>
-            {Object.entries(sectionCounts)
-              .map(([k, v]) => `${k === "_none" ? "Unsectioned" : k} ${v.answered}/${v.total}`)
-              .join(" · ")}
-          </p>
-          <div
+          {current ? (
+            <section className="pg-section">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 16,
+                  paddingBottom: 12,
+                  borderBottom: "1px solid var(--border-subtle)",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>
+                    Question {current.itemIdx + 1} of {totalCount}
+                    {current.sectionId && ` · ${current.sectionId}`}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--text-muted)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    +{session.marksCorrect} for correct, −{session.marksNegative} for wrong
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="pg-btn pg-btn-ghost"
+                  onClick={toggleMark}
+                  style={{
+                    color: marked.has(current.questionId)
+                      ? "var(--color-amber, #F5A623)"
+                      : undefined,
+                  }}
+                >
+                  {marked.has(current.questionId) ? "🚩 Flagged" : "🚩 Flag for review"}
+                </button>
+              </div>
+
+              <div
+                style={{
+                  fontSize: 17,
+                  lineHeight: 1.6,
+                  marginBottom: 24,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {current.stem}
+              </div>
+
+              {currentIsMCQ ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {current.choices.map((c, i) => {
+                    const selected = answers[current.questionId] === i;
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => recordAnswer(i)}
+                        style={{
+                          textAlign: "left",
+                          padding: "14px 18px",
+                          borderRadius: 10,
+                          border: selected
+                            ? "2px solid var(--color-blue, #2F5DCB)"
+                            : "1px solid var(--border-subtle)",
+                          background: selected
+                            ? "rgba(47,93,203,0.08)"
+                            : "var(--bg-elevated)",
+                          cursor: "pointer",
+                          fontSize: 15,
+                          lineHeight: 1.5,
+                          color: "inherit",
+                          transition: "border-color 150ms, background 150ms",
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 28,
+                            height: 28,
+                            marginRight: 12,
+                            borderRadius: "50%",
+                            background: selected
+                              ? "var(--color-blue, #2F5DCB)"
+                              : "var(--bg-base)",
+                            color: selected ? "#fff" : "var(--text-primary)",
+                            fontWeight: 700,
+                            fontSize: 13,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {String.fromCharCode(65 + i)}
+                        </span>
+                        {c}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    padding: 14,
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border-subtle)",
+                    borderRadius: 10,
+                  }}
+                >
+                  <RendererErrorBoundary questionId={current.questionId}>
+                    <QuestionRenderer
+                      typeId={current.questionType ?? "MCQ_SINGLE"}
+                      payload={current.payload ?? {}}
+                      value={payloadAnswers[current.questionId] ?? null}
+                      onChange={(v) => recordPayloadAnswer(v)}
+                      language="en"
+                      sessionId={session.sessionId}
+                      questionId={current.questionId}
+                    />
+                  </RendererErrorBoundary>
+                </div>
+              )}
+
+              {/* Bottom action bar */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  marginTop: 24,
+                  paddingTop: 16,
+                  borderTop: "1px solid var(--border-subtle)",
+                  flexWrap: "wrap",
+                }}
+              >
+                <button
+                  type="button"
+                  className="pg-btn pg-btn-ghost"
+                  onClick={() => gotoIdx(currentIdx - 1)}
+                  disabled={currentIdx === 0}
+                >
+                  ← Previous
+                </button>
+                <button type="button" className="pg-btn pg-btn-primary" onClick={next}>
+                  Save & Next →
+                </button>
+                <button
+                  type="button"
+                  className="pg-btn pg-btn-primary"
+                  onClick={submit}
+                  disabled={submitting}
+                  style={{ marginLeft: "auto", background: "var(--color-success, #10C47A)" }}
+                >
+                  {submitting ? "Submitting…" : "Submit exam"}
+                </button>
+              </div>
+            </section>
+          ) : (
+            <section
+              className="pg-section"
+              style={{ minHeight: 300, opacity: 0.6, textAlign: "center", paddingTop: 80 }}
+            >
+              Loading first question…
+            </section>
+          )}
+
+          {/* Palette */}
+          <aside
+            aria-label="Answer sheet"
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(5, 1fr)",
-              gap: 4,
+              padding: 14,
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: 10,
+              position: "sticky",
+              top: 100,
             }}
           >
-            {palette.map((cell) => {
-              const isCurrent = cell.itemIdx === currentIdx;
-              const bg =
-                cell.state === "answered_marked"
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>
+              Answer sheet
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(5, 1fr)",
+                gap: 6,
+              }}
+            >
+              {palette.map((cell) => {
+                const isCurrent = cell.itemIdx === currentIdx;
+                const isAnsweredMarked = cell.state === "answered_marked";
+                const isMarked = cell.state === "marked";
+                const isAnswered = cell.state === "answered";
+                const bg = isAnsweredMarked
                   ? "var(--color-amber, #F5A623)"
-                  : cell.state === "marked"
-                  ? "var(--color-amber, #F5A623)"
-                  : cell.state === "answered"
-                  ? "var(--color-green, #10C47A)"
-                  : "var(--bg-surface-2, #e5e7eb)";
-              const fg =
-                cell.state === "unanswered" ? "var(--text-primary)" : "#fff";
-              const ring = isCurrent
-                ? "0 0 0 2px var(--color-blue, #4F87F6)"
-                : undefined;
-              return (
-                <button
-                  key={cell.itemIdx}
-                  type="button"
-                  aria-label={`Question ${cell.itemIdx + 1} ${cell.state.replace("_", " + ")}`}
-                  onClick={() => gotoIdx(cell.itemIdx)}
-                  style={{
-                    aspectRatio: "1 / 1",
-                    border: "1px solid var(--border-faint)",
-                    borderRadius: 4,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    background: bg,
-                    color: fg,
-                    cursor: "pointer",
-                    boxShadow: ring,
-                  }}
-                >
-                  {cell.itemIdx + 1}
-                  {cell.state === "answered_marked" ? " ⚑" : ""}
-                </button>
-              );
-            })}
-          </div>
-          <ul style={{ listStyle: "none", padding: 0, marginTop: 12, fontSize: 11 }}>
-            <li>
-              <span
-                style={{
-                  display: "inline-block",
-                  width: 10,
-                  height: 10,
-                  background: "var(--color-green, #10C47A)",
-                  marginRight: 6,
-                }}
-              />
-              Answered
-            </li>
-            <li>
-              <span
-                style={{
-                  display: "inline-block",
-                  width: 10,
-                  height: 10,
-                  background: "var(--color-amber, #F5A623)",
-                  marginRight: 6,
-                }}
-              />
-              Marked
-            </li>
-            <li>
-              <span
-                style={{
-                  display: "inline-block",
-                  width: 10,
-                  height: 10,
-                  background: "var(--bg-surface-2, #e5e7eb)",
-                  marginRight: 6,
-                }}
-              />
-              Unanswered
-            </li>
-          </ul>
-        </aside>
-      </div>
+                  : isMarked
+                    ? "var(--color-amber, #F5A623)"
+                    : isAnswered
+                      ? "var(--color-success, #10C47A)"
+                      : "var(--bg-base)";
+                const fg = !isAnswered && !isMarked && !isAnsweredMarked
+                  ? "var(--text-primary)"
+                  : "#fff";
+                return (
+                  <button
+                    key={cell.itemIdx}
+                    type="button"
+                    aria-label={`Question ${cell.itemIdx + 1}`}
+                    onClick={() => gotoIdx(cell.itemIdx)}
+                    style={{
+                      aspectRatio: "1 / 1",
+                      border: isCurrent
+                        ? "2px solid var(--color-blue, #2F5DCB)"
+                        : "1px solid var(--border-subtle)",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      background: bg,
+                      color: fg,
+                      cursor: "pointer",
+                      padding: 0,
+                      position: "relative",
+                    }}
+                  >
+                    {cell.itemIdx + 1}
+                    {isAnsweredMarked && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: 1,
+                          right: 2,
+                          fontSize: 9,
+                        }}
+                      >
+                        🚩
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div
+              style={{
+                marginTop: 14,
+                display: "grid",
+                gap: 6,
+                fontSize: 11,
+                color: "var(--text-muted)",
+              }}
+            >
+              <LegendDot color="var(--color-success, #10C47A)" label="Answered" />
+              <LegendDot color="var(--color-amber, #F5A623)" label="Flagged" />
+              <LegendDot color="var(--bg-base)" label="Not answered" />
+            </div>
+          </aside>
+        </div>
 
-      {/* Marked-for-review queue */}
-      {reviewQueue.length > 0 && (
-        <section style={{ marginTop: 32 }}>
-          <h2 style={{ fontSize: 18 }}>Marked for review ({reviewQueue.length})</h2>
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {reviewQueue.map((q) => (
-              <li key={q.questionId}>
+        {/* Flagged queue (only when something's flagged) */}
+        {reviewQueue.length > 0 && (
+          <section className="pg-section">
+            <h2 className="pg-section-title">
+              Flagged for review
+              <span className="pg-section-title-sub">{reviewQueue.length}</span>
+            </h2>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {reviewQueue.map((q) => (
                 <button
+                  key={q.questionId}
                   type="button"
+                  className="pg-chip"
                   onClick={() => gotoIdx(items.findIndex((i) => i.questionId === q.questionId))}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--color-blue, #4F87F6)",
-                    cursor: "pointer",
-                    padding: "4px 0",
-                  }}
                 >
-                  ⚑ Q{q.itemIdx + 1}
-                  {q.sectionId && ` (${q.sectionId})`}
+                  🚩 Q{q.itemIdx + 1}
+                  {q.sectionId && ` · ${q.sectionId}`}
                 </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </main>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    </AppShell>
+  );
+}
+
+// Per-question error boundary — isolates a malformed payload so the
+// rest of the exam keeps working. Re-keyed by questionId so a fresh
+// instance mounts for every navigation; otherwise React would
+// remember the error state for the next question too.
+class RendererErrorBoundary extends Component<
+  { children: ReactNode; questionId: string },
+  { err: Error | null }
+> {
+  state = { err: null as Error | null };
+  static getDerivedStateFromError(err: Error) {
+    return { err };
+  }
+  componentDidUpdate(prev: { questionId: string }) {
+    if (prev.questionId !== this.props.questionId && this.state.err) {
+      this.setState({ err: null });
+    }
+  }
+  render() {
+    if (this.state.err) {
+      return (
+        <div
+          style={{
+            padding: 16,
+            background: "var(--bg-danger-soft, #fff5f5)",
+            border: "1px solid var(--color-danger, #f43f5e)",
+            borderRadius: 8,
+            color: "var(--color-danger, #f43f5e)",
+            fontSize: 13,
+          }}
+        >
+          <strong>This question couldn't render.</strong>
+          <div style={{ marginTop: 6, fontSize: 12, opacity: 0.8 }}>
+            {this.state.err.message}
+          </div>
+          <div style={{ marginTop: 6, fontSize: 12, opacity: 0.8 }}>
+            Use Save & Next to skip to the next question — it'll be marked unanswered.
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <span
+        style={{
+          display: "inline-block",
+          width: 12,
+          height: 12,
+          background: color,
+          border: "1px solid var(--border-subtle)",
+          borderRadius: 3,
+        }}
+      />
+      {label}
+    </div>
   );
 }
 

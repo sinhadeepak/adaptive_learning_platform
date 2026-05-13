@@ -152,6 +152,23 @@ async def process_session(
 
     await mark_session_processed(session, session_id)
 
+    # Phase 1D-9 — streak day XP. When the streak ticks up, award XP for
+    # the new day. Cap at 30 days so a year-long streak doesn't grant
+    # unbounded daily XP. Best-effort.
+    try:
+        prev_for_xp = prev_streak.current_streak if prev_streak else 0
+        if update.current_streak > prev_for_xp and update.current_streak <= 30:
+            from engagement.gamification import service as _gam
+            await _gam.award_xp(
+                session,
+                user_id=user_id,
+                event_type="streak_day",
+                source_id=None,
+                xp_delta=_gam.XP_RULES.get("streak_day", 5),
+            )
+    except Exception:
+        log.exception("gamification.streak_xp.failed user=%s", user_id)
+
     # Side-effect notifications — the in-app inbox surfaces these so the
     # student gets a celebratory ping the moment they hit a milestone. Best
     # effort: a notification post failure must never roll back the analytics

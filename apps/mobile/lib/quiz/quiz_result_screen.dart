@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
@@ -72,26 +74,61 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
   }
 
   Future<void> _askAiAbout(QuizItemSummary item) async {
-    if (widget.api == null || _detail == null || _askingAiQid != null) return;
+    // Tap-feedback guards. Failures used to fall through silently so the
+    // user got no signal — now we surface every branch.
+    if (_askingAiQid != null) return; // already in flight; ignore re-tap
+    if (widget.api == null) {
+      _showAiError("AI tutor isn't available in this view.");
+      developer.log('askAi: widget.api is null', name: 'quiz_result');
+      return;
+    }
+    if (_detail == null) {
+      _showAiError('Still loading session data — try again in a moment.');
+      developer.log('askAi: _detail is null (session not yet loaded)', name: 'quiz_result');
+      return;
+    }
     setState(() => _askingAiQid = item.questionId);
     try {
       final stem = item.stem ?? 'Question #${item.questionId.substring(0, 8)}';
+      developer.log(
+        'askAi: createDoubt qid=${item.questionId} topicId=${_detail!.topicId}',
+        name: 'quiz_result',
+      );
       final detail = await widget.api!.createDoubt(
         questionText: stem,
         topicId: _detail!.topicId,
         topicTitle: _topicTitle,
       );
-      if (detail == null || !mounted) return;
+      if (!mounted) return;
+      if (detail == null) {
+        _showAiError("Couldn't open the AI tutor — please try again.");
+        developer.log('askAi: createDoubt returned null', name: 'quiz_result');
+        return;
+      }
       await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => DoubtDetailScreen(
           api: widget.api!,
           doubtId: detail.summary.id,
           autoAskAi: true,
         ),
-      ));
+      ),);
+    } catch (e, st) {
+      developer.log('askAi: failed', name: 'quiz_result', error: e, stackTrace: st);
+      if (mounted) _showAiError('AI tutor failed: $e');
     } finally {
       if (mounted) setState(() => _askingAiQid = null);
     }
+  }
+
+  void _showAiError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AlpColors.colorRed,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   Future<void> _reportItem(QuizItemSummary item) async {
@@ -282,32 +319,67 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                   value: _masteryBoost(),
                   label: 'Mastery Boost',
                   tone: AlpColors.colorAi,
+                  tooltip:
+                      'How much your ability estimate moved on this topic. '
+                      'Positive = mastery rose; negative = dipped. '
+                      'Tap-to-dismiss.',
                 ),
               ],
             ),
 
             const SizedBox(height: 16),
 
-            // AI insight pills
+            // AI insight pills — Sprint 1 honesty pass.
+            // Previous version had "Top 15% this week" / "Top 40% this
+            // week" pills that weren't backed by any cohort/percentile
+            // data. Replaced with accurate performance bands plus
+            // tap-to-dismiss explainers via Tooltip so the student
+            // knows what each pill actually represents.
             Wrap(
               alignment: WrapAlignment.center,
               spacing: 8,
               runSpacing: 8,
               children: [
                 if (_topicTitle != null && _topicMastery != null)
-                  AlpPill(
-                    label:
-                        '${_topicTitle!} ▲ ${(_topicMastery!.ewa * 100).round()}%',
-                    color: AlpColors.colorGreen,
+                  Tooltip(
+                    message:
+                        'Your mastery on this topic is now ${(_topicMastery!.ewa * 100).round()}%. '
+                        'Tap-to-dismiss.',
+                    triggerMode: TooltipTriggerMode.tap,
+                    showDuration: const Duration(seconds: 4),
+                    child: AlpPill(
+                      label:
+                          '${_topicTitle!} ▲ ${(_topicMastery!.ewa * 100).round()}%',
+                      color: AlpColors.colorGreen,
+                    ),
                   ),
                 if (pct < 70 && _topicTitle != null)
-                  AlpPill(
-                    label: '${_topicTitle!} — Review',
-                    color: AlpColors.colorAmber,
+                  Tooltip(
+                    message:
+                        'Suggested follow-up: queue up another short round on this topic to lock it in.',
+                    triggerMode: TooltipTriggerMode.tap,
+                    showDuration: const Duration(seconds: 4),
+                    child: AlpPill(
+                      label: '${_topicTitle!} — Review',
+                      color: AlpColors.colorAmber,
+                    ),
                   ),
-                AlpPill(
-                  label: pct >= 80 ? 'Top 15% this week' : pct >= 50 ? 'Top 40% this week' : 'Build foundations',
-                  color: AlpColors.colorPurple,
+                Tooltip(
+                  message: pct >= 80
+                      ? 'Strong round — IRT thinks you\'ve mostly nailed this difficulty. Try harder items.'
+                      : pct >= 50
+                          ? 'Steady round — about average for this difficulty band. A few weak points to revisit.'
+                          : 'Foundation round — this batch leaned hard. Spend a session on the basics before another mock.',
+                  triggerMode: TooltipTriggerMode.tap,
+                  showDuration: const Duration(seconds: 5),
+                  child: AlpPill(
+                    label: pct >= 80
+                        ? 'Strong round'
+                        : pct >= 50
+                            ? 'Steady round'
+                            : 'Build foundations',
+                    color: AlpColors.colorPurple,
+                  ),
                 ),
               ],
             ),
@@ -344,7 +416,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                     onToggle: widget.api == null ? null : () => _toggleBookmark(it),
                     onReport: widget.api == null ? null : () => _reportItem(it),
                     onAskAi: widget.api == null ? null : () => _askAiAbout(it),
-                  )),
+                  ),),
               const SizedBox(height: 24),
             ],
 
@@ -568,14 +640,21 @@ class _ItemReviewRow extends StatelessWidget {
 }
 
 class _StatTile extends StatelessWidget {
-  const _StatTile({required this.value, required this.label, required this.tone});
+  const _StatTile(
+      {required this.value,
+      required this.label,
+      required this.tone,
+      this.tooltip,});
   final String value;
   final String label;
   final Color tone;
+  // Long-press explainer for stats whose meaning isn't obvious — e.g.
+  // "Mastery Boost" for which only ML-savvy users guess at θ-shift.
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final body = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AlpColors.bgSurface2,
@@ -595,12 +674,30 @@ class _StatTile extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(color: AlpColors.textMuted, fontSize: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                label,
+                style:
+                    const TextStyle(color: AlpColors.textMuted, fontSize: 12),
+              ),
+              if (tooltip != null) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.info_outline,
+                    size: 11, color: AlpColors.textMuted,),
+              ],
+            ],
           ),
         ],
       ),
+    );
+    if (tooltip == null) return body;
+    return Tooltip(
+      message: tooltip!,
+      triggerMode: TooltipTriggerMode.tap,
+      showDuration: const Duration(seconds: 4),
+      child: body,
     );
   }
 }

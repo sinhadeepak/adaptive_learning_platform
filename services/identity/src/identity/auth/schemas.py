@@ -70,7 +70,11 @@ class User(BaseModel):
         "PLATFORM_ADMIN",
     ]
     tenantId: str | None = None
-    onboardingState: Literal["NEW", "EXAM_SELECTED", "ONBOARDED"]
+    # F2b — extended FSM with optional DIAGNOSTIC_DONE for tenants
+    # requiring a placement diagnostic in onboarding.
+    onboardingState: Literal[
+        "NEW", "EXAM_SELECTED", "DIAGNOSTIC_DONE", "ONBOARDED"
+    ]
 
 
 class Tokens(BaseModel):

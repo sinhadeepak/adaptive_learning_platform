@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,6 +42,7 @@ from identity.institution.core_repo import (
     list_cohorts_for_tenant,
     list_invite_claims,
     list_invites_for_cohort,
+    list_tenants,
     redact_invite_token,
     remove_cohort_member,
     slugify,
@@ -92,6 +93,50 @@ def _tenant_to_out(row: dict[str, Any]) -> TenantOut:
         createdAt=row["created_at"].isoformat(),
         updatedAt=row["updated_at"].isoformat(),
     )
+
+
+class TenantListEntry(BaseModel):
+    id: str
+    name: str
+    slug: str
+    kind: str
+    seatLimit: int | None
+    cohortCount: int
+    teacherCount: int
+    studentCount: int
+    createdAt: str
+
+
+class TenantListOut(BaseModel):
+    items: list[TenantListEntry]
+    total: int
+
+
+@router.get("/tenants", response_model=TenantListOut)
+async def get_tenants_list(
+    session: SessionDep,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> TenantListOut:
+    """Paged tenant directory for the admin Institutions page. Includes
+    cohort + teacher + student counts so the admin can spot empty tenants
+    without an extra round-trip per row."""
+    rows, total = await list_tenants(session, limit=limit, offset=offset)
+    items = [
+        TenantListEntry(
+            id=str(r["id"]),
+            name=r["name"],
+            slug=r["slug"],
+            kind=r["kind"],
+            seatLimit=r.get("seat_limit"),
+            cohortCount=r["cohort_count"],
+            teacherCount=r["teacher_count"],
+            studentCount=r["student_count"],
+            createdAt=r["created_at"].isoformat(),
+        )
+        for r in rows
+    ]
+    return TenantListOut(items=items, total=total)
 
 
 @router.post("/tenants", response_model=TenantOut, status_code=status.HTTP_201_CREATED)
@@ -248,6 +293,37 @@ async def post_member(
 async def get_members(cohort_id: str, session: SessionDep) -> list[MemberOut]:
     rows = await list_cohort_members(session, cohort_id)
     return [_member_to_out(r) for r in rows]
+
+
+@router.get("/tenants/{tenant_id}/members")
+async def get_tenant_members(tenant_id: str, session: SessionDep) -> dict:
+    """All users in a tenant via user_tenant_memberships. Used by
+    engagement.analytics.scope to resolve TENANT-scoped drill queries."""
+    rows = (
+        await session.execute(
+            text(
+                f"""
+                SELECT user_id::text AS user_id,
+                       is_primary,
+                       joined_at
+                  FROM {SCHEMA}.user_tenant_memberships
+                 WHERE tenant_id = CAST(:tid AS uuid)
+                """
+            ),
+            {"tid": tenant_id},
+        )
+    ).mappings().all()
+    return {
+        "tenantId": tenant_id,
+        "members": [
+            {
+                "userId": r["user_id"],
+                "isPrimary": bool(r["is_primary"]),
+                "joinedAt": r["joined_at"].isoformat() if r["joined_at"] else None,
+            }
+            for r in rows
+        ],
+    }
 
 
 @router.delete(

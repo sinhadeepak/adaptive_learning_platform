@@ -75,7 +75,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           role: u.role,
           onboardingState: u.onboardingState,
           tenantId: u.tenantId,
-        ));
+        ),);
       }
       setState(() {
         _saving = false;

@@ -162,6 +162,9 @@ async def list_questions_endpoint(
     scope: Annotated[str, Query(pattern="^(mine|all)$")] = "mine",
     question_type: Annotated[str | None, Query(alias="type")] = None,
     search: Annotated[str | None, Query(alias="q", max_length=200)] = None,
+    topic_id: Annotated[str | None, Query(alias="topic_id")] = None,
+    subject_id: Annotated[str | None, Query(alias="subject_id")] = None,
+    exam_id: Annotated[str | None, Query(alias="exam_id")] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> QuestionList:
@@ -171,6 +174,8 @@ async def list_questions_endpoint(
 
     Phase 5 (P5-S58) — adds optional pagination (limit, offset),
     type filter (?type=NUMERIC_DECIMAL), and stem ILIKE search (?q=...).
+    Phase 7 — catalog scope filters: topic_id / subject_id / exam_id.
+    All three are independent — pass any one or any combination.
     """
     if scope == "all":
         _require_role(principal, "MODERATOR", "INSTITUTION_ADMIN", "PLATFORM_ADMIN")
@@ -183,6 +188,9 @@ async def list_questions_endpoint(
         status_filter=status_filter,
         question_type=question_type,
         search=search,
+        topic_id=topic_id,
+        subject_id=subject_id,
+        exam_id=exam_id,
         limit=limit,
         offset=offset,
     )

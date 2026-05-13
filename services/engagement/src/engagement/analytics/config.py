@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Sprint 28 (P4-S28) — alp-learning base URL for the syllabus-tree
     # fetch in the coverage aggregator.
     learning_base_url: str = Field(default="http://learning:8000")
+    # Phase 1D-5 — Quiz service HTTP base for the mock-history fetch in
+    # rank_trajectory.
+    quiz_base_url: str = Field(default="http://quiz:8000")
 
 
 settings = Settings()

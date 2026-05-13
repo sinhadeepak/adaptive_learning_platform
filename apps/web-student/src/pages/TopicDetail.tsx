@@ -7,6 +7,15 @@ import { Banner, Pill, SkeletonRows } from "../components/dashboard";
 import { AITutorChat } from "../components/AITutorChat";
 import { ResourceShelf } from "../components/ResourceShelf";
 import { blockedLabel, summariseGate, type GateResponse } from "../lib/prereq_gate";
+// Phase 7 (P7-A1) — per-topic notes + importance pill.
+import { ImportancePill, type ImportanceMeta } from "../components/stats";
+import { notes as notesApi, importance as importanceApi } from "../lib/notes-api";
+// Phase 1C — time-to-mastery + mistake-replay.
+import { TimeToMasteryCard, MistakeReplayButton } from "../components/phase1c";
+// Phase 1D-2 — prerequisite map.
+import { PrerequisiteMap } from "../components/PrerequisiteMap";
+// Phase 1D-6 — video engagement card.
+import { VideoEngagementCard } from "../components/phase1d";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Topic Detail — AI Practice prep page.
@@ -50,6 +59,86 @@ export function TopicDetail() {
   >([]);
   // Sprint 26 (P4-S26) — prereq gate state.
   const [gate, setGate] = useState<GateResponse | null>(null);
+  // Phase 7 (P7-A1) — note editor + importance pill.
+  const [noteDraft, setNoteDraft] = useState<string>("");
+  const [noteOriginal, setNoteOriginal] = useState<string>("");
+  const [noteSavedAt, setNoteSavedAt] = useState<string | null>(null);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [notesOpen, setNotesOpen] = useState<boolean>(false);
+  // Difficulty picker for the "Practice this topic" button. `null`
+  // means closed; the value is the pre-selected band when opening so
+  // the modal can pre-highlight (e.g. Easy when the user re-opens
+  // after picking Easy last time).
+  const [difficultyPickerOpen, setDifficultyPickerOpen] = useState(false);
+  const [importance, setImportance] = useState<ImportanceMeta | null>(null);
+
+  // Load note + importance once topic is known.
+  useEffect(() => {
+    if (!topicId || !user?.id) return;
+    let cancelled = false;
+    notesApi
+      .get(user.id, topicId)
+      .then((n) => {
+        if (cancelled) return;
+        const md = n?.contentMd ?? "";
+        setNoteOriginal(md);
+        setNoteDraft(md);
+        setNoteSavedAt(n?.updatedAt ?? null);
+      })
+      .catch(() => {
+        /* 404 is fine — no note yet */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [topicId, user?.id]);
+
+  useEffect(() => {
+    // Importance is exam-scoped; fetch the user's primary exam from
+    // their profile and look up our topic.
+    if (!topicId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const p = await auth.fetch("/api/v1/profile/me");
+        if (!p.ok) return;
+        const pj = await p.json();
+        const examId = pj?.exams?.[0]?.examId;
+        if (!examId) return;
+        const list = await importanceApi.byExam(examId);
+        if (cancelled) return;
+        const match = list.find((t) => t.topicId === topicId);
+        if (match) {
+          setImportance({
+            weight: match.weight,
+            source: match.source,
+            confidence: match.confidence,
+            hidden: match.hidden,
+          });
+        }
+      } catch {
+        /* importance is best-effort */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [topicId]);
+
+  async function saveNote() {
+    if (!user?.id || !topicId) return;
+    if (noteDraft === noteOriginal) return; // nothing to save
+    setNoteError(null);
+    try {
+      const out = await notesApi.put(user.id, topicId, {
+        contentMd: noteDraft,
+      });
+      setNoteOriginal(out.contentMd);
+      setNoteSavedAt(out.updatedAt);
+    } catch (e) {
+      setNoteError((e as Error).message);
+    }
+  }
 
   useEffect(() => {
     if (!topicId) return;
@@ -138,7 +227,7 @@ export function TopicDetail() {
     await auth.fetch(`/api/v1/profile/bookmarks/${questionId}`, { method: "DELETE" });
   }
 
-  async function startQuiz() {
+  async function startQuiz(difficultyBand: DifficultyBand = "adaptive") {
     if (!topicId || !user || starting) return;
     setError(null);
     setStarting(true);
@@ -146,7 +235,15 @@ export function TopicDetail() {
       const r = await auth.fetch(`/api/v1/quiz/sessions/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topicId, userId: user.id, mode: "PRACTICE" }),
+        body: JSON.stringify({
+          topicId,
+          userId: user.id,
+          mode: "PRACTICE",
+          // Forward the chosen band so the picker seeds the initial
+          // ability estimate. The backend ignores unknown values and
+          // falls back to adaptive on the user's existing θ.
+          difficultyBand,
+        }),
       });
       if (r.status === 422) {
         setError("This topic doesn't have any practice questions yet.");
@@ -225,7 +322,14 @@ export function TopicDetail() {
               </Pill>
             ) : null}
           </div>
-          <h1 className="topic-hero-title">{topic.title}</h1>
+          <h1 className="topic-hero-title">
+            {topic.title}
+            {importance && (
+              <span style={{ marginLeft: 12, verticalAlign: "middle" }}>
+                <ImportancePill {...importance} />
+              </span>
+            )}
+          </h1>
           {/* Sprint 26 (P4-S26) — prereq gate pill. Hidden when no prereqs. */}
           {(() => {
             const state = summariseGate(gate);
@@ -280,11 +384,23 @@ export function TopicDetail() {
             <button
               type="button"
               className="btn btn-primary"
-              onClick={startQuiz}
+              onClick={() => startQuiz("adaptive")}
               disabled={starting}
             >
               {starting ? "Starting…" : "◈ Start AI practice"}
             </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setDifficultyPickerOpen(true)}
+              disabled={starting}
+              title="Pick a difficulty band and start a practice round"
+            >
+              ▦ Practice this topic
+            </button>
+            {user && topicId && (
+              <MistakeReplayButton userId={user.id} topicId={topicId} />
+            )}
             <button
               type="button"
               className="btn btn-ghost"
@@ -374,6 +490,38 @@ export function TopicDetail() {
         </div>
       </section>
 
+      {/* Phase 1C — Time-to-mastery card */}
+      {user && topicId && (
+        <section style={{ margin: "16px 0" }}>
+          <TimeToMasteryCard userId={user.id} topicId={topicId} />
+        </section>
+      )}
+
+      {/* Phase 1D-2 — Prerequisite map */}
+      {topicId && (
+        <section style={{ margin: "16px 0" }}>
+          <h3
+            style={{
+              fontSize: 13,
+              color: "var(--text-muted)",
+              textTransform: "uppercase",
+              letterSpacing: 0.04,
+              marginBottom: 8,
+            }}
+          >
+            Prerequisite map
+          </h3>
+          <PrerequisiteMap topicId={topicId} userId={user?.id} />
+        </section>
+      )}
+
+      {/* Phase 1D-6 — Watch history card for this topic */}
+      {topicId && (
+        <section style={{ margin: "16px 0" }}>
+          <VideoEngagementCard topicId={topicId} />
+        </section>
+      )}
+
       {error ? (
         <div style={{ marginTop: "var(--sp-4)" }}>
           <Banner tone="warning" role="alert">
@@ -386,7 +534,7 @@ export function TopicDetail() {
       {isWeak && mastery ? (
         <button
           type="button"
-          onClick={startQuiz}
+          onClick={() => startQuiz("adaptive")}
           disabled={starting}
           className="reco-banner"
           style={{
@@ -424,12 +572,108 @@ export function TopicDetail() {
 
       {/* ── Zone 4: About / Objectives / Prerequisites ──────────── */}
       <div style={{ marginTop: "var(--sp-5)" }}>
-        {topic.description ? (
-          <section className="topic-section">
+        <section className="topic-section">
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              flexWrap: "wrap",
+              gap: 12,
+            }}
+          >
             <h2 className="topic-section-title">About this topic</h2>
-            <p className="topic-section-body">{topic.description}</p>
-          </section>
-        ) : null}
+            <button
+              type="button"
+              onClick={() => setNotesOpen(true)}
+              className="btn btn-ghost"
+              style={{ fontSize: 12, padding: "4px 12px" }}
+              aria-label="Open notes for this topic"
+            >
+              📝 {noteOriginal ? "View / edit notes" : "Add notes"}
+              {noteOriginal && (
+                <span
+                  style={{
+                    marginLeft: 6,
+                    padding: "1px 6px",
+                    background: "var(--color-ai)",
+                    color: "#fff",
+                    borderRadius: 999,
+                    fontSize: 10,
+                    fontWeight: 700,
+                  }}
+                >
+                  saved
+                </span>
+              )}
+            </button>
+          </div>
+
+          {topic.description ? (
+            <p className="topic-section-body" style={{ marginTop: 8 }}>
+              {topic.description}
+            </p>
+          ) : (
+            <p
+              className="topic-section-body"
+              style={{ marginTop: 8, color: "var(--text-muted)" }}
+            >
+              No syllabus blurb supplied yet. Use the AI tutor below or your
+              own notes to capture what this chapter is about.
+            </p>
+          )}
+
+          {/* A small fact-grid so this card earns its real estate even
+              when the seed description is one line long. Items collapse
+              when the underlying datum is missing. */}
+          <dl
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: 12,
+              margin: "16px 0 0",
+              padding: 0,
+            }}
+          >
+            <AboutFact
+              label="Question bank"
+              value={`${topic.questionCount}`}
+              sub="ready to practise"
+            />
+            <AboutFact
+              label="Sessions logged"
+              value={mastery && mastery.n > 0 ? `${mastery.n}` : "—"}
+              sub={mastery && mastery.n > 0 ? "by you, so far" : "first attempt pending"}
+            />
+            <AboutFact
+              label="Your mastery"
+              value={mastery ? `${Math.round((mastery.ewa ?? 0) * 100)}%` : "—"}
+              sub="EWA over recent attempts"
+            />
+            {topic.prerequisites.length > 0 && (
+              <AboutFact
+                label="Prerequisites"
+                value={`${topic.prerequisites.length}`}
+                sub="chapters to know first"
+              />
+            )}
+            {importance && !importance.hidden ? (
+              <AboutFact
+                label="Exam relevance"
+                value={`${(importance.weight * 100).toFixed(1)}%`}
+                sub={
+                  importance.source === "pyq"
+                    ? "from past papers"
+                    : importance.source === "blueprint"
+                    ? "from section share"
+                    : importance.source === "override"
+                    ? "set by admin"
+                    : "default weighting"
+                }
+              />
+            ) : null}
+          </dl>
+        </section>
 
         {topic.objectives.length > 0 ? (
           <section className="topic-section">
@@ -573,7 +817,541 @@ export function TopicDetail() {
             </p>
           )}
         </section>
+
+        {/* Phase 7 (P7-A1) — per-topic notes are now opened via the
+            "View / edit notes" button in the About section. Keeping the
+            inline editor would have stretched the page; a modal makes
+            the editor a deliberate side-task instead of a scroll item. */}
       </div>
+
+      {notesOpen && (
+        <NotesModal
+          topicTitle={topic.title}
+          noteDraft={noteDraft}
+          setNoteDraft={setNoteDraft}
+          noteOriginal={noteOriginal}
+          noteSavedAt={noteSavedAt}
+          noteError={noteError}
+          onSave={() => void saveNote()}
+          onClose={() => setNotesOpen(false)}
+        />
+      )}
+
+      {difficultyPickerOpen && (
+        <DifficultyModal
+          topicTitle={topic.title}
+          currentMastery={mastery?.ewa ?? null}
+          starting={starting}
+          onPick={(band) => {
+            setDifficultyPickerOpen(false);
+            void startQuiz(band);
+          }}
+          onClose={() => setDifficultyPickerOpen(false)}
+        />
+      )}
     </AppShell>
+  );
+}
+
+// ─── Small helpers ──────────────────────────────────────────────────
+
+function AboutFact({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  return (
+    <div
+      style={{
+        padding: "10px 12px",
+        background: "var(--bg-surface1)",
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+      }}
+    >
+      <dt
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: 0.5,
+          textTransform: "uppercase",
+          color: "var(--text-faint)",
+          margin: 0,
+        }}
+      >
+        {label}
+      </dt>
+      <dd
+        style={{
+          fontSize: 18,
+          fontWeight: 700,
+          color: "var(--text-primary)",
+          lineHeight: 1.15,
+          margin: "4px 0 0",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {value}
+      </dd>
+      {sub && (
+        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type DifficultyBand = "adaptive" | "easy" | "medium" | "hard" | "mixed";
+
+interface DifficultyOption {
+  band: DifficultyBand;
+  label: string;
+  glyph: string;
+  blurb: string;
+  /** Suggested when this option is the closest fit for the user's
+   *  current mastery; null = don't suggest. */
+  recommendedFor?: (ewa: number | null) => boolean;
+}
+
+const DIFFICULTY_OPTIONS: DifficultyOption[] = [
+  {
+    band: "adaptive",
+    label: "Adaptive",
+    glyph: "◈",
+    blurb:
+      "AI picks each item to keep you in the flow corridor — slightly above your current θ.",
+    recommendedFor: () => true,
+  },
+  {
+    band: "easy",
+    label: "Easy",
+    glyph: "○",
+    blurb: "Recall-level items only. Good for warm-ups or building confidence on a weak chapter.",
+    recommendedFor: (ewa) => ewa !== null && ewa < 0.3,
+  },
+  {
+    band: "medium",
+    label: "Medium",
+    glyph: "◐",
+    blurb: "Application-level items. The bulk of the bank — typical exam difficulty.",
+    recommendedFor: (ewa) => ewa !== null && ewa >= 0.3 && ewa < 0.7,
+  },
+  {
+    band: "hard",
+    label: "Hard",
+    glyph: "●",
+    blurb: "Stretch items — analyse / evaluate Bloom levels. Use when mastery is already strong.",
+    recommendedFor: (ewa) => ewa !== null && ewa >= 0.7,
+  },
+  {
+    band: "mixed",
+    label: "Mixed",
+    glyph: "◑",
+    blurb: "Random across all difficulty bands. Closest to a real exam blueprint.",
+  },
+];
+
+function DifficultyModal({
+  topicTitle,
+  currentMastery,
+  starting,
+  onPick,
+  onClose,
+}: {
+  topicTitle: string;
+  currentMastery: number | null;
+  starting: boolean;
+  onPick: (band: DifficultyBand) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Choose practice difficulty for ${topicTitle}`}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(7,9,15,0.55)",
+        backdropFilter: "blur(2px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 50,
+        padding: 24,
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 560,
+          background: "var(--bg-surface2)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          boxShadow: "0 30px 60px rgba(0,0,0,0.25)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            padding: "14px 18px",
+            borderBottom: "1px solid var(--border)",
+            gap: 12,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--color-ai)",
+                letterSpacing: 0.6,
+                textTransform: "uppercase",
+              }}
+            >
+              ▦ Practice this topic
+            </div>
+            <h2
+              style={{
+                margin: "2px 0 0",
+                fontSize: 16,
+                fontWeight: 700,
+                color: "var(--text-primary)",
+              }}
+            >
+              {topicTitle}
+            </h2>
+            <p
+              style={{
+                margin: "4px 0 0",
+                fontSize: 12,
+                color: "var(--text-muted)",
+                lineHeight: 1.45,
+              }}
+            >
+              Pick the difficulty band you want this round to focus on. You can
+              always switch back to Adaptive — it's the platform default.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="btn btn-ghost"
+            style={{ padding: "4px 10px", fontSize: 14, lineHeight: 1 }}
+          >
+            ✕
+          </button>
+        </header>
+
+        <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+          {DIFFICULTY_OPTIONS.map((opt) => {
+            const recommended = opt.recommendedFor?.(currentMastery) ?? false;
+            return (
+              <button
+                key={opt.band}
+                type="button"
+                disabled={starting}
+                onClick={() => onPick(opt.band)}
+                style={{
+                  textAlign: "left",
+                  background: "var(--bg-surface1)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "12px 14px",
+                  cursor: starting ? "default" : "pointer",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 12,
+                  transition: "border-color 120ms, transform 120ms",
+                }}
+                onMouseEnter={(e) => {
+                  if (!starting) {
+                    e.currentTarget.style.borderColor = "var(--color-ai)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "var(--border)";
+                }}
+              >
+                <span
+                  aria-hidden
+                  style={{
+                    fontSize: 18,
+                    width: 24,
+                    textAlign: "center",
+                    color: "var(--color-ai)",
+                    marginTop: 1,
+                  }}
+                >
+                  {opt.glyph}
+                </span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    {opt.label}
+                    {recommended && (
+                      <span
+                        style={{
+                          padding: "1px 6px",
+                          borderRadius: 999,
+                          background: "var(--color-ai)",
+                          color: "#fff",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          letterSpacing: 0.3,
+                        }}
+                      >
+                        suggested
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: 2,
+                      fontSize: 12,
+                      color: "var(--text-muted)",
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {opt.blurb}
+                  </span>
+                </span>
+                <span
+                  aria-hidden
+                  style={{
+                    alignSelf: "center",
+                    fontSize: 14,
+                    color: "var(--text-faint)",
+                  }}
+                >
+                  →
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NotesModal({
+  topicTitle,
+  noteDraft,
+  setNoteDraft,
+  noteOriginal,
+  noteSavedAt,
+  noteError,
+  onSave,
+  onClose,
+}: {
+  topicTitle: string;
+  noteDraft: string;
+  setNoteDraft: (s: string) => void;
+  noteOriginal: string;
+  noteSavedAt: string | null;
+  noteError: string | null;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  // Esc closes; save-on-close ensures any unsaved edits don't vanish
+  // when the user dismisses the modal via backdrop / Esc.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (noteDraft !== noteOriginal) onSave();
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [noteDraft, noteOriginal, onSave, onClose]);
+
+  const dirty = noteDraft !== noteOriginal;
+  const status = noteError
+    ? `Save failed: ${noteError}`
+    : dirty
+    ? "Unsaved changes"
+    : noteSavedAt
+    ? `Saved ${new Date(noteSavedAt).toLocaleTimeString()}`
+    : "Private to you · 4096 char limit";
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Notes for ${topicTitle}`}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          if (dirty) onSave();
+          onClose();
+        }
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(7,9,15,0.55)",
+        backdropFilter: "blur(2px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 50,
+        padding: 24,
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 640,
+          background: "var(--bg-surface2)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          boxShadow: "0 30px 60px rgba(0,0,0,0.25)",
+          display: "flex",
+          flexDirection: "column",
+          maxHeight: "85vh",
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "14px 18px",
+            borderBottom: "1px solid var(--border)",
+            gap: 12,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--text-faint)",
+                letterSpacing: 0.6,
+                textTransform: "uppercase",
+              }}
+            >
+              📝 My notes
+            </div>
+            <h2
+              style={{
+                margin: "2px 0 0",
+                fontSize: 16,
+                fontWeight: 700,
+                color: "var(--text-primary)",
+              }}
+            >
+              {topicTitle}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (dirty) onSave();
+              onClose();
+            }}
+            aria-label="Close notes"
+            className="btn btn-ghost"
+            style={{ padding: "4px 10px", fontSize: 14 }}
+          >
+            ✕
+          </button>
+        </header>
+
+        <textarea
+          value={noteDraft}
+          onChange={(e) => setNoteDraft(e.target.value.slice(0, 4096))}
+          placeholder={`Notes on ${topicTitle}…\n\n# Heading\n- Bullet\n**bold** for key formulas`}
+          style={{
+            flex: 1,
+            minHeight: 280,
+            padding: 16,
+            margin: 0,
+            background: "var(--bg-surface1)",
+            border: 0,
+            outline: 0,
+            color: "var(--text-primary)",
+            fontFamily:
+              "'JetBrains Mono', 'Fira Code', ui-monospace, monospace",
+            fontSize: 13,
+            lineHeight: 1.55,
+            resize: "vertical",
+          }}
+          autoFocus
+        />
+
+        <footer
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "10px 18px",
+            borderTop: "1px solid var(--border)",
+            background: "var(--bg-surface1)",
+            gap: 12,
+          }}
+        >
+          <span style={{ fontSize: 11, color: noteError ? "var(--color-red)" : "var(--text-muted)" }}>
+            {status}
+          </span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ fontSize: 10, color: "var(--text-faint)" }}>
+              {noteDraft.length} / 4096
+            </span>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ fontSize: 12, padding: "4px 12px" }}
+              onClick={() => {
+                if (dirty) onSave();
+                onClose();
+              }}
+            >
+              Done
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ fontSize: 12, padding: "4px 14px" }}
+              disabled={!dirty}
+              onClick={onSave}
+            >
+              {dirty ? "Save" : "Saved"}
+            </button>
+          </div>
+        </footer>
+      </div>
+    </div>
   );
 }

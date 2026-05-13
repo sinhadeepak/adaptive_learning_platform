@@ -39,6 +39,8 @@ from learning.adaptive.weekly_narrative import (
 from learning.adaptive.mock import get_active_mock, plan_mock, score_mock
 from learning.adaptive.rank import project_rank
 from learning.adaptive.weakness import diagnose_weakness
+from learning.adaptive.lesson_recommender import recommend as _recommend_lesson
+from learning.adaptive import tutor_chat as _tutor_chat
 from learning.adaptive.irt import (
     CandidateItem,
     Item,
@@ -81,12 +83,24 @@ class AbilityRequest(BaseModel):
     responses: list[ResponseDTO] = Field(default_factory=list)
     prior_mean: float = 0.0
     prior_sd: float = 1.0
+    # F2a — when set, the engine looks up a per-user IRT prior in
+    # content_schema.user_theta_prior (populated from the screening
+    # diagnostic at /screening/{token}/persist). Only overrides
+    # `prior_mean` if the caller left it at the default 0.0 (so an
+    # explicit caller value still wins). exam_code optional: when
+    # absent the most-recent prior across all exams is used.
+    user_id: str | None = None
+    exam_code: str | None = None
 
 
 class AbilityResponse(BaseModel):
     theta: float
     se: float
     n: int
+    # F2a — surfaces the resolved prior so callers can log + verify it
+    # in tests. Mirrors what was used by EAP for this call.
+    prior_mean_used: float = 0.0
+    prior_sd_used: float = 1.0
 
 
 class SelectNextRequest(BaseModel):
@@ -108,8 +122,74 @@ async def post_ability(req: AbilityRequest) -> AbilityResponse:
     responses = [
         Response(item=Item(a=r.a, b=r.b, c=r.c), is_correct=r.is_correct) for r in req.responses
     ]
-    theta, se = eap_estimate(responses, prior_mean=req.prior_mean, prior_sd=req.prior_sd)
-    return AbilityResponse(theta=theta, se=se, n=len(responses))
+    # F2a — resolve a calibrated prior from the screening result if the
+    # caller didn't explicitly supply one. Default request prior_mean is
+    # 0.0; we treat a passed-in non-zero as an explicit override.
+    prior_mean = req.prior_mean
+    prior_sd = req.prior_sd
+    if req.user_id and prior_mean == 0.0:
+        resolved = await _lookup_user_prior(req.user_id, req.exam_code)
+        if resolved is not None:
+            prior_mean, prior_sd = resolved
+
+    theta, se = eap_estimate(responses, prior_mean=prior_mean, prior_sd=prior_sd)
+    return AbilityResponse(
+        theta=theta,
+        se=se,
+        n=len(responses),
+        prior_mean_used=prior_mean,
+        prior_sd_used=prior_sd,
+    )
+
+
+async def _lookup_user_prior(
+    user_id: str, exam_code: str | None,
+) -> tuple[float, float] | None:
+    """Return (prior_mean, prior_sd) from user_theta_prior, or None.
+
+    Prefers the exact (user_id, exam_code) match. Falls back to the
+    most-recent prior for the user across all exams when exam_code is
+    unknown or no per-exam row exists. Swallows DB errors — a missing
+    prior should never block adaptive sessions.
+    """
+    from sqlalchemy import text
+
+    from learning.content.db import sessionmaker as _sm
+
+    try:
+        async with _sm()() as session:
+            if exam_code:
+                row = (await session.execute(
+                    text(
+                        """
+                        SELECT prior_mean, prior_sd
+                          FROM content_schema.user_theta_prior
+                         WHERE user_id = CAST(:uid AS uuid)
+                           AND exam_code = :ec
+                         LIMIT 1
+                        """
+                    ),
+                    {"uid": user_id, "ec": exam_code},
+                )).fetchone()
+                if row is not None:
+                    return float(row[0]), float(row[1])
+            row = (await session.execute(
+                text(
+                    """
+                    SELECT prior_mean, prior_sd
+                      FROM content_schema.user_theta_prior
+                     WHERE user_id = CAST(:uid AS uuid)
+                     ORDER BY set_at DESC
+                     LIMIT 1
+                    """
+                ),
+                {"uid": user_id},
+            )).fetchone()
+            if row is not None:
+                return float(row[0]), float(row[1])
+    except Exception as e:  # noqa: BLE001
+        log.warning("user_theta_prior_lookup_failed", extra={"err": str(e)})
+    return None
 
 
 @router.post("/irt/select-next", response_model=SelectNextResponse)
@@ -153,6 +233,117 @@ async def get_guided_next_steps(
     return await build_guided_next_steps(user_id=user_id, exam_code=exam)
 
 
+# ── Phase 1D-3 — Tutor chat history ────────────────────────────────────
+
+
+@router.post("/adaptive/tutor/chat-sessions")
+async def create_tutor_chat_session(body: dict) -> dict:
+    """Create a new chat session. body: {userId, topicId?, title?}."""
+    from learning.content.db import sessionmaker as _sm
+
+    user_id = body.get("userId")
+    if not user_id:
+        raise HTTPException(status_code=400, detail={"code": "missing_userId"})
+    async with _sm()() as session:
+        sid = await _tutor_chat.create_session(
+            session,
+            user_id=user_id,
+            topic_id=body.get("topicId"),
+            title=body.get("title"),
+        )
+    return {"sessionId": sid}
+
+
+@router.post("/adaptive/tutor/chat-sessions/{session_id}/messages")
+async def append_tutor_chat_message(session_id: str, body: dict) -> dict:
+    """Append a message: {role: 'user'|'assistant', content: str}."""
+    from learning.content.db import sessionmaker as _sm
+
+    role = body.get("role")
+    content = body.get("content")
+    if role not in ("user", "assistant", "system") or not content:
+        raise HTTPException(status_code=400, detail={"code": "bad_message"})
+    async with _sm()() as session:
+        idx = await _tutor_chat.append_message(
+            session, session_id=session_id, role=role, content=content,
+        )
+    return {"sessionId": session_id, "idx": idx}
+
+
+@router.get("/adaptive/tutor/chat-sessions")
+async def list_tutor_chat_sessions(
+    userId: str = Query(...),
+    q: str | None = Query(default=None),
+    topicId: str | None = Query(default=None, alias="topicId"),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> dict:
+    from learning.content.db import sessionmaker as _sm
+
+    async with _sm()() as session:
+        rows = await _tutor_chat.list_sessions(
+            session, user_id=userId, q=q, topic_id=topicId, limit=limit,
+        )
+    return {
+        "sessions": [
+            {
+                "id": r.id,
+                "userId": r.user_id,
+                "topicId": r.topic_id,
+                "title": r.title,
+                "summary": r.summary,
+                "startedAt": r.started_at,
+                "lastMsgAt": r.last_msg_at,
+                "msgCount": r.msg_count,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/adaptive/tutor/chat-sessions/{session_id}")
+async def get_tutor_chat_transcript(session_id: str) -> dict:
+    from learning.content.db import sessionmaker as _sm
+
+    async with _sm()() as session:
+        head, msgs = await _tutor_chat.get_transcript(session, session_id=session_id)
+    if head is None:
+        raise HTTPException(status_code=404, detail={"code": "not_found"})
+    return {
+        "id": head.id,
+        "userId": head.user_id,
+        "topicId": head.topic_id,
+        "title": head.title,
+        "summary": head.summary,
+        "startedAt": head.started_at,
+        "lastMsgAt": head.last_msg_at,
+        "msgCount": head.msg_count,
+        "messages": [
+            {"idx": m.idx, "role": m.role, "contentMd": m.content_md, "createdAt": m.created_at}
+            for m in msgs
+        ],
+    }
+
+
+@router.delete("/adaptive/tutor/chat-sessions/{session_id}", status_code=204)
+async def delete_tutor_chat_session(session_id: str) -> None:
+    from learning.content.db import sessionmaker as _sm
+
+    async with _sm()() as session:
+        ok = await _tutor_chat.delete_session(session, session_id=session_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail={"code": "not_found"})
+
+
+@router.get("/adaptive/lesson-recommender")
+async def get_lesson_recommendation(
+    cohort_id: str = Query(..., alias="cohortId", description="Cohort UUID."),
+    exam_id: str | None = Query(default=None, alias="examId", description="Exam UUID for importance weighting."),
+) -> dict:
+    """Top-3 topics for a teacher's next class. Score = weakness × importance.
+    LLM-narrated when available; heuristic fallback otherwise."""
+    return await _recommend_lesson(cohort_id=cohort_id, exam_id=exam_id)
+
+
 @router.get("/adaptive/rank-projection/{user_id}")
 async def get_rank_projection(
     user_id: str,
@@ -164,12 +355,21 @@ async def get_rank_projection(
 
 
 @router.get("/adaptive/weakness-diagnosis/{user_id}")
-async def get_weakness_diagnosis(user_id: str) -> dict:
+async def get_weakness_diagnosis(
+    user_id: str,
+    exam: str | None = Query(default=None),
+) -> dict:
     """Cross-topic weakness patterns. Pulls recent answered items + per-topic
     EWA, asks the LLM to find sub-skill clusters that span multiple topics
     (the kind per-topic mastery hides). Heuristic fallback when LLM is off
-    or evidence is too thin."""
-    return await diagnose_weakness(user_id=user_id)
+    or evidence is too thin.
+
+    When ``exam`` is supplied (the active exam code from the calling
+    surface) the diagnosis is filtered to topics within that exam's
+    catalog — preventing a UPSC student from getting "Force & Pressure"
+    weakness patterns from CBSE Class 8 sessions and vice versa.
+    """
+    return await diagnose_weakness(user_id=user_id, exam_code=exam)
 
 
 # ---- Mock tests ----------------------------------------------------------
@@ -472,7 +672,9 @@ async def post_session_insights(req: SessionInsightsRequest) -> dict:
 
 class AuthoringGenerateRequest(BaseModel):
     topicId: str
-    count: int = Field(default=5, ge=1, le=30)
+    # Cap raised P7 — backing impl batches into chunks of 20 so up to
+    # 100 items can be requested in one call (~5 OpenAI round-trips).
+    count: int = Field(default=5, ge=1, le=100)
     language: str = Field(default="en", pattern="^(en|hi)$")
     difficulty: str = Field(default="mixed", pattern="^(easy|medium|hard|mixed)$")
     brief: str = Field(default="", max_length=2000)
@@ -562,6 +764,10 @@ class TutorChatRequest(BaseModel):
     topicId: str
     messages: list[TutorMessage] = Field(min_length=1, max_length=20)
     userId: str | None = None
+    # Phase 1D-3 — persist + resume. When chatSessionId is provided, append
+    # the latest user message + the assistant reply to that session.
+    # When omitted *and* userId is set, a new session is created.
+    chatSessionId: str | None = None
 
 
 @router.post("/adaptive/tutor/chat")
@@ -570,18 +776,81 @@ async def post_tutor_chat(req: TutorChatRequest) -> StreamingResponse:
     frame carries a content delta. Frontend reads with EventSource and appends
     deltas to the assistant bubble as they arrive."""
 
+    # Phase 1D-3 — context recall. If userId is set, fetch the last 3
+    # session summaries to seed the LLM context. Persist the latest user
+    # message immediately; persist the assistant reply at stream end.
+    from learning.content.db import sessionmaker as _sm
+
+    chat_session_id: str | None = req.chatSessionId
+    enriched_history: list[dict] = []
+
+    if req.userId and req.messages:
+        latest = req.messages[-1]
+        prior_lines: list[str] = []
+        try:
+            async with _sm()() as sess:
+                if chat_session_id is None:
+                    # Create a session and reuse stem of first user message as title.
+                    title = next(
+                        (m.content[:60] for m in req.messages if m.role == "user"),
+                        None,
+                    )
+                    chat_session_id = await _tutor_chat.create_session(
+                        sess, user_id=req.userId, topic_id=req.topicId, title=title,
+                    )
+                    # Persist all caller-supplied messages (the conversation we're
+                    # continuing from). The model gets these in `history`.
+                    for m in req.messages:
+                        await _tutor_chat.append_message(
+                            sess, session_id=chat_session_id, role=m.role, content=m.content,
+                        )
+                else:
+                    # Existing session — only append the new user turn.
+                    if latest.role == "user":
+                        await _tutor_chat.append_message(
+                            sess, session_id=chat_session_id, role="user", content=latest.content,
+                        )
+                # Pull last-3 prior summaries for context.
+                prior_lines = await _tutor_chat.prior_summaries(sess, user_id=req.userId, limit=3)
+        except Exception:
+            log.exception("tutor_chat.persist_failed user=%s", req.userId)
+        if prior_lines:
+            enriched_history.append({
+                "role": "system",
+                "content": "Recent past tutor sessions for context: " + " | ".join(prior_lines),
+            })
+
+    enriched_history.extend(
+        {"role": m.role, "content": m.content} for m in req.messages
+    )
+
     async def sse() -> "AsyncIterator[bytes]":  # type: ignore[name-defined]
-        history = [{"role": m.role, "content": m.content} for m in req.messages]
+        import json as _json
+
+        # Send session-id frame first so client knows what to keep on follow-ups.
+        if chat_session_id:
+            yield f"data: {_json.dumps({'chatSessionId': chat_session_id})}\n\n".encode()
+
+        full = []
         try:
             async for delta in stream_tutor_response(
-                topic_id=req.topicId, messages=history, user_id=req.userId
+                topic_id=req.topicId, messages=enriched_history, user_id=req.userId
             ):
-                # SSE frame: each `data:` line is one delta. JSON-encode so newlines
-                # in the model output don't break the protocol's line-delimited shape.
-                import json as _json
-
+                full.append(delta)
                 yield f"data: {_json.dumps({'delta': delta})}\n\n".encode()
         finally:
+            # Persist assistant reply (best-effort).
+            if chat_session_id and full and req.userId:
+                try:
+                    async with _sm()() as sess:
+                        await _tutor_chat.append_message(
+                            sess,
+                            session_id=chat_session_id,
+                            role="assistant",
+                            content="".join(full)[:32000],
+                        )
+                except Exception:
+                    log.exception("tutor_chat.assistant_persist_failed")
             yield b"data: [DONE]\n\n"
 
     return StreamingResponse(sse(), media_type="text/event-stream")

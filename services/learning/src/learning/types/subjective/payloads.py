@@ -70,8 +70,26 @@ class EssayPayload(BaseModel):
         return self
 
 
+class UploadedAttachment(BaseModel):
+    """Phase 7 — student-uploaded artefact (handwritten photo, PDF, etc.).
+    The browser presigns + uploads to MinIO; we record the resulting
+    object key + a few descriptive fields. Bytes never travel through
+    grading."""
+
+    object_key: str = Field(min_length=1, max_length=512, alias="objectKey")
+    content_type: str | None = Field(default=None, max_length=120, alias="contentType")
+    size: int | None = Field(default=None, ge=0)
+    original_name: str | None = Field(default=None, max_length=200, alias="originalName")
+
+    model_config = {"populate_by_name": True, "extra": "ignore"}
+
+
 class EssayResponse(BaseModel):
     text: str | None = Field(default=None, max_length=20_000)
+    # Phase 7 — student may attach a photo/PDF instead of (or alongside)
+    # typed text. Empty list means "no upload"; honoured by the handler
+    # when computing UNATTEMPTED.
+    attachments: list[UploadedAttachment] = Field(default_factory=list)
 
 
 # ── DESCRIPTIVE_LONG ─────────────────────────────────────────────────────────
@@ -88,6 +106,7 @@ class DescriptiveLongPayload(BaseModel):
 
 class DescriptiveLongResponse(BaseModel):
     text: str | None = Field(default=None, max_length=20_000)
+    attachments: list[UploadedAttachment] = Field(default_factory=list)
 
 
 # ── CASE_STUDY (composite) ───────────────────────────────────────────────────
@@ -103,26 +122,90 @@ class ChildReference(BaseModel):
     ordinal: int = Field(ge=1)
 
 
+class CaseStudySubQuestion(BaseModel):
+    """Inline sub-question used by the flat seed shape (`sub_questions`).
+
+    Not a separate Question row — the prompt + word range live entirely
+    inside the parent question's payload. The student answer for each
+    sub-question lives in `CaseStudyResponse.answers` keyed by `id`.
+    """
+
+    id: str = Field(min_length=1, max_length=40)
+    prompt: str = Field(min_length=1, max_length=4000)
+    expected_word_count_range: tuple[int, int] | None = None
+
+
+class CaseStudyRubricItem(BaseModel):
+    """Loose rubric item used by the flat seed shape — `criterion` is
+    a free-form name (not a separately-validated `id`), and weights
+    don't have to sum to 100 (they often will, but seeding is best-effort)."""
+
+    criterion: str = Field(min_length=1, max_length=80)
+    weight: float = Field(ge=0, le=100)
+    description: str | None = Field(default=None, max_length=500)
+
+
 class CaseStudyPayload(BaseModel):
-    scenario: str = Field(min_length=20, max_length=20_000)
-    child_questions: list[ChildReference] = Field(min_length=2, max_length=10)
+    """Two shapes are accepted, distinguished by which set of fields
+    is populated:
+
+    - **Composite** (legacy, P5 design) — `scenario` + `child_questions`.
+      Each child is its own Question row graded independently.
+    - **Flat / inline** (P7 seed shape) — `case_facts` + `sub_questions`
+      + optional `rubric`. Sub-questions are inlined; their answers
+      live as a `{sub_id: text}` map in the response.
+
+    Validation only requires *one* shape to be valid. The handler
+    detects which one is present and dispatches accordingly.
+    """
+
+    # Composite shape
+    scenario: str | None = Field(default=None, min_length=20, max_length=20_000)
+    child_questions: list[ChildReference] | None = Field(
+        default=None, min_length=2, max_length=10,
+    )
+
+    # Flat / inline shape (P7)
+    case_facts: str | None = Field(default=None, min_length=1, max_length=20_000)
+    sub_questions: list[CaseStudySubQuestion] | None = Field(
+        default=None, min_length=1, max_length=10,
+    )
+    rubric: list[CaseStudyRubricItem] | None = None
 
     @model_validator(mode="after")
-    def _ordinals_unique_and_dense(self) -> "CaseStudyPayload":
-        ords = [c.ordinal for c in self.child_questions]
-        if len(ords) != len(set(ords)):
-            raise ValueError("child ordinals must be unique")
-        if sorted(ords) != list(range(1, len(ords) + 1)):
+    def _at_least_one_shape(self) -> "CaseStudyPayload":
+        composite = self.scenario is not None and self.child_questions is not None
+        flat = self.case_facts is not None or self.sub_questions is not None
+        if not composite and not flat:
             raise ValueError(
-                f"child ordinals must be 1..N consecutive; got {sorted(ords)}"
+                "CaseStudyPayload requires either (scenario + child_questions) "
+                "or (case_facts/sub_questions); got neither"
             )
+        if composite:
+            ords = [c.ordinal for c in self.child_questions or []]
+            if len(ords) != len(set(ords)):
+                raise ValueError("child ordinals must be unique")
+            if sorted(ords) != list(range(1, len(ords) + 1)):
+                raise ValueError(
+                    f"child ordinals must be 1..N consecutive; got {sorted(ords)}"
+                )
         return self
 
 
 class CaseStudyResponse(BaseModel):
-    """Composite response — children evaluated via their own handlers."""
+    """Two response shapes mirror the two payload shapes above.
 
+    - **Composite** — `children: [{question_id, response_payload}, …]`.
+    - **Flat** — `answers: {sub_id: text}` + `attachments: {sub_id: [...]}`.
+      Attachments are an optional alternative-or-supplement to typed text.
+    """
+
+    # Composite
     children: list["ChildResponse"] = Field(default_factory=list)
+
+    # Flat / inline (P7)
+    answers: dict[str, str | None] | None = None
+    attachments: dict[str, list[UploadedAttachment]] | None = None
 
 
 class ChildResponse(BaseModel):

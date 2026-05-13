@@ -120,7 +120,7 @@ export function ActivityHeatmap({ days = 30 }: { days?: number }) {
                   height: 16,
                   borderRadius: 3,
                   background: heatColor(c.intensity),
-                  border: "1px solid rgba(255,255,255,0.04)",
+                  border: "1px solid var(--surface-elev1)",
                 }}
               />
             ))}
@@ -165,7 +165,10 @@ export function ActivityHeatmap({ days = 30 }: { days?: number }) {
 function heatColor(intensity: DayCell["intensity"]): string {
   switch (intensity) {
     case 0:
-      return "var(--bg-surface-3, rgba(255,255,255,0.04))";
+      // Typo-bug fix: the original used --bg-surface-3 (with dashes) which
+      // never resolves; the rgba fallback always rendered. Use the actual
+      // token name so the empty heatmap cells re-theme.
+      return "var(--bg-surface3)";
     case 1:
       return "rgba(99, 102, 241, 0.30)";
     case 2:

@@ -53,6 +53,24 @@ def require_user(authorization: Annotated[str | None, Header()] = None) -> Princ
     return _decode(token)
 
 
+def optional_user(
+    authorization: Annotated[str | None, Header()] = None,
+) -> Principal | None:
+    """Soft auth: returns the Principal if a valid bearer token is
+    present, else None. Used by routes (e.g. course detail) that want
+    to serve a public preview to anonymous callers and the full
+    payload to authenticated ones — without 401-ing on missing /
+    invalid auth.
+    """
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        return _decode(token)
+    except HTTPException:
+        return None
+
+
 def require_admin(p: Annotated[Principal, Depends(require_user)]) -> Principal:
     # Identity's current JWT shape carries `role` but not always
     # `admin_access_level` (the latter is only set when an admin scope

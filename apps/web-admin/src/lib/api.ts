@@ -103,6 +103,13 @@ export const flags = {
 
 // Educator scope — manage which educator can author against which exam.
 
+export interface AdminUserInstitution {
+  id: string;
+  name: string;
+  slug: string;
+  kind: "SCHOOL" | "COACHING_CENTER" | "UNIVERSITY" | "OTHER";
+}
+
 export interface AdminUserSummary {
   id: string;
   email: string;
@@ -110,6 +117,7 @@ export interface AdminUserSummary {
   role: string;
   adminAccessLevel: string;
   accountStatus: string;
+  institution: AdminUserInstitution | null;
 }
 
 export interface AdminCatalogExam {
@@ -216,7 +224,31 @@ export interface AdminCohortMember {
   joinedAt: string;
 }
 
+export interface AdminTenantListEntry {
+  id: string;
+  name: string;
+  slug: string;
+  kind: AdminTenant["kind"];
+  seatLimit: number | null;
+  cohortCount: number;
+  teacherCount: number;
+  studentCount: number;
+  createdAt: string;
+}
+
 export const tenants = {
+  async list(opts: { limit?: number; offset?: number } = {}): Promise<{
+    items: AdminTenantListEntry[];
+    total: number;
+  }> {
+    const p = new URLSearchParams();
+    if (opts.limit) p.set("limit", String(opts.limit));
+    if (opts.offset) p.set("offset", String(opts.offset));
+    const url = `${env.apiBaseUrl}/institution/tenants${p.toString() ? `?${p}` : ""}`;
+    const res = await auth.fetch(url);
+    return asJson<{ items: AdminTenantListEntry[]; total: number }>(res);
+  },
+
   async create(input: {
     name: string;
     kind: AdminTenant["kind"];
@@ -392,6 +424,28 @@ export interface TutorAdminAction {
   reason: string | null;
   createdAt: string;
 }
+
+// ── Ops dashboard — local infra health ───────────────────────────────
+
+export interface OpsInfraComponent {
+  name: string;
+  kind: "service" | "infra";
+  status: "ok" | "down" | "degraded";
+  detail?: string | null;
+  metric?: Record<string, number | string> | null;
+}
+
+export interface OpsInfraResponse {
+  components: OpsInfraComponent[];
+  checkedAt: string;
+}
+
+export const opsAdmin = {
+  async infra(): Promise<OpsInfraResponse> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/admin/ops/infra`);
+    return asJson<OpsInfraResponse>(res);
+  },
+};
 
 export const marketplaceAdmin = {
   async queue(status = "KYC_VERIFIED"): Promise<TutorQueueItem[]> {

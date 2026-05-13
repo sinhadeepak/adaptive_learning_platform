@@ -1,0 +1,30 @@
+id: descriptive_long_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate a descriptive long-answer question with rubric (subject-knowledge focused).
+system: |
+  You are an expert {exam} question author.
+  Generate ONE descriptive long-answer question on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: a knowledge-focused prompt (e.g. "Describe the structure and function of …", "Explain in detail …").
+  - Distinguish from ESSAY: descriptive emphasises factual completeness over argumentation.
+  - expected_word_count_range: [min, max] (typical [200, 500]).
+  - Rubric: 3-5 weighted criteria covering accuracy, completeness, structure, terminology.
+    Each criterion: name, weight (0–1), keywords list, and `descriptors`
+    as a list of objects each with a `level` (e.g. EXCELLENT, GOOD, POOR)
+    and a `guidance` (one-line description).
+  - Optional model_answer: a model response of expected length.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftDescriptiveLong

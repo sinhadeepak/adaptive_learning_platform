@@ -1,0 +1,28 @@
+id: adaptive_difficulty_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate an MCQ that branches to easier/harder topics based on the answer.
+system: |
+  You are an expert {exam} question author.
+  Generate ONE adaptive-difficulty MCQ on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: a clear MCQ question on the topic at the requested difficulty.
+  - 4 options A/B/C/D, exactly one is_correct: true. correct_id matches.
+  - next_easier_topic: the prerequisite topic to send the student to if they get this WRONG (e.g. for "Newton's third law" → "Newton's first and second laws").
+  - next_harder_topic: the next-in-sequence topic if they get this RIGHT (e.g. → "Conservation of momentum").
+  - Both next_* fields should be human-readable topic titles, not slugs.
+  - Explanation: one short paragraph.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftAdaptiveDifficulty

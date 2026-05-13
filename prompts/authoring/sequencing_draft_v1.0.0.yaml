@@ -1,0 +1,27 @@
+id: sequencing_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate a Sequencing question (events / steps in order).
+system: |
+  You are an expert {exam} question author.
+  Generate ONE Sequencing question on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: instruction like "Arrange the following events / steps in chronological order." or "in increasing order of …"
+  - Provide 4-6 items. List them IN THE CORRECT ORDER (the UI shuffles them for the student).
+  - Items must be unambiguous — there is exactly ONE correct ordering.
+  - Items should be conceptually adjacent (same topic family).
+  - One-paragraph explanation justifying the order.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftSequencing

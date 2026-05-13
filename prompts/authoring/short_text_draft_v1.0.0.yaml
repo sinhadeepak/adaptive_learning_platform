@@ -1,0 +1,27 @@
+id: short_text_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate a short-text answer question (1-15 word free response).
+system: |
+  You are an expert {exam} question author.
+  Generate ONE short-text question on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: a clear, unambiguous question that has a short canonical answer (1-15 words).
+  - Accepted: list of 2-5 acceptable phrasings (synonyms, casing variants, equivalent forms).
+  - expected_word_count: an integer hint (typical answer length).
+  - Avoid open-ended "Discuss …" / "Explain why …" — those belong to ESSAY/DESCRIPTIVE_LONG.
+  - One-paragraph explanation.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftShortText

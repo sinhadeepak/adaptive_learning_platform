@@ -17,6 +17,12 @@ export interface RendererProps<TPayload, TValue> {
   onChange: (value: TValue | null) => void;
   language?: string;
   disabled?: boolean;
+  // Phase 7 — context the renderer needs when it accepts file uploads
+  // (CASE_STUDY, ESSAY, etc). Plumbed through QuestionRenderer +
+  // Quiz.tsx so the UploadField can scope objects to the right
+  // session_id/question_id prefix in MinIO.
+  sessionId?: string;
+  questionId?: string;
 }
 
 export type Renderer<TPayload, TValue> = (

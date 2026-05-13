@@ -1,0 +1,29 @@
+id: case_study_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate a case-study (real-world scenario) with sub-questions.
+system: |
+  You are an expert {exam} question author.
+  Generate ONE case-study question on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: brief framing (e.g. "Read the case below and answer the questions.").
+  - scenario: 200-400 words describing a real-world or simulated situation. Include specific details (numbers, dates, named entities) that the sub-questions reference.
+  - sub_questions: 3-5 entries.
+    Each: sub_id ("Q1"...), sub_stem, sub_type (MCQ_SINGLE or SHORT_TEXT or DESCRIPTIVE_LONG),
+    sub_payload_json (type-appropriate payload as a JSON STRING — see comprehension prompt for examples).
+  - Sub-questions should test analysis and application, not just recall.
+  - Optional explanation paragraph.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftCaseStudy

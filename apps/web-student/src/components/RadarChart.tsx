@@ -118,7 +118,7 @@ export function RadarChart({
               fontSize={11}
               textAnchor={isRight ? "start" : isLeft ? "end" : "middle"}
               dominantBaseline={isTop ? "auto" : isBottom ? "hanging" : "middle"}
-              fill="var(--text-base, #0f172a)"
+              fill="var(--text-primary)"
               fontWeight={500}
             >
               {p.label}

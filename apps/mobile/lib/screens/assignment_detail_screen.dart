@@ -98,7 +98,7 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
       children: [
         Text('Score: ${r.correctCount}/${r.totalCount}',
             style:
-                const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),),
         const SizedBox(height: 8),
         Text(
           r.correctCount == r.totalCount
@@ -125,7 +125,7 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text('Q${b.position}',
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                          style: const TextStyle(fontWeight: FontWeight.w600),),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -147,7 +147,7 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text('💡 ${b.explanation!}',
-                          style: const TextStyle(fontSize: 13)),
+                          style: const TextStyle(fontSize: 13),),
                     ),
                   ],
                 ],
@@ -194,12 +194,12 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
       children: [
         Text(_assignment!.title,
             style:
-                const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),),
         if (formatDueAt(_assignment!).isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(formatDueAt(_assignment!),
-                style: const TextStyle(color: Colors.black54)),
+                style: const TextStyle(color: Colors.black54),),
           ),
         const SizedBox(height: 16),
         // Sprint 12 S12-D — primary CTA: route through the real Quiz
@@ -223,7 +223,7 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('${q.position}. ${q.stem ?? "Question ${q.position}"}',
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                    style: const TextStyle(fontWeight: FontWeight.w600),),
                 if (q.choices != null)
                   ...List.generate(q.choices!.length, (idx) {
                     final letter = String.fromCharCode(65 + idx);

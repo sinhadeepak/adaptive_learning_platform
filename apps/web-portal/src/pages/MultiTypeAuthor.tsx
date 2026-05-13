@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill } from "../components/primitives";
 import { AIDraftPanel, AI_DRAFT_SUPPORTED_TYPES } from "../components/AIDraftPanel";
+import { BulkAIGenerator } from "../components/BulkAIGenerator";
 import { ConceptTagger, type ConceptTag } from "../components/ConceptTagger";
 import { RubricEditor, type RubricCriterion } from "../components/RubricEditor";
 import {
@@ -39,9 +40,11 @@ import {
 //   - Visual  (DIAGRAM_HOTSPOT, _LABEL, MAP_LOCATION, PICTORIAL_IDENTIFY)
 //                                         → DiagramAuthoringCanvas
 //
-// CASE_STUDY (composite parent) + Audio/Video + Interactive ship as
-// stubs — selecting them surfaces a "Phase 2" banner with a pointer
-// to the standalone authoring tools.
+// Per ADR-0026 (2026-05-11) — CASE_STUDY now ships as inline
+// sub-questions authoring; Audio/Video (LISTENING_COMP, VIDEO_QUESTION)
+// + Interactive (KBC_LIFELINE, TIMED_REVEAL, ADAPTIVE_DIFFICULTY) are
+// un-gated with full authoring forms. All 29 types are creatable
+// end-to-end.
 // ─────────────────────────────────────────────────────────────────────────
 
 type Family = "Objective" | "Numeric" | "Matching" | "Fill-in" | "Subjective" | "Visual & Spatial" | "Audio/Video" | "Interactive";
@@ -118,6 +121,46 @@ export function MultiTypeAuthor() {
   // Fill-in-family fields
   const [fillTemplate, setFillTemplate] = useState("");
   const [fillAccepted, setFillAccepted] = useState<string[]>([""]);
+
+  // Subjective composite (CASE_STUDY) — per ADR-0026 we ship inline
+  // sub-question authoring so the type is fully creatable end-to-end.
+  const [caseFacts, setCaseFacts] = useState("");
+  const [subQuestions, setSubQuestions] = useState<
+    { id: string; prompt: string; min_words: number; max_words: number }[]
+  >([
+    { id: "a", prompt: "", min_words: 50, max_words: 150 },
+  ]);
+
+  // Phase 2 — Audio/Video (LISTENING_COMP, VIDEO_QUESTION)
+  const [avMediaId, setAvMediaId] = useState("");
+  const [avTranscript, setAvTranscript] = useState("");
+  const [avTranscriptLang, setAvTranscriptLang] = useState("en");
+  const [avChildren, setAvChildren] = useState<
+    { question_id: string; ordinal: number; timestamp_seconds?: number }[]
+  >([{ question_id: "", ordinal: 1 }]);
+
+  // Phase 2 — Interactive (KBC_LIFELINE, TIMED_REVEAL, ADAPTIVE_DIFFICULTY)
+  const [innerQuestionId, setInnerQuestionId] = useState("");
+  const [kbcLifelines, setKbcLifelines] = useState<{
+    fifty_fifty: boolean;
+    audience_poll: boolean;
+    phone_a_friend: boolean;
+  }>({ fifty_fifty: true, audience_poll: false, phone_a_friend: false });
+  const [audiencePollDist, setAudiencePollDist] = useState<
+    Record<string, number>
+  >({ A: 60, B: 20, C: 10, D: 10 });
+  const [initialStem, setInitialStem] = useState("");
+  const [revealSteps, setRevealSteps] = useState<
+    { at_seconds: number; additional_info: string }[]
+  >([{ at_seconds: 10, additional_info: "" }]);
+  const [revealsMakeEasier, setRevealsMakeEasier] = useState(true);
+  const [difficultyVariants, setDifficultyVariants] = useState<
+    { question_id: string; difficulty_level: number }[]
+  >([
+    { question_id: "", difficulty_level: 1 },
+    { question_id: "", difficulty_level: 3 },
+  ]);
+  const [startingDifficulty, setStartingDifficulty] = useState(2);
 
   // Quality + lifecycle
   const [warnings, setWarnings] = useState<QualityWarning[]>([]);
@@ -332,22 +375,95 @@ export function MultiTypeAuthor() {
           ),
         };
       } else if (family === "Subjective") {
-        typedPayload = {
-          model_answer: modelAnswer,
-          expected_word_count_range: expectedWordRange,
-          rubric: rubric.map((r) => ({
-            criterion: r.text,
-            weight: r.weight,
-            keywords: r.keywords,
-            descriptors: r.descriptors,
-          })),
-        };
+        if (typeId === "CASE_STUDY") {
+          // Per ADR-0026 §"Authoring + rendering contract" — CASE_STUDY
+          // ships as inline sub-questions. The handler reads either
+          // shape (legacy composite child_questions or inline
+          // sub_questions); we emit the inline shape.
+          typedPayload = {
+            case_facts: caseFacts,
+            sub_questions: subQuestions.map((sq) => ({
+              id: sq.id,
+              prompt: sq.prompt,
+              expected_word_count_range: [sq.min_words, sq.max_words],
+            })),
+            rubric: rubric.map((r) => ({
+              criterion: r.text,
+              weight: r.weight,
+              description: r.descriptors?.join(" · "),
+            })),
+          };
+        } else if (typeId === "COMPREHENSION_LONG") {
+          typedPayload = {
+            passage: stem,
+            child_questions: avChildren.map((c) => ({
+              question_id: c.question_id,
+              ordinal: c.ordinal,
+            })),
+          };
+        } else {
+          typedPayload = {
+            model_answer: modelAnswer,
+            expected_word_count_range: expectedWordRange,
+            rubric: rubric.map((r) => ({
+              criterion: r.text,
+              weight: r.weight,
+              keywords: r.keywords,
+              descriptors: r.descriptors,
+            })),
+          };
+        }
       } else if (family === "Visual & Spatial") {
         typedPayload = {
           image_url: imageUrl ?? null,
           shapes,
           markers,
         };
+      } else if (family === "Audio/Video") {
+        // LISTENING_COMP / VIDEO_QUESTION — composite over child
+        // questions; per ADR-0026 the parent payload carries the media
+        // reference + transcript + child refs.
+        const mediaIdField =
+          typeId === "LISTENING_COMP" ? "audio_media_id" : "video_media_id";
+        typedPayload = {
+          [mediaIdField]: avMediaId,
+          transcript: avTranscript || null,
+          transcript_language: avTranscriptLang,
+          child_questions: avChildren.filter((c) => c.question_id).map((c) => ({
+            question_id: c.question_id,
+            ordinal: c.ordinal,
+            timestamp_seconds: c.timestamp_seconds ?? null,
+          })),
+        };
+      } else if (family === "Interactive") {
+        if (typeId === "KBC_LIFELINE") {
+          const available: string[] = [];
+          if (kbcLifelines.fifty_fifty) available.push("50_50");
+          if (kbcLifelines.audience_poll) available.push("audience_poll");
+          if (kbcLifelines.phone_a_friend) available.push("phone_a_friend");
+          typedPayload = {
+            inner_question_id: innerQuestionId,
+            available_lifelines: available,
+            audience_poll_distribution: kbcLifelines.audience_poll
+              ? audiencePollDist
+              : null,
+          };
+        } else if (typeId === "TIMED_REVEAL") {
+          typedPayload = {
+            inner_question_id: innerQuestionId,
+            initial_stem: initialStem,
+            reveal_schedule: revealSteps.map((s) => ({
+              at_seconds: s.at_seconds,
+              additional_info: s.additional_info,
+            })),
+            reveals_make_easier: revealsMakeEasier,
+          };
+        } else if (typeId === "ADAPTIVE_DIFFICULTY") {
+          typedPayload = {
+            variants: difficultyVariants.filter((v) => v.question_id),
+            starting_difficulty: startingDifficulty,
+          };
+        }
       }
 
       const created = await content.create({
@@ -492,7 +608,33 @@ export function MultiTypeAuthor() {
           )}
         </section>
 
-        {/* ── AI Draft assist (objective + numeric only in v1) ── */}
+        {/* ── Bulk AI generation (uses the type+topic selected above) ── */}
+        {AI_DRAFT_SUPPORTED_TYPES.includes(typeId) && (
+          <section style={{ marginBottom: 16 }}>
+            <BulkAIGenerator
+              typeId={typeId}
+              exam={exams.find((ex) => ex.id === examId)?.code ?? "JEE-MAIN"}
+              topicId={topicId}
+              topicTitle={topics.find((t) => t.id === topicId)?.title ?? ""}
+              language={language}
+              disabled={!topicId}
+              onDraftChosen={(draft, marker) => {
+                setAiOrigin({ ...marker });
+                const stemVal = draft.stem;
+                if (typeof stemVal === "string") setStem(stemVal);
+                const optsVal = draft.options as { id: string; text: string; is_correct: boolean }[] | undefined;
+                if (Array.isArray(optsVal)) {
+                  setOptions(optsVal);
+                }
+                const expVal = draft.explanation;
+                if (typeof expVal === "string") setExplanation(expVal);
+                window.scrollTo({ top: document.body.scrollHeight * 0.4, behavior: "smooth" });
+              }}
+            />
+          </section>
+        )}
+
+        {/* ── AI Draft assist (single draft, with its own topic input) ── */}
         {AI_DRAFT_SUPPORTED_TYPES.includes(typeId) && (
           <section style={{ marginBottom: 16 }}>
             <AIDraftPanel
@@ -892,13 +1034,207 @@ export function MultiTypeAuthor() {
           </section>
         )}
 
-        {family === "Subjective" && (typeId === "CASE_STUDY" || typeId === "COMPREHENSION_LONG") && (
-          <Banner tone="info">
-            <strong>Composite type.</strong> {typeId} is a parent that
-            references existing child questions. Author each child question
-            separately (any type), then attach them by ID via the Composite
-            children panel that lands in a follow-up sprint.
-          </Banner>
+        {family === "Subjective" && typeId === "CASE_STUDY" && (
+          <>
+            <section style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
+                Case facts
+              </label>
+              <textarea
+                value={caseFacts}
+                onChange={(e) => setCaseFacts(e.target.value)}
+                rows={6}
+                placeholder="The scenario, data, or context students will analyse."
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: 8,
+                  border: "1px solid var(--border, #e1e5ee)",
+                  borderRadius: 4,
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                }}
+              />
+            </section>
+
+            <section style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
+                Sub-questions
+              </label>
+              {subQuestions.map((sq, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    padding: 12,
+                    marginBottom: 8,
+                    border: "1px solid var(--border, #e1e5ee)",
+                    borderRadius: 6,
+                    background: "var(--bg-surface2, #fafbfd)",
+                  }}
+                >
+                  <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                    <input
+                      value={sq.id}
+                      onChange={(e) => {
+                        const next = [...subQuestions];
+                        next[idx] = { ...sq, id: e.target.value };
+                        setSubQuestions(next);
+                      }}
+                      placeholder="id (e.g. a)"
+                      style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                    />
+                    <input
+                      type="number"
+                      value={sq.min_words}
+                      onChange={(e) => {
+                        const next = [...subQuestions];
+                        next[idx] = { ...sq, min_words: Number(e.target.value) };
+                        setSubQuestions(next);
+                      }}
+                      style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                    />
+                    <span style={{ alignSelf: "center", fontSize: 12 }}>to</span>
+                    <input
+                      type="number"
+                      value={sq.max_words}
+                      onChange={(e) => {
+                        const next = [...subQuestions];
+                        next[idx] = { ...sq, max_words: Number(e.target.value) };
+                        setSubQuestions(next);
+                      }}
+                      style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                    />
+                    <span style={{ alignSelf: "center", fontSize: 12 }}>words</span>
+                    <button
+                      type="button"
+                      onClick={() => setSubQuestions(subQuestions.filter((_, i) => i !== idx))}
+                      style={{
+                        marginLeft: "auto",
+                        padding: "4px 10px",
+                        border: "1px solid var(--border, #e1e5ee)",
+                        borderRadius: 4,
+                        background: "white",
+                        cursor: "pointer",
+                        fontSize: 12,
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <textarea
+                    value={sq.prompt}
+                    onChange={(e) => {
+                      const next = [...subQuestions];
+                      next[idx] = { ...sq, prompt: e.target.value };
+                      setSubQuestions(next);
+                    }}
+                    rows={2}
+                    placeholder="Part prompt — what the student must answer."
+                    style={{
+                      width: "100%",
+                      padding: 6,
+                      borderRadius: 4,
+                      border: "1px solid var(--border, #e1e5ee)",
+                      fontFamily: "inherit",
+                      fontSize: 13,
+                    }}
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() =>
+                  setSubQuestions([
+                    ...subQuestions,
+                    {
+                      id: String.fromCharCode(97 + subQuestions.length),
+                      prompt: "",
+                      min_words: 50,
+                      max_words: 150,
+                    },
+                  ])
+                }
+                style={{
+                  padding: "6px 12px",
+                  border: "1px dashed var(--border, #e1e5ee)",
+                  borderRadius: 4,
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontSize: 13,
+                }}
+              >
+                + Add sub-question
+              </button>
+            </section>
+
+            <section style={{ marginBottom: 16 }}>
+              <RubricEditor version={1} criteria={rubric} onChange={setRubric} />
+            </section>
+          </>
+        )}
+
+        {family === "Subjective" && typeId === "COMPREHENSION_LONG" && (
+          <section style={{ marginBottom: 16 }}>
+            <Banner tone="info">
+              <strong>Comprehension passage.</strong> The Stem field above is
+              used as the passage. Attach child questions by their UUIDs
+              below — each child renders as a separate quiz item with its
+              own answer flow.
+            </Banner>
+            <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginTop: 12 }}>
+              Child question UUIDs
+            </label>
+            {avChildren.map((c, idx) => (
+              <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                <input
+                  value={c.question_id}
+                  onChange={(e) => {
+                    const next = [...avChildren];
+                    next[idx] = { ...c, question_id: e.target.value };
+                    setAvChildren(next);
+                  }}
+                  placeholder="child_question_uuid"
+                  style={{ flex: 1, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                />
+                <input
+                  type="number"
+                  value={c.ordinal}
+                  onChange={(e) => {
+                    const next = [...avChildren];
+                    next[idx] = { ...c, ordinal: Number(e.target.value) };
+                    setAvChildren(next);
+                  }}
+                  style={{ width: 70, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setAvChildren(avChildren.filter((_, i) => i !== idx))}
+                  style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid var(--border, #e1e5ee)", background: "white", cursor: "pointer", fontSize: 12 }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() =>
+                setAvChildren([
+                  ...avChildren,
+                  { question_id: "", ordinal: avChildren.length + 1 },
+                ])
+              }
+              style={{
+                padding: "6px 12px",
+                border: "1px dashed var(--border, #e1e5ee)",
+                borderRadius: 4,
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: 13,
+              }}
+            >
+              + Add child question
+            </button>
+          </section>
         )}
 
         {family === "Subjective" && typeId !== "CASE_STUDY" && typeId !== "COMPREHENSION_LONG" && (
@@ -975,12 +1311,372 @@ export function MultiTypeAuthor() {
           </section>
         )}
 
-        {(family === "Audio/Video" || family === "Interactive") && (
-          <Banner tone="info">
-            <strong>Phase 2 family.</strong> {typeId} authoring lands when
-            the family flag flips. Schema + payload validation are live;
-            authoring UI ships with the gated rollout.
-          </Banner>
+        {family === "Audio/Video" && (
+          <>
+            <section style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
+                {typeId === "LISTENING_COMP" ? "Audio media_id" : "Video media_id"}
+              </label>
+              <input
+                value={avMediaId}
+                onChange={(e) => setAvMediaId(e.target.value)}
+                placeholder="content_media UUID (uploaded separately)"
+                style={{
+                  width: "100%", padding: 8, borderRadius: 4,
+                  border: "1px solid var(--border, #e1e5ee)",
+                  fontFamily: "monospace", fontSize: 13,
+                }}
+              />
+              <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+                Upload the media in the Media library first; paste the
+                resulting UUID here. Mobile + web players fetch via
+                <code> /content/media/{"{id}"}/file</code>.
+              </div>
+            </section>
+
+            <section style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
+                Transcript
+              </label>
+              <textarea
+                value={avTranscript}
+                onChange={(e) => setAvTranscript(e.target.value)}
+                rows={5}
+                placeholder={
+                  typeId === "VIDEO_QUESTION"
+                    ? "Optional — leave blank to auto-generate via AI Gateway"
+                    : "Required for LISTENING_COMP"
+                }
+                style={{
+                  width: "100%", padding: 8, borderRadius: 4,
+                  border: "1px solid var(--border, #e1e5ee)",
+                  fontFamily: "inherit", fontSize: 14,
+                }}
+              />
+              <div style={{ marginTop: 6 }}>
+                <label style={{ fontSize: 12, marginRight: 6 }}>Language:</label>
+                <select
+                  value={avTranscriptLang}
+                  onChange={(e) => setAvTranscriptLang(e.target.value)}
+                  style={{ padding: "4px 6px", borderRadius: 4 }}
+                >
+                  <option value="en">English</option>
+                  <option value="hi">Hindi</option>
+                  <option value="ta">Tamil</option>
+                  <option value="te">Telugu</option>
+                </select>
+              </div>
+            </section>
+
+            <section style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
+                Child questions
+              </label>
+              {avChildren.map((c, idx) => (
+                <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                  <input
+                    value={c.question_id}
+                    onChange={(e) => {
+                      const next = [...avChildren];
+                      next[idx] = { ...c, question_id: e.target.value };
+                      setAvChildren(next);
+                    }}
+                    placeholder="child question UUID"
+                    style={{ flex: 1, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)", fontFamily: "monospace", fontSize: 12 }}
+                  />
+                  <input
+                    type="number"
+                    value={c.ordinal}
+                    onChange={(e) => {
+                      const next = [...avChildren];
+                      next[idx] = { ...c, ordinal: Number(e.target.value) };
+                      setAvChildren(next);
+                    }}
+                    style={{ width: 60, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                  />
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={c.timestamp_seconds ?? ""}
+                    onChange={(e) => {
+                      const next = [...avChildren];
+                      next[idx] = {
+                        ...c,
+                        timestamp_seconds: e.target.value ? Number(e.target.value) : undefined,
+                      };
+                      setAvChildren(next);
+                    }}
+                    placeholder="t (s)"
+                    style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAvChildren(avChildren.filter((_, i) => i !== idx))}
+                    style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid var(--border, #e1e5ee)", background: "white", cursor: "pointer", fontSize: 12 }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() =>
+                  setAvChildren([
+                    ...avChildren,
+                    { question_id: "", ordinal: avChildren.length + 1 },
+                  ])
+                }
+                style={{
+                  padding: "6px 12px",
+                  border: "1px dashed var(--border, #e1e5ee)",
+                  borderRadius: 4,
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontSize: 13,
+                }}
+              >
+                + Add child question
+              </button>
+            </section>
+          </>
+        )}
+
+        {family === "Interactive" && typeId === "KBC_LIFELINE" && (
+          <>
+            <section style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
+                Inner MCQ_SINGLE question UUID
+              </label>
+              <input
+                value={innerQuestionId}
+                onChange={(e) => setInnerQuestionId(e.target.value)}
+                placeholder="UUID of the underlying MCQ_SINGLE"
+                style={{
+                  width: "100%", padding: 8, borderRadius: 4,
+                  border: "1px solid var(--border, #e1e5ee)",
+                  fontFamily: "monospace", fontSize: 13,
+                }}
+              />
+            </section>
+
+            <section style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
+                Lifelines available
+              </label>
+              {(["fifty_fifty", "audience_poll", "phone_a_friend"] as const).map((k) => (
+                <label key={k} style={{ display: "block", marginBottom: 4, fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={kbcLifelines[k]}
+                    onChange={(e) =>
+                      setKbcLifelines({ ...kbcLifelines, [k]: e.target.checked })
+                    }
+                  />{" "}
+                  {k === "fifty_fifty" ? "50:50" : k === "audience_poll" ? "Audience poll" : "Phone a friend"}
+                </label>
+              ))}
+            </section>
+
+            {kbcLifelines.audience_poll && (
+              <section style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
+                  Audience poll distribution (must sum to ~100)
+                </label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {Object.keys(audiencePollDist).map((opt) => (
+                    <div key={opt} style={{ display: "flex", flexDirection: "column" }}>
+                      <span style={{ fontSize: 11, opacity: 0.7 }}>{opt}</span>
+                      <input
+                        type="number"
+                        value={audiencePollDist[opt]}
+                        onChange={(e) =>
+                          setAudiencePollDist({
+                            ...audiencePollDist,
+                            [opt]: Number(e.target.value),
+                          })
+                        }
+                        style={{ width: 70, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+
+        {family === "Interactive" && typeId === "TIMED_REVEAL" && (
+          <>
+            <section style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
+                Inner question UUID
+              </label>
+              <input
+                value={innerQuestionId}
+                onChange={(e) => setInnerQuestionId(e.target.value)}
+                placeholder="UUID of inner question"
+                style={{
+                  width: "100%", padding: 8, borderRadius: 4,
+                  border: "1px solid var(--border, #e1e5ee)",
+                  fontFamily: "monospace", fontSize: 13,
+                }}
+              />
+            </section>
+
+            <section style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
+                Initial stem (shown at t=0)
+              </label>
+              <textarea
+                value={initialStem}
+                onChange={(e) => setInitialStem(e.target.value)}
+                rows={3}
+                style={{
+                  width: "100%", padding: 8, borderRadius: 4,
+                  border: "1px solid var(--border, #e1e5ee)", fontFamily: "inherit", fontSize: 14,
+                }}
+              />
+            </section>
+
+            <section style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
+                Reveal schedule
+              </label>
+              {revealSteps.map((s, idx) => (
+                <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                  <span style={{ alignSelf: "center", fontSize: 12, color: "#999" }}>@</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={s.at_seconds}
+                    onChange={(e) => {
+                      const next = [...revealSteps];
+                      next[idx] = { ...s, at_seconds: Number(e.target.value) };
+                      setRevealSteps(next);
+                    }}
+                    style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                  />
+                  <span style={{ alignSelf: "center", fontSize: 12 }}>s</span>
+                  <input
+                    value={s.additional_info}
+                    onChange={(e) => {
+                      const next = [...revealSteps];
+                      next[idx] = { ...s, additional_info: e.target.value };
+                      setRevealSteps(next);
+                    }}
+                    placeholder="info revealed at this mark"
+                    style={{ flex: 1, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setRevealSteps(revealSteps.filter((_, i) => i !== idx))}
+                    style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid var(--border, #e1e5ee)", background: "white", cursor: "pointer", fontSize: 12 }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() =>
+                  setRevealSteps([
+                    ...revealSteps,
+                    { at_seconds: revealSteps.length * 10 + 10, additional_info: "" },
+                  ])
+                }
+                style={{ padding: "6px 12px", border: "1px dashed var(--border, #e1e5ee)", borderRadius: 4, background: "transparent", cursor: "pointer", fontSize: 13 }}
+              >
+                + Add reveal step
+              </button>
+            </section>
+
+            <section style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, display: "block" }}>
+                <input
+                  type="checkbox"
+                  checked={revealsMakeEasier}
+                  onChange={(e) => setRevealsMakeEasier(e.target.checked)}
+                />{" "}
+                Reveals make the question easier over time (uncheck if it
+                gets harder).
+              </label>
+            </section>
+          </>
+        )}
+
+        {family === "Interactive" && typeId === "ADAPTIVE_DIFFICULTY" && (
+          <>
+            <section style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
+                Variants (2–5, distinct difficulty levels 1–5)
+              </label>
+              {difficultyVariants.map((v, idx) => (
+                <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                  <input
+                    value={v.question_id}
+                    onChange={(e) => {
+                      const next = [...difficultyVariants];
+                      next[idx] = { ...v, question_id: e.target.value };
+                      setDifficultyVariants(next);
+                    }}
+                    placeholder="variant question UUID"
+                    style={{ flex: 1, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)", fontFamily: "monospace", fontSize: 12 }}
+                  />
+                  <select
+                    value={v.difficulty_level}
+                    onChange={(e) => {
+                      const next = [...difficultyVariants];
+                      next[idx] = { ...v, difficulty_level: Number(e.target.value) };
+                      setDifficultyVariants(next);
+                    }}
+                    style={{ padding: 6, borderRadius: 4 }}
+                  >
+                    {[1, 2, 3, 4, 5].map((d) => (
+                      <option key={d} value={d}>Level {d}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setDifficultyVariants(difficultyVariants.filter((_, i) => i !== idx))}
+                    style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid var(--border, #e1e5ee)", background: "white", cursor: "pointer", fontSize: 12 }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                disabled={difficultyVariants.length >= 5}
+                onClick={() =>
+                  setDifficultyVariants([
+                    ...difficultyVariants,
+                    {
+                      question_id: "",
+                      difficulty_level: Math.min(5, difficultyVariants.length + 1),
+                    },
+                  ])
+                }
+                style={{ padding: "6px 12px", border: "1px dashed var(--border, #e1e5ee)", borderRadius: 4, background: "transparent", cursor: difficultyVariants.length >= 5 ? "not-allowed" : "pointer", fontSize: 13 }}
+              >
+                + Add variant
+              </button>
+            </section>
+
+            <section style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, marginRight: 8 }}>
+                Starting difficulty:
+              </label>
+              <select
+                value={startingDifficulty}
+                onChange={(e) => setStartingDifficulty(Number(e.target.value))}
+                style={{ padding: 6, borderRadius: 4 }}
+              >
+                {[1, 2, 3, 4, 5].map((d) => (
+                  <option key={d} value={d}>Level {d}</option>
+                ))}
+              </select>
+            </section>
+          </>
         )}
 
         {/* ── Concept tags ───────────────────────────────────────── */}

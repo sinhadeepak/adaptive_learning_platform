@@ -59,7 +59,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                             'No assignments yet — your educator will post here when they\'re ready.',
                           ),
                         ),
-                      ])
+                      ],)
                     : ListView.separated(
                         padding: const EdgeInsets.all(12),
                         itemCount: _items!.length,
@@ -97,7 +97,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                     child: Text(
                       a.title,
                       style: const TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 15),
+                          fontWeight: FontWeight.w600, fontSize: 15,),
                     ),
                   ),
                   _bucketPill(bucket),
@@ -183,7 +183,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
       ),
       child: Text(text,
           style: TextStyle(
-              color: error ? Colors.red.shade900 : Colors.blue.shade900)),
+              color: error ? Colors.red.shade900 : Colors.blue.shade900,),),
     );
   }
 }

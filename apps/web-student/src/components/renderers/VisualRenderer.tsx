@@ -12,7 +12,10 @@ import { LeafletMap } from "./LeafletMap";
 
 interface ImagePayload {
   stem: string;
-  image_media_id: string;
+  // Either field resolves the image: `image_media_id` routes through
+  // Content service; `image_url` is a direct path/URL (seed-data shape).
+  image_media_id?: string;
+  image_url?: string;
   explanation?: string;
 }
 
@@ -49,7 +52,7 @@ export const DiagramHotspotRenderer: Renderer<
       <div style={{ position: "relative", display: "inline-block", maxWidth: "100%" }}>
         <img
           ref={imgRef}
-          src={resolveMediaUrl(payload.image_media_id)}
+          src={payload.image_url ?? resolveMediaUrl(payload.image_media_id ?? "")}
           alt="diagram"
           onClick={handleClick}
           onLoad={() => {
@@ -95,9 +98,19 @@ export const DiagramHotspotRenderer: Renderer<
   );
 };
 
-export interface DiagramLabelPayload extends ImagePayload {
-  markers: { id: string; x: number; y: number }[];
-  labels: { id: string; text: string }[];
+export interface DiagramLabelPayload extends Partial<ImagePayload> {
+  // Both schemas accepted: legacy `image_media_id` resolved via the
+  // Content service; seed data ships `image_url` as a relative path.
+  image_media_id?: string;
+  image_url?: string;
+  markers: {
+    id: string;
+    x: number;
+    y: number;
+    label?: string; // Some seed rows carry the answer label inline.
+  }[];
+  labels?: { id: string; text: string }[];
+  tolerance_px?: number;
 }
 
 export interface DiagramLabelResponse {
@@ -110,6 +123,27 @@ export const DiagramLabelRenderer: Renderer<
 > = ({ payload, value, onChange, disabled }): ReactNode => {
   const imgRef = useRef<HTMLImageElement>(null);
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  // Tracks whether the source image actually loaded. When it fails (or
+  // there's no usable URL at all), we render a synthetic SVG canvas
+  // sized to fit the markers so the question stays usable.
+  const [imageFailed, setImageFailed] = useState(false);
+
+  const markers = payload.markers ?? [];
+  const hasImageUrl = !!(payload.image_url || payload.image_media_id);
+
+  // Derive a label option list. Prefer explicit `payload.labels`; fall
+  // back to the inline `marker.label` strings (seed-data shape).
+  const labels =
+    payload.labels ??
+    markers
+      .filter((m) => typeof m.label === "string" && (m.label as string).length > 0)
+      .map((m) => ({ id: `lbl_${m.id}`, text: m.label as string }));
+
+  // Synthetic-canvas bounds: include every marker plus a 60px margin.
+  const maxX = markers.reduce((acc, m) => Math.max(acc, m.x), 0) + 60;
+  const maxY = markers.reduce((acc, m) => Math.max(acc, m.y), 0) + 60;
+  const canvasW = Math.max(maxX, 320);
+  const canvasH = Math.max(maxY, 240);
 
   const pairMap = new Map<string, string>(
     (value?.pairs ?? []).map((p) => [p.marker_id, p.label_id]),
@@ -126,56 +160,142 @@ export const DiagramLabelRenderer: Renderer<
     });
   }
 
+  // Show the synthetic canvas when there's no image URL or the image
+  // failed to load. Markers get rendered as circled labels at their
+  // (x,y) coordinates so the student still gets the spatial cue.
+  const useSynthetic = !hasImageUrl || imageFailed;
+
   return (
     <div>
-      <p style={{ fontSize: 16, lineHeight: 1.5, marginBottom: 16 }}>
-        {payload.stem}
-      </p>
-      <div style={{ position: "relative", display: "inline-block", marginBottom: 16 }}>
-        <img
-          ref={imgRef}
-          src={resolveMediaUrl(payload.image_media_id)}
-          alt="diagram"
-          onLoad={() => {
-            if (imgRef.current) {
-              setNaturalSize({
-                w: imgRef.current.naturalWidth,
-                h: imgRef.current.naturalHeight,
-              });
-            }
-          }}
-          style={{
-            maxWidth: "100%",
-            maxHeight: 500,
-            border: "1px solid var(--border, #e1e5ee)",
-            borderRadius: 6,
-          }}
-        />
-        {naturalSize &&
-          payload.markers.map((m) => (
-            <div
-              key={m.id}
-              style={{
-                position: "absolute",
-                left: `${(m.x / naturalSize.w) * 100}%`,
-                top: `${(m.y / naturalSize.h) * 100}%`,
-                transform: "translate(-50%, -50%)",
-                width: 28,
-                height: 28,
-                borderRadius: "50%",
-                background: "var(--color-amber, #f59e0b)",
-                color: "white",
-                fontSize: 12,
-                fontWeight: 700,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                border: "2px solid white",
+      {payload.stem && (
+        <p style={{ fontSize: 16, lineHeight: 1.5, marginBottom: 16 }}>
+          {payload.stem}
+        </p>
+      )}
+      <div
+        style={{
+          position: "relative",
+          display: "inline-block",
+          marginBottom: 16,
+          maxWidth: "100%",
+        }}
+      >
+        {useSynthetic ? (
+          <svg
+            viewBox={`0 0 ${canvasW} ${canvasH}`}
+            width={canvasW}
+            height={canvasH}
+            style={{
+              maxWidth: "100%",
+              height: "auto",
+              background: "var(--bg-elevated, #f8f9fc)",
+              border: "1px dashed var(--border-subtle, #d6dbe8)",
+              borderRadius: 8,
+            }}
+            role="img"
+            aria-label="Diagram"
+          >
+            {/* faint grid for visual rhythm */}
+            <defs>
+              <pattern id="dl-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path
+                  d="M 40 0 L 0 0 0 40"
+                  fill="none"
+                  stroke="rgba(0,0,0,0.04)"
+                  strokeWidth="1"
+                />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#dl-grid)" />
+            {markers.map((m) => {
+              const pickedId = pairMap.get(m.id);
+              const pickedLabel = labels.find((l) => l.id === pickedId)?.text;
+              return (
+                <g key={m.id}>
+                  {/* connector + pin shadow */}
+                  <circle cx={m.x} cy={m.y} r={22} fill="rgba(245,166,35,0.18)" />
+                  <circle
+                    cx={m.x}
+                    cy={m.y}
+                    r={14}
+                    fill="var(--color-amber, #F5A623)"
+                    stroke="white"
+                    strokeWidth={2}
+                  />
+                  <text
+                    x={m.x}
+                    y={m.y + 4}
+                    textAnchor="middle"
+                    fontSize={11}
+                    fontWeight={700}
+                    fill="white"
+                  >
+                    {m.id}
+                  </text>
+                  {pickedLabel && (
+                    <text
+                      x={m.x + 22}
+                      y={m.y + 4}
+                      fontSize={12}
+                      fontWeight={600}
+                      fill="var(--text-primary, #1f2937)"
+                    >
+                      {pickedLabel}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+        ) : (
+          <>
+            <img
+              ref={imgRef}
+              src={payload.image_url ?? resolveMediaUrl(payload.image_media_id ?? "")}
+              alt="Diagram"
+              onLoad={() => {
+                if (imgRef.current) {
+                  setNaturalSize({
+                    w: imgRef.current.naturalWidth,
+                    h: imgRef.current.naturalHeight,
+                  });
+                }
               }}
-            >
-              {m.id}
-            </div>
-          ))}
+              onError={() => setImageFailed(true)}
+              style={{
+                maxWidth: "100%",
+                maxHeight: 500,
+                border: "1px solid var(--border, #e1e5ee)",
+                borderRadius: 6,
+              }}
+            />
+            {naturalSize &&
+              markers.map((m) => (
+                <div
+                  key={m.id}
+                  style={{
+                    position: "absolute",
+                    left: `${(m.x / naturalSize.w) * 100}%`,
+                    top: `${(m.y / naturalSize.h) * 100}%`,
+                    transform: "translate(-50%, -50%)",
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    background: "var(--color-amber, #f59e0b)",
+                    color: "var(--bg-surface2)",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    border: "2px solid white",
+                  }}
+                >
+                  {m.id}
+                </div>
+              ))}
+          </>
+        )}
       </div>
 
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -186,7 +306,7 @@ export const DiagramLabelRenderer: Renderer<
           </tr>
         </thead>
         <tbody>
-          {payload.markers.map((m) => (
+          {markers.map((m) => (
             <tr key={m.id}>
               <td style={{ padding: 8 }}>
                 <strong>{m.id}</strong>
@@ -204,7 +324,7 @@ export const DiagramLabelRenderer: Renderer<
                   }}
                 >
                   <option value="">— pick label —</option>
-                  {payload.labels.map((l) => (
+                  {labels.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.text}
                     </option>
@@ -281,7 +401,7 @@ export const PictorialIdentifyRenderer: Renderer<
       </p>
       <div style={{ marginBottom: 16 }}>
         <img
-          src={resolveMediaUrl(payload.image_media_id)}
+          src={payload.image_url ?? resolveMediaUrl(payload.image_media_id ?? "")}
           alt="identify"
           style={{
             maxWidth: "100%",
@@ -307,7 +427,7 @@ export const PictorialIdentifyRenderer: Renderer<
                   : "1px solid var(--border, #e1e5ee)",
                 borderRadius: 6,
                 cursor: disabled ? "not-allowed" : "pointer",
-                background: selected ? "var(--color-blue-bg, #dbeafe)" : "white",
+                background: selected ? "var(--color-blue-bg, #dbeafe)" : "var(--bg-surface2)",
               }}
             >
               <input

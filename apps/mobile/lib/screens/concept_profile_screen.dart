@@ -389,14 +389,14 @@ class _ErrorView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.error_outline,
-                size: 48, color: Theme.of(context).colorScheme.error),
+                size: 48, color: Theme.of(context).colorScheme.error,),
             const SizedBox(height: 12),
             Text(t('common.error'),
-                style: Theme.of(context).textTheme.titleMedium),
+                style: Theme.of(context).textTheme.titleMedium,),
             const SizedBox(height: 4),
             Text(message,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall),
+                style: Theme.of(context).textTheme.bodySmall,),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: onRetry,

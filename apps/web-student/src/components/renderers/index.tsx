@@ -34,6 +34,15 @@ import {
   MapLocationRenderer,
   PictorialIdentifyRenderer,
 } from "./VisualRenderer";
+import {
+  ListeningCompRenderer,
+  VideoQuestionRenderer,
+} from "./AudioVideoRenderer";
+import {
+  AdaptiveDifficultyRenderer,
+  KBCLifelineRenderer,
+  TimedRevealRenderer,
+} from "./InteractiveRenderer";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Per-family renderer dispatcher (P5-S59).
@@ -42,13 +51,13 @@ import {
 // type_id. The Quiz page owns the value/onChange wiring + submit
 // orchestration; this just dispatches.
 //
-// 22 v1 renderers wired. ASSERTION_REASON + MULTI_STATEMENT reuse
-// MCQ_SINGLE since they're MCQ-equivalent at the student-facing
-// level (the canonical option is derived server-side from the
-// boolean flags). The 5 gated families (LISTENING_COMP, VIDEO_QUESTION,
-// KBC_LIFELINE, TIMED_REVEAL, ADAPTIVE_DIFFICULTY) surface a
-// "Phase 2" placeholder; the existing handlers return PENDING_HUMAN_REVIEW
-// + feature_disabled so submit still works through the grader queue.
+// 29 renderers wired across 8 families. ASSERTION_REASON + MULTI_STATEMENT
+// reuse MCQ_SINGLE since they're MCQ-equivalent at the student-facing
+// level (the canonical option is derived server-side from the boolean
+// flags). The 5 Phase 2 types (LISTENING_COMP, VIDEO_QUESTION,
+// KBC_LIFELINE, TIMED_REVEAL, ADAPTIVE_DIFFICULTY) are now un-gated per
+// ADR-0026 — full renderers ship below; composite/wrapper grading
+// delegates to the inner / child handlers server-side.
 // ─────────────────────────────────────────────────────────────────────────
 
 interface RendererDispatchProps {
@@ -58,6 +67,10 @@ interface RendererDispatchProps {
   onChange: (v: unknown) => void;
   language?: string;
   disabled?: boolean;
+  // Phase 7 — passed through to renderers that accept file uploads.
+  // Forwarded from Quiz.tsx; ignored by MCQ/numeric/etc.
+  sessionId?: string;
+  questionId?: string;
 }
 
 export function QuestionRenderer({
@@ -67,6 +80,8 @@ export function QuestionRenderer({
   onChange,
   language,
   disabled,
+  sessionId,
+  questionId,
 }: RendererDispatchProps): ReactNode {
   const cast = (Cmp: any) => (
     <Cmp
@@ -75,6 +90,8 @@ export function QuestionRenderer({
       onChange={onChange as any}
       language={language}
       disabled={disabled}
+      sessionId={sessionId}
+      questionId={questionId}
     />
   );
 
@@ -138,26 +155,17 @@ export function QuestionRenderer({
     case "PICTORIAL_IDENTIFY":
       return cast(PictorialIdentifyRenderer);
 
-    // Gated families — Phase 2.
+    // Phase 2 families — un-gated per ADR-0026.
     case "LISTENING_COMP":
+      return cast(ListeningCompRenderer);
     case "VIDEO_QUESTION":
+      return cast(VideoQuestionRenderer);
     case "KBC_LIFELINE":
+      return cast(KBCLifelineRenderer);
     case "TIMED_REVEAL":
+      return cast(TimedRevealRenderer);
     case "ADAPTIVE_DIFFICULTY":
-      return (
-        <div
-          style={{
-            padding: 16,
-            background: "var(--bg-subtle, #f8f9fc)",
-            borderRadius: 6,
-            fontSize: 13,
-          }}
-        >
-          <strong>{typeId}</strong> is a Phase 2 question type. Submission
-          surfaces in the human grader queue with feature_disabled flag —
-          your response will be reviewed manually.
-        </div>
-      );
+      return cast(AdaptiveDifficultyRenderer);
 
     default:
       return (
@@ -183,3 +191,5 @@ export * from "./MatchingRenderer";
 export * from "./FillInRenderer";
 export * from "./SubjectiveRenderer";
 export * from "./VisualRenderer";
+export * from "./AudioVideoRenderer";
+export * from "./InteractiveRenderer";

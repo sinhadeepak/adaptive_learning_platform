@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from pydantic import BaseModel, Field
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from learning.catalog.db import get_session
@@ -14,8 +16,10 @@ from learning.catalog.schemas import (
     CreateAssignmentRequest,
     EducatorAssignment,
     Exam,
+    PoolMember,
     Problem,
     Subject,
+    SubjectPool,
     Topic,
     TopicDetail,
 )
@@ -23,6 +27,10 @@ from learning.catalog.security import (
     JwtPrincipal,
     current_principal,
     require_platform_admin,
+)
+from learning.importance import (
+    invalidate_cache as importance_invalidate_cache,
+    topic_importance_map,
 )
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
@@ -53,7 +61,43 @@ async def list_exams(session: SessionDep) -> list[Exam]:
 async def list_subjects(exam_id: str, session: SessionDep) -> list[Subject]:
     rows = await CatalogRepo(session).subjects_for_exam(exam_id)
     return [
-        Subject(id=str(r["id"]), examId=str(r["exam_id"]), name=r["name"], topicCount=int(r["topic_count"]))
+        Subject(
+            id=str(r["id"]),
+            examId=str(r["exam_id"]),
+            name=r["name"],
+            topicCount=int(r["topic_count"]),
+            isMandatory=bool(r.get("is_mandatory", True)),
+            poolId=str(r["pool_id"]) if r.get("pool_id") else None,
+        )
+        for r in rows
+    ]
+
+
+@router.get("/exams/{exam_id}/pools", response_model=list[SubjectPool])
+async def list_pools(exam_id: str, session: SessionDep) -> list[SubjectPool]:
+    """Onboarding-time view of an exam's optional pools — pick_min /
+    pick_max plus member subjects. Empty list for exams with only
+    mandatory subjects."""
+    rows = await CatalogRepo(session).pools_for_exam(exam_id)
+    return [
+        SubjectPool(
+            id=str(r["id"]),
+            examId=str(r["exam_id"]),
+            code=r["code"],
+            name=r["name"],
+            description=r.get("description"),
+            pickMin=int(r["pick_min"]),
+            pickMax=int(r["pick_max"]),
+            members=[
+                PoolMember(
+                    id=str(m["id"]),
+                    code=m["code"],
+                    name=m["name"],
+                    description=m.get("description"),
+                )
+                for m in r.get("members", [])
+            ],
+        )
         for r in rows
     ]
 
@@ -281,7 +325,10 @@ async def topics_bulk_route(
                 "title": r["title"],
                 "titleHi": r.get("title_hi"),
                 "subjectId": str(r["subject_id"]),
+                "subjectName": r.get("subject_name"),
                 "examId": str(r["exam_id"]),
+                "examCode": r.get("exam_code"),
+                "examName": r.get("exam_name"),
             }
             for r in rows
         ]
@@ -305,3 +352,206 @@ async def topic_detail(topic_id: str, session: SessionDep) -> TopicDetail:
         objectives=row.get("objectives", []),
         prerequisites=row.get("prerequisites", []),
     )
+
+
+# ── Topic importance ────────────────────────────────────────────────────
+
+
+class ImportanceTopicOut(BaseModel):
+    topicId: str
+    topicTitle: str | None = None
+    weight: float
+    hidden: bool
+    source: str
+    confidence: float
+    sampleSize: int
+
+
+class ImportanceMapOut(BaseModel):
+    examId: str
+    topics: list[ImportanceTopicOut]
+    sourceSummary: dict[str, int]
+
+
+@router.get("/topic-importance", response_model=ImportanceMapOut)
+async def get_topic_importance(
+    examId: Annotated[str, Query()],
+    session: SessionDep,
+    includeHidden: Annotated[bool, Query()] = False,
+) -> ImportanceMapOut:
+    """Public read — returns topic-level importance for an exam.
+
+    Hidden topics excluded by default; admins pass ?includeHidden=true.
+    """
+    weights = await topic_importance_map(session, examId)
+    titles = await _topic_titles(session, list(weights.keys()))
+    summary: dict[str, int] = {}
+    out: list[ImportanceTopicOut] = []
+    for tid, w in weights.items():
+        if w.hidden and not includeHidden:
+            continue
+        summary[w.source] = summary.get(w.source, 0) + 1
+        out.append(
+            ImportanceTopicOut(
+                topicId=tid,
+                topicTitle=titles.get(tid),
+                weight=w.weight,
+                hidden=w.hidden,
+                source=w.source,
+                confidence=w.confidence,
+                sampleSize=w.sample_size,
+            )
+        )
+    out.sort(key=lambda t: -t.weight)
+    return ImportanceMapOut(examId=examId, topics=out, sourceSummary=summary)
+
+
+@router.get("/admin/topic-importance/{exam_id}", response_model=ImportanceMapOut)
+async def admin_topic_importance(
+    exam_id: str,
+    session: SessionDep,
+    _principal: Annotated[JwtPrincipal, Depends(require_platform_admin)],
+) -> ImportanceMapOut:
+    """Admin view — always includes hidden + every syllabus topic."""
+    weights = await topic_importance_map(session, exam_id)
+    titles = await _topic_titles(session, list(weights.keys()))
+    summary: dict[str, int] = {}
+    out = [
+        ImportanceTopicOut(
+            topicId=tid,
+            topicTitle=titles.get(tid),
+            weight=w.weight,
+            hidden=w.hidden,
+            source=w.source,
+            confidence=w.confidence,
+            sampleSize=w.sample_size,
+        )
+        for tid, w in weights.items()
+    ]
+    for t in out:
+        summary[t.source] = summary.get(t.source, 0) + 1
+    out.sort(key=lambda t: -t.weight)
+    return ImportanceMapOut(examId=exam_id, topics=out, sourceSummary=summary)
+
+
+class ImportanceOverrideRequest(BaseModel):
+    weight: float = Field(ge=0.0, le=1.0)
+    hidden: bool = False
+    reason: str | None = None
+
+
+@router.put("/admin/topic-importance/{exam_id}/{topic_id}", status_code=204)
+async def put_topic_importance_override(
+    exam_id: str,
+    topic_id: str,
+    body: ImportanceOverrideRequest,
+    session: SessionDep,
+    principal: Annotated[JwtPrincipal, Depends(require_platform_admin)],
+) -> Response:
+    await session.execute(
+        text(
+            """
+            INSERT INTO catalog_schema.topic_importance_overrides
+              (exam_id, topic_id, weight, hidden, reason, set_by, set_at)
+            VALUES (CAST(:eid AS uuid), CAST(:tid AS uuid), :w, :h, :r, CAST(:by AS uuid), NOW())
+            ON CONFLICT (exam_id, topic_id) DO UPDATE
+              SET weight = EXCLUDED.weight,
+                  hidden = EXCLUDED.hidden,
+                  reason = EXCLUDED.reason,
+                  set_by = EXCLUDED.set_by,
+                  set_at = NOW()
+            """
+        ),
+        {
+            "eid": exam_id,
+            "tid": topic_id,
+            "w": body.weight,
+            "h": body.hidden,
+            "r": body.reason,
+            "by": principal.user_id,
+        },
+    )
+    await session.commit()
+    importance_invalidate_cache(exam_id)
+    return Response(status_code=204)
+
+
+@router.delete("/admin/topic-importance/{exam_id}/{topic_id}", status_code=204)
+async def delete_topic_importance_override(
+    exam_id: str,
+    topic_id: str,
+    session: SessionDep,
+    _principal: Annotated[JwtPrincipal, Depends(require_platform_admin)],
+) -> Response:
+    await session.execute(
+        text(
+            """
+            DELETE FROM catalog_schema.topic_importance_overrides
+             WHERE exam_id = CAST(:eid AS uuid) AND topic_id = CAST(:tid AS uuid)
+            """
+        ),
+        {"eid": exam_id, "tid": topic_id},
+    )
+    await session.commit()
+    importance_invalidate_cache(exam_id)
+    return Response(status_code=204)
+
+
+@router.get("/exams/{exam_id}/subjects-with-topics")
+async def get_exam_subjects_with_topics(
+    exam_id: str, session: SessionDep
+) -> dict:
+    """Bulk fetch — every subject and every topic for an exam, in one
+    round trip. Used by engagement.analytics.drill to resolve subject
+    rollups for an exam without N+1 HTTP calls."""
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT t.id::text AS topic_id, t.title AS topic_title,
+                       s.id::text AS subject_id, s.name AS subject_name,
+                       e.id::text AS exam_id, e.code AS exam_code, e.name AS exam_name
+                  FROM catalog_schema.topics t
+                  JOIN catalog_schema.subjects s ON s.id = t.subject_id
+                  JOIN catalog_schema.exams e ON e.id = s.exam_id
+                 WHERE e.id = CAST(:eid AS uuid)
+                """
+            ),
+            {"eid": exam_id},
+        )
+    ).mappings().all()
+    return {
+        "examId": exam_id,
+        "topics": [
+            {
+                "id": r["topic_id"],
+                "title": r["topic_title"],
+                "subjectId": r["subject_id"],
+                "subjectName": r["subject_name"],
+                "examId": r["exam_id"],
+                "examCode": r["exam_code"],
+                "examName": r["exam_name"],
+            }
+            for r in rows
+        ],
+    }
+
+
+async def _topic_titles(
+    session: AsyncSession, topic_ids: list[str]
+) -> dict[str, str]:
+    if not topic_ids:
+        return {}
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT id::text AS id, title
+                  FROM catalog_schema.topics
+                 WHERE id = ANY(CAST(:ids AS uuid[]))
+                """
+            ),
+            {"ids": topic_ids},
+        )
+    ).all()
+    return {r[0]: r[1] for r in rows}

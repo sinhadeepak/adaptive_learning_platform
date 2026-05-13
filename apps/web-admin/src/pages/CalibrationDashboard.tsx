@@ -29,9 +29,10 @@ function CriterionCard({ row }: { row: CalibrationCriterionStats }) {
         marginBottom: 12,
         border: row.auto_paused
           ? "2px solid var(--color-red, #f43f5e)"
-          : "1px solid var(--border, #e1e5ee)",
+          : "1px solid var(--border)",
         borderRadius: 8,
-        background: "var(--bg-card, #fff)",
+        background: "var(--bg-surface1)",
+        color: "var(--text-primary)",
       }}
     >
       <div
@@ -120,8 +121,10 @@ export function CalibrationDashboard() {
             style={{
               padding: 16,
               marginBottom: 24,
-              background: "var(--bg-subtle, #f8f9fc)",
+              background: "var(--bg-surface1)",
+              border: "1px solid var(--border)",
               borderRadius: 8,
+              color: "var(--text-primary)",
             }}
           >
             <div style={{ display: "flex", gap: 24 }}>

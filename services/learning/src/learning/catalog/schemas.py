@@ -20,6 +20,28 @@ class Subject(BaseModel):
     examId: str
     name: str
     topicCount: int = 0
+    isMandatory: bool = True
+    poolId: str | None = None
+
+
+class PoolMember(BaseModel):
+    """Subject summary inside a pool — light-weight (no topic count)."""
+
+    id: str
+    code: str
+    name: str
+    description: str | None = None
+
+
+class SubjectPool(BaseModel):
+    id: str
+    examId: str
+    code: str
+    name: str
+    description: str | None = None
+    pickMin: int
+    pickMax: int
+    members: list[PoolMember] = []
 
 
 class Topic(BaseModel):

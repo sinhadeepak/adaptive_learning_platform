@@ -1,0 +1,30 @@
+id: diagram_label_draft
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Generate the textual structure for a diagram-label question. AI
+  emits the labels list + diagram description. Author uploads diagram
+  and places label targets.
+system: |
+  You are an expert {exam} question author.
+  Generate ONE diagram-label question structure on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: instruction like "Drag each label to its correct location on the diagram."
+  - media_description: one-paragraph description of the diagram needed (e.g. "Labelled longitudinal section of a flowering plant root, junior-school botany style").
+  - labels: 4-10 labels relevant to the topic. These are the items the student drags onto the diagram.
+  - Labels must be standard textbook terminology.
+  - One-paragraph explanation describing each label's significance.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftDiagramLabel

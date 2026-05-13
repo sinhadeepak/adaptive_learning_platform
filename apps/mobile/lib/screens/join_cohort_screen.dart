@@ -88,7 +88,7 @@ class _JoinCohortScreenState extends State<JoinCohortScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Join your class',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),),
         const SizedBox(height: 12),
         const Text(
             'Your educator has invited you to join their class on the platform. '
@@ -110,13 +110,13 @@ class _JoinCohortScreenState extends State<JoinCohortScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text("You're in!",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),),
         const SizedBox(height: 8),
         const Text('Head to Profile → Assignments to see what your educator has posted.'),
         if (_cohortId != null) ...[
           const SizedBox(height: 8),
           Text('Cohort ${_cohortId!.substring(0, 8)}…',
-              style: const TextStyle(color: Colors.black54, fontSize: 12)),
+              style: const TextStyle(color: Colors.black54, fontSize: 12),),
         ],
         const SizedBox(height: 24),
         SizedBox(
@@ -141,7 +141,7 @@ class _JoinCohortScreenState extends State<JoinCohortScreen> {
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(_error ?? 'Could not redeem invite',
-              style: TextStyle(color: Colors.red.shade900)),
+              style: TextStyle(color: Colors.red.shade900),),
         ),
         const SizedBox(height: 16),
         OutlinedButton(

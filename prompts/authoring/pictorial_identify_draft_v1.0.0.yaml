@@ -1,0 +1,27 @@
+id: pictorial_identify_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate a pictorial-identify question (identify the thing in the image).
+system: |
+  You are an expert {exam} question author.
+  Generate ONE pictorial-identify question on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: instruction like "Identify the [TYPE] shown in the image."
+  - media_description: one-paragraph description of the image to be uploaded
+    (e.g. "Photograph of an Indus Valley seal, brown soapstone, depicting a unicorn with three vertical lines below").
+  - accepted_labels: 1-4 acceptable answer phrasings (canonical name + common synonyms / abbreviations).
+  - One-paragraph explanation linking the identification to the topic.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftPictorialIdentify

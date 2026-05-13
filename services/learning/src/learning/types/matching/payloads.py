@@ -93,7 +93,18 @@ class SequencingPayload(BaseModel):
 
 
 class SequencingResponse(BaseModel):
-    order: list[str] = Field(default_factory=list)
+    # Accept either {order: [...]} (canonical) or {ordered_ids: [...]}
+    # (legacy / mobile shape). Without the alias the older clients
+    # silently fall through to order=[] and the handler reports
+    # UNATTEMPTED for a fully-answered question.
+    order: list[str] = Field(default_factory=list, validation_alias="order")
+    ordered_ids: list[str] | None = Field(default=None)
+
+    @model_validator(mode="after")
+    def _coerce(self) -> "SequencingResponse":
+        if not self.order and self.ordered_ids:
+            self.order = self.ordered_ids
+        return self
 
 
 # ── CLASSIFICATION ───────────────────────────────────────────────────────────

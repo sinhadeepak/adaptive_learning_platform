@@ -74,17 +74,19 @@ async def list_users(
         Query(description="Case-insensitive substring of email or name"),
     ] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> dict:
-    """Bare list endpoint for the educator-scope admin UI.
+    """Paged list endpoint for the admin Users page + educator-scope UI.
 
-    Returned shape is intentionally minimal — just enough to render a
-    pickable row. Suspend / impersonate / etc. live on the Phase 2
-    Users page.
+    Returned shape carries `total` so the React table can render
+    "page X of Y" without an extra COUNT call. Suspend / impersonate /
+    etc. land on this page in a follow-up.
     """
-    rows = await UserRepo(session).list_by_roles(
+    rows, total = await UserRepo(session).list_by_roles(
         roles=role or [],
         q=q,
         limit=limit,
+        offset=offset,
     )
     return {
         "items": [
@@ -95,7 +97,18 @@ async def list_users(
                 "role": r["role"],
                 "adminAccessLevel": r.get("admin_access_level") or "NONE",
                 "accountStatus": r["account_status"],
+                "institution": (
+                    {
+                        "id": str(r["institution_id"]),
+                        "name": r["institution_name"],
+                        "slug": r["institution_slug"],
+                        "kind": r["institution_kind"],
+                    }
+                    if r.get("institution_id") and r.get("institution_name")
+                    else None
+                ),
             }
             for r in rows
-        ]
+        ],
+        "total": total,
     }

@@ -157,6 +157,9 @@ export const content = {
     status?: string;
     type?: string;
     q?: string;
+    examId?: string;
+    subjectId?: string;
+    topicId?: string;
     limit?: number;
     offset?: number;
   }): Promise<{ items: Question[]; total: number }> {
@@ -165,6 +168,9 @@ export const content = {
     if (opts.status) params.set("status", opts.status);
     if (opts.type) params.set("type", opts.type);
     if (opts.q) params.set("q", opts.q);
+    if (opts.examId) params.set("exam_id", opts.examId);
+    if (opts.subjectId) params.set("subject_id", opts.subjectId);
+    if (opts.topicId) params.set("topic_id", opts.topicId);
     if (opts.limit !== undefined) params.set("limit", String(opts.limit));
     if (opts.offset !== undefined) params.set("offset", String(opts.offset));
     const res = await auth.fetch(

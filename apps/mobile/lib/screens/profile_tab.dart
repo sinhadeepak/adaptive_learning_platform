@@ -10,13 +10,16 @@ import '../api/billing.dart';
 import '../auth/auth_client.dart';
 import '../widgets/activity_heatmap.dart';
 import '../widgets/alp_card.dart';
+import 'about_screen.dart';
 import 'assignments_screen.dart';
 import 'billing_screen.dart';
 import 'bookmarks_screen.dart';
 import 'change_password_screen.dart';
 import 'edit_profile_screen.dart';
+import 'help_support_screen.dart';
 import 'history_screen.dart';
 import 'notification_preferences_screen.dart';
+import 'onboarding/exam_select_screen.dart' show ExamSelectScreen;
 import 'preferences_screen.dart';
 
 /// Profile + settings. User identity, account links, study preferences,
@@ -35,12 +38,22 @@ class _ProfileTabState extends State<ProfileTab> {
   String? _avatarUrl;
   bool _avatarBusy = false;
   List<Achievement> _achievements = const [];
+  // Real streak + mastery counts replace the previously-hardcoded
+  // "🔥 14-day streak" and "Top 12%" pills, which were always-on
+  // placeholders not backed by any data.
+  int _currentStreak = 0;
+  int _topicsTracked = 0;
+  // Sprint 1 honesty pass — replaces hardcoded "NEET 2027" identity
+  // line and hardcoded "PREMIUM" pill with real values.
+  String? _activeExamName;
+  SubscriptionSummary? _subscription;
 
   @override
   void initState() {
     super.initState();
     _loadAvatar();
     _loadAchievements();
+    _loadHeaderStats();
   }
 
   Future<void> _loadAvatar() async {
@@ -53,6 +66,48 @@ class _ProfileTabState extends State<ProfileTab> {
     final list = await widget.api.achievements();
     if (!mounted) return;
     setState(() => _achievements = list);
+  }
+
+  Future<void> _loadHeaderStats() async {
+    final user = widget.auth.user;
+    if (user == null) return;
+    try {
+      final results = await Future.wait<dynamic>([
+        widget.api.streak(user.id),
+        widget.api.mastery(user.id),
+        widget.api.getProfile(),
+        widget.api.exams(),
+        BillingClient(widget.auth).me().catchError((_) =>
+            SubscriptionSummary(
+                tier: 'STUDENT_FREE', status: 'INACTIVE', isPremium: false,),),
+      ]);
+      if (!mounted) return;
+      final streak = results[0] as Streak;
+      final mastery = results[1] as List<TopicMastery>;
+      final profile = results[2] as UserProfile?;
+      final exams = results[3] as List<Exam>;
+      final subscription = results[4] as SubscriptionSummary;
+
+      // Active exam — first selected exam in profile.exams, looked up
+      // against the catalog so we show "NEET (UG)" instead of a UUID.
+      String? examName;
+      if (profile != null && profile.exams.isNotEmpty) {
+        final activeId = profile.exams.first.examId;
+        for (final e in exams) {
+          if (e.id == activeId) {
+            examName = e.name;
+            break;
+          }
+        }
+      }
+
+      setState(() {
+        _currentStreak = streak.current;
+        _topicsTracked = mastery.where((m) => m.n > 0).length;
+        _activeExamName = examName;
+        _subscription = subscription;
+      });
+    } catch (_) {/* leave all at defaults */}
   }
 
   Future<void> _pickAvatar() async {
@@ -154,7 +209,7 @@ class _ProfileTabState extends State<ProfileTab> {
                       ],
                     ),
                   ),
-                ))
+                ),)
             .toList(),
       ),
     ];
@@ -304,7 +359,12 @@ class _ProfileTabState extends State<ProfileTab> {
         const SizedBox(height: 4),
         Center(
           child: Text(
-            '$email · NEET 2027 · Joined $joined',
+            // Joined plus optional active exam — drops the hardcoded
+            // "NEET 2027" string when the user is on a different exam
+            // (or hasn't picked one yet).
+            _activeExamName == null
+                ? '$email · Joined $joined'
+                : '$email · $_activeExamName · Joined $joined',
             style: const TextStyle(color: AlpColors.textMuted, fontSize: 12),
           ),
         ),
@@ -312,10 +372,40 @@ class _ProfileTabState extends State<ProfileTab> {
         Center(
           child: Wrap(
             spacing: 6,
-            children: const [
-              AlpPill(label: 'PREMIUM', color: AlpColors.colorGreen),
-              AlpPill(label: '🔥 14-day streak', color: AlpColors.colorAmber),
-              AlpPill(label: 'Top 12%', color: AlpColors.colorPurple),
+            children: [
+              // Real subscription tier — only show "Premium" pill when
+              // the user actually has the entitlement. Free users see
+              // no pill (avoids the misleading evergreen "PREMIUM"
+              // chip the design originally had).
+              if (_subscription?.isPremium == true)
+                Tooltip(
+                  message: premiumDisplay(_subscription).caption ??
+                      'Active premium subscription.',
+                  child: AlpPill(
+                    label: premiumDisplay(_subscription).label.toUpperCase(),
+                    color: premiumDisplay(_subscription).tone == PremiumTone.warn
+                        ? AlpColors.colorAmber
+                        : AlpColors.colorGreen,
+                  ),
+                ),
+              if (_currentStreak > 0)
+                Tooltip(
+                  message:
+                      'Practiced on $_currentStreak day${_currentStreak == 1 ? '' : 's'} in a row.',
+                  child: AlpPill(
+                      label:
+                          '🔥 $_currentStreak-day streak',
+                      color: AlpColors.colorAmber,),
+                ),
+              if (_topicsTracked > 0)
+                Tooltip(
+                  message:
+                      'You\'ve practiced at least once on $_topicsTracked topic${_topicsTracked == 1 ? '' : 's'}.',
+                  child: AlpPill(
+                      label:
+                          '📚 $_topicsTracked topic${_topicsTracked == 1 ? '' : 's'}',
+                      color: AlpColors.colorPurple,),
+                ),
             ],
           ),
         ),
@@ -384,14 +474,14 @@ class _ProfileTabState extends State<ProfileTab> {
               title: 'Edit Profile',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => EditProfileScreen(api: api, auth: auth),
-              )),
+              ),),
             ),
             _SettingsRow(
               icon: Icons.lock_outline,
               title: 'Change Password',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => ChangePasswordScreen(auth: auth),
-              )),
+              ),),
             ),
             _SettingsRow(
               icon: Icons.language,
@@ -399,7 +489,7 @@ class _ProfileTabState extends State<ProfileTab> {
               trailing: 'Tap to change',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => PreferencesScreen(api: api),
-              )),
+              ),),
             ),
             // Sprint 8 F-5 — Billing entry point on the Profile tab.
             _SettingsRow(
@@ -408,7 +498,7 @@ class _ProfileTabState extends State<ProfileTab> {
               trailing: 'View',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => BillingScreen(client: BillingClient(auth)),
-              )),
+              ),),
             ),
           ],
         ),
@@ -423,7 +513,7 @@ class _ProfileTabState extends State<ProfileTab> {
               trailing: 'View',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => BookmarksScreen(api: api, auth: auth),
-              )),
+              ),),
             ),
             // Sprint 9 F-2 — Assignments inbox entry.
             _SettingsRow(
@@ -432,7 +522,7 @@ class _ProfileTabState extends State<ProfileTab> {
               trailing: 'View',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => AssignmentsScreen(client: AssignmentsClient(auth)),
-              )),
+              ),),
             ),
             _SettingsRow(
               icon: Icons.history,
@@ -440,13 +530,13 @@ class _ProfileTabState extends State<ProfileTab> {
               trailing: 'View',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => HistoryScreen(api: api, auth: auth),
-              )),
+              ),),
             ),
             _SettingsRow(
               icon: Icons.flag_outlined,
               title: 'Target Exam',
-              trailing: 'NEET 2027',
-              onTap: () => _placeholder(context, 'Target exam'),
+              trailing: _activeExamName ?? 'Set',
+              onTap: () => _openExamPicker(context),
             ),
             _SettingsRow(
               icon: Icons.timer_outlined,
@@ -454,13 +544,13 @@ class _ProfileTabState extends State<ProfileTab> {
               trailing: 'Tap to edit',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => PreferencesScreen(api: api),
-              )),
+              ),),
             ),
-            _SettingsRow(
-              icon: Icons.cloud_off_outlined,
-              title: 'Offline Mode',
-              trailingWidget: Switch(value: false, onChanged: (_) => _placeholder(context, 'Offline mode')),
-            ),
+            // Offline Mode toggle removed in Sprint 3 — was a fake
+            // toggle (no underlying cache layer). A future sprint adds
+            // shared_preferences-backed caching of the active-exam
+            // topic list + last 5 quiz sessions and re-introduces the
+            // toggle with real semantics.
           ],
         ),
         const SizedBox(height: 12),
@@ -474,10 +564,19 @@ class _ProfileTabState extends State<ProfileTab> {
               trailing: 'Edit',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => NotificationPreferencesScreen(api: api),
-              )),
+              ),),
             ),
-            _SettingsRow(icon: Icons.help_outline, title: 'Help & Support', onTap: () => _placeholder(context, 'Help')),
-            _SettingsRow(icon: Icons.info_outline, title: 'About', trailing: 'v0.1.0', onTap: () => _placeholder(context, 'About')),
+            _SettingsRow(
+                icon: Icons.help_outline,
+                title: 'Help & Support',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const HelpSupportScreen(),),),),
+            _SettingsRow(
+                icon: Icons.info_outline,
+                title: 'About',
+                trailing: 'v0.1.0',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const AboutScreen(),),),),
           ],
         ),
 
@@ -498,6 +597,24 @@ class _ProfileTabState extends State<ProfileTab> {
       ],
       ),
     );
+  }
+
+  // Profile → Target Exam — reuse the onboarding ExamSelectScreen
+  // as a standalone "swap exam" surface. After a successful save,
+  // reload header stats so the active-exam display updates without
+  // a manual refresh.
+  Future<void> _openExamPicker(BuildContext context) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (ctx) => ExamSelectScreen(
+          auth: widget.auth,
+          onContinue: () => Navigator.of(ctx).pop(true),
+        ),
+      ),
+    );
+    if (changed == true && mounted) {
+      await _loadHeaderStats();
+    }
   }
 
   void _placeholder(BuildContext context, String name) {
@@ -618,13 +735,11 @@ class _SettingsRow extends StatelessWidget {
     required this.icon,
     required this.title,
     this.trailing,
-    this.trailingWidget,
     this.onTap,
   });
   final IconData icon;
   final String title;
   final String? trailing;
-  final Widget? trailingWidget;
   final VoidCallback? onTap;
 
   @override
@@ -647,8 +762,7 @@ class _SettingsRow extends StatelessWidget {
               ),
               if (trailing != null)
                 Text(trailing!, style: const TextStyle(color: AlpColors.textMuted, fontSize: 12)),
-              if (trailingWidget != null) trailingWidget!,
-              if (trailing == null && trailingWidget == null && onTap != null)
+              if (trailing == null && onTap != null)
                 const Icon(Icons.chevron_right, color: AlpColors.textMuted),
             ],
           ),

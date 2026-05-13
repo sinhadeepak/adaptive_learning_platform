@@ -106,7 +106,7 @@ export function RankTrajectoryCard({ userId }: { userId: string }) {
                   e.code === examCode ? "rgba(102,67,255,0.2)" : "transparent",
                 color:
                   e.code === examCode ? "var(--color-purple)" : "var(--text-faint)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                border: "1px solid var(--border-strong)",
                 padding: "3px 8px",
                 borderRadius: 4,
                 fontSize: 11,

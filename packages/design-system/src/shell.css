@@ -961,6 +961,17 @@
   flex-direction: column;
   gap: 8px;
 }
+/* Multi-column variant — for lists with short rows where filling the
+   viewport with a single column wastes space (Home → All topics). */
+.row-list-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 8px;
+}
+.row-list-grid li { list-style: none; }
 
 /* ── Auth (Login) surface — used by all 3 apps ─────────── */
 .auth-page {
@@ -1819,30 +1830,33 @@
   background: radial-gradient(circle, rgba(16,196,122,0.06), transparent 70%);
   pointer-events: none;
 }
-.eh-left { flex: 1; min-width: 0; position: relative; z-index: 1; }
-.eh-tag {
+/* exam-hero scoped overrides — the .eh-* class names used inside the
+   hero collide with the identical names on the /experts page, so every
+   selector below is scoped under .exam-hero to keep them isolated. */
+.exam-hero .eh-left { flex: 1; min-width: 0; position: relative; z-index: 1; }
+.exam-hero .eh-tag {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
 }
-.eh-tag-meta { font-size: 10px; color: var(--text-faint); }
-.eh-title {
+.exam-hero .eh-tag-meta { font-size: 10px; color: var(--text-faint); }
+.exam-hero .eh-title {
   font-size: 22px;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 3px;
   line-height: 1.2;
 }
-.eh-sub {
+.exam-hero .eh-sub {
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.5;
   max-width: 480px;
 }
-.eh-sub strong { color: var(--text-primary); font-weight: 600; }
-.eh-btns { display: flex; gap: 8px; margin-top: 13px; flex-wrap: wrap; }
-.eh-right {
+.exam-hero .eh-sub strong { color: var(--text-primary); font-weight: 600; }
+.exam-hero .eh-btns { display: flex; gap: 8px; margin-top: 13px; flex-wrap: wrap; }
+.exam-hero .eh-right {
   display: flex;
   align-items: center;
   gap: 18px;
@@ -2010,38 +2024,46 @@
 /* Zone 6: Topic mastery matrix */
 .topic-matrix {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 7px;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
 }
 @media (max-width: 700px) {
-  .topic-matrix { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .topic-matrix { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
 .tm-cell {
   border-radius: var(--radius-md);
-  padding: 10px 9px;
+  padding: 10px 11px;
   cursor: pointer;
   transition: var(--trans-fast);
   text-decoration: none;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 64px;
 }
-.tm-cell:hover { transform: scale(1.04); }
+.tm-cell:hover { transform: scale(1.03); }
 .tm-topic {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
   line-height: 1.3;
+  /* Wrap to 2 lines instead of truncating mid-word */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .tm-pct {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 .tm-lbl {
-  font-size: 8px;
+  font-size: 8.5px;
   font-weight: 700;
   letter-spacing: 0.4px;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 .tm-strong { background: rgba(16,196,122,0.11); border: 1px solid rgba(16,196,122,0.18); }
 .tm-strong .tm-topic, .tm-strong .tm-pct, .tm-strong .tm-lbl { color: var(--color-green); }
@@ -2862,8 +2884,21 @@
   transition: var(--trans-fast);
   width: 100%;
   text-align: left;
-  color: inherit;
+  color: var(--text-primary);
   font-family: inherit;
+  font-size: 14px;
+  /* Strip user-agent button rendering. Chrome / Safari paint a system
+     button (white-ish, rounded, light shadow) on top of `<button>`
+     unless `appearance: none` opts out. That was the "white box"
+     bug — the .opt background was set, but the OS widget chrome was
+     painting over it. Affects Linux/Win Chrome most visibly. */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  /* Buttons containing inline text get OS text-selection highlights
+     when the user click-drags or double-clicks. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 .opt:hover:not(:disabled) {
   border-color: rgba(79,135,246,0.35);
@@ -3964,12 +3999,14 @@
 }
 .eh-conv-body::-webkit-scrollbar { width: 4px; }
 .eh-conv-body::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
-/* Inner wrap centres the conversation in a comfortable reading column */
+/* Inner wrap — fills the middle grid column on regular monitors, with a
+   cap at ultra-wide displays so multi-paragraph teacher explanations
+   still read at a comfortable line length. */
 .eh-conv-inner {
   width: 100%;
-  max-width: 760px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 0 22px;
+  padding: 0 28px;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -5429,3 +5466,634 @@
   font-size: 11px;
   color: var(--text-secondary);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Shared page primitives (pg-* namespace) — added 2026-05-11.
+
+   These are the production-grade building blocks used across the
+   marketplace + profile pages (Tutors, Courses, Bookings, My purchases,
+   Practice history, Profile). Earlier each of those pages reinvented
+   cards / headers / empty states with inline styles; the pg-* classes
+   establish a shared visual language.
+
+   Convention: every page wraps content in `.pg-shell` for consistent
+   padding + max-width, leads with `.pg-header` (title + subtitle +
+   actions), then composes from .pg-stat-strip / .pg-filter-row /
+   .pg-tabs / .pg-grid / .pg-list / .pg-empty.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Full-width by design — the marketplace + dashboard pages are
+   grid/list heavy and benefit from filling the available viewport
+   (more cards per row, more KPIs visible at a glance). No max-width
+   cap; horizontal padding is the only chrome. The reading column for
+   long-form prose lives inside individual cards, not at the shell. */
+.pg-shell {
+  padding: 28px 40px 64px;
+  width: 100%;
+}
+
+@media (max-width: 1400px) {
+  .pg-shell { padding: 26px 32px 56px; }
+}
+@media (max-width: 900px) {
+  .pg-shell { padding: 20px 18px 48px; }
+}
+
+/* Page header — title + optional subtitle + right-aligned actions */
+.pg-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.pg-header-main { min-width: 0; flex: 1; }
+.pg-header-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+.pg-header-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+  max-width: 720px;
+}
+.pg-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Horizontal strip of KPI tiles */
+.pg-stat-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.pg-stat {
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+.pg-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.pg-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.pg-stat-delta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Filter row — sticky-feel container holding chips + sort + search */
+.pg-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.pg-filter-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.pg-filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+.pg-chip {
+  padding: 5px 11px;
+  background: var(--bg-surface3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--trans-fast), border-color var(--trans-fast), color var(--trans-fast);
+  font-family: inherit;
+}
+.pg-chip:hover {
+  background: var(--bg-surface4);
+  color: var(--text-primary);
+}
+.pg-chip.on {
+  background: rgba(79,135,246,0.15);
+  border-color: var(--color-blue);
+  color: var(--color-blue);
+}
+.pg-filter-sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pg-filter-select {
+  padding: 6px 10px;
+  background: var(--bg-surface3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-primary);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Segmented tab control */
+.pg-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 4px;
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+}
+.pg-tab {
+  padding: 7px 14px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--trans-fast), color var(--trans-fast);
+}
+.pg-tab:hover { color: var(--text-primary); }
+.pg-tab.on {
+  background: var(--bg-surface4);
+  color: var(--text-primary);
+}
+.pg-tab-count {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-faint);
+  margin-left: 4px;
+}
+.pg-tab.on .pg-tab-count { color: var(--color-blue); }
+
+/* Card grid — used by Tutors, Courses */
+.pg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* Entity card — generic container for a tutor / course / booking */
+.pg-card {
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color var(--trans-fast), transform var(--trans-fast);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+.pg-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+}
+.pg-card-thumb {
+  height: 130px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pg-card-thumb-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.45) 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+.pg-card-thumb-letter {
+  font-size: 44px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 2px 14px rgba(0,0,0,0.35);
+  letter-spacing: -0.02em;
+}
+.pg-card-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+.pg-card-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.pg-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pg-card-desc {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pg-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.pg-card-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-surface3);
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+}
+.pg-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface1);
+}
+.pg-card-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.pg-card-price-unit {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+.pg-card-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.pg-card-rating-star { color: var(--color-amber); }
+
+/* Avatar circle used inside cards + list rows */
+.pg-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-weight: 700;
+  color: #fff;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+.pg-avatar-md { width: 40px; height: 40px; font-size: 15px; }
+.pg-avatar-lg { width: 56px; height: 56px; font-size: 20px; }
+.pg-avatar-xl { width: 72px; height: 72px; font-size: 26px; }
+
+/* List view — used by Bookings, My purchases, History rows */
+.pg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pg-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--trans-fast), background var(--trans-fast);
+  text-decoration: none;
+  color: inherit;
+}
+.pg-row:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-surface3);
+}
+.pg-row-main { flex: 1; min-width: 0; }
+.pg-row-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+  margin: 0 0 4px;
+}
+.pg-row-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pg-row-meta-dot { color: var(--text-faint); }
+.pg-row-aside {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Status pills (extends design-system Pill with role-specific colors) */
+.pg-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+.pg-pill-success { background: rgba(16,196,122,0.12); color: var(--color-green); border-color: rgba(16,196,122,0.3); }
+.pg-pill-info    { background: rgba(79,135,246,0.12); color: var(--color-blue);  border-color: rgba(79,135,246,0.3); }
+.pg-pill-warn    { background: rgba(245,166,35,0.12); color: var(--color-amber); border-color: rgba(245,166,35,0.3); }
+.pg-pill-danger  { background: rgba(244,63,94,0.12);  color: var(--color-red);   border-color: rgba(244,63,94,0.3); }
+.pg-pill-muted   { background: var(--bg-surface3);    color: var(--text-muted);  border-color: var(--border); }
+
+/* Empty state — used when a list / grid has zero results */
+.pg-empty {
+  text-align: center;
+  padding: 56px 24px;
+  background: var(--bg-surface2);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  max-width: 520px;
+  margin: 24px auto;
+}
+.pg-empty-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  opacity: 0.7;
+}
+.pg-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+}
+.pg-empty-body {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+/* Two-column layout — used by Profile */
+.pg-2col {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 24px;
+}
+@media (max-width: 900px) {
+  .pg-2col { grid-template-columns: 1fr; }
+}
+
+/* Section block — titled card used to group related fields */
+.pg-section {
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.pg-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  letter-spacing: -0.005em;
+}
+.pg-section-title-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+/* Field grid — key/value pairs inside a section */
+.pg-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 24px;
+}
+.pg-field-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+.pg-field-value {
+  font-size: 13.5px;
+  color: var(--text-primary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+.pg-field-value-empty {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* Primary/secondary action buttons consistent across pages */
+.pg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  transition: background var(--trans-fast), border-color var(--trans-fast), transform var(--trans-fast);
+  white-space: nowrap;
+}
+.pg-btn:hover { transform: translateY(-1px); }
+.pg-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.pg-btn-primary {
+  background: linear-gradient(135deg, var(--color-blue), var(--color-purple));
+  color: #fff;
+}
+.pg-btn-primary:hover { box-shadow: var(--shadow-blue); }
+.pg-btn-ghost {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+.pg-btn-ghost:hover { background: var(--bg-surface3); }
+.pg-btn-subtle {
+  background: var(--bg-surface3);
+  color: var(--text-primary);
+}
+.pg-btn-subtle:hover { background: var(--bg-surface4); }
+.pg-btn-sm { padding: 5px 10px; font-size: 11.5px; }
+
+/* Range slider — used by Tutors hourly-rate filter */
+.pg-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 240px;
+}
+.pg-range-input {
+  flex: 1;
+  accent-color: var(--color-blue);
+}
+
+/* Search input */
+.pg-search {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+.pg-search-input {
+  width: 100%;
+  padding: 7px 12px 7px 32px;
+  background: var(--bg-surface3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  color: var(--text-primary);
+  font-family: inherit;
+}
+.pg-search-input::placeholder { color: var(--text-faint); }
+.pg-search-input:focus {
+  outline: none;
+  border-color: var(--color-blue);
+  background: var(--bg-surface4);
+}
+.pg-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+  pointer-events: none;
+  font-size: 13px;
+}
+
+/* Modal — used by My purchases rating + tutor booking confirmations */
+.pg-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 9, 15, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.pg-modal {
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  max-width: 440px;
+  width: 100%;
+  padding: 22px 24px 20px;
+  box-shadow: var(--shadow-float);
+}
+.pg-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+.pg-modal-body {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+.pg-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ── CatalogExam — table row zebra + hover + group accent ──── */
+.catalog-table { font-size: 13px; }
+.catalog-table tbody .catalog-row { transition: background 120ms; }
+.catalog-table tbody .catalog-row:nth-of-type(even) { background: rgba(127, 145, 175, 0.04); }
+[data-theme="light"] .catalog-table tbody .catalog-row:nth-of-type(even) { background: rgba(15, 23, 42, 0.025); }
+.catalog-table tbody .catalog-row:hover { background: rgba(79, 135, 246, 0.07); }
+.catalog-table tbody .catalog-row:hover .btn-ghost { border-color: var(--color-ai); color: var(--color-ai); }
+.catalog-table thead th { position: sticky; top: 0; z-index: 1; }

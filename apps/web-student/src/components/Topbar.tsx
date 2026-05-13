@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ThemeToggle } from "./ThemeToggle";
 
 export interface TopbarChip {
   label: string;
@@ -23,7 +24,8 @@ export function Topbar({
           {chip.label}
         </span>
       ))}
-      <span className="topbar-spacer" />
+      <span className="topbar-spacer" style={{ flex: 1 }} />
+      <ThemeToggle />
       {actions}
     </header>
   );

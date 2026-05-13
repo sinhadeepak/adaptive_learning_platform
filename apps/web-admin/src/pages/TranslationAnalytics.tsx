@@ -81,15 +81,17 @@ export function TranslationAnalytics() {
             style={{
               padding: 12,
               marginBottom: 16,
-              background: "var(--bg-subtle, #f8f9fc)",
+              background: "var(--bg-surface1)",
+              border: "1px solid var(--border)",
+              color: "var(--text-secondary)",
               borderRadius: 8,
               fontSize: 13,
             }}
           >
-            <strong>Targets:</strong> acceptance rate &gt;{" "}
-            {pct(data.targets.acceptanceRateTarget)} · re-translation &lt;{" "}
-            {pct(data.targets.retranslationRateCeiling)} · lead time p95 &lt;{" "}
-            {data.targets.leadTimeP95HoursTarget}h
+            <strong style={{ color: "var(--text-primary)" }}>Targets:</strong>{" "}
+            acceptance rate &gt; {pct(data.targets.acceptanceRateTarget)} ·
+            re-translation &lt; {pct(data.targets.retranslationRateCeiling)} ·
+            lead time p95 &lt; {data.targets.leadTimeP95HoursTarget}h
           </section>
 
           <section style={{ marginBottom: 24 }}>
@@ -119,7 +121,7 @@ export function TranslationAnalytics() {
                   {data.perLanguage.map((row) => (
                     <tr
                       key={row.language}
-                      style={{ borderBottom: "1px solid var(--border-subtle, #f0f2f6)" }}
+                      style={{ borderBottom: "1px solid var(--border)" }}
                     >
                       <td style={{ padding: 8, fontWeight: 600 }}>
                         {row.language.toUpperCase()}

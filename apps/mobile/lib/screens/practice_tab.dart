@@ -7,13 +7,27 @@ import '../quiz/quiz_client.dart';
 import '../quiz/quiz_screen.dart';
 import '../widgets/alp_card.dart';
 import 'mock_test_screen.dart';
+import 'persona.dart';
 
 /// Practice mode picker — Adaptive / Topic Quiz / Mock Test.
 /// Mirrors docs/ui/02_MobileApp/18_ai-practice.html.
 class PracticeTab extends StatelessWidget {
-  const PracticeTab({super.key, required this.api, required this.auth});
+  const PracticeTab(
+      {super.key,
+      required this.api,
+      required this.auth,
+      this.persona = Persona.senior,
+      this.activeExamCode,});
   final ApiClient api;
   final AuthClient auth;
+  // Junior persona swaps "Mock Test" copy to "Practice test" and
+  // softens the framing — competitive-exam vocabulary is intimidating
+  // for a Class 8 student.
+  final Persona persona;
+  // The user's active exam code (e.g. "NEET", "CBSE"). Drives the
+  // pill on the Adaptive card so we don't hardcode "NEET" for a
+  // CBSE-Class-8 student.
+  final String? activeExamCode;
 
   static const _seededMechanicsTopic = '33333333-0000-0000-0000-000000000001';
 
@@ -26,7 +40,7 @@ class PracticeTab extends StatelessWidget {
       if (!context.mounted) return;
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => QuizScreen(client: client, sessionId: session.sessionId, api: api),
-      ));
+      ),);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not start: $e')));
@@ -50,10 +64,88 @@ class PracticeTab extends StatelessWidget {
       if (!context.mounted) return;
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => QuizScreen(client: client, sessionId: session.sessionId, api: api),
-      ));
+      ),);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not start: $e')));
+      }
+    }
+  }
+
+  /// F1 — Mistake replay. Bottom sheet asks for recency filter, then
+  /// kicks off a 10-item replay session.
+  Future<void> _startMistakeReplay(BuildContext context) async {
+    final user = auth.user;
+    if (user == null) return;
+    final choice = await showModalBottomSheet<int?>(
+      context: context,
+      backgroundColor: AlpColors.bgSurface1,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Drill mistakes — pick recency',
+                style: TextStyle(
+                  color: AlpColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'You can also filter by topic on the web app.',
+                style: TextStyle(color: AlpColors.textMuted, fontSize: 12),
+              ),
+              const SizedBox(height: 14),
+              _MistakeChoiceTile(
+                label: 'All recent',
+                subtitle: 'Most recent 10 across all topics',
+                icon: Icons.history,
+                onTap: () => Navigator.of(context).pop(0),
+              ),
+              const SizedBox(height: 10),
+              _MistakeChoiceTile(
+                label: 'Last 7 days',
+                subtitle: 'Only this week’s mistakes',
+                icon: Icons.calendar_today_outlined,
+                onTap: () => Navigator.of(context).pop(7),
+              ),
+              const SizedBox(height: 10),
+              _MistakeChoiceTile(
+                label: 'Last 30 days',
+                subtitle: 'Broader window',
+                icon: Icons.event_note_outlined,
+                onTap: () => Navigator.of(context).pop(30),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (choice == null || !context.mounted) return;
+    try {
+      final client = QuizClient(auth: auth);
+      final session = await client.startMistakeReplay(
+        userId: user.id,
+        sinceDays: choice > 0 ? choice : null,
+      );
+      if (!context.mounted) return;
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => QuizScreen(
+          client: client,
+          sessionId: session.sessionId,
+          api: api,
+        ),
+      ),);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e')),
+        );
       }
     }
   }
@@ -109,10 +201,15 @@ class PracticeTab extends StatelessWidget {
               const SizedBox(height: 12),
               Wrap(
                 spacing: 6,
-                children: const [
-                  AlpPill(label: '15 Qs', color: AlpColors.colorBlue),
-                  AlpPill(label: 'NEET', color: AlpColors.colorGreen),
-                  AlpPill(label: '~20 min', color: AlpColors.colorAmber),
+                children: [
+                  const AlpPill(label: '15 Qs', color: AlpColors.colorBlue),
+                  // Bind to the user's active exam — was hardcoded
+                  // "NEET" before Sprint 1 honesty pass.
+                  if (activeExamCode != null && activeExamCode!.isNotEmpty)
+                    AlpPill(
+                        label: activeExamCode!.replaceAll('_', ' '),
+                        color: AlpColors.colorGreen,),
+                  const AlpPill(label: '~20 min', color: AlpColors.colorAmber),
                 ],
               ),
               const SizedBox(height: 14),
@@ -191,6 +288,72 @@ class PracticeTab extends StatelessWidget {
         ),
         const SizedBox(height: 14),
 
+        // F1 — Drill mistakes (promoted from /analysis button to a
+        // first-class practice mode).
+        AlpCard(
+          padding: const EdgeInsets.all(18),
+          borderColor: AlpColors.colorAmber.withValues(alpha: 0.30),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AlpColors.colorAmber.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.refresh, color: AlpColors.colorAmber, size: 24),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Drill your mistakes',
+                style: TextStyle(
+                  color: AlpColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Re-attempt questions you got wrong. Filter by recency, drill 10 at a time.',
+                style: TextStyle(color: AlpColors.textSecondary, fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 6,
+                children: const [
+                  AlpPill(label: '10 Qs', color: AlpColors.colorAmber),
+                  AlpPill(label: 'All / 7d / 30d', color: AlpColors.textMuted),
+                ],
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => _startMistakeReplay(context),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: AlpColors.colorAmber.withValues(alpha: 0.45),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text(
+                    '🎯 Start mistake drill →',
+                    style: TextStyle(
+                      color: AlpColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
         // Mock Test
         AlpCard(
           padding: const EdgeInsets.all(18),
@@ -210,18 +373,26 @@ class PracticeTab extends StatelessWidget {
                     child: const Icon(Icons.emoji_events_outlined, color: AlpColors.colorAmber, size: 24),
                   ),
                   const Spacer(),
-                  const AlpPill(label: '◈ AI MOCK', color: AlpColors.colorAmber),
+                  AlpPill(
+                      label: persona.isJunior ? '◈ TIMED TEST' : '◈ AI MOCK',
+                      color: AlpColors.colorAmber,),
                 ],
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Mock Test',
-                style: TextStyle(color: AlpColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700),
+              Text(
+                persona.isJunior ? 'Practice Test' : 'Mock Test',
+                style: const TextStyle(
+                    color: AlpColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Exam-blueprint paper, mastery-calibrated, timed, scored against historical percentile + projected AIR.',
-                style: TextStyle(color: AlpColors.textSecondary, fontSize: 13, height: 1.4),
+              Text(
+                persona.isJunior
+                    ? 'A timed chapter-style test — like the one your teacher gives. See where you stand and which topics to revisit.'
+                    : 'Exam-blueprint paper, mastery-calibrated, timed, scored against historical percentile + projected AIR.',
+                style: const TextStyle(
+                    color: AlpColors.textSecondary, fontSize: 13, height: 1.4,),
               ),
               const SizedBox(height: 12),
               const Wrap(
@@ -243,9 +414,9 @@ class PracticeTab extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  child: const Text(
-                    'Start Mock Test ▶',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  child: Text(
+                    persona.isJunior ? 'Start Practice Test ▶' : 'Start Mock Test ▶',
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                   ),
                 ),
               ),
@@ -277,7 +448,7 @@ class PracticeTab extends StatelessWidget {
       }
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => MockTestScreen(api: api, plan: plan),
-      ));
+      ),);
     } catch (e) {
       if (context.mounted) {
         Navigator.pop(context);
@@ -383,25 +554,25 @@ class _TopicPickerState extends State<_TopicPicker> {
               const Center(child: Padding(
                 padding: EdgeInsets.all(24),
                 child: CircularProgressIndicator(color: AlpColors.colorAi),
-              ))
+              ),)
             else if (_subject != null)
               ..._topics.map((t) => _PickerRow(
                     title: t.title,
                     subtitle: '${t.questionCount} questions',
                     onTap: () => Navigator.of(context).pop(t.id),
-                  ))
+                  ),)
             else if (_exam != null)
               ..._subjects.map((s) => _PickerRow(
                     title: s.name,
                     subtitle: '${s.topicCount} topics',
                     onTap: () => _pickSubject(s),
-                  ))
+                  ),)
             else
               ..._exams.map((e) => _PickerRow(
                     title: e.name,
                     subtitle: e.subtitle ?? e.code,
                     onTap: () => _pickExam(e),
-                  )),
+                  ),),
           ],
         ),
       ),
@@ -436,6 +607,64 @@ class _PickerRow extends StatelessWidget {
             ),
             const Icon(Icons.chevron_right, color: AlpColors.textMuted),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// F1 — bottom-sheet tile for recency choice on the Drill mistakes flow.
+class _MistakeChoiceTile extends StatelessWidget {
+  const _MistakeChoiceTile({
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AlpColors.bgSurface2,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Icon(icon, color: AlpColors.colorAmber, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: AlpColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AlpColors.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AlpColors.textMuted),
+            ],
+          ),
         ),
       ),
     );

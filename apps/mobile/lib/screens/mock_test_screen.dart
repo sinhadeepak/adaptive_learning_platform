@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../widgets/alp_card.dart';
+import '../widgets/report_outcome_dialog.dart';
 import 'mock_result_screen.dart';
+import 'persona.dart';
 
 /// Full-screen mock test player.
 ///
@@ -115,9 +117,22 @@ class _MockTestScreenState extends State<MockTestScreen> {
     try {
       final result = await widget.api.mockScore(mockId: widget.plan.mockId, answers: _answers);
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(MaterialPageRoute(
+      await Navigator.of(context).pushReplacement(MaterialPageRoute(
         builder: (_) => MockResultScreen(result: result),
-      ));
+      ),);
+      // Sprint A7 — once the result screen lands, ask senior students
+      // (juniors don't take real competitive exams) for their actual
+      // outcome. Strict opt-in; honoured "don't ask again" flag.
+      if (!mounted) return;
+      if (personaForExamCode(widget.plan.examCode).isSenior &&
+          await shouldAskOutcome(widget.api.auth)) {
+        if (!mounted) return;
+        await showReportOutcomeDialog(
+          context: context,
+          auth: widget.api.auth,
+          examCode: widget.plan.examCode,
+        );
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);

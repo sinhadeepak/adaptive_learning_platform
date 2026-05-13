@@ -73,6 +73,17 @@ from learning.evaluation.routes import router as evaluation_router
 
 # exam blueprints (P4-S23)
 from learning.exam_blueprints.routes import router as exam_blueprints_router
+# Pillar A — Exam Intelligence System (Stream B Phase B1).
+from learning.exam_intel.routes import (
+    admin_router as exam_intel_admin_router,
+    router as exam_intel_router,
+)
+# Pillar B — Probabilistic Curriculum Engine (Stream B Phase B2).
+from learning.pce.routes import router as pce_router
+# Pillar D — Internal Guidance System (Stream B Phase B3).
+from learning.igs.routes import router as igs_router
+from learning.igs.stream import gateway as igs_gateway, ws_router as igs_ws_router
+from learning.igs import nats_subscriber as igs_nats_sub
 
 # PYQ catalog (P4-S24)
 from learning.pyq.routes import router as pyq_router
@@ -92,7 +103,11 @@ from learning.content import quiz_session_subscriber as content_quiz_sub
 from learning.content.assignments_routes import router as assignments_router
 from learning.content.db import dispose as dispose_content_db
 from learning.content.routes import router as content_router
+from learning.content.notes_routes import router as content_notes_router
 from learning.content.resources.routes import router as content_resources_router
+from learning.storage.routes import router as uploads_router  # P7 — uploads
+from learning.exam_builder.routes import router as exam_builder_router  # P7 — admin AI-assisted exam builder
+from learning.ai_providers.routes import router as ai_providers_router  # P7 — admin-managed multi-provider AI chain
 from learning.screening.routes import router as screening_router  # P6-S49
 from learning.mission.routes import router as mission_router        # P6-S50
 from learning.plans.routes import router as plans_router            # P6-S55
@@ -173,6 +188,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         log.warning("learning startup: ai_gateway not available: %s", exc)
         app.state.ai_gateway = None
 
+    # P5-S45: hydrate the in-memory cost tracker from the persistent
+    # ai_call_logs table so /admin/ai-cost shows historical data after
+    # a fresh process boot. Best-effort — absorbed errors don't block.
+    async def _hydrate_cost_tracker() -> None:
+        import os
+        from learning.ai_gateway.cost_dashboard import load_from_db
+
+        db_url = os.environ.get("LEARNING_DATABASE_URL") or os.environ.get("DATABASE_URL") or ""
+        if not db_url:
+            return
+        loaded = await load_from_db(db_url)
+        log.info("cost_dashboard: hydrated %d entries from ai_call_logs", loaded)
+
+    await _try("ai_gateway.cost_hydrate", _hydrate_cost_tracker)
+
     # P5-S62: register the Whisper transcription provider when an
     # OpenAI API key is set; fall back to the stub otherwise so the
     # /content/ai/transcribe route stays exercisable in dev. Failure
@@ -233,6 +263,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await _try("catalog.flags", connect_catalog_flags)
     await _try("content.events", content_events.connect)
     await _try("content.quiz_subscriber", content_quiz_sub.connect)
+    # Phase B3 — IGS reactive WebSocket push trigger.
+    await _try("igs.nats_subscriber", igs_nats_sub.connect)
     await _try("search.ensure_index", ensure_index)
 
     async def _maybe_reindex() -> None:
@@ -274,6 +306,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await _try("photo_doubt_limiter.close", app.state.photo_doubt_limiter.close)
         await _try("adaptive.flags.close", close_adaptive_flags)
         await _try("search.os_client.close", close_os_client)
+        await _try("igs.nats_subscriber.close", igs_nats_sub.close)
         await _try("content.quiz_subscriber.close", content_quiz_sub.close)
         await _try("content.events.close", content_events.close)
         await _try("catalog.flags.close", close_catalog_flags)
@@ -302,12 +335,27 @@ app.include_router(cultural_router)              # Phase 5 (P5-S57 — CE-404)
 app.include_router(transcription_router)         # Phase 5 (P5-S62 — Whisper)
 app.include_router(staffing_router)              # Phase 5 (P5-S63 — staffing)
 app.include_router(exam_blueprints_router)
+app.include_router(exam_intel_router)         # Pillar A read endpoints
+app.include_router(exam_intel_admin_router)   # Pillar A admin endpoints
+app.include_router(pce_router)                # Pillar B — PCE
+app.include_router(igs_router)                # Pillar D — IGS HTTP
+app.include_router(igs_ws_router)             # Pillar D — IGS WebSocket
+# Make the gateway reachable to NATS subscriber paths that want to
+# trigger reactive pushes (quiz.session.completed, mastery.delta, …).
+app.state.igs_gateway = igs_gateway
 app.include_router(pyq_router)
 app.include_router(prereqs_router)
 app.include_router(syllabus_router)
 app.include_router(syllabus_references_router)
 app.include_router(content_router)
+app.include_router(content_notes_router)  # Phase 7 (P7-A1) — per-topic notes
 app.include_router(content_resources_router)  # R-S1 — YouTube curation
+# Phase 1D-8 — flashcard SRS
+from learning.flashcards.routes import router as flashcards_router  # noqa: E402
+app.include_router(flashcards_router)
+app.include_router(uploads_router)              # P7 — MinIO presigned uploads
+app.include_router(exam_builder_router)          # P7 — admin AI-assisted exam builder
+app.include_router(ai_providers_router)          # P7 — admin AI provider config + failover chain
 app.include_router(screening_router)            # P6-S49 — guest screening
 app.include_router(mission_router)              # P6-S50 — Today's Mission
 app.include_router(plans_router)                # P6-S55 — Constrained plan editor

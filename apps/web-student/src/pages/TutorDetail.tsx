@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { AppShell } from "../components/AppShell";
 import {
   type AvailabilitySlot,
   type TutorPublicProfile,
@@ -75,16 +76,19 @@ export function TutorDetail() {
 
   if (!profile) {
     return (
-      <main className="page" style={{ padding: 24 }}>
-        {error ? <p className="banner banner-error">{error}</p> : <p>Loading…</p>}
-        <Link to="/tutors">← Back to tutors</Link>
-      </main>
+      <AppShell title="Tutor">
+        <div style={{ padding: "16px 24px" }}>
+          {error ? <p className="banner banner-error">{error}</p> : <p style={{ color: "var(--text-muted)" }}>Loading…</p>}
+          <Link to="/tutors" style={{ color: "var(--color-blue)" }}>← Back to tutors</Link>
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <main className="page" style={{ padding: 24, maxWidth: 760 }}>
-      <Link to="/tutors">← Back to tutors</Link>
+    <AppShell title={profile.displayName}>
+    <div style={{ padding: "16px 24px 32px", maxWidth: 880 }}>
+      <Link to="/tutors" style={{ color: "var(--color-blue)", fontSize: 13 }}>← Back to tutors</Link>
       <h1>{profile.displayName}</h1>
       <p style={{ color: "var(--text-muted)" }}>{profile.headline}</p>
       <p style={{ fontSize: 18 }}>
@@ -176,6 +180,7 @@ export function TutorDetail() {
           )}
         </div>
       </section>
-    </main>
+    </div>
+    </AppShell>
   );
 }

@@ -1,0 +1,32 @@
+id: video_question_draft
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Generate a video-question structure. AI emits a video brief +
+  sub-questions; author produces / sources the actual video.
+system: |
+  You are an expert {exam} question author.
+  Generate ONE video-question on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: brief framing like "Watch the video and answer the questions."
+  - video_brief: 100-250 words describing the video content the author needs to source/produce.
+    Include: duration estimate (30s-2min), what's shown on screen, narration / dialogue notes, key moments to time-stamp.
+  - sub_questions: 2-4 entries.
+    Each: sub_id ("Q1"...), sub_stem, sub_type (MCQ_SINGLE / SHORT_TEXT),
+    sub_payload_json (type-appropriate payload as a JSON STRING).
+    Reference specific moments where useful ("At 0:42, what does the narrator claim about …").
+  - One-paragraph explanation.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftVideoQuestion

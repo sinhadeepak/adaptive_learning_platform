@@ -6,6 +6,7 @@ import 'screens/main_scaffold.dart';
 import 'screens/login_screen.dart';
 import 'screens/onboarding/daily_goal_screen.dart';
 import 'screens/onboarding/exam_select_screen.dart';
+import 'screens/onboarding/welcome_screen.dart';
 import 'screens/onboarding/language_screen.dart';
 import 'screens/onboarding/target_date_screen.dart';
 import 'screens/forgot_password_screen.dart';
@@ -17,14 +18,14 @@ import 'screens/verify_screen.dart';
 // /api/v1/* to every backend service (auth, profile, quiz, catalog,
 // analytics, adaptive, etc.). One port to forward, one URL to configure.
 //
-// Defaults:
-//   Android emulator: 10.0.2.2 maps to the dev machine.
-//   iOS simulator:    use --dart-define=ALP_API_BASE_URL=http://localhost:35173/api/v1
-//   Real device:      use --dart-define=ALP_API_BASE_URL=http://<host-LAN-IP>:35173/api/v1
-//                     and ensure WSL→LAN forwarding (see docs/local-testing.md).
+// Default points at the dev machine's LAN IP so a real Android/iOS
+// device on the same Wi-Fi can reach the stack without any --dart-define.
+// Override with --dart-define=ALP_API_BASE_URL=... when needed:
+//   Android emulator: --dart-define=ALP_API_BASE_URL=http://10.0.2.2:35173/api/v1
+//   iOS simulator:    --dart-define=ALP_API_BASE_URL=http://localhost:35173/api/v1
 const _apiBaseUrl = String.fromEnvironment(
   'ALP_API_BASE_URL',
-  defaultValue: 'http://10.0.2.2:35173/api/v1',
+  defaultValue: 'http://192.168.29.85:35173/api/v1',
 );
 
 void main() {
@@ -50,7 +51,7 @@ class AdaptiveLearningApp extends StatefulWidget {
 
 enum _GuestScreen { login, register, verify, forgotPassword, resetPassword }
 
-enum _OnboardStep { exam, language, targetDate, dailyGoal, done }
+enum _OnboardStep { welcome, exam, language, targetDate, dailyGoal, done }
 
 class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
   Session? _session;
@@ -59,7 +60,7 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
   String? _pendingUserId;
   String? _pendingEmail;
   String? _resetToken;
-  _OnboardStep _onboardStep = _OnboardStep.exam;
+  _OnboardStep _onboardStep = _OnboardStep.welcome;
 
   @override
   void initState() {
@@ -139,6 +140,11 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
 
   Widget _onboardingRoute() {
     switch (_onboardStep) {
+      case _OnboardStep.welcome:
+        return WelcomeScreen(
+          onContinue: () =>
+              setState(() => _onboardStep = _OnboardStep.exam),
+        );
       case _OnboardStep.exam:
         return ExamSelectScreen(
           auth: widget.auth,
@@ -171,7 +177,7 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
             if (mounted) {
               setState(() {
                 _session = null;
-                _onboardStep = _OnboardStep.exam;
+                _onboardStep = _OnboardStep.welcome;
               });
             }
           },
@@ -193,7 +199,6 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
         scaffoldBackgroundColor: AlpColors.bgBase,
         canvasColor: AlpColors.bgBase,
         cardColor: AlpColors.bgSurface2,
-        dialogBackgroundColor: AlpColors.bgSurface1,
         dividerColor: AlpColors.borderDefault,
         textTheme: const TextTheme(
           bodyLarge: AlpTextStyles.body,
@@ -201,7 +206,7 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
           titleLarge: AlpTextStyles.pageTitle,
           titleMedium: AlpTextStyles.sectionHeading,
           labelLarge: AlpTextStyles.label,
-        ),
+        ), dialogTheme: DialogThemeData(backgroundColor: AlpColors.bgSurface1),
       ),
       home: !_bootstrapped
           ? const _Splash()

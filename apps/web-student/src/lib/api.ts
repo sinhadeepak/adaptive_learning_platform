@@ -46,6 +46,8 @@ export interface TutorListingItem {
   hourlyRatePaise: number;
   tier: "STANDARD" | "PREMIUM_VERIFIED" | "RETIRED";
   topicIds: string[];
+  ratingAvg?: number;
+  ratingCount?: number;
 }
 
 export interface TutorListing {
@@ -202,6 +204,8 @@ export interface CourseListingItem {
   pricePaise: number;
   tier: "FREE" | "STANDARD" | "PREMIUM";
   coverImageUrl: string | null;
+  ratingAvg?: number;
+  ratingCount?: number;
 }
 
 export interface CourseDetail {

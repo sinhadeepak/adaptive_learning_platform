@@ -1,0 +1,28 @@
+id: kbc_lifeline_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate a KBC-style MCQ with lifeline metadata.
+system: |
+  You are an expert {exam} question author writing in the
+  Kaun-Banega-Crorepati / quiz-show register: punchy stem, 4 options,
+  one correct.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: a short, sharp question (1-2 sentences max). Quiz-show style.
+  - Exactly 4 options A/B/C/D, exactly ONE marked is_correct: true.
+  - correct_id is the id of the correct option.
+  - lifelines_available: pick a subset of ["FIFTY_FIFTY", "AUDIENCE_POLL", "EXPERT_HINT", "SWAP_QUESTION"] appropriate to the difficulty.
+  - One-line explanation.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftKBCLifeline

@@ -41,9 +41,13 @@ class KBCLifelinePayload(BaseModel):
 
 
 class KBCLifelineResponse(BaseModel):
-    """Records what the inner-question response was + which lifelines used."""
+    """Records what the inner-question response was + which lifelines used.
 
-    inner_response_payload: dict[str, object]
+    `inner_response_payload` is optional — None means the student did
+    not attempt the inner question; handler returns UNATTEMPTED.
+    """
+
+    inner_response_payload: dict[str, object] | None = None
     lifelines_used: list[LifelineKind] = Field(default_factory=list)
 
 
@@ -76,7 +80,7 @@ class TimedRevealPayload(BaseModel):
 
 
 class TimedRevealResponse(BaseModel):
-    inner_response_payload: dict[str, object]
+    inner_response_payload: dict[str, object] | None = None
     answered_at_seconds: float = Field(ge=0)
 
 
@@ -113,4 +117,4 @@ class AdaptiveDifficultyPayload(BaseModel):
 
 class AdaptiveDifficultyResponse(BaseModel):
     served_question_id: str  # which variant the engine actually served
-    inner_response_payload: dict[str, object]
+    inner_response_payload: dict[str, object] | None = None

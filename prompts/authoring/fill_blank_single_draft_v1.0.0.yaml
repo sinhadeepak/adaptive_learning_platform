@@ -1,0 +1,27 @@
+id: fill_blank_single_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate a single-blank fill-in question.
+system: |
+  You are an expert {exam} question author.
+  Generate ONE single-blank fill-in question on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: short framing like "Fill in the blank with the correct word."
+  - Template: a single sentence containing exactly one [BLANK] marker.
+  - Accepted: list of 1-4 acceptable answers (synonyms / equivalent forms / casing variants).
+  - Keep the answer short (1-3 words). Don't ask for sentence-long fills here.
+  - One-paragraph explanation.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftFillBlankSingle

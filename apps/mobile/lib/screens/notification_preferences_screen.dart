@@ -63,7 +63,7 @@ class _NotificationPreferencesScreenState
     (
       id: 'assignment.new',
       label: 'New assignments',
-      description: "Bell ping when your educator publishes a new assignment to your cohort.",
+      description: 'Bell ping when your educator publishes a new assignment to your cohort.',
     ),
   ];
 
@@ -120,7 +120,7 @@ class _NotificationPreferencesScreenState
                     child: Text(
                       "Mute the categories you don't want pinging your inbox bell. "
                       'Changes take effect for future events; already-delivered '
-                      "notifications stay in your inbox until you mark them read.",
+                      'notifications stay in your inbox until you mark them read.',
                       style: TextStyle(color: AlpColors.textMuted, fontSize: 13, height: 1.45),
                     ),
                   ),

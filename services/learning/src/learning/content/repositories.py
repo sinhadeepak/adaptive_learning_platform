@@ -128,6 +128,9 @@ async def list_questions(
     status_filter: str | None = None,
     question_type: str | None = None,
     search: str | None = None,
+    topic_id: str | None = None,
+    subject_id: str | None = None,
+    exam_id: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
@@ -153,6 +156,29 @@ async def list_questions(
         # ILIKE (or websearch_to_tsquery) — out of scope here.
         where.append("stem ILIKE :search")
         params["search"] = f"%{search}%"
+    # Catalog scoping — applied as subqueries so we don't have to JOIN
+    # in the count query (`SELECT COUNT(*)` is the hot path here).
+    # Direct `topic_id` is the cheapest; subject and exam each chain
+    # through one extra table. catalog_schema lives in the same DB
+    # as content_schema, so cross-schema queries don't need dblink.
+    if topic_id is not None:
+        where.append("topic_id = CAST(:topic_id AS uuid)")
+        params["topic_id"] = topic_id
+    if subject_id is not None:
+        where.append(
+            "topic_id IN ("
+            "SELECT id FROM catalog_schema.topics "
+            "WHERE subject_id = CAST(:subject_id AS uuid))"
+        )
+        params["subject_id"] = subject_id
+    if exam_id is not None:
+        where.append(
+            "topic_id IN ("
+            "SELECT t.id FROM catalog_schema.topics t "
+            "JOIN catalog_schema.subjects s ON t.subject_id = s.id "
+            "WHERE s.exam_id = CAST(:exam_id AS uuid))"
+        )
+        params["exam_id"] = exam_id
     where_clause = "WHERE " + " AND ".join(where) if where else ""
 
     count_res = await session.execute(

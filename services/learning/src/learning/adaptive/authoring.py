@@ -121,13 +121,19 @@ async def generate_questions(
     """Generate `count` MCQs for the given topic. Returns the raw schema-typed
     bundle plus a `source` field. Caller (UI) is expected to render the items
     in a review list; nothing is auto-saved to Content."""
-    if not llm.is_enabled():
+    if not await llm.is_enabled_async():
         return _stub_response(
-            "AI authoring requires OPENAI_API_KEY to be set in adaptive-engine."
+            "AI authoring requires an enabled provider. Configure one in "
+            "the admin AI providers page (Ollama / OpenAI / Anthropic), "
+            "or set OPENAI_API_KEY on the engine."
         )
 
-    if count < 1 or count > 30:
-        return _stub_response("Count must be between 1 and 30.")
+    # Cap raised in P7 — admins/teachers want to seed real banks, not
+    # 30-question dribs. Single-call OpenAI completions get unreliable
+    # past ~20 items (json truncation, slower latency), so we batch
+    # internally below.
+    if count < 1 or count > 100:
+        return _stub_response("Count must be between 1 and 100.")
 
     topic_meta = await _fetch_topic(topic_id)
     if topic_meta is None:
@@ -147,30 +153,63 @@ async def generate_questions(
         "mixed": "Mix difficulties: roughly a third easy (b ≈ -1), a third medium (b ≈ 0), a third hard (b ≈ +1).",
     }.get(difficulty, "Mix easy, medium, and hard items.")
 
-    user_lines = [
-        f"Topic: {title}",
-        f"Subject: {subject}",
-        f"Exam: {exam}",
-        f"Language: {'Hindi (Devanagari)' if language == 'hi' else 'English'}",
-        f"Number of items to generate: {count}",
-        f"Difficulty distribution: {band_hint}",
-    ]
-    if extra_context.strip():
-        user_lines.append(f"Author's brief: {extra_context.strip()}")
-    user_lines.append("Task: generate the questions.")
+    # Internal batching — cap each LLM call to BATCH_SIZE so we don't
+    # hit max_tokens truncation or generate-then-discard on the tail
+    # when count is large. The model produces better-quality items in
+    # smaller batches anyway (more attention per item). Failures on
+    # one batch are logged and don't fail the whole request — partial
+    # output is returned with the count of what we got.
+    BATCH_SIZE = 20
+    items: list[dict[str, Any]] = []
+    remaining = count
+    batch_idx = 0
+    while remaining > 0:
+        this_batch = min(BATCH_SIZE, remaining)
+        user_lines = [
+            f"Topic: {title}",
+            f"Subject: {subject}",
+            f"Exam: {exam}",
+            f"Language: {'Hindi (Devanagari)' if language == 'hi' else 'English'}",
+            f"Number of items to generate: {this_batch}",
+            f"Difficulty distribution: {band_hint}",
+        ]
+        if batch_idx > 0:
+            # Nudge the model to vary phrasing across batches so a 100-
+            # question request doesn't produce 5 near-duplicates.
+            user_lines.append(
+                f"Note: this is batch {batch_idx + 1}; do NOT repeat phrasings, "
+                "concepts, or distractor structures used in earlier batches "
+                "for this topic."
+            )
+        if extra_context.strip():
+            user_lines.append(f"Author's brief: {extra_context.strip()}")
+        user_lines.append("Task: generate the questions.")
 
-    parsed = await llm.call_structured(
-        system=SYSTEM_PROMPT,
-        user="\n".join(user_lines),
-        schema_name="generated_questions",
-        schema=GENERATED_QUESTION_SCHEMA,
-    )
-    if parsed is None:
+        parsed = await llm.call_structured(
+            system=SYSTEM_PROMPT,
+            user="\n".join(user_lines),
+            schema_name="generated_questions",
+            schema=GENERATED_QUESTION_SCHEMA,
+        )
+        if parsed is None:
+            log.warning(
+                "authoring_batch_empty",
+                topic_id=topic_id,
+                batch_idx=batch_idx,
+                requested=this_batch,
+            )
+            # Don't bail — return whatever we already have. If the very
+            # first batch fails we still surface a useful error below.
+            break
+        items.extend(parsed.get("questions", []))
+        remaining -= this_batch
+        batch_idx += 1
+
+    if not items:
         return _stub_response(
             "The model returned no items. Try a smaller count or simpler topic brief."
         )
 
-    items = parsed.get("questions", [])
     # Defensive: enforce minimum integrity even though strict mode should already.
     cleaned: list[dict[str, Any]] = []
     for q in items:

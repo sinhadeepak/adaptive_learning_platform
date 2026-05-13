@@ -209,6 +209,6 @@ function roleFg(role: ConceptTag["role"]): string {
     case "primary": return "var(--color-blue, #4f87f6)";
     case "prerequisite": return "var(--color-amber-dark, #92400e)";
     case "formula_invoked": return "var(--color-purple, #7c3aed)";
-    case "distractor_targets": return "var(--text-base, #0f172a)";
+    case "distractor_targets": return "var(--text-primary)";
   }
 }

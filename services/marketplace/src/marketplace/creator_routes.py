@@ -46,7 +46,7 @@ from marketplace.schemas import (
     RatingAggregateOut,
     RatingOut,
 )
-from marketplace.security import Principal, require_admin, require_user
+from marketplace.security import Principal, optional_user, require_admin, require_user
 
 creator_router = APIRouter()
 course_router = APIRouter()
@@ -576,7 +576,7 @@ async def list_courses(
 @course_router.get("/marketplace/courses/{course_id}", response_model=CourseOut)
 async def get_course_route(
     course_id: str,
-    p: Annotated[Principal | None, Depends(require_user)] = None,  # noqa: B008
+    p: Annotated[Principal | None, Depends(optional_user)] = None,
 ) -> CourseOut:
     async with sessionmaker()() as session:
         row = await repo.get_course(session, course_id)

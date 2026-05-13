@@ -237,6 +237,16 @@ class AIGateway:
             if self._openai_lazy is None:
                 self._openai_lazy = OpenAIProvider()
             return self._openai_lazy
+        if name in ("admin_chain", "admin"):
+            # Phase-7 admin-managed chain (Ollama / OpenAI / Anthropic
+            # by priority). Lazy-loaded so the import doesn't add to
+            # gateway boot time when no touchpoint routes to it.
+            from learning.ai_gateway.providers.admin_chain_provider import (
+                AdminChainProvider,
+            )
+            inst = AdminChainProvider()
+            self._providers[name] = inst
+            return inst
         raise AIGatewayError(f"unknown provider name: {name!r}")
 
 

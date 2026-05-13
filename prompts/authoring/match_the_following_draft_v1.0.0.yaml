@@ -1,0 +1,28 @@
+id: match_the_following_draft
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Generate a Match-the-Following question with 4-6 left/right pairs.
+system: |
+  You are an expert {exam} question author.
+  Generate ONE Match-the-Following question on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: short instruction like "Match the items in Column A with their correct counterparts in Column B."
+  - Provide 4-6 pairs. Each pair: `left` (term/concept) and `right` (matching definition / property / event).
+  - Each pair must be unambiguous — only one correct match.
+  - Pairs should be conceptually adjacent (same topic family) so the distractors aren't trivial.
+  - One-paragraph explanation justifying the matches.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftMatchTheFollowing

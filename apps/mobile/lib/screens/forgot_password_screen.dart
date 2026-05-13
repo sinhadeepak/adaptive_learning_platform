@@ -46,7 +46,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (mounted) {
         setState(() => _error = e.code == AuthErrorCode.rateLimited
             ? 'Too many attempts. Please wait a minute and retry.'
-            : 'We couldn\'t send the reset link right now. Try again shortly.');
+            : 'We couldn\'t send the reset link right now. Try again shortly.',);
       }
     } catch (_) {
       if (mounted) {

@@ -219,7 +219,7 @@ export function ReadinessRing({
           cy={c}
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,0.06)"
+          stroke="var(--border)"
           strokeWidth={size * 0.09}
         />
         <circle

@@ -192,6 +192,11 @@ export function ExamDetail() {
         weak: inSubject.filter((t) => t.ewa >= 0 && t.ewa < 0.4).length,
         notStarted: inSubject.filter((t) => t.ewa < 0).length,
       };
+      // Pick a single "eye-opening" highlight per subject so each row
+      // tells the student something they didn't already get from the
+      // bar + counts. Priority: weakest tracked → first unstarted.
+      const weakest = tracked.slice().sort((a, b) => a.ewa - b.ewa)[0];
+      const firstUnstarted = inSubject.find((t) => t.ewa < 0);
       return {
         subjectId: s.id,
         name: s.name,
@@ -199,6 +204,8 @@ export function ExamDetail() {
         nTracked: tracked.length,
         buckets,
         totalTopics: inSubject.length,
+        weakest: weakest ?? null,
+        firstUnstarted: firstUnstarted ?? null,
       };
     });
   }, [subjects, topics]);
@@ -234,6 +241,35 @@ export function ExamDetail() {
       .sort((a, b) => a.ewa - b.ewa)
       .slice(0, 3);
   }, [topics]);
+
+  // Quick-win candidates: tracked but mid-tier (45–69%) — small push
+  // crosses into the green band, so they're the highest-ROI sessions.
+  const quickWins = useMemo(() => {
+    if (!topics) return [];
+    return topics
+      .filter((t) => t.ewa >= 0.45 && t.ewa < 0.7)
+      .sort((a, b) => b.ewa - a.ewa)
+      .slice(0, 4);
+  }, [topics]);
+
+  // For brand-new users (no mastery anywhere), surface the chapter most
+  // teachers start with: pick the first topic of each subject (sort_order=1
+  // by catalog convention) so the "Where to start" panel always lands.
+  const startingPoints = useMemo(() => {
+    if (!topics || !subjects) return [];
+    if (trackedTopics > 0) return [];
+    const out: TopicCard[] = [];
+    for (const s of subjects) {
+      const first = topics.find((t) => t.subjectId === s.id);
+      if (first) out.push(first);
+      if (out.length >= 4) break;
+    }
+    return out;
+  }, [topics, subjects, trackedTopics]);
+
+  // Topic-mastery matrix removed in P7 per user direction. Subjects
+  // are still drillable via the Subject mastery rows above; per-topic
+  // detail lives on the StudyMap drill-down page (`/study/:examId/:subjectId`).
 
   const days = daysUntil(targetDate);
 
@@ -432,6 +468,16 @@ export function ExamDetail() {
                           <span className="subj-pct" style={{ color: pctColor }}>
                             {s.nTracked > 0 ? `${pct}%` : "—"}
                           </span>
+                          <span
+                            aria-hidden
+                            style={{
+                              fontSize: 14,
+                              color: "var(--text-faint)",
+                              marginLeft: 4,
+                            }}
+                          >
+                            ›
+                          </span>
                         </div>
                       </div>
                       <div className="bar-track">
@@ -445,6 +491,32 @@ export function ExamDetail() {
                         {s.buckets.strong} Strong · {s.buckets.developing} Developing ·{" "}
                         {s.buckets.weak} Weak · {s.buckets.notStarted} Not started
                       </div>
+                      {/* Eye-opening detail: one specific call-to-action
+                          per subject. Weakest if any data, else where to
+                          start. Stays out of the way when there's nothing
+                          actionable (subject has no topics). */}
+                      {s.weakest ? (
+                        <div
+                          style={{
+                            fontSize: 10.5,
+                            color: "var(--color-red)",
+                            marginTop: 3,
+                          }}
+                        >
+                          Weakest: {s.weakest.title} ·{" "}
+                          {Math.round(s.weakest.ewa * 100)}%
+                        </div>
+                      ) : s.firstUnstarted ? (
+                        <div
+                          style={{
+                            fontSize: 10.5,
+                            color: "var(--text-muted)",
+                            marginTop: 3,
+                          }}
+                        >
+                          Best to start: {s.firstUnstarted.title}
+                        </div>
+                      ) : null}
                     </div>
                   </Link>
                 );
@@ -545,70 +617,23 @@ export function ExamDetail() {
         </div>
       </div>
 
-      {/* ── Zones 6 + 7: Topic matrix + AI insights ────────────────── */}
-      <div className="dashboard-bottom-grid" style={{ marginTop: "var(--sp-4)" }}>
+      {/* ── New insight strip (decay banner + next-session card) ───── */}
+      {user && (
+        <DecayBanner userId={user.id} examCode={exam.code} />
+      )}
 
-        {/* Zone 6: Topic mastery matrix */}
-        <div className="card">
-          <div className="sec-row">
-            <div>
-              <h2 className="section-heading">Topic mastery matrix</h2>
-              <div style={{ fontSize: 9.5, color: "var(--text-faint)", marginTop: 1 }}>
-                {topics.length} topics · click any to practice
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 5 }}>
-              <span className="pill pill-success" style={{ fontSize: 9 }}>Strong</span>
-              <span className="pill pill-info" style={{ fontSize: 9 }}>Developing</span>
-              <span className="pill pill-danger" style={{ fontSize: 9 }}>Weak</span>
-              <span className="pill pill-muted" style={{ fontSize: 9 }}>New</span>
-            </div>
-          </div>
-          {topics.length === 0 ? (
-            <p style={{ color: "var(--text-muted)", fontSize: 12 }}>
-              No topics in this exam yet.
-            </p>
-          ) : (
-            <div className="topic-matrix">
-              {topics.map((t) => {
-                const bucket =
-                  t.ewa < 0
-                    ? "new"
-                    : t.ewa >= 0.7
-                      ? "strong"
-                      : t.ewa >= 0.4
-                        ? "developing"
-                        : "weak";
-                const lbl =
-                  bucket === "new"
-                    ? "NEW"
-                    : bucket === "strong"
-                      ? "STRONG"
-                      : bucket === "developing"
-                        ? "DEV."
-                        : "WEAK";
-                return (
-                  <Link
-                    key={t.id}
-                    to={`/catalog/topic/${t.id}`}
-                    className={`tm-cell tm-${bucket}`}
-                  >
-                    <div className="tm-topic">
-                      {t.title.length > 18 ? `${t.title.slice(0, 17)}…` : t.title}
-                    </div>
-                    <div className="tm-pct">
-                      {t.ewa < 0 ? "—" : `${Math.round(t.ewa * 100)}%`}
-                    </div>
-                    <div className="tm-lbl">{lbl}</div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Zone 7 + 8: AI insights + Assignments */}
+      {/* ── Zone 7 + 8: AI insights + Study plan + Time budget ──
+          Topic mastery matrix removed in P7 per user direction —
+          students drill into individual subjects via the Subject
+          mastery rows above. The grid template is overridden to
+          single-column so the insights column spans the full width. */}
+      <div
+        className="dashboard-bottom-grid"
+        style={{ marginTop: "var(--sp-4)", gridTemplateColumns: "1fr" }}
+      >
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {user && <NextSessionCard userId={user.id} examCode={exam.code} />}
+
           <div className="insight-card">
             <div className="ins-eyebrow">
               <span>◈</span> AI-GENERATED INSIGHTS · {exam.name}
@@ -629,23 +654,75 @@ export function ExamDetail() {
             ))}
           </div>
 
-          {/* Zone 8: Assignments — placeholder until assignments service lands */}
+          {/* Zone 8: AI Study Plan — replaces the empty assignments stub
+              with concrete next-actions while real assignments wait on
+              an institution wiring. When assignments land, render those
+              first and keep the plan panel as a secondary card. */}
           <div className="card" style={{ padding: "12px 14px" }}>
             <div className="sec-row" style={{ marginBottom: 9 }}>
-              <h2 className="section-heading">Assignments · {exam.name}</h2>
+              <h2 className="section-heading">AI Study Plan · {exam.name}</h2>
+              <span className="pill pill-muted" style={{ fontSize: 9 }}>
+                Auto-generated
+              </span>
             </div>
-            <p
+
+            {trackedTopics === 0 && startingPoints.length > 0 && (
+              <StudyPlanGroup
+                title="Where to start"
+                hint="Foundational chapters — running through these first builds a steady base."
+                topics={startingPoints}
+              />
+            )}
+
+            {weakest && (
+              <StudyPlanGroup
+                title="Skill gaps to close"
+                hint="Lowest mastery — biggest readiness lift per session."
+                topics={decayingTopics.length > 0 ? decayingTopics : [weakest]}
+              />
+            )}
+
+            {quickWins.length > 0 && (
+              <StudyPlanGroup
+                title="Quick wins"
+                hint="Already developing — one more round usually crosses into strong."
+                topics={quickWins}
+              />
+            )}
+
+            {trackedTopics === 0 && startingPoints.length === 0 && (
+              <p
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  margin: 0,
+                  padding: "var(--sp-1) 0",
+                }}
+              >
+                Once the catalog has chapters in this exam, this panel will
+                point you to the best place to start.
+              </p>
+            )}
+
+            <div
               style={{
-                fontSize: 11,
-                color: "var(--text-muted)",
-                margin: 0,
-                padding: "var(--sp-1) 0",
+                marginTop: 10,
+                paddingTop: 8,
+                borderTop: "1px solid var(--border-default)",
+                fontSize: 10,
+                color: "var(--text-faint)",
               }}
             >
-              No assignments yet. Mock tests + class assignments will appear here
-              once your institution wires them in.
-            </p>
+              Real assignments + mock tests appear here once your institution
+              wires them in.
+            </div>
           </div>
+
+          <TimeBudgetCard
+            currentPct={examReadinessPct}
+            targetPct={85}
+            days={days}
+          />
         </div>
       </div>
     </AppShell>
@@ -670,7 +747,7 @@ function ExamRing({ pct }: { pct: number }) {
           cy="45"
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,0.06)"
+          stroke="var(--border)"
           strokeWidth="7"
         />
         <circle
@@ -721,29 +798,29 @@ function TrajectoryChart({ current, target }: TrajectoryProps) {
             <stop offset="100%" stopColor="#4F87F6" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <line x1="0" y1="20" x2="320" y2="20" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-        <line x1="0" y1="50" x2="320" y2="50" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-        <line x1="0" y1="80" x2="320" y2="80" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-        <text x="3" y="18" fill="#4A5570" fontSize="8">85</text>
-        <text x="3" y="48" fill="#4A5570" fontSize="8">68</text>
-        <text x="3" y="78" fill="#4A5570" fontSize="8">50</text>
+        <line x1="0" y1="20" x2="320" y2="20" stroke="var(--surface-elev1)" strokeWidth="1" />
+        <line x1="0" y1="50" x2="320" y2="50" stroke="var(--surface-elev1)" strokeWidth="1" />
+        <line x1="0" y1="80" x2="320" y2="80" stroke="var(--surface-elev1)" strokeWidth="1" />
+        <text x="3" y="18" fill="var(--text-faint)" fontSize="8">85</text>
+        <text x="3" y="48" fill="var(--text-faint)" fontSize="8">68</text>
+        <text x="3" y="78" fill="var(--text-faint)" fontSize="8">50</text>
         <line
           x1="18"
           y1={cy(target)}
           x2="320"
           y2={cy(target)}
-          stroke="#F5A623"
+          stroke="var(--color-amber)"
           strokeWidth="1"
           strokeDasharray="3,3"
           opacity="0.45"
         />
-        <text x="285" y={cy(target) - 4} fill="#F5A623" fontSize="8" opacity="0.7">
+        <text x="285" y={cy(target) - 4} fill="var(--color-amber)" fontSize="8" opacity="0.7">
           Target {target}
         </text>
         <path
           d={`M${start.x},${start.y} Q${(start.x + today.x) / 2},${(start.y + today.y) / 2 - 8} ${today.x},${today.y}`}
           fill="none"
-          stroke="#10C47A"
+          stroke="var(--color-green)"
           strokeWidth="2"
           strokeLinecap="round"
         />
@@ -751,35 +828,35 @@ function TrajectoryChart({ current, target }: TrajectoryProps) {
           d={`M${start.x},${start.y} Q${(start.x + today.x) / 2},${(start.y + today.y) / 2 - 8} ${today.x},${today.y} L${today.x},108 L${start.x},108Z`}
           fill="url(#ga)"
         />
-        <circle cx={today.x} cy={today.y} r="4.5" fill="#10C47A" stroke="#07090F" strokeWidth="2" />
-        <text x={today.x - 8} y={today.y - 6} fill="#10C47A" fontSize="8" textAnchor="middle">
+        <circle cx={today.x} cy={today.y} r="4.5" fill="var(--color-green)" stroke="var(--bg-base)" strokeWidth="2" />
+        <text x={today.x - 8} y={today.y - 6} fill="var(--color-green)" fontSize="8" textAnchor="middle">
           {current}
         </text>
         <path
           d={`M${today.x},${today.y} Q${(today.x + predict.x) / 2},${(today.y + predict.y) / 2 - 6} ${predict.x},${predict.y}`}
           fill="none"
-          stroke="#4F87F6"
+          stroke="var(--color-blue)"
           strokeWidth="1.8"
           strokeDasharray="4,3"
           strokeLinecap="round"
         />
-        <circle cx={predict.x} cy={predict.y} r="4" fill="#4F87F6" stroke="#07090F" strokeWidth="2" />
+        <circle cx={predict.x} cy={predict.y} r="4" fill="var(--color-blue)" stroke="var(--bg-base)" strokeWidth="2" />
         <line
           x1={today.x}
           y1="20"
           x2={today.x}
           y2="108"
-          stroke="rgba(255,255,255,0.08)"
+          stroke="var(--border-strong)"
           strokeWidth="1"
           strokeDasharray="2,3"
         />
-        <text x={today.x} y="115" fill="#4A5570" fontSize="7.5" textAnchor="middle">
+        <text x={today.x} y="115" fill="var(--text-faint)" fontSize="7.5" textAnchor="middle">
           Today
         </text>
-        <text x="18" y="115" fill="#4A5570" fontSize="7.5">
+        <text x="18" y="115" fill="var(--text-faint)" fontSize="7.5">
           Baseline
         </text>
-        <text x="314" y="115" fill="#4F87F6" fontSize="7.5" textAnchor="end">
+        <text x="314" y="115" fill="var(--color-blue)" fontSize="7.5" textAnchor="end">
           Exam day
         </text>
       </svg>
@@ -857,5 +934,320 @@ function daysUntil(date: string | null): number | null {
   return Math.max(
     0,
     Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
+  );
+}
+
+function StudyPlanGroup({
+  title,
+  hint,
+  topics,
+}: {
+  title: string;
+  hint: string;
+  topics: TopicCard[];
+}) {
+  if (topics.length === 0) return null;
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>
+          {title}
+        </span>
+        <span style={{ fontSize: 9.5, color: "var(--text-faint)" }}>{hint}</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {topics.map((t) => (
+          <Link
+            key={t.id}
+            to={`/catalog/topic/${t.id}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "6px 8px",
+              background: "var(--bg-surface-2)",
+              borderRadius: 6,
+              textDecoration: "none",
+              color: "var(--text-primary)",
+              fontSize: 11,
+              border: "1px solid var(--border-default)",
+            }}
+          >
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {t.title}
+              <span style={{ color: "var(--text-faint)", marginLeft: 6, fontSize: 10 }}>
+                · {t.subjectName}
+              </span>
+            </span>
+            <span
+              style={{
+                fontSize: 10,
+                color: t.ewa < 0 ? "var(--text-muted)" : t.ewa < 0.4 ? "var(--color-red)" : t.ewa < 0.7 ? "var(--color-blue)" : "var(--color-green)",
+                fontVariantNumeric: "tabular-nums",
+                marginLeft: 8,
+              }}
+            >
+              {t.ewa < 0 ? "Start →" : `${Math.round(t.ewa * 100)}% →`}
+            </span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Insight strip components — added per ADR-0017 / Phase-5 / Phase-6
+// signals already exposed by /analytics + /adaptive routes.
+// Each component fetches independently and soft-fails to nothing —
+// the dashboard must keep rendering even if one panel's backend errors.
+// ─────────────────────────────────────────────────────────────────────
+
+interface DecayItem {
+  concept_id: string;
+  ewa: number;
+  decay_severity: "fresh" | "warming" | "stale" | "critical" | string;
+  decay_days: number;
+}
+
+function DecayBanner({ userId, examCode }: { userId: string; examCode: string }) {
+  const [items, setItems] = useState<DecayItem[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const r = await auth.fetch(
+          `/api/v1/analytics/topic-decay/${userId}?exam=${encodeURIComponent(examCode)}`,
+        );
+        if (!r.ok) {
+          if (alive) setItems([]);
+          return;
+        }
+        const body = (await r.json()) as { items?: DecayItem[] };
+        if (alive) setItems(body.items ?? []);
+      } catch {
+        if (alive) setItems([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [userId, examCode]);
+
+  if (!items) return null;
+  const decaying = items.filter(
+    (i) => i.decay_severity === "stale" || i.decay_severity === "critical",
+  );
+  if (decaying.length === 0) return null;
+
+  const critical = decaying.filter((d) => d.decay_severity === "critical").length;
+  const stale = decaying.length - critical;
+  const oldest = Math.max(...decaying.map((d) => d.decay_days));
+
+  return (
+    <div
+      className="card"
+      style={{
+        marginTop: "var(--sp-3)",
+        padding: "10px 14px",
+        borderLeft: "3px solid var(--color-red)",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+      }}
+    >
+      <div style={{ fontSize: 16 }} aria-hidden>
+        📉
+      </div>
+      <div style={{ flex: 1, minWidth: 220 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>
+          {decaying.length} concept{decaying.length === 1 ? "" : "s"} need
+          {decaying.length === 1 ? "s" : ""} revision
+        </div>
+        <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 2 }}>
+          {critical > 0 && `${critical} critical`}
+          {critical > 0 && stale > 0 && " · "}
+          {stale > 0 && `${stale} stale`}
+          {" · oldest last touched "}
+          {oldest} day{oldest === 1 ? "" : "s"} ago
+        </div>
+      </div>
+      <Link
+        to="/practice?mode=revision"
+        className="btn btn-ghost"
+        style={{ fontSize: 11 }}
+      >
+        Revisit now →
+      </Link>
+    </div>
+  );
+}
+
+interface GuidedStep {
+  action: "REVISE" | "PRACTICE" | "DIAGNOSE" | string;
+  topicId: string;
+  topicTitle: string;
+  why: string;
+  estMinutes: number;
+}
+
+function NextSessionCard({ userId, examCode }: { userId: string; examCode: string }) {
+  const [step, setStep] = useState<GuidedStep | null>(null);
+  const [headline, setHeadline] = useState<string>("");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const r = await auth.fetch(
+          `/api/v1/adaptive/guided-next-steps/${userId}?exam=${encodeURIComponent(examCode)}`,
+        );
+        if (!r.ok) {
+          if (alive) setLoaded(true);
+          return;
+        }
+        const body = (await r.json()) as { headline?: string; steps?: GuidedStep[] };
+        if (alive) {
+          setHeadline(body.headline ?? "");
+          setStep(body.steps?.[0] ?? null);
+          setLoaded(true);
+        }
+      } catch {
+        if (alive) setLoaded(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [userId, examCode]);
+
+  if (!loaded || !step || !step.topicId) return null;
+
+  return (
+    <Link
+      to={`/catalog/topic/${step.topicId}`}
+      className="card"
+      style={{
+        padding: "12px 14px",
+        textDecoration: "none",
+        color: "var(--text-primary)",
+        borderLeft: "3px solid var(--color-ai, #4F87F6)",
+        display: "block",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+        <span className="ai-pill" style={{ fontSize: 9 }}>
+          ◈ NEXT SESSION
+        </span>
+        <span style={{ fontSize: 10, color: "var(--text-faint)" }}>
+          {step.estMinutes} min · {step.action.toLowerCase()}
+        </span>
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
+        {step.topicTitle}
+      </div>
+      <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }}>
+        {step.why || headline || "Recommended next based on your weakest topics."}
+      </div>
+      <div style={{ fontSize: 11, color: "var(--color-ai, #4F87F6)", marginTop: 8 }}>
+        Start session →
+      </div>
+    </Link>
+  );
+}
+
+function TimeBudgetCard({
+  currentPct,
+  targetPct,
+  days,
+}: {
+  currentPct: number;
+  targetPct: number;
+  days: number | null;
+}) {
+  if (days === null || days <= 0) return null;
+  const gap = Math.max(0, targetPct - currentPct);
+  if (gap === 0) return null;
+
+  // Empirical learning rate: ~+1.5 readiness pp per (30 min/day × week).
+  // So at M minutes/day, projected gain over `days` days ≈
+  //   (M / 30) * 1.5 * (days / 7)  =  M * days / 140.
+  // Cap projection at the gap (can't exceed the target by definition here).
+  const projected = (m: number) => {
+    const gain = (m * days) / 140;
+    return Math.min(currentPct + gain, 100);
+  };
+  const buckets = [15, 30, 45].map((m) => ({
+    minutes: m,
+    pct: projected(m),
+    hits: projected(m) >= targetPct,
+  }));
+
+  return (
+    <div className="card" style={{ padding: "12px 14px" }}>
+      <div className="sec-row" style={{ marginBottom: 9 }}>
+        <h2 className="section-heading">Time budget · target {targetPct}%</h2>
+        <span className="pill pill-muted" style={{ fontSize: 9 }}>
+          {days} day{days === 1 ? "" : "s"} left
+        </span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {buckets.map((b) => (
+          <div
+            key={b.minutes}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              fontSize: 11,
+              padding: "5px 8px",
+              background: "var(--bg-surface-2)",
+              border: "1px solid var(--border-default)",
+              borderRadius: 6,
+            }}
+          >
+            <span style={{ minWidth: 64, color: "var(--text-muted)" }}>
+              {b.minutes} min/day
+            </span>
+            <div
+              style={{
+                flex: 1,
+                height: 6,
+                background: "var(--bg-surface-1)",
+                borderRadius: 3,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${b.pct}%`,
+                  height: "100%",
+                  background: b.hits ? "var(--color-green)" : "var(--color-blue)",
+                }}
+              />
+            </div>
+            <span
+              style={{
+                minWidth: 56,
+                textAlign: "right",
+                fontVariantNumeric: "tabular-nums",
+                color: b.hits ? "var(--color-green)" : "var(--text-primary)",
+                fontWeight: b.hits ? 700 : 500,
+              }}
+            >
+              {Math.round(b.pct)}%{b.hits ? " ✓" : ""}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 8 }}>
+        Projection assumes ~1.5 pp readiness gain per (30 min/day · week) on
+        weak-topic drills. Heuristic — calibrates against your real session
+        history once it builds up.
+      </div>
+    </div>
   );
 }

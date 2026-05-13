@@ -53,33 +53,60 @@ interface BreakdownResp {
   sections: SectionBreakdown[];
 }
 
+interface Exam {
+  id: string;
+  code: string;
+  name: string;
+  subtitle?: string;
+}
+
 const JEE_MAIN_ID = "11111111-0000-0000-0000-000000000001";
 
 export function Mocks() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const examId = params.get("examId") ?? JEE_MAIN_ID;
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const [exams, setExams] = useState<Exam[]>([]);
   const [tab, setTab] = useState<"available" | "taken">("available");
   const [blueprints, setBlueprints] = useState<BlueprintListItem[]>([]);
   const [taken, setTaken] = useState<SessionListItem[]>([]);
   const [breakdowns, setBreakdowns] = useState<Record<string, SectionBreakdown[]>>({});
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // Available blueprints.
+  // Exam catalogue — drives the exam selector.
   useEffect(() => {
+    (async () => {
+      try {
+        const r = await auth.fetch(`/api/v1/catalog/exams`);
+        if (!r.ok) return;
+        setExams((await r.json()) as Exam[]);
+      } catch {
+        /* exam selector hides if the catalogue is unreachable */
+      }
+    })();
+  }, []);
+
+  // Available blueprints for the chosen exam.
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
     (async () => {
       try {
         const r = await auth.fetch(`/api/v1/catalog/exam-blueprints?examId=${examId}`);
         if (!r.ok) {
           setError("Could not load blueprints.");
+          setBlueprints([]);
           return;
         }
         const body = (await r.json()) as BlueprintListResp;
         setBlueprints(body.items);
       } catch (e) {
         setError((e as Error).message);
+      } finally {
+        setLoading(false);
       }
     })();
   }, [examId]);
@@ -92,10 +119,9 @@ export function Mocks() {
         const r = await auth.fetch(
           `/api/v1/quiz/sessions?userId=${user.id}&mode=MOCK_BLUEPRINT&limit=50`,
         );
-        if (!r.ok) return; // soft-fail; the page still shows "Available"
+        if (!r.ok) return;
         const body = (await r.json()) as SessionListResp;
         setTaken(body.items);
-        // Fan-out per-session breakdown for SUBMITTED rows only.
         const submitted = body.items.filter((it) => it.status === "SUBMITTED");
         await Promise.all(
           submitted.map(async (it) => {
@@ -126,76 +152,171 @@ export function Mocks() {
     return map;
   }, [blueprints]);
 
-  if (error) {
-    return (
-      <main className="page" style={{ padding: 24 }}>
-        <p className="banner banner-error">{error}</p>
-      </main>
-    );
+  const activeExam = exams.find((e) => e.id === examId);
+
+  function changeExam(nextExamId: string): void {
+    const next = new URLSearchParams(params);
+    next.set("examId", nextExamId);
+    setParams(next, { replace: true });
   }
 
   return (
-    <main className="page" style={{ padding: 24, maxWidth: 1080 }}>
-      <h1>Mock Tests</h1>
-      <p style={{ color: "var(--text-muted)" }}>
+    <main
+      className="page"
+      style={{
+        padding: 24,
+        maxWidth: 1080,
+        color: "var(--text-primary)",
+      }}
+    >
+      <h1 style={{ color: "var(--text-primary)", margin: "0 0 6px" }}>Mock Tests</h1>
+      <p style={{ color: "var(--text-muted)", margin: "0 0 16px" }}>
         Take a real-pattern timed exam. Each mock follows a blueprint with
         section-wise time budgets, marking scheme, and an OMR-style answer
         sheet matching the actual exam.
       </p>
 
-      <nav style={{ display: "flex", gap: 8, marginTop: 12 }}>
-        {(["available", "taken"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
+      {exams.length > 0 && (
+        <section style={{ marginBottom: 16 }}>
+          <div
             style={{
-              padding: "8px 14px",
-              borderRadius: 6,
-              border: "1px solid var(--border-faint)",
-              background: tab === t ? "var(--bg-elevated, #eef)" : "transparent",
-              fontWeight: tab === t ? 600 : 400,
+              fontSize: 11,
+              color: "var(--text-muted)",
+              textTransform: "uppercase",
+              letterSpacing: 0.04,
+              marginBottom: 6,
             }}
           >
-            {t === "available" ? "Available" : `Taken (${taken.length})`}
-          </button>
-        ))}
+            Exam
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {exams.map((e) => {
+              const on = e.id === examId;
+              return (
+                <button
+                  key={e.id}
+                  type="button"
+                  onClick={() => changeExam(e.id)}
+                  style={{
+                    padding: "6px 14px",
+                    background: on ? "var(--color-blue, #4F87F6)" : "var(--bg-surface2)",
+                    color: on ? "#fff" : "var(--text-primary)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 600,
+                  }}
+                >
+                  {e.name}
+                </button>
+              );
+            })}
+          </div>
+          {activeExam?.subtitle && (
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+              {activeExam.subtitle}
+            </div>
+          )}
+        </section>
+      )}
+
+      <nav style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {(["available", "taken"] as const).map((t) => {
+          const on = tab === t;
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              style={{
+                padding: "8px 14px",
+                borderRadius: 6,
+                border: `1px solid ${on ? "var(--color-blue, #4F87F6)" : "var(--border)"}`,
+                background: on ? "var(--color-blue, #4F87F6)" : "var(--bg-surface2)",
+                color: on ? "#fff" : "var(--text-primary)",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              {t === "available"
+                ? `Available (${blueprints.length})`
+                : `Taken (${taken.length})`}
+            </button>
+          );
+        })}
       </nav>
 
+      {error && (
+        <p
+          style={{
+            padding: 12,
+            background: "rgba(244,63,94,0.1)",
+            border: "1px solid var(--color-red, #f43f5e)",
+            color: "var(--color-red, #f43f5e)",
+            borderRadius: 6,
+          }}
+        >
+          {error}
+        </p>
+      )}
+
       {tab === "available" && (
-        <section style={{ marginTop: 16 }}>
-          {blueprints.length === 0 && (
+        <section>
+          {loading && (
+            <p style={{ color: "var(--text-muted)" }}>Loading blueprints…</p>
+          )}
+          {!loading && blueprints.length === 0 && !error && (
             <p style={{ color: "var(--text-muted)" }}>
-              No blueprints available yet for this exam.
+              No mock blueprints have been published for this exam yet.
             </p>
           )}
-          <ul style={{ listStyle: "none", padding: 0 }}>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
             {blueprints.map((bp) => (
               <li
                 key={bp.id}
                 style={{
-                  background: "var(--bg-surface-1, #fff)",
+                  background: "var(--bg-surface2)",
+                  border: "1px solid var(--border)",
                   padding: 16,
                   borderRadius: 8,
                   marginBottom: 12,
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  color: "var(--text-primary)",
+                  gap: 16,
                 }}
               >
                 <div>
-                  <strong>{bp.name}</strong>
-                  <p style={{ margin: "4px 0", color: "var(--text-muted)", fontSize: 14 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600 }}>{bp.name}</div>
+                  <p
+                    style={{
+                      margin: "6px 0 0",
+                      color: "var(--text-secondary, #B8C5E0)",
+                      fontSize: 13,
+                    }}
+                  >
                     {bp.totalQuestions} questions · {bp.totalMinutes} min · +
                     {bp.marksCorrect} / {bp.marksNegative} marks
                   </p>
                 </div>
                 <button
                   type="button"
-                  className="btn-primary"
                   onClick={() => navigate(`/mock-exam?blueprintId=${bp.id}`)}
+                  style={{
+                    padding: "8px 18px",
+                    background: "var(--color-blue, #4F87F6)",
+                    color: "#fff",
+                    border: "1px solid var(--border)",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    whiteSpace: "nowrap",
+                  }}
                 >
-                  Start mock
+                  Start mock →
                 </button>
               </li>
             ))}
@@ -204,14 +325,14 @@ export function Mocks() {
       )}
 
       {tab === "taken" && (
-        <section style={{ marginTop: 16 }}>
+        <section>
           {taken.length === 0 && (
             <p style={{ color: "var(--text-muted)" }}>
               No mock attempts yet — take one from the Available tab to see it
               here.
             </p>
           )}
-          <ul style={{ listStyle: "none", padding: 0 }}>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
             {taken.map((s) => {
               const bp = s.blueprintId ? blueprintById[s.blueprintId] : null;
               const session: SessionRow = {
@@ -228,42 +349,74 @@ export function Mocks() {
                 <li
                   key={s.sessionId}
                   style={{
-                    background: "var(--bg-surface-1, #fff)",
+                    background: "var(--bg-surface2)",
+                    border: "1px solid var(--border)",
                     padding: 16,
                     borderRadius: 8,
                     marginBottom: 12,
+                    color: "var(--text-primary)",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <strong>{bp?.name ?? "Mock attempt"}</strong>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{ fontSize: 15, fontWeight: 600 }}>
+                      {bp?.name ?? "Mock attempt"}
+                    </div>
                     <span
-                      className="pill"
                       style={{
-                        padding: "2px 8px",
-                        borderRadius: 4,
+                        padding: "2px 10px",
+                        borderRadius: 12,
                         background:
+                          s.status === "SUBMITTED"
+                            ? "rgba(16,196,122,0.18)"
+                            : "rgba(245,166,35,0.18)",
+                        color:
                           s.status === "SUBMITTED"
                             ? "var(--color-green, #10C47A)"
                             : "var(--color-amber, #F5A623)",
-                        color: "#fff",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: 0.04,
                       }}
                     >
                       {s.status}
                     </span>
                   </div>
-                  <p style={{ margin: "4px 0", color: "var(--text-muted)", fontSize: 14 }}>
+                  <p
+                    style={{
+                      margin: "6px 0",
+                      color: "var(--text-secondary, #B8C5E0)",
+                      fontSize: 13,
+                    }}
+                  >
                     {new Date(s.startedAt).toLocaleString()} ·{" "}
                     {summary.servedCount} answered · accuracy{" "}
                     <strong>{formatPct(summary.accuracy)}</strong>
                     {summary.weakestSection && (
                       <>
                         {" "}
-                        · weakest: <strong>{summary.weakestSection.sectionId}</strong> (
+                        · weakest:{" "}
+                        <strong>{summary.weakestSection.sectionId}</strong> (
                         {formatPct(summary.weakestSection.accuracy)})
                       </>
                     )}
                   </p>
-                  <Link to={`/quiz/${s.sessionId}/result`}>View result →</Link>
+                  <Link
+                    to={`/quiz/${s.sessionId}/result`}
+                    style={{
+                      color: "var(--color-blue, #4F87F6)",
+                      fontSize: 13,
+                      fontWeight: 600,
+                    }}
+                  >
+                    View result →
+                  </Link>
                 </li>
               );
             })}

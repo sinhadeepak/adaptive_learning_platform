@@ -4,6 +4,14 @@ import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
 import { Pill, SkeletonRows, strengthFor } from "../components/dashboard";
+// Phase 1C — confidence calibration card.
+import { ConfidenceGapCard, MistakeReplayButton } from "../components/phase1c";
+// Phase 1D — career outcomes, rank trajectory, national rank.
+import {
+  CareerOutcomeCard,
+  RankTrajectoryChart,
+  NationalRankCard,
+} from "../components/phase1d";
 
 // Analysis screen — React port of
 // docs/ui/01_StudentPortal_Web/10_analysis.html.
@@ -73,9 +81,12 @@ interface RankProjection {
   projectedRank: number;
   rankLow: number;
   rankHigh: number;
-  confidence: string;
-  commentary: string;
-  source: "ai" | "heuristic";
+  confidence?: string;
+  commentary?: string;
+  source?: "ai" | "heuristic";
+  totalCandidates?: number;
+  nTopicsActive?: number;
+  nAttempts?: number;
 }
 
 interface WeaknessPattern {
@@ -119,6 +130,14 @@ export function Analysis() {
   const [mastery, setMastery] = useState<TopicRow[] | null>(null);
   const [streak, setStreak] = useState<StreakResponse | null>(null);
   const [rank, setRank] = useState<RankProjection | null>(null);
+  // Phase 1B — readiness band wiring.
+  const [readinessBand, setReadinessBand] = useState<{
+    band: string;
+    readiness_score: number;
+    target_score: number;
+    days_to_exam: number;
+    actions: string[];
+  } | null>(null);
   const [weakness, setWeakness] = useState<WeaknessResponse | null>(null);
   const [activeExamId, setActiveExamId] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>("overview");
@@ -274,8 +293,27 @@ export function Analysis() {
       } catch {
         /* swallow */
       }
+      // Phase 1B — readiness band tied to selected exam target date.
+      try {
+        const target = profile?.exams.find((e) => e.examId === activeExamId);
+        const daysToExam = target?.targetDate
+          ? Math.max(
+              30,
+              Math.round(
+                (new Date(target.targetDate).getTime() - Date.now()) /
+                  (1000 * 60 * 60 * 24),
+              ),
+            )
+          : 120;
+        const r = await auth.fetch(
+          `/api/v1/analytics/readiness-band/${user.id}?target_score=0.7&days_to_exam=${daysToExam}`,
+        );
+        if (r.ok) setReadinessBand(await r.json());
+      } catch {
+        /* swallow */
+      }
     })();
-  }, [user, activeExamId, examsMeta]);
+  }, [user, activeExamId, examsMeta, profile]);
 
   // ── Derivations ────────────────────────────────────────────────────────
   const exams = profile?.exams ?? [];
@@ -508,6 +546,219 @@ export function Analysis() {
         </div>
       ) : (
         <>
+          {/* Phase 1B — Performance cards: rank projection + readiness band.
+              Two-up grid; the readiness card gets a slightly wider track
+              since its bullet list usually carries more content. */}
+          {(rank || readinessBand) && (
+            <section
+              style={{
+                display: "grid",
+                gridTemplateColumns: rank && readinessBand
+                  ? "minmax(0, 1fr) minmax(0, 1.4fr)"
+                  : "minmax(0, 1fr)",
+                gap: 12,
+                marginBottom: "var(--sp-3)",
+                alignItems: "stretch",
+              }}
+              aria-label="Performance projections"
+            >
+              {rank && (
+                <div className="card" style={{ padding: 14 }}>
+                  <h3
+                    style={{
+                      margin: "0 0 8px",
+                      fontSize: 12,
+                      color: "var(--text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: 0.04,
+                    }}
+                  >
+                    Projected rank · {rank.examCode}
+                  </h3>
+                  <div
+                    style={{
+                      fontSize: 24,
+                      fontWeight: 700,
+                      color: "var(--color-blue)",
+                      fontVariantNumeric: "tabular-nums",
+                      marginBottom: 4,
+                    }}
+                  >
+                    #{(rank.projectedRank ?? 0).toLocaleString()}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      marginBottom: 8,
+                    }}
+                  >
+                    Range: #{(rank.rankLow ?? 0).toLocaleString()} – #{(rank.rankHigh ?? 0).toLocaleString()} · top {(100 - (rank.projectedPercentile ?? 0)).toFixed(0)}%
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-faint)",
+                      paddingTop: 8,
+                      borderTop: "1px solid var(--border)",
+                    }}
+                  >
+                    {rank.totalCandidates
+                      ? `Of ${rank.totalCandidates.toLocaleString()} candidates · readiness ${(rank.readiness * 100).toFixed(0)}%`
+                      : `Readiness ${(rank.readiness * 100).toFixed(0)}%`}
+                  </div>
+                </div>
+              )}
+              {readinessBand && (
+                <div className="card" style={{ padding: 14 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: 12,
+                        color: "var(--text-muted)",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.04,
+                      }}
+                    >
+                      Readiness band
+                    </h3>
+                    <Pill
+                      tone={
+                        readinessBand.band === "approaching"
+                          ? "success"
+                          : readinessBand.band === "on_track"
+                          ? "info"
+                          : readinessBand.band === "behind"
+                          ? "warning"
+                          : "danger"
+                      }
+                    >
+                      {readinessBand.band.replace("_", " ")}
+                    </Pill>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "var(--text-secondary)",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Target {Math.round(readinessBand.target_score * 100)}% in {readinessBand.days_to_exam} days
+                  </div>
+                  {readinessBand.actions.length > 0 && (
+                    <ul
+                      style={{
+                        margin: "8px 0 0",
+                        paddingLeft: 18,
+                        fontSize: 12,
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      {readinessBand.actions.slice(0, 3).map((a, i) => (
+                        <li key={i} style={{ marginBottom: 2 }}>
+                          {a}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Phase 1D — Rank trajectory + career outcomes + national rank.
+              Three-up grid with each track equal-width and minmax(0, …)
+              so children can't push the row past the available width. */}
+          {user && rank && (
+            <section
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, 1fr)",
+                gap: 12,
+                margin: "12px 0",
+                alignItems: "stretch",
+              }}
+            >
+              <div style={{ minWidth: 0, display: "flex" }}>
+                <RankTrajectoryChart userId={user.id} examCode={rank.examCode} />
+              </div>
+              <div style={{ minWidth: 0, display: "flex" }}>
+                <CareerOutcomeCard examCode={rank.examCode} readiness={readiness?.score ?? 0.5} />
+              </div>
+              <div style={{ minWidth: 0, display: "flex" }}>
+                <NationalRankCard userId={user.id} examCode={rank.examCode} />
+              </div>
+            </section>
+          )}
+
+          {/* Phase 1C — Confidence calibration + mistake replay.
+              2:1 grid so the mistake-replay card fills the remaining
+              width instead of sitting at its 220px natural width and
+              leaving a big empty band on the right. */}
+          {user && (
+            <section
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)",
+                gap: 12,
+                margin: "12px 0",
+                alignItems: "stretch",
+              }}
+            >
+              <div style={{ minWidth: 0, display: "flex" }}>
+                <ConfidenceGapCard userId={user.id} />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  padding: "16px 18px",
+                  background: "var(--bg-surface1)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.04,
+                    marginBottom: 10,
+                    fontWeight: 700,
+                  }}
+                >
+                  Practice your mistakes
+                </div>
+                <MistakeReplayButton
+                  userId={user.id}
+                  className="btn btn-primary"
+                  label="▶ Replay all my mistakes"
+                />
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    marginTop: 8,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  A focused 10-question session pulled from your wrong answers.
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* KPI strip */}
           <section className="an-kpi-row" aria-label="Key analytics">
             <div className="an-kpi">
@@ -567,7 +818,7 @@ export function Analysis() {
 
             <div className="an-kpi">
               <div className="an-kpi-num" style={{ color: "var(--color-purple)" }}>
-                {learningEvents.toLocaleString()}
+                {(learningEvents ?? 0).toLocaleString()}
               </div>
               <div className="an-kpi-lbl">Learning Events</div>
               <div className="an-kpi-delta an-neu">
@@ -946,21 +1197,21 @@ function TrajectoryChart({
           </linearGradient>
         </defs>
         {/* gridlines */}
-        <line x1="0" y1="18" x2={W} y2="18" stroke="rgba(255,255,255,0.04)" />
-        <line x1="0" y1="55" x2={W} y2="55" stroke="rgba(255,255,255,0.04)" />
-        <line x1="0" y1="92" x2={W} y2="92" stroke="rgba(255,255,255,0.04)" />
-        <text x="2" y="16" fill="#3E4D6A" fontSize="7.5">100</text>
-        <text x="2" y="53" fill="#3E4D6A" fontSize="7.5">60</text>
-        <text x="2" y="90" fill="#3E4D6A" fontSize="7.5">20</text>
+        <line x1="0" y1="18" x2={W} y2="18" stroke="var(--surface-elev1)" />
+        <line x1="0" y1="55" x2={W} y2="55" stroke="var(--surface-elev1)" />
+        <line x1="0" y1="92" x2={W} y2="92" stroke="var(--surface-elev1)" />
+        <text x="2" y="16" fill="var(--text-faint)" fontSize="7.5">100</text>
+        <text x="2" y="53" fill="var(--text-faint)" fontSize="7.5">60</text>
+        <text x="2" y="90" fill="var(--text-faint)" fontSize="7.5">20</text>
         {/* smoothed actual */}
         <path d={fillPath} fill="url(#an-ga)" />
-        <path d={linePath} fill="none" stroke="#10C47A" strokeWidth="2" strokeLinecap="round" />
+        <path d={linePath} fill="none" stroke="var(--color-green)" strokeWidth="2" strokeLinecap="round" />
         {/* today dot */}
-        <circle cx={todayX} cy={yFor(current)} r="4" fill="#10C47A" stroke="#07090F" strokeWidth="2" />
+        <circle cx={todayX} cy={yFor(current)} r="4" fill="var(--color-green)" stroke="var(--bg-base)" strokeWidth="2" />
         <text
           x={todayX - 6}
           y={yFor(current) - 7}
-          fill="#10C47A"
+          fill="var(--color-green)"
           fontSize="8"
           textAnchor="middle"
         >
@@ -972,7 +1223,7 @@ function TrajectoryChart({
             <path
               d={`M${todayX},${yFor(current)} L${W - 4},${yFor(projected)}`}
               fill="none"
-              stroke="#4F87F6"
+              stroke="var(--color-blue)"
               strokeWidth="1.8"
               strokeDasharray="4,3"
               strokeLinecap="round"
@@ -981,8 +1232,8 @@ function TrajectoryChart({
               d={`M${todayX},${yFor(current)} L${W - 4},${yFor(projected)} L${W - 4},118 L${todayX},118 Z`}
               fill="url(#an-gb)"
             />
-            <circle cx={W - 4} cy={yFor(projected)} r="3.5" fill="#4F87F6" stroke="#07090F" strokeWidth="1.5" />
-            <text x={W - 8} y={yFor(projected) - 5} fill="#4F87F6" fontSize="7.5" textAnchor="end">
+            <circle cx={W - 4} cy={yFor(projected)} r="3.5" fill="var(--color-blue)" stroke="var(--bg-base)" strokeWidth="1.5" />
+            <text x={W - 8} y={yFor(projected) - 5} fill="var(--color-blue)" fontSize="7.5" textAnchor="end">
               {Math.round(projected * 100)}
             </text>
           </>
@@ -993,17 +1244,17 @@ function TrajectoryChart({
           y1="10"
           x2={todayX}
           y2="118"
-          stroke="rgba(255,255,255,0.06)"
+          stroke="var(--border)"
           strokeDasharray="2,3"
         />
-        <text x={todayX} y="126" fill="#3E4D6A" fontSize="7.5" textAnchor="middle">
+        <text x={todayX} y="126" fill="var(--text-faint)" fontSize="7.5" textAnchor="middle">
           Today
         </text>
-        <text x="14" y="126" fill="#3E4D6A" fontSize="7.5">
+        <text x="14" y="126" fill="var(--text-faint)" fontSize="7.5">
           {`-${periodDays}d`}
         </text>
         {projected !== null && daysToTarget !== null ? (
-          <text x={W - 4} y="126" fill="#4F87F6" fontSize="7.5" textAnchor="end">
+          <text x={W - 4} y="126" fill="var(--color-blue)" fontSize="7.5" textAnchor="end">
             +{daysToTarget}d
           </text>
         ) : null}

@@ -15,10 +15,15 @@ window expiry + per-touchpoint isolation.
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from dataclasses import dataclass, field
 from typing import Literal
+
+from sqlalchemy import text as _text
+
+log = logging.getLogger(__name__)
 
 # Window sizes in seconds.
 _DAY = 86_400
@@ -185,3 +190,63 @@ def reset_for_tests() -> None:
     """Test-only helper: clear the in-memory entries."""
     with _TRACKER._lock:  # noqa: SLF001
         _TRACKER._entries.clear()
+
+
+async def load_from_db(database_url: str) -> int:
+    """Hydrate the in-memory tracker from content_schema.ai_call_logs.
+
+    Called at lifespan-startup so the admin /admin/ai-cost dashboard
+    has data after a fresh process boot. Loads the past 30 days of
+    rows (matching the longest rollup window). Returns the number of
+    rows loaded; absorbs all errors so a missing table or DB issue
+    doesn't block service startup.
+    """
+    try:
+        from sqlalchemy.ext.asyncio import create_async_engine
+    except ImportError:
+        log.info("SQLAlchemy asyncio not available; skipping cost-log hydration")
+        return 0
+
+    engine = create_async_engine(database_url, pool_pre_ping=True)
+    try:
+        async with engine.connect() as conn:
+            cutoff_secs = time.time() - _MONTH
+            rows = (
+                await conn.execute(
+                    _text(
+                        """
+                        SELECT EXTRACT(EPOCH FROM ts)::float AS ts_epoch,
+                               touchpoint, provider, cost_usd::float AS cost_usd,
+                               creator_id::text AS creator_id,
+                               tokens_in, tokens_out
+                          FROM content_schema.ai_call_logs
+                         WHERE ts >= NOW() - INTERVAL '30 days'
+                         ORDER BY ts ASC
+                        """
+                    )
+                )
+            ).mappings().all()
+        loaded = 0
+        with _TRACKER._lock:  # noqa: SLF001
+            for r in rows:
+                ts = float(r["ts_epoch"])
+                if ts < cutoff_secs:
+                    continue
+                _TRACKER._entries.append(  # noqa: SLF001
+                    CostEntry(
+                        timestamp=ts,
+                        touchpoint=r["touchpoint"],
+                        provider=r["provider"],
+                        cost_usd=float(r["cost_usd"]),
+                        creator_id=r["creator_id"],
+                        tokens_in=int(r["tokens_in"]),
+                        tokens_out=int(r["tokens_out"]),
+                    )
+                )
+                loaded += 1
+        return loaded
+    except Exception as exc:  # noqa: BLE001
+        log.warning("cost_dashboard: load_from_db skipped: %s", exc)
+        return 0
+    finally:
+        await engine.dispose()

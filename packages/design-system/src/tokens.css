@@ -67,6 +67,266 @@
   --sp-5: 20px;
   --sp-6: 24px;
   --sp-8: 32px;
+
+  /* Semantic translucents — used in light/dark inverted across themes.
+     Each variant is set explicitly under [data-theme="light"] below.
+     The "elev" tokens are translucent surfaces stacked at increasing
+     contrast; useful when you want a layered overlay that adapts to
+     the underlying surface rather than picking a specific hex. */
+  --bg-hover:      rgba(255,255,255,0.05);
+  --bg-active:     rgba(79,135,246,0.14);
+  --track-bg:      rgba(255,255,255,0.06);
+  --surface-elev1: rgba(255,255,255,0.04);   /* low-contrast translucent */
+  --surface-elev2: rgba(255,255,255,0.10);   /* medium overlay */
+  --surface-elev3: rgba(255,255,255,0.18);   /* high overlay / focus ring */
+  --divider:       rgba(255,255,255,0.05);   /* horizontal rule */
+  --overlay-scrim: rgba(0,0,0,0.45);         /* modal backdrop */
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   LIGHT THEME OVERRIDE (added 2026-05-11).
+
+   Applied when `<html data-theme="light">` is set. The bootstrap script
+   in index.html flips this attribute before React mounts, based on the
+   user's choice (light / dark / system) persisted in localStorage —
+   prevents the dark-to-light flash on page load.
+
+   Design notes:
+   - Backgrounds layer subtly: base is slightly off-white (#F6F7FB),
+     panels are pure white. Cards float on the base via border + a
+     1px slate-tinted shadow, NOT a darker surface fill (which would
+     fight the visual hierarchy).
+   - Brand colors darken ~15-20% so accent text passes WCAG AA on
+     white. The hardcoded rgba tints scattered through the codebase
+     (e.g. rgba(34,212,238,0.10) for AI pills) stay vivid as pill
+     backgrounds; only the foreground text uses the darker variant.
+   - Text scale matches Tailwind slate-900 / 700 / 500 / 400 for
+     readability.
+   ────────────────────────────────────────────────────────────────────── */
+
+[data-theme="light"] {
+  /* Backgrounds */
+  --bg-base:       #F6F7FB;
+  --bg-surface1:   #FFFFFF;
+  --bg-surface2:   #FFFFFF;
+  --bg-surface3:   #F1F4F9;
+  --bg-surface4:   #E6EBF3;
+
+  /* Text — slate scale */
+  --text-primary:  #0F172A;
+  --text-secondary:#334155;
+  --text-muted:    #64748B;
+  --text-faint:    #94A3B8;
+
+  /* Borders — slate-tinted, low alpha */
+  --border:        rgba(15,23,42,0.08);
+  --border-strong: rgba(15,23,42,0.16);
+
+  /* Brand — darker for AA contrast on white, tints in rgba() preserved
+     elsewhere (they read as vivid pill backgrounds). */
+  --color-ai:      #0891B2;   /* cyan-600 */
+  --color-blue:    #2F5DCB;   /* slightly darker blue */
+  --color-blue2:   #6366F1;   /* indigo-500 */
+  --color-green:   #047857;   /* emerald-700 */
+  --color-amber:   #B45309;   /* amber-700 */
+  --color-red:     #B91C1C;   /* red-700 */
+  --color-purple:  #6D28D9;   /* violet-700 */
+
+  /* Shadows — slate-tinted, subtle */
+  --shadow-card:   0 1px 3px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04);
+  --shadow-float:  0 12px 32px rgba(15,23,42,0.12);
+  --shadow-blue:   0 4px 16px rgba(47,93,203,0.22);
+  --shadow-ai:     0 4px 16px rgba(8,145,178,0.18);
+
+  /* Semantic translucents */
+  --bg-hover:      rgba(15,23,42,0.04);
+  --bg-active:     rgba(47,93,203,0.10);
+  --track-bg:      rgba(15,23,42,0.06);
+  --surface-elev1: rgba(15,23,42,0.04);
+  --surface-elev2: rgba(15,23,42,0.08);
+  --surface-elev3: rgba(15,23,42,0.14);
+  --divider:       rgba(15,23,42,0.06);
+  --overlay-scrim: rgba(15,23,42,0.45);
+
+  color-scheme: light;
+}
+
+/* OS-level color-scheme so form controls + scrollbars match. */
+:root { color-scheme: dark; }
+
+/* Selection — light mode uses cyan tint with dark text (text-primary is
+   already inverted via the variable). The dark-mode rule stays vivid;
+   override the alpha-color combination here so the result actually pops
+   on the cream background. */
+[data-theme="light"] ::selection      { background: rgba(8,145,178,0.22); color: var(--text-primary); }
+[data-theme="light"] ::-moz-selection { background: rgba(8,145,178,0.22); color: var(--text-primary); }
+
+/* Hardcoded rgba(255,255,255,…) values throughout this stylesheet were
+   designed for dark surfaces — they read as 'white-on-something'. In
+   light mode they'd be near-invisible, so each affected selector gets
+   an explicit slate-tinted override below. */
+
+[data-theme="light"] .topbar          { background: rgba(255,255,255,0.97); }
+[data-theme="light"] .nav-item:hover  { background: var(--bg-hover); }
+[data-theme="light"] .nav-item.active { background: var(--bg-active); }
+[data-theme="light"] .bar-track       { background: var(--track-bg); }
+[data-theme="light"] .toggle.off      { background: rgba(15,23,42,0.12); }
+[data-theme="light"] .settings-row    { border-bottom-color: rgba(15,23,42,0.05); }
+[data-theme="light"] .settings-row:hover { background: var(--bg-hover); }
+
+/* Card accents that use a dark-only translucent overlay. */
+[data-theme="light"] .card-ai {
+  background: linear-gradient(135deg, rgba(8,145,178,0.04), rgba(47,93,203,0.03));
+  border-color: rgba(8,145,178,0.22);
+}
+[data-theme="light"] .card-hero {
+  background: linear-gradient(115deg, rgba(8,145,178,0.05), rgba(47,93,203,0.05));
+  border-color: rgba(8,145,178,0.18);
+}
+[data-theme="light"] .card,
+[data-theme="light"] .pg-card,
+[data-theme="light"] .pg-row,
+[data-theme="light"] .pg-section,
+[data-theme="light"] .pg-stat,
+[data-theme="light"] .pg-filter-row,
+[data-theme="light"] .pg-tabs {
+  box-shadow: var(--shadow-card);
+}
+
+/* ── AI hero card + row-link visibility in light mode ─────────
+   The dark-mode .ai-header uses a very low-alpha cyan/blue/purple
+   gradient that's barely perceptible on the off-white light base.
+   Boost the alpha and tighten the border so the card has visible
+   character without overwhelming the page. */
+
+[data-theme="light"] .ai-header {
+  background: linear-gradient(
+    115deg,
+    rgba(8, 145, 178, 0.06),
+    rgba(47, 93, 203, 0.07),
+    rgba(109, 40, 217, 0.05)
+  );
+  border-color: rgba(8, 145, 178, 0.22);
+  box-shadow: var(--shadow-card);
+}
+[data-theme="light"] .ai-header::after {
+  background: radial-gradient(circle, rgba(8, 145, 178, 0.08), transparent 70%);
+}
+
+[data-theme="light"] .ai-pill {
+  background: rgba(8, 145, 178, 0.08);
+  border-color: rgba(8, 145, 178, 0.30);
+}
+
+[data-theme="light"] .btn-ai {
+  background: rgba(8, 145, 178, 0.08);
+  border-color: rgba(8, 145, 178, 0.30);
+}
+[data-theme="light"] .btn-ai:hover {
+  background: rgba(8, 145, 178, 0.14);
+}
+
+[data-theme="light"] .row-link {
+  box-shadow: var(--shadow-card);
+}
+[data-theme="light"] .row-link:hover {
+  border-color: rgba(47, 93, 203, 0.30);
+  background: var(--bg-surface3);
+}
+
+/* Section group + row-link-meta — slate scale tint for muted text. */
+[data-theme="light"] .row-link-meta {
+  color: var(--text-muted);
+}
+
+/* AI Insight panel — bg is a low-alpha cyan tint, similar lift needed. */
+[data-theme="light"] .ai-insight-panel {
+  background: linear-gradient(
+    135deg,
+    rgba(8, 145, 178, 0.05),
+    rgba(47, 93, 203, 0.04)
+  );
+  border-color: rgba(8, 145, 178, 0.20);
+  box-shadow: var(--shadow-card);
+}
+
+/* Exam cards on Home (UPSC CSE / JEE Main / CBSE / etc.) need a
+   subtle elevation in light mode so they don't blend into the page. */
+[data-theme="light"] .exam-card {
+  box-shadow: var(--shadow-card);
+}
+
+/* Catch-all elevation for any other dashboard cards that lack a
+   distinguishing border-color on light backgrounds. Targets common
+   class names without being too aggressive. */
+[data-theme="light"] .settings-block,
+[data-theme="light"] .topic-section,
+[data-theme="light"] .topic-stat,
+[data-theme="light"] .topic-stats > div,
+[data-theme="light"] .insight-card,
+[data-theme="light"] .empty-state {
+  box-shadow: var(--shadow-card);
+}
+
+/* Web-portal teacher dashboard grids — bottom-grid cards should look
+   like cards (border + shadow), not just a faint outlined box. */
+[data-theme="light"] .dashboard-bottom-grid > .card,
+[data-theme="light"] .dashboard-bottom-grid > .insight-card {
+  box-shadow: var(--shadow-card);
+}
+
+/* Replace `var(--border-faint)` ad-hoc borders the educator dashboard
+   uses on the "Your cohorts" section with the standard slate-tinted
+   border in light mode. The dark-mode value is already fine. */
+[data-theme="light"] section[style*="--border-faint"] {
+  border-color: var(--border) !important;
+}
+
+/* The pg-card-foot uses bg-surface1 as a darker footer band — in light
+   mode surface1 is white so the band disappears. Re-tint with surface3. */
+[data-theme="light"] .pg-card-foot {
+  background: var(--bg-surface3);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Theme toggle (three-segment pill — sun / system / moon).
+   ────────────────────────────────────────────────────────────────────── */
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-surface3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: 2px;
+  gap: 1px;
+}
+.theme-toggle-opt {
+  width: 26px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1;
+  transition: var(--trans-fast);
+  font-family: inherit;
+}
+.theme-toggle-opt:hover {
+  color: var(--text-primary);
+}
+.theme-toggle-opt.on {
+  background: var(--bg-surface1);
+  color: var(--color-blue);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.10);
+}
+[data-theme="light"] .theme-toggle-opt.on {
+  box-shadow: 0 1px 2px rgba(15,23,42,0.08);
 }
 
 /* ── RESET ── */
@@ -87,6 +347,14 @@ button, input, textarea, select {
 }
 input, textarea { outline: none; }
 img { display: block; max-width: 100%; }
+
+/* Dark-theme text-selection. The browser default is bright OS-blue
+   on white text, which on this dark surface looks like a UI bug
+   (stark blue rectangles around every selected word). Use a muted
+   AI-cyan tint with primary-text foreground so deliberate selection
+   is visible without screaming. */
+::selection      { background: rgba(34,212,238,0.28); color: var(--text-primary); }
+::-moz-selection { background: rgba(34,212,238,0.28); color: var(--text-primary); }
 
 /* ── SCROLLBARS ── */
 ::-webkit-scrollbar          { width: 4px; height: 4px; }

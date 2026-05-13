@@ -50,7 +50,7 @@ class _ActivityHeatmapState extends State<ActivityHeatmap> {
           date: d,
           sessions: row?.sessions ?? 0,
           minutes: row?.minutes ?? 0,
-        ));
+        ),);
       }
       final maxSessions = out.fold<int>(0, (m, c) => c.sessions > m ? c.sessions : m);
       for (final c in out) {

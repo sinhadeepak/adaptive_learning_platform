@@ -34,6 +34,12 @@ log = logging.getLogger(__name__)
 YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
 EDUCATION_CATEGORY_ID = "27"
 
+# Reels / shorts / stub-style clips don't carry enough teaching surface
+# for a learning resource. Enforce a 20-minute floor: it matches
+# YouTube's own `videoDuration=long` bucket (`>20m`) and removes shorts
+# (≤60s) plus most reaction / preview / promo content.
+MIN_DURATION_SECONDS = 20 * 60
+
 
 class YouTubeClient:
     def __init__(self, api_key: str | None, http_client: httpx.AsyncClient | None = None):
@@ -70,6 +76,12 @@ class YouTubeClient:
             return []
 
         client = await self._http()
+        # Over-fetch from YouTube: `videoDuration=long` is approximate
+        # (Google's threshold ≈20m but isn't guaranteed exact), so we
+        # post-filter on real `contentDetails.duration`. Asking the API
+        # for ~2.5× the requested page makes it likely we still have
+        # enough rows after dropping anything < MIN_DURATION_SECONDS.
+        api_max = max(1, min(max_results * 3, 50))
         try:
             search_resp = await client.get(
                 f"{YOUTUBE_API_BASE}/search",
@@ -79,7 +91,8 @@ class YouTubeClient:
                     "part": "snippet",
                     "type": "video",
                     "videoCategoryId": EDUCATION_CATEGORY_ID,
-                    "maxResults": max(1, min(max_results, 25)),
+                    "videoDuration": "long",
+                    "maxResults": api_max,
                     "relevanceLanguage": language,
                     "safeSearch": "strict",
                 },
@@ -130,18 +143,27 @@ class YouTubeClient:
             if status.get("privacyStatus") and status["privacyStatus"] != "public":
                 continue
 
+            duration_seconds = _parse_iso8601_duration(content.get("duration"))
+            # Defence-in-depth alongside `videoDuration=long`: drop
+            # anything under the floor (or with unknown duration — a
+            # learning video without a parseable duration is suspect).
+            if duration_seconds is None or duration_seconds < MIN_DURATION_SECONDS:
+                continue
+
             results.append(
                 SearchResultItem(
                     video_id=vid,
                     title=snippet.get("title") or "",
                     description=snippet.get("description"),
                     channel_name=snippet.get("channelTitle"),
-                    duration_seconds=_parse_iso8601_duration(content.get("duration")),
+                    duration_seconds=duration_seconds,
                     thumbnail_url=_pick_thumbnail(snippet.get("thumbnails")),
                     published_at=_parse_dt(snippet.get("publishedAt")),
                     view_count=int(stats["viewCount"]) if "viewCount" in stats else None,
                 )
             )
+            if len(results) >= max_results:
+                break
         return results
 
     async def get_video_metadata(self, video_id: str) -> SearchResultItem | None:

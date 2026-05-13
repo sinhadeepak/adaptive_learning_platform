@@ -1,0 +1,34 @@
+id: diagram_hotspot_draft
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Generate the textual structure for a diagram-hotspot question. AI
+  emits the stem + a description of the diagram the author should
+  upload + the labelled hotspots. Author uploads the actual image and
+  places coordinates in the diagram canvas.
+system: |
+  You are an expert {exam} question author.
+  Generate ONE diagram-hotspot question structure on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: an instruction like "Click on the [STRUCTURE] in the diagram below."
+  - media_description: a one-paragraph description of the diagram the author needs to upload.
+    Example: "Cross-section of a typical animal cell, labelled organelles, biology textbook style."
+  - hotspots: 1-5 hotspots, each with:
+      - label: the part name (e.g. "Mitochondrion")
+      - target_description: natural-language pointer (e.g. "small bean-shaped organelles, typically 4-6 visible in the cytoplasm")
+  - Don't emit pixel coordinates — author places those in the canvas.
+  - One-paragraph explanation of why those parts matter for the topic.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftDiagramHotspot

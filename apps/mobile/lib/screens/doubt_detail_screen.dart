@@ -116,10 +116,12 @@ class _DoubtDetailScreenState extends State<DoubtDetailScreen> {
         await _load();
       }
     } catch (_) {/* swallow — UI stays in pre-stream state */} finally {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _aiStreaming = false;
         _aiBuffer = '';
       });
+      }
     }
   }
 
@@ -450,7 +452,7 @@ List<TutorTurn> buildTutorMessages({
     messages.add(TutorTurn(
       role: 'user',
       content: 'Can you explain this further or give a worked example?',
-    ));
+    ),);
   }
   return messages;
 }

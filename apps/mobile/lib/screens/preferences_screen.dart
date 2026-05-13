@@ -108,7 +108,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                             title: Text(opt.$2, style: const TextStyle(color: AlpColors.textPrimary)),
                             contentPadding: EdgeInsets.zero,
                             dense: true,
-                          )),
+                          ),),
                     ],
                   ),
                 ),

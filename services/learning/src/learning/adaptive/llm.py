@@ -40,7 +40,39 @@ def _get_client() -> openai.AsyncOpenAI | None:
 
 
 def is_enabled() -> bool:
+    """Legacy synchronous gate — true if env-key OpenAI is configured.
+
+    Prefer `is_enabled_async()` in new code: it also returns True when
+    an admin-managed provider (Ollama / OpenAI / Anthropic) is enabled
+    in `content_schema.ai_provider_config`, even if no env key is set.
+    """
     return bool(settings.openai_api_key)
+
+
+async def is_enabled_async() -> bool:
+    """True if any LLM path is available — env-key OpenAI OR an enabled
+    row in the admin provider chain. Used by surfaces that want to
+    short-circuit with a stub message when no AI is reachable.
+    """
+    if settings.openai_api_key:
+        return True
+    try:
+        from sqlalchemy import text as _t
+
+        from learning.content.db import sessionmaker as _sm
+
+        async with _sm()() as sess:
+            row = (
+                await sess.execute(
+                    _t(
+                        "SELECT 1 FROM content_schema.ai_provider_config "
+                        " WHERE enabled = TRUE LIMIT 1"
+                    )
+                )
+            ).first()
+            return row is not None
+    except Exception:  # noqa: BLE001
+        return False
 
 
 async def call_structured(
@@ -52,9 +84,41 @@ async def call_structured(
 ) -> dict[str, Any] | None:
     """Single-turn structured call. Forces the response to validate against `schema`.
 
-    Returns the parsed dict on success, or None if the AI layer is disabled / errored.
-    Callers should treat None as "use heuristic fallback" rather than a hard failure.
+    Phase 7 — try the admin-configured provider chain first
+    (Ollama → OpenAI → Anthropic, in admin priority order). Fall
+    back to the legacy env-key OpenAI client only when no enabled
+    rows exist in `ai_provider_config`. So existing deployments that
+    haven't seeded the table keep working unchanged; admins who turn
+    on Ollama in the UI immediately get free local generation with
+    OpenAI as a paid backstop.
+
+    Returns the parsed dict on success, or None if every provider
+    fails. Callers should treat None as "use heuristic fallback"
+    rather than a hard failure.
     """
+    # Phase 7 — try DB-driven multi-provider chain first.
+    try:
+        from learning.ai_providers import call_structured as _multi_call
+        from learning.content.db import sessionmaker as _content_sm
+
+        async with _content_sm()() as _sess:
+            db_result = await _multi_call(
+                _sess,
+                system=system,
+                user=user,
+                schema_name=schema_name,
+                schema=schema,
+            )
+        if db_result is not None:
+            return db_result
+        # If we got here either no rows are enabled OR every enabled
+        # row failed; fall through to the legacy env-key OpenAI path
+        # so a misconfigured provider table doesn't take down AI.
+    except Exception as e:  # noqa: BLE001
+        # Multi-provider layer crashed (DB unavailable, etc.) — log
+        # and continue to the legacy path.
+        log.warning("multi_provider_layer_error", error=str(e)[:200])
+
     client = _get_client()
     if client is None:
         return None
@@ -180,15 +244,36 @@ async def stream_chat(
 ) -> AsyncIterator[str]:
     """Multi-turn chat with token-level streaming. Yields content deltas as they arrive.
 
-    Used by the AI tutor surface where streaming dramatically improves perceived
-    latency. When the LLM is disabled, yields a single deterministic stub message
-    so the UI flow is identical (caller can't tell heuristic from AI by stream shape).
+    Walks the admin-managed AI provider chain first (Ollama → OpenAI → Anthropic
+    in priority order); falls back to the legacy env-key OpenAI client if the
+    DB layer returns nothing. Used by the AI tutor surface where streaming
+    dramatically improves perceived latency.
     """
+    # Phase 7 — admin-managed provider chain (matches call_structured path).
+    served_any = False
+    try:
+        from learning.ai_providers import stream_chat as _multi_stream
+        from learning.content.db import sessionmaker as _content_sm
+
+        async with _content_sm()() as _sess:
+            async for delta in _multi_stream(
+                _sess, system=system, messages=messages, max_tokens=max_tokens,
+            ):
+                served_any = True
+                yield delta
+    except Exception as e:  # noqa: BLE001
+        log.warning("multi_provider_stream_error", error=str(e)[:200])
+
+    if served_any:
+        return
+
+    # Legacy env-key OpenAI fallback.
     client = _get_client()
     if client is None:
         yield (
             "AI tutor is currently unavailable on this stack. "
-            "Set OPENAI_API_KEY in the adaptive-engine container to enable conversational tutoring."
+            "Enable a provider in /ai-providers (Ollama / OpenAI / Anthropic) "
+            "or set OPENAI_API_KEY in the engine container."
         )
         return
 

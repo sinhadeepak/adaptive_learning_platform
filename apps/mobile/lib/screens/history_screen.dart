@@ -71,10 +71,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
         } catch (_) {/* keep going */}
       }
     } catch (e) {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _error = '$e';
         _loading = false;
       });
+      }
     }
   }
 
@@ -110,7 +112,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => MockResultScreen(result: result),
-    ));
+    ),);
   }
 
   Future<void> _open(SessionHistoryRow r) async {
@@ -118,11 +120,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (r.status == 'IN_PROGRESS') {
       await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => QuizScreen(client: client, sessionId: r.sessionId, api: widget.api),
-      ));
+      ),);
     } else {
       await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => QuizResultScreen(client: client, sessionId: r.sessionId, api: widget.api),
-      ));
+      ),);
     }
     if (mounted) _load();
   }
@@ -420,7 +422,7 @@ class _ErrorState extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(error,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AlpColors.colorRed)),
+                style: const TextStyle(color: AlpColors.colorRed),),
           ),
         ),
         const SizedBox(height: 12),

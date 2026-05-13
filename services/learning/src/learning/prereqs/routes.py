@@ -48,6 +48,78 @@ async def topic_prereqs_route(
     }
 
 
+@router.get("/{topic_id}/prerequisite-graph")
+async def topic_prerequisite_graph_route(
+    topic_id: str,
+    session: SessionDep,
+    userId: Annotated[str | None, Query()] = None,
+    depth: Annotated[int, Query(ge=1, le=5)] = 3,
+) -> dict[str, Any]:
+    """Phase 1D-2 — local prerequisite subgraph (3-hop neighborhood) for
+    react-flow viz. Each node carries the user's mastery if userId is given.
+    """
+    graph = await _repo.load_graph(session)
+    if topic_id not in graph:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "topic_not_found", "message": "Topic not found"},
+        )
+
+    # BFS walk both directions up to `depth` hops. `graph` maps
+    # topic_id -> list of prereq topic_ids, so we follow prereqs upward
+    # (into what this topic depends on).
+    seen: set[str] = {topic_id}
+    edges: list[tuple[str, str]] = []
+    frontier: set[str] = {topic_id}
+    for _ in range(depth):
+        next_frontier: set[str] = set()
+        for node in frontier:
+            for prereq in graph.get(node, []):
+                edges.append((node, prereq))
+                if prereq not in seen:
+                    seen.add(prereq)
+                    next_frontier.add(prereq)
+        if not next_frontier:
+            break
+        frontier = next_frontier
+
+    # Also include direct dependents (topics that have THIS topic as a prereq)
+    # one hop down so the user sees what unlocks next.
+    for src, prereqs in graph.items():
+        if topic_id in prereqs and src not in seen:
+            seen.add(src)
+            edges.append((src, topic_id))
+
+    titles = await _repo.load_topic_titles(session, list(seen))
+    mastery_map: dict[str, float] = {}
+    if userId:
+        mastery_rows = await fetch_mastery(userId)
+        mastery_map = {
+            str(row.get("topicId") or row.get("topic_id")): float(row.get("ewa") or 0.0)
+            for row in mastery_rows
+        }
+
+    nodes = [
+        {
+            "id": tid,
+            "title": titles.get(tid, ""),
+            "mastery": mastery_map.get(tid),
+            "isFocus": tid == topic_id,
+        }
+        for tid in seen
+    ]
+    edge_rows = [
+        {"from": src, "to": dst, "type": "is_prerequisite_of"}
+        for src, dst in edges
+    ]
+    return {
+        "rootTopicId": topic_id,
+        "depth": depth,
+        "nodes": nodes,
+        "edges": edge_rows,
+    }
+
+
 @router.get("/{topic_id}/gate")
 async def topic_gate_route(
     topic_id: str,

@@ -1,0 +1,30 @@
+id: essay_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate an essay question with rubric.
+system: |
+  You are an expert {exam} question author.
+  Generate ONE essay-style question on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: a substantive prompt (e.g. "Discuss the role of …", "Critically examine …", "Compare and contrast …").
+  - expected_word_count_range: [min, max] typical for this exam (e.g. [200, 300] for UPSC mains short answer; [500, 800] for long).
+  - Rubric: 3-5 weighted criteria. Weights sum to ~1.0.
+    Each criterion: name, weight (0–1), 3-5 keywords graders look for,
+    and `descriptors` — a list of objects each with a `level` field
+    (e.g. EXCELLENT, GOOD, POOR) and a `guidance` field (one-line
+    description of what merits that band).
+  - Optional model_answer: one well-structured paragraph showing the ideal response.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftEssay

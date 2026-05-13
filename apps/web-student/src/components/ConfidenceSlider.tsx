@@ -80,7 +80,7 @@ export function ConfidenceSlider({
               background:
                 value === p.value
                   ? "var(--color-blue, #4f87f6)"
-                  : "white",
+                  : "var(--bg-surface2)",
               color: value === p.value ? "white" : "inherit",
               border: "1px solid var(--border, #e1e5ee)",
               borderRadius: 4,

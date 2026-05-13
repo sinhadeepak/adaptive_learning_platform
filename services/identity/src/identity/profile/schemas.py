@@ -10,12 +10,22 @@ from pydantic import BaseModel, Field
 
 Locale = Literal["en-IN", "hi-IN", "en-US"]
 Language = Literal["en", "hi", "hinglish"]
-OnboardingState = Literal["NEW", "EXAM_SELECTED", "ONBOARDED"]
+# F2b — DIAGNOSTIC_DONE sits between EXAM_SELECTED and ONBOARDED when
+# the student's tenant has require_onboarding_diagnostic=true.
+# Consumer-tier tenants (default) transition EXAM_SELECTED → ONBOARDED
+# directly; the diagnostic still runs lazily on first /practice visit.
+OnboardingState = Literal[
+    "NEW", "EXAM_SELECTED", "DIAGNOSTIC_DONE", "ONBOARDED"
+]
 
 
 class ExamSelection(BaseModel):
     examId: str
     targetDate: date | None = None
+    # Phase 7 — per-pool picks: {poolCode: [subjectId]}. None for
+    # exams without pools or pre-P7 selections that haven't been
+    # asked. Validated server-side against pick_min / pick_max.
+    options: dict[str, list[str]] | None = None
 
 
 class Preferences(BaseModel):
@@ -91,6 +101,9 @@ class ExamPutRequest(BaseModel):
 
 class ExamPatchRequest(BaseModel):
     targetDate: date | None = None
+    # Phase 7 — set the per-pool picks. Pass `null` to clear; omit
+    # to leave existing picks unchanged. Shape: {poolCode: [subjectId]}.
+    options: dict[str, list[str]] | None = None
 
 
 class PreferencesPatch(BaseModel):

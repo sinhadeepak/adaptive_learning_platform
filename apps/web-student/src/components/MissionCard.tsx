@@ -99,8 +99,8 @@ export function MissionCard() {
     return (
       <section style={cardStyle}>
         <div style={eyebrow}>✦ TODAY'S MISSION</div>
-        <div style={{ marginTop: 12, height: 16, width: "60%", background: "rgba(255,255,255,0.05)", borderRadius: 4 }} />
-        <div style={{ marginTop: 8, height: 12, width: "40%", background: "rgba(255,255,255,0.05)", borderRadius: 4 }} />
+        <div style={{ marginTop: 12, height: 16, width: "60%", background: "var(--surface-elev1)", borderRadius: 4 }} />
+        <div style={{ marginTop: 8, height: 12, width: "40%", background: "var(--surface-elev1)", borderRadius: 4 }} />
       </section>
     );
   }
@@ -207,7 +207,10 @@ const metaStyle: React.CSSProperties = {
 const whyBlockStyle: React.CSSProperties = {
   marginTop: 12,
   padding: 12,
-  background: "rgba(0,0,0,0.2)",
+  // Theme-aware translucent overlay — slate-tinted in light mode, white
+  // in dark. The original rgba(0,0,0,0.2) read as a dark stripe in dark
+  // mode (intentional) but turned into a heavy gray patch in light.
+  background: "var(--surface-elev2)",
   borderRadius: 6,
   borderLeft: "2px solid var(--color-ai, #22D4EE)",
 };

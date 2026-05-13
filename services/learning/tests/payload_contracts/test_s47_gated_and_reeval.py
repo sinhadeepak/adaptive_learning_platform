@@ -1,9 +1,13 @@
-"""Phase 5 (P5-S47) — Gated families + re-evaluation eligibility +
-calibration dashboard helpers.
+"""Phase 5 (P5-S47, updated 2026-05-11 per ADR-0026) — Phase 2 type
+evaluation semantics + re-evaluation eligibility + calibration
+dashboard helpers.
 
-The DB-backed routes (re-evaluate, calibration dashboard) require
-postgres + content_schema; this file tests the pure-function pieces
-+ handler stubs end-to-end.
+After ADR-0026, the five Phase-2 types (LISTENING_COMP / VIDEO_QUESTION
+/ KBC_LIFELINE / TIMED_REVEAL / ADAPTIVE_DIFFICULTY) are un-gated and
+evaluate via composition over inner / child handlers. The DB-backed
+routes (re-evaluate, calibration dashboard) require postgres +
+content_schema; this file tests the pure-function pieces + the
+composition-handler behaviour end-to-end.
 """
 
 from __future__ import annotations
@@ -18,13 +22,11 @@ from learning.evaluation.reevaluation import (
 )
 from learning.evaluation.routes import _bucket_weekly, _to_ordinal_hist
 from learning.types.audio_video.handlers import (
-    GATED_FLAG as AV_FLAG,
     ListeningCompHandler,
     VideoQuestionHandler,
 )
 from learning.types.base import PROTOCOL_ATTRS, PROTOCOL_METHODS
 from learning.types.interactive.handlers import (
-    GATED_FLAG as INT_FLAG,
     AdaptiveDifficultyHandler,
     KBCLifelineHandler,
     TimedRevealHandler,
@@ -35,10 +37,10 @@ def _run(coro):
     return asyncio.run(coro)
 
 
-# ── Gated handler stubs ──────────────────────────────────────────────────────
+# ── Phase 2 audio/video composite handlers (un-gated per ADR-0026) ───────────
 
 
-def test_listening_comp_returns_pending_human_review() -> None:
+def test_listening_comp_unattempted_when_no_children_responded() -> None:
     h = ListeningCompHandler()
     payload = {
         "audio_media_id": "media-1",
@@ -52,15 +54,55 @@ def test_listening_comp_returns_pending_human_review() -> None:
     res = _run(h.evaluate(
         payload, {"question_id": "q1", "children": []}, "en",
     ))
-    assert res.status == "PENDING_HUMAN_REVIEW"
+    assert res.status == "UNATTEMPTED"
     assert res.evaluation_mode == "HYBRID"
-    assert res.evaluator_metadata.human_review_required is True
-    assert AV_FLAG in res.evaluator_metadata.prompt_version
-    # Total reflects the child count so the moderator queue shows scope.
+    assert res.total_count == 2
+    assert res.matched_count == 0
+
+
+def test_listening_comp_partial_when_some_children_attempted() -> None:
+    h = ListeningCompHandler()
+    payload = {
+        "audio_media_id": "media-1",
+        "transcript": "x" * 30,
+        "transcript_language": "en",
+        "child_questions": [
+            {"question_id": "ch-1", "ordinal": 1},
+            {"question_id": "ch-2", "ordinal": 2},
+        ],
+    }
+    res = _run(h.evaluate(payload, {
+        "question_id": "q1",
+        "children": [
+            {"question_id": "ch-1", "response_payload": {"selected_id": "A"}},
+        ],
+    }, "en"))
+    assert res.status == "PARTIAL_CORRECT"
+    assert res.matched_count == 1
     assert res.total_count == 2
 
 
-def test_video_question_returns_pending_human_review() -> None:
+def test_listening_comp_all_attempted_routes_to_human_for_roll_up() -> None:
+    h = ListeningCompHandler()
+    payload = {
+        "audio_media_id": "media-1",
+        "transcript": "x" * 30,
+        "transcript_language": "en",
+        "child_questions": [
+            {"question_id": "ch-1", "ordinal": 1},
+        ],
+    }
+    res = _run(h.evaluate(payload, {
+        "question_id": "q1",
+        "children": [
+            {"question_id": "ch-1", "response_payload": {"selected_id": "A"}},
+        ],
+    }, "en"))
+    assert res.status == "PENDING_HUMAN_REVIEW"
+    assert res.evaluator_metadata.human_review_required is True
+
+
+def test_video_question_aggregates_children_same_as_audio() -> None:
     h = VideoQuestionHandler()
     payload = {
         "video_media_id": "media-2",
@@ -73,27 +115,67 @@ def test_video_question_returns_pending_human_review() -> None:
     res = _run(h.evaluate(
         payload, {"question_id": "q1", "children": []}, "en",
     ))
-    assert res.status == "PENDING_HUMAN_REVIEW"
-    assert AV_FLAG in res.evaluator_metadata.prompt_version
+    assert res.status == "UNATTEMPTED"
+    assert res.total_count == 1
 
 
-def test_kbc_lifeline_gated() -> None:
+# ── Phase 2 interactive wrappers (un-gated per ADR-0026) ─────────────────────
+
+
+def test_kbc_lifeline_records_lifelines_in_metadata_unattempted() -> None:
     h = KBCLifelineHandler()
     payload = {
         "inner_question_id": "inner-1",
         "available_lifelines": ["50_50", "audience_poll"],
         "audience_poll_distribution": {"A": 60.0, "B": 30.0, "C": 5.0, "D": 5.0},
     }
+    # No inner_payload embedded + no inner_response_payload → UNATTEMPTED.
     res = _run(h.evaluate(payload, {
         "question_id": "q1",
-        "inner_response_payload": {"selected_id": "A"},
+        "inner_response_payload": None,
         "lifelines_used": [],
     }, "en"))
-    assert res.status == "PENDING_HUMAN_REVIEW"
-    assert INT_FLAG in res.evaluator_metadata.prompt_version
+    assert res.status == "UNATTEMPTED"
+    # Lifelines summary always surfaces in metadata notes.
+    assert "lifelines_used:none" in res.evaluator_metadata.prompt_version
 
 
-def test_timed_reveal_gated() -> None:
+def test_kbc_lifeline_grades_inner_when_payload_embedded() -> None:
+    # Bootstrap the full v1 registry so inner handler lookup works.
+    # We use the full bootstrap (not just MCQ_SINGLE) to avoid leaking
+    # a partially-populated registry to other tests in the same run.
+    from learning.types.bootstrap import register_all_v1_handlers
+    from learning.types.registry import _reset_for_tests, is_supported
+
+    if not is_supported("MCQ_SINGLE"):
+        _reset_for_tests()
+        register_all_v1_handlers()
+
+    h = KBCLifelineHandler()
+    payload = {
+        "inner_question_id": "inner-1",
+        "available_lifelines": ["50_50"],
+        "inner_payload": {
+            "stem": "What is 2+2?",
+            "options": [
+                {"id": "A", "text": "3"},
+                {"id": "B", "text": "4"},
+                {"id": "C", "text": "5"},
+            ],
+            "correct_id": "B",
+        },
+    }
+    res = _run(h.evaluate(payload, {
+        "question_id": "q1",
+        "inner_response_payload": {"selected_id": "B"},
+        "lifelines_used": ["50_50"],
+    }, "en"))
+    assert res.status == "CORRECT"
+    assert res.type_id == "KBC_LIFELINE"
+    assert "lifelines_used:50_50" in res.evaluator_metadata.prompt_version
+
+
+def test_timed_reveal_records_answered_at_seconds() -> None:
     h = TimedRevealHandler()
     payload = {
         "inner_question_id": "inner-1",
@@ -108,10 +190,15 @@ def test_timed_reveal_gated() -> None:
         "inner_response_payload": {"selected_id": "A"},
         "answered_at_seconds": 8.0,
     }, "en"))
+    # Without inner_payload embedded, falls back to PENDING_HUMAN_REVIEW
+    # with the answered_at_seconds note. Still un-gated — no feature_disabled marker.
     assert res.status == "PENDING_HUMAN_REVIEW"
+    assert "answered_at_seconds:8.00" in res.evaluator_metadata.prompt_version
+    assert "reveals_fired:1/2" in res.evaluator_metadata.prompt_version
+    assert "feature_disabled" not in (res.evaluator_metadata.prompt_version or "")
 
 
-def test_adaptive_difficulty_gated() -> None:
+def test_adaptive_difficulty_validates_served_variant() -> None:
     h = AdaptiveDifficultyHandler()
     payload = {
         "variants": [
@@ -121,12 +208,24 @@ def test_adaptive_difficulty_gated() -> None:
         ],
         "starting_difficulty": 2,
     }
-    res = _run(h.evaluate(payload, {
+    # Served variant not in pool → INCORRECT.
+    bad = _run(h.evaluate(payload, {
+        "question_id": "q1",
+        "served_question_id": "q-bogus",
+        "inner_response_payload": {"selected_id": "A"},
+    }, "en"))
+    assert bad.status == "INCORRECT"
+    assert bad.evaluator_metadata.prompt_version == "invalid_variant"
+
+    # Served variant in pool but no inner_payload embedded → fallback
+    # to PENDING_HUMAN_REVIEW with served_difficulty note.
+    good = _run(h.evaluate(payload, {
         "question_id": "q1",
         "served_question_id": "q-med",
         "inner_response_payload": {"selected_id": "A"},
     }, "en"))
-    assert res.status == "PENDING_HUMAN_REVIEW"
+    assert good.status == "PENDING_HUMAN_REVIEW"
+    assert "served_difficulty:2/5" in good.evaluator_metadata.prompt_version
 
 
 def test_gated_handlers_protocol_attrs() -> None:

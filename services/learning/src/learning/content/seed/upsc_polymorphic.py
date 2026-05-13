@@ -165,7 +165,7 @@ def _gen_mcq_single(idx: int, topic_code: str, concept: str, fact: str, _long: s
     choices = [correct] + distractors[:3]
     correct_idx = 0
     return {
-        "stem": f"[UPSC {topic_code} #{idx + 1}] With reference to {concept}, which of the following is correct?",
+        "stem": f"With reference to {concept}, which of the following is correct?",
         "choices": choices,
         "correct_idx": correct_idx,
         "payload": None,
@@ -177,7 +177,7 @@ def _gen_mcq_multi(idx: int, topic_code: str, concept: str, fact: str, _long: st
     choices = [fact, distractors[0], f"{concept} is enshrined in the Indian Constitution.", distractors[1]]
     correct_ids = ["A", "C"]
     return {
-        "stem": f"[UPSC {topic_code} #{idx + 1}] Regarding {concept}, which of the following statements are correct? (Select all that apply)",
+        "stem": f"Regarding {concept}, which of the following statements are correct? (Select all that apply)",
         "choices": choices,
         "correct_idx": 0,  # legacy field; real answer in payload
         "payload": {
@@ -197,7 +197,7 @@ def _gen_true_false(idx: int, topic_code: str, concept: str, _fact: str, long: s
     is_true = idx % 2 == 0
     statement = long if is_true else f"It is widely held that {concept} was abolished by the 42nd Amendment of 1976."
     return {
-        "stem": f"[UPSC {topic_code} #{idx + 1}] True or False — {statement}",
+        "stem": f"True or False — {statement}",
         "choices": ["True", "False"],
         "correct_idx": 0 if is_true else 1,
         "payload": {"statement": statement, "correct": is_true},
@@ -217,7 +217,7 @@ def _gen_assertion_reason(idx: int, topic_code: str, concept: str, _fact: str, l
     ]
     return {
         "stem": (
-            f"[UPSC {topic_code} #{idx + 1}] "
+            f""
             f"Assertion (A): {long} "
             f"Reason (R): {concept} relates to {distractors[0]}. "
             f"Choose the correct option:"
@@ -249,7 +249,7 @@ def _gen_multi_statement(idx: int, topic_code: str, concept: str, _fact: str, lo
     ]
     return {
         "stem": (
-            f"[UPSC {topic_code} #{idx + 1}] Consider the following statements regarding {concept}:\n"
+            f"Consider the following statements regarding {concept}:\n"
             f"1. {statements[0]}\n2. {statements[1]}\n3. {statements[2]}\n"
             f"Which of the statements given above are correct?"
         ),
@@ -289,7 +289,7 @@ def _gen_numeric_integer(idx: int, topic_code: str, _concept: str, _fact: str, _
     pool = bank[topic_code]
     answer, prompt = pool[idx % len(pool)]
     return {
-        "stem": f"[UPSC {topic_code} #{idx + 1}] {prompt}",
+        "stem": f"{prompt}",
         "choices": [str(answer)],
         "correct_idx": 0,
         "payload": {"answer": answer, "unit": None},
@@ -305,7 +305,7 @@ def _gen_numeric_decimal(idx: int, topic_code: str, concept: str, _fact: str, _l
     ]
     answer, tol, unit, prompt = pool[idx % len(pool)]
     return {
-        "stem": f"[UPSC {topic_code} #{idx + 1}] {prompt}",
+        "stem": f"{prompt}",
         "choices": [f"{answer} {unit}"],
         "correct_idx": 0,
         "payload": {"answer": answer, "tolerance": tol, "unit": unit},
@@ -320,7 +320,7 @@ def _gen_numeric_range(idx: int, topic_code: str, concept: str, _fact: str, _lon
     ]
     high, low, era, prompt = pool[idx % len(pool)]
     return {
-        "stem": f"[UPSC {topic_code} #{idx + 1}] {prompt}",
+        "stem": f"{prompt}",
         "choices": [f"{low}-{high} {era}"],
         "correct_idx": 0,
         "payload": {"low": low, "high": high, "unit": era},
@@ -336,7 +336,7 @@ def _gen_formula_input(idx: int, topic_code: str, _concept: str, _fact: str, _lo
     ]
     expr, prompt = pool[idx % len(pool)]
     return {
-        "stem": f"[UPSC {topic_code} CSAT #{idx + 1}] {prompt}",
+        "stem": f"{prompt}",
         "choices": [expr],
         "correct_idx": 0,
         "payload": {"canonical_expr": expr, "variables": ["P", "R", "T", "D", "N", "O"]},
@@ -351,7 +351,7 @@ def _gen_match_following(idx: int, topic_code: str, concept: str, _fact: str, _l
     pairs = [{"left": c[0], "right": c[1]} for c in chosen]
     return {
         "stem": (
-            f"[UPSC {topic_code} #{idx + 1}] Match List I with List II "
+            f"Match List I with List II "
             f"(related to {concept}):"
         ),
         "choices": [f"{p['left']} ↔ {p['right']}" for p in pairs],
@@ -379,7 +379,7 @@ def _gen_sequencing(idx: int, topic_code: str, concept: str, _fact: str, _long: 
     sequences = pool[topic_code]
     seq = sequences[idx % len(sequences)]
     return {
-        "stem": f"[UPSC {topic_code} #{idx + 1}] Arrange the following in chronological order ({concept}):",
+        "stem": f"Arrange the following in chronological order ({concept}):",
         "choices": seq,
         "correct_idx": 0,
         "payload": {"items": seq},
@@ -448,7 +448,7 @@ def _gen_classification(idx: int, topic_code: str, concept: str, _fact: str, _lo
     }
     bank = pool[topic_code]
     return {
-        "stem": f"[UPSC {topic_code} #{idx + 1}] Classify each of the following ({concept}):",
+        "stem": f"Classify each of the following ({concept}):",
         "choices": [f"{i['text']} → {i['category']}" for i in bank["items"]],
         "correct_idx": 0,
         "payload": bank,
@@ -460,7 +460,7 @@ def _gen_fill_blank_single(idx: int, topic_code: str, concept: str, _fact: str, 
     target = concept.split()[0]
     template = long.replace(target, "[BLANK]", 1)
     return {
-        "stem": f"[UPSC {topic_code} #{idx + 1}] Fill in the blank: {template}",
+        "stem": f"Fill in the blank: {template}",
         "choices": [target],
         "correct_idx": 0,
         "payload": {"template": template, "accepted": [[target, target.lower()]]},
@@ -473,7 +473,7 @@ def _gen_fill_blank_multi(idx: int, topic_code: str, concept: str, _fact: str, l
         f"discussed during the [BLANK] period of the Constituent Assembly debates."
     )
     return {
-        "stem": f"[UPSC {topic_code} #{idx + 1}] Complete the statement (related to: {long[:80]}…):",
+        "stem": f"Complete the statement (related to: {long[:80]}…):",
         "choices": ["Part III · 1948-1949"],
         "correct_idx": 0,
         "payload": {
@@ -521,7 +521,7 @@ def _gen_cloze(idx: int, topic_code: str, _concept: str, _fact: str, _long: str,
     }
     template, accepted = pool[topic_code]
     return {
-        "stem": f"[UPSC {topic_code} CSAT #{idx + 1}] Complete the cloze passage:",
+        "stem": f"Complete the cloze passage:",
         "choices": [template[:60] + "…"],
         "correct_idx": 0,
         "payload": {"template": template, "accepted": accepted},
@@ -530,7 +530,7 @@ def _gen_cloze(idx: int, topic_code: str, _concept: str, _fact: str, _long: str,
 
 def _gen_short_text(idx: int, topic_code: str, concept: str, fact: str, _long: str, _distractors: list[str]) -> dict[str, Any]:
     return {
-        "stem": f"[UPSC {topic_code} #{idx + 1}] In one sentence (≤30 words), explain what is meant by '{concept}'.",
+        "stem": f"In one sentence (≤30 words), explain what is meant by '{concept}'.",
         "choices": [fact],
         "correct_idx": 0,
         "payload": {
@@ -547,7 +547,7 @@ def _gen_short_text(idx: int, topic_code: str, concept: str, fact: str, _long: s
 def _gen_essay(idx: int, topic_code: str, concept: str, _fact: str, long: str, _distractors: list[str]) -> dict[str, Any]:
     return {
         "stem": (
-            f"[UPSC Mains {topic_code} Essay #{idx + 1}] "
+            f""
             f"Discuss in 250 words: {long} "
             f"Critically examine the contemporary relevance of {concept}."
         ),
@@ -574,7 +574,7 @@ def _gen_essay(idx: int, topic_code: str, concept: str, _fact: str, long: str, _
 def _gen_descriptive_long(idx: int, topic_code: str, concept: str, _fact: str, long: str, _distractors: list[str]) -> dict[str, Any]:
     return {
         "stem": (
-            f"[UPSC Mains {topic_code} Long #{idx + 1}] "
+            f""
             f"In approximately 1000-1500 words, examine: {long} "
             f"Substantiate with evidence and counter-arguments."
         ),
@@ -603,7 +603,7 @@ def _gen_descriptive_long(idx: int, topic_code: str, concept: str, _fact: str, l
 def _gen_case_study(idx: int, topic_code: str, concept: str, _fact: str, _long: str, _distractors: list[str]) -> dict[str, Any]:
     return {
         "stem": (
-            f"[UPSC GS-IV Ethics {topic_code} Case #{idx + 1}] "
+            f""
             f"You are a District Magistrate in a backward district. "
             f"A long-pending project related to {concept} is finally cleared. "
             f"However, you discover that powerful local groups are pressuring "
@@ -644,7 +644,7 @@ def _gen_comprehension(idx: int, topic_code: str, concept: str, _fact: str, long
     )
     return {
         "stem": (
-            f"[UPSC CSAT {topic_code} RC #{idx + 1}] Read the passage and answer:\n\n{passage}\n\n"
+            f"Read the passage and answer:\n\n{passage}\n\n"
             f"(1) State the central argument of the passage in 50 words.\n"
             f"(2) What do critics and proponents argue?\n"
             f"(3) Which interpretive approach is implied to be dominant?"
@@ -669,7 +669,7 @@ def _gen_comprehension(idx: int, topic_code: str, concept: str, _fact: str, long
 
 def _gen_diagram_hotspot(idx: int, topic_code: str, concept: str, _fact: str, _long: str, _distractors: list[str]) -> dict[str, Any]:
     return {
-        "stem": f"[UPSC {topic_code} Map #{idx + 1}] On the India outline map, click on the location associated with '{concept}'.",
+        "stem": f"On the India outline map, click on the location associated with '{concept}'.",
         "choices": ["See diagram canvas."],
         "correct_idx": 0,
         "payload": {
@@ -685,7 +685,7 @@ def _gen_diagram_hotspot(idx: int, topic_code: str, concept: str, _fact: str, _l
 
 def _gen_diagram_label(idx: int, topic_code: str, _concept: str, _fact: str, _long: str, _distractors: list[str]) -> dict[str, Any]:
     return {
-        "stem": f"[UPSC {topic_code} Diagram #{idx + 1}] Drag each label to its correct location on the diagram.",
+        "stem": f"Drag each label to its correct location on the diagram.",
         "choices": ["See diagram canvas."],
         "correct_idx": 0,
         "payload": {
@@ -714,7 +714,7 @@ def _gen_map_location(idx: int, topic_code: str, concept: str, _fact: str, _long
     ]
     name, lat, lng = pool[idx % len(pool)]
     return {
-        "stem": f"[UPSC {topic_code} Map #{idx + 1}] Locate '{name}' on the map of India ({concept}).",
+        "stem": f"Locate '{name}' on the map of India ({concept}).",
         "choices": [f"{name} ({lat:.2f}°N, {lng:.2f}°E)"],
         "correct_idx": 0,
         "payload": {
@@ -729,7 +729,7 @@ def _gen_map_location(idx: int, topic_code: str, concept: str, _fact: str, _long
 def _gen_pictorial(idx: int, topic_code: str, concept: str, _fact: str, _long: str, distractors: list[str]) -> dict[str, Any]:
     choices = [concept] + distractors[:3]
     return {
-        "stem": f"[UPSC {topic_code} Image #{idx + 1}] Identify the personality / monument / artefact shown in the image.",
+        "stem": f"Identify the personality / monument / artefact shown in the image.",
         "choices": choices,
         "correct_idx": 0,
         "payload": {

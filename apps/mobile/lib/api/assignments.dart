@@ -38,7 +38,7 @@ class Assignment {
   final int? myTotalCount;
 
   factory Assignment.fromJson(Map<String, dynamic> j) {
-    DateTime? _dt(dynamic v) =>
+    DateTime? dt(dynamic v) =>
         v == null ? null : DateTime.parse(v as String);
     return Assignment(
       id: j['id'] as String,
@@ -46,11 +46,11 @@ class Assignment {
       tenantId: j['tenantId'] as String?,
       title: j['title'] as String,
       description: j['description'] as String?,
-      dueAt: _dt(j['dueAt']),
-      publishedAt: _dt(j['publishedAt']),
+      dueAt: dt(j['dueAt']),
+      publishedAt: dt(j['publishedAt']),
       createdAt: DateTime.parse(j['createdAt'] as String),
       updatedAt: DateTime.parse(j['updatedAt'] as String),
-      myCompletedAt: _dt(j['myCompletedAt']),
+      myCompletedAt: dt(j['myCompletedAt']),
       myCorrectCount: (j['myCorrectCount'] as num?)?.toInt(),
       myTotalCount: (j['myTotalCount'] as num?)?.toInt(),
     );
@@ -131,7 +131,7 @@ class SubmitResult {
         totalCount: (j['totalCount'] as num).toInt(),
         breakdown: (j['breakdown'] as List<dynamic>)
             .map((e) =>
-                SubmitBreakdownEntry.fromJson(e as Map<String, dynamic>))
+                SubmitBreakdownEntry.fromJson(e as Map<String, dynamic>),)
             .toList(),
       );
 }

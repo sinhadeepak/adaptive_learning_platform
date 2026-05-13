@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { content, type Question } from "../lib/api";
+import {
+  catalog,
+  content,
+  type CatalogExam,
+  type CatalogSubject,
+  type CatalogTopic,
+  type Question,
+} from "../lib/api";
 import { useAuth, canAuthor, canReview } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill, SkeletonRows, type PillTone } from "../components/primitives";
@@ -23,14 +30,90 @@ export function MyQuestions() {
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  async function refresh() {
+  // Catalog scope filters — cascading: pick exam → subjects load,
+  // pick subject → topics load. Empty string means "any". The
+  // backend accepts each independently.
+  const [examId, setExamId] = useState<string>("");
+  const [subjectId, setSubjectId] = useState<string>("");
+  const [topicId, setTopicId] = useState<string>("");
+  const [exams, setExams] = useState<CatalogExam[]>([]);
+  const [subjects, setSubjects] = useState<CatalogSubject[]>([]);
+  const [topics, setTopics] = useState<CatalogTopic[]>([]);
+
+  // Load exam list once on mount. Educators see only their assigned
+  // exams (PLATFORM_ADMIN sees all) — same scope as the authoring flow.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const list = await catalog.myExams();
+        if (alive) setExams(list);
+      } catch {
+        /* swallow — filter just stays empty */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // When exam changes, reset subject/topic + reload subjects.
+  useEffect(() => {
+    setSubjectId("");
+    setTopicId("");
+    setSubjects([]);
+    setTopics([]);
+    if (!examId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const list = await catalog.mySubjects(examId);
+        if (alive) setSubjects(list);
+      } catch {
+        /* swallow */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [examId]);
+
+  // When subject changes, reset topic + reload topics.
+  useEffect(() => {
+    setTopicId("");
+    setTopics([]);
+    if (!subjectId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const list = await catalog.topics(subjectId);
+        if (alive) setTopics(list);
+      } catch {
+        /* swallow */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [subjectId]);
+
+  // refresh(): if `keepRowsWhilePending` is true, the existing list
+  // stays on screen while the new fetch runs — avoids the "list
+  // collapses, page scrolls to top" flash that happens whenever the
+  // user submits a single question for review or pages forward.
+  // First-mount and filter-changes still set null so the skeleton
+  // shows.
+  async function refresh(keepRowsWhilePending = false) {
     setError(null);
-    setQuestions(null);
+    if (!keepRowsWhilePending) setQuestions(null);
     try {
       const body = await content.listPaged({
         scope,
         type: typeFilter || undefined,
         q: search || undefined,
+        examId: examId || undefined,
+        subjectId: subjectId || undefined,
+        topicId: topicId || undefined,
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
       });
@@ -43,7 +126,7 @@ export function MyQuestions() {
 
   useEffect(() => {
     void refresh();
-  }, [scope, typeFilter, search, page]);
+  }, [scope, typeFilter, search, page, examId, subjectId, topicId]);
 
   // Debounce: wait 350ms after the user stops typing before issuing
   // the search query — prevents a request per keystroke.
@@ -55,21 +138,57 @@ export function MyQuestions() {
     return () => window.clearTimeout(id);
   }, [searchInput]);
 
-  // Reset pagination when scope or type filter changes.
+  // Reset pagination when any filter that changes the result set fires.
   useEffect(() => {
     setPage(0);
-  }, [scope, typeFilter]);
+  }, [scope, typeFilter, examId, subjectId, topicId]);
 
   async function submitForReview(id: string) {
     setSubmittingId(id);
     try {
-      await content.submit(id);
-      await refresh();
+      const updated = await content.submit(id);
+      // In-place patch: replace just the affected row in the existing
+      // list, so the surrounding rows stay mounted, scroll position
+      // is preserved, and the operator can keep working through a
+      // long DRAFT review queue without re-finding their spot.
+      setQuestions((prev) =>
+        prev ? prev.map((q) => (q.id === id ? updated : q)) : prev,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Submit failed");
     } finally {
       setSubmittingId(null);
     }
+  }
+
+  // Bulk: submit every DRAFT visible on the current page in one go.
+  // Throttled to 5 in-flight so a 25-row page doesn't slam the API.
+  // Each row uses the same in-place patch as the single submit so
+  // scroll position is preserved.
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  async function submitAllDrafts() {
+    if (!questions) return;
+    const drafts = questions.filter((q) => q.status === "DRAFT");
+    if (drafts.length === 0) return;
+    setBulkSubmitting(true);
+    setError(null);
+    const queue = drafts.map((q) => q.id);
+    let cursor = 0;
+    async function worker() {
+      while (cursor < queue.length) {
+        const id = queue[cursor++];
+        try {
+          const updated = await content.submit(id);
+          setQuestions((prev) =>
+            prev ? prev.map((q) => (q.id === id ? updated : q)) : prev,
+          );
+        } catch {
+          /* swallow per-row; aggregate count shown in chips */
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: 5 }, worker));
+    setBulkSubmitting(false);
   }
 
   // Server filters now (type, search, pagination), so the UI just
@@ -114,9 +233,25 @@ export function MyQuestions() {
       }
       actions={
         canAuthor(user?.role) ? (
-          <Link to="/questions/new" className="btn btn-primary">
-            + New question
-          </Link>
+          <div style={{ display: "flex", gap: 8 }}>
+            {counts && counts.draft > 0 && (
+              <button
+                type="button"
+                onClick={() => void submitAllDrafts()}
+                disabled={bulkSubmitting}
+                className="btn btn-ghost"
+                style={{ padding: "6px 12px", fontSize: 13 }}
+                title="Submit every DRAFT on this page for review (throttled to 5 in parallel)"
+              >
+                {bulkSubmitting
+                  ? "Submitting…"
+                  : `Submit ${counts.draft} draft${counts.draft === 1 ? "" : "s"} →`}
+              </button>
+            )}
+            <Link to="/questions/new" className="btn btn-primary">
+              + New question
+            </Link>
+          </div>
         ) : null
       }
     >
@@ -199,6 +334,75 @@ export function MyQuestions() {
             </option>
           ))}
         </select>
+
+        <select
+          value={examId}
+          onChange={(e) => setExamId(e.target.value)}
+          aria-label="Filter by exam"
+          style={selectStyle}
+        >
+          <option value="">All exams</option>
+          {exams.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={subjectId}
+          onChange={(e) => setSubjectId(e.target.value)}
+          aria-label="Filter by subject"
+          disabled={!examId || subjects.length === 0}
+          style={{
+            ...selectStyle,
+            opacity: !examId ? 0.5 : 1,
+          }}
+        >
+          <option value="">{examId ? "All subjects" : "Pick an exam first"}</option>
+          {subjects.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={topicId}
+          onChange={(e) => setTopicId(e.target.value)}
+          aria-label="Filter by topic"
+          disabled={!subjectId || topics.length === 0}
+          style={{
+            ...selectStyle,
+            opacity: !subjectId ? 0.5 : 1,
+          }}
+        >
+          <option value="">
+            {subjectId ? "All topics" : "Pick a subject first"}
+          </option>
+          {topics.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.title}
+            </option>
+          ))}
+        </select>
+
+        {(examId || subjectId || topicId || typeFilter || search) && (
+          <button
+            type="button"
+            onClick={() => {
+              setExamId("");
+              setSubjectId("");
+              setTopicId("");
+              setTypeFilter("");
+              setSearchInput("");
+            }}
+            className="btn btn-ghost"
+            style={{ padding: "6px 10px", fontSize: 12 }}
+          >
+            Clear filters
+          </button>
+        )}
 
         <span
           style={{
@@ -371,6 +575,16 @@ export function MyQuestions() {
     </AppShell>
   );
 }
+
+const selectStyle = {
+  padding: "8px 10px",
+  background: "var(--bg-surface3)",
+  color: "var(--text-primary)",
+  border: "1px solid var(--border-strong)",
+  borderRadius: 6,
+  fontSize: 13,
+  maxWidth: 200,
+} as const;
 
 const STATUS_TONE: Record<Question["status"], PillTone> = {
   DRAFT: "muted",

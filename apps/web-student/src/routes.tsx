@@ -31,9 +31,26 @@ import { PYQDrill } from "./pages/PYQDrill";
 import { Revision } from "./pages/Revision";
 import { SyllabusCoverage } from "./pages/SyllabusCoverage";
 import { Practice } from "./pages/Practice";
+import { StudyPortfolio } from "./pages/StudyPortfolio";
+import { MistakesPractice } from "./pages/MistakesPractice";
+import { DiagnosticPlacement } from "./pages/DiagnosticPlacement";
+import { TestBuilder } from "./pages/TestBuilder";
+import { MyTests } from "./pages/MyTests";
+import { SharedTestLanding } from "./pages/SharedTestLanding";
+import { AISuggestedTests } from "./pages/AISuggestedTests";
+import { Library } from "./pages/Library";
+import { Battle } from "./pages/Battle";
+import { Friends } from "./pages/Friends";
+import { Clans } from "./pages/Clans";
+import { ClanDetailPage } from "./pages/ClanDetail";
+import { Leaderboards } from "./pages/Leaderboards";
 import { Profile } from "./pages/Profile";
 import { Quiz } from "./pages/Quiz";
 import { QuizResult } from "./pages/QuizResult";
+import { SessionDeepDive } from "./pages/SessionDeepDive";
+import { TutorChatHistory, TutorChatTranscript } from "./pages/TutorChatHistory";
+import { Flashcards } from "./pages/Flashcards";
+import { League } from "./pages/League";
 import { Rank } from "./pages/Rank";
 import { Register } from "./pages/Register";
 import { ResetPassword } from "./pages/ResetPassword";
@@ -43,6 +60,7 @@ import { Settings } from "./pages/Settings";
 import { TopicDetail } from "./pages/TopicDetail";
 import { Verify } from "./pages/Verify";
 import { DailyGoal } from "./pages/onboarding/DailyGoal";
+import { Diagnostic as OnboardingDiagnostic } from "./pages/onboarding/Diagnostic";
 import { ExamSelect } from "./pages/onboarding/ExamSelect";
 import { Language } from "./pages/onboarding/Language";
 import { TargetDate } from "./pages/onboarding/TargetDate";
@@ -134,6 +152,14 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <TargetDate />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/onboarding/diagnostic",
+    element: (
+      <ProtectedRoute>
+        <OnboardingDiagnostic />
       </ProtectedRoute>
     ),
   },
@@ -250,6 +276,111 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <Practice />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/practice/mistakes",
+    element: (
+      <ProtectedRoute>
+        <MistakesPractice />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/practice/diagnostic",
+    element: (
+      <ProtectedRoute>
+        <DiagnosticPlacement />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/practice/build",
+    element: (
+      <ProtectedRoute>
+        <TestBuilder />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    // Phase B2 — Study Portfolio (current-vs-optimal allocation).
+    path: "/portfolio",
+    element: (
+      <ProtectedRoute>
+        <StudyPortfolio />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/practice/my-tests",
+    element: (
+      <ProtectedRoute>
+        <MyTests />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/practice/ai-suggestions",
+    element: (
+      <ProtectedRoute>
+        <AISuggestedTests />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/library",
+    element: (
+      <ProtectedRoute>
+        <Library />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/battle",
+    element: (
+      <ProtectedRoute>
+        <Battle />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/friends",
+    element: (
+      <ProtectedRoute>
+        <Friends />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/clans",
+    element: (
+      <ProtectedRoute>
+        <Clans />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/clans/:clanId",
+    element: (
+      <ProtectedRoute>
+        <ClanDetailPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/leaderboards",
+    element: (
+      <ProtectedRoute>
+        <Leaderboards />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/t/:slug",
+    element: (
+      <ProtectedRoute>
+        <SharedTestLanding />
       </ProtectedRoute>
     ),
   },
@@ -420,6 +551,50 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <QuizResult />
+      </ProtectedRoute>
+    ),
+  },
+  // Phase 1D-1 — post-test session deep-dive.
+  {
+    path: "/sessions/:sessionId/deep-dive",
+    element: (
+      <ProtectedRoute>
+        <SessionDeepDive />
+      </ProtectedRoute>
+    ),
+  },
+  // Phase 1D-3 — tutor chat history.
+  {
+    path: "/tutor-history",
+    element: (
+      <ProtectedRoute>
+        <TutorChatHistory />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/tutor-history/:sessionId",
+    element: (
+      <ProtectedRoute>
+        <TutorChatTranscript />
+      </ProtectedRoute>
+    ),
+  },
+  // Phase 1D-8 — flashcards.
+  {
+    path: "/flashcards",
+    element: (
+      <ProtectedRoute>
+        <Flashcards />
+      </ProtectedRoute>
+    ),
+  },
+  // Phase 1D-9 — league standings.
+  {
+    path: "/league",
+    element: (
+      <ProtectedRoute>
+        <League />
       </ProtectedRoute>
     ),
   },

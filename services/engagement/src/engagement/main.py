@@ -81,6 +81,12 @@ app.add_middleware(TraceContextMiddleware)
 app.include_router(analytics_router)
 app.include_router(notification_router)
 app.include_router(reflection_router)  # P6-S57 — reflections + commitments
+# Phase 1D-9 — gamification (XP / leagues)
+from engagement.gamification.routes import router as gamification_router  # noqa: E402
+app.include_router(gamification_router)
+# F8a — Friends + presence aggregation.
+from engagement.social.routes import router as social_router  # noqa: E402
+app.include_router(social_router)
 
 
 @app.get("/health")

@@ -12,10 +12,17 @@ import { ResourceShelf } from "./ResourceShelf";
 // per-question on the server), so writing it well pays off across the
 // whole cohort.
 //
-// Order of preference for the body:
-//   1. Stored authored explanation (legacy plain text from Quiz)
-//   2. v2 rich payload from /adaptive/explain (typical path)
-//   3. v1 plain text fallback (older cached rows / heuristic mode)
+// Render policy (updated 2026-05-11):
+//   - WRONG answer  → always fetch + render the rich v2 explanation. A
+//                     short authored note (if present) is shown as a
+//                     supplementary "From the author" line at the top
+//                     of the rich card. This is the case where students
+//                     learn most from depth.
+//   - CORRECT answer → if an authored note exists, render it inline as
+//                     a brief confirmation. Otherwise show the on-demand
+//                     "Explain this answer" button so students who want
+//                     depth can still get it without wasting a fetch on
+//                     correct answers by default.
 //
 // The card *always* renders something — a quiz item without a teaching
 // note is the regression we're fighting.
@@ -77,10 +84,17 @@ export function ExplainCard({
   const [requested, setRequested] = useState(false);
   const [showWorkedExample, setShowWorkedExample] = useState(false);
 
-  // Auto-fetch when no stored explanation exists and the student got it wrong.
+  // Auto-fetch the rich teaching note whenever the student got the
+  // question wrong — regardless of whether a short authored note exists.
+  // The rich card is what teachers actually want students to read on
+  // wrong answers; the authored line becomes a supplementary "From the
+  // author" caption inside it (rendered below).
   useEffect(() => {
-    if (storedExplanation) return;
     if (generated || loading || !stem || !choices || correctIdx === undefined) return;
+    // Correct answer + stored note: keep current confirmation-only render.
+    if (answered && isCorrect && storedExplanation) return;
+    // Correct answer + no stored note: don't auto-fetch (the manual
+    // "Explain this answer" button still works).
     if (answered && isCorrect) return;
     void fetchExplanation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,8 +126,11 @@ export function ExplainCard({
 
   if (!storedExplanation && !stem) return null;
 
-  // Stored authored explanation — render simple inline note.
-  if (storedExplanation) {
+  // Correct answer + stored authored note: keep the brief inline form —
+  // the student picked correctly, so a one-line confirmation is enough.
+  // Wrong answers fall through and render the full rich card below, with
+  // the authored note shown as a supplementary "From the author" caption.
+  if (storedExplanation && answered && isCorrect) {
     return (
       <div style={cardStyle}>
         <div style={eyebrowRow}>
@@ -129,9 +146,9 @@ export function ExplainCard({
     return (
       <div style={cardStyle}>
         <div style={eyebrowMuted}>Q{itemIdx + 1} · generating teaching note…</div>
-        <div style={{ marginTop: 8, height: 12, background: "rgba(255,255,255,0.05)", borderRadius: 4 }} />
-        <div style={{ marginTop: 6, height: 12, width: "80%", background: "rgba(255,255,255,0.05)", borderRadius: 4 }} />
-        <div style={{ marginTop: 6, height: 12, width: "60%", background: "rgba(255,255,255,0.05)", borderRadius: 4 }} />
+        <div style={{ marginTop: 8, height: 12, background: "var(--surface-elev1)", borderRadius: 4 }} />
+        <div style={{ marginTop: 6, height: 12, width: "80%", background: "var(--surface-elev1)", borderRadius: 4 }} />
+        <div style={{ marginTop: 6, height: 12, width: "60%", background: "var(--surface-elev1)", borderRadius: 4 }} />
       </div>
     );
   }
@@ -173,10 +190,21 @@ export function ExplainCard({
           {/* ── Headline ──────────────────────────────────────── */}
           <h3 style={headlineStyle}>{generated.headline}</h3>
 
+          {/* ── Author's supplementary note (when present) ─────
+              When the question carries a short authored explanation
+              alongside the rich AI note, surface it as a quote so the
+              student sees the original author's framing as well. */}
+          {storedExplanation && (
+            <div style={authorNoteBlock}>
+              <div style={authorNoteEyebrow}>◈ From the author</div>
+              <p style={authorNoteBody}>{storedExplanation}</p>
+            </div>
+          )}
+
           {/* ── Why correct ──────────────────────────────────── */}
           {generated.why_correct && (
             <Section label="Why this is correct">
-              <p style={bodyText}>{generated.why_correct}</p>
+              <p style={paragraphText}>{generated.why_correct}</p>
             </Section>
           )}
 
@@ -232,7 +260,7 @@ export function ExplainCard({
           {generated.common_pitfall && (
             <div style={pitfallCallout}>
               <div style={pitfallHeader}>⚠ Common pitfall</div>
-              <p style={pitfallBody}>{generated.common_pitfall}</p>
+              <p style={pitfallBodyLong}>{generated.common_pitfall}</p>
             </div>
           )}
 
@@ -249,13 +277,12 @@ export function ExplainCard({
               {showWorkedExample && (
                 <p
                   style={{
-                    ...bodyText,
+                    ...paragraphText,
                     marginTop: 8,
-                    padding: "10px 12px",
-                    background: "rgba(34,212,238,0.05)",
+                    padding: "12px 14px",
+                    background: "var(--bg-surface3)",
                     borderRadius: 6,
                     borderLeft: "2px solid var(--color-ai, #22D4EE)",
-                    whiteSpace: "pre-wrap",
                   }}
                 >
                   {generated.worked_example}
@@ -392,9 +419,14 @@ function SourceBadge({ generated }: { generated: ExplainResponse }) {
 const cardStyle: React.CSSProperties = {
   marginTop: 12,
   padding: 16,
-  background:
-    "linear-gradient(180deg, rgba(34,212,238,0.04), rgba(12,20,34,0.6))",
-  border: "1px solid rgba(34,212,238,0.18)",
+  // Use the design-system surface tokens so dark + light themes both
+  // get a readable card. The previous gradient ended at
+  // rgba(12,20,34,0.6) — a fixed dark slate that became a dim stripe
+  // in light mode and made the body text (var(--text-primary), dark
+  // on light) effectively invisible.
+  background: "var(--bg-surface2)",
+  border: "1px solid var(--border)",
+  borderLeft: "3px solid var(--color-ai, #22D4EE)",
   borderRadius: 10,
   color: "var(--text-primary, #EEF2FF)",
 };
@@ -441,6 +473,44 @@ const bodyText: React.CSSProperties = {
   color: "var(--text-secondary, #B8C5E0)",
 };
 
+// Looser line-height for longer prose — applied to why_correct,
+// common_pitfall, and worked_example so multi-paragraph explanations
+// don't feel cramped.
+const paragraphText: React.CSSProperties = {
+  fontSize: 13.5,
+  lineHeight: 1.7,
+  margin: 0,
+  color: "var(--text-primary, #EEF2FF)",
+  whiteSpace: "pre-wrap",
+};
+
+const authorNoteBlock: React.CSSProperties = {
+  marginTop: 4,
+  marginBottom: 12,
+  padding: "8px 12px",
+  background: "rgba(16,196,122,0.05)",
+  border: "1px solid rgba(16,196,122,0.18)",
+  borderLeft: "3px solid var(--color-green, #10C47A)",
+  borderRadius: 6,
+};
+
+const authorNoteEyebrow: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: 0.6,
+  textTransform: "uppercase",
+  color: "var(--color-green, #10C47A)",
+  marginBottom: 4,
+};
+
+const authorNoteBody: React.CSSProperties = {
+  fontSize: 12.5,
+  lineHeight: 1.6,
+  margin: 0,
+  color: "var(--text-secondary, #B8C5E0)",
+  fontStyle: "italic",
+};
+
 const optionList: React.CSSProperties = {
   listStyle: "none",
   padding: 0,
@@ -453,12 +523,12 @@ const optionList: React.CSSProperties = {
 const optionRow: React.CSSProperties = {
   display: "flex",
   gap: 10,
-  padding: "8px 12px",
+  padding: "10px 14px",
   border: "1px solid",
   borderRadius: 6,
   alignItems: "flex-start",
   fontSize: 13,
-  lineHeight: 1.5,
+  lineHeight: 1.65,
 };
 
 const optionMark: React.CSSProperties = {
@@ -497,11 +567,13 @@ const pitfallHeader: React.CSSProperties = {
   marginBottom: 4,
 };
 
-const pitfallBody: React.CSSProperties = {
-  fontSize: 13,
-  lineHeight: 1.5,
+// Loose-line variant for the longer common-pitfall prose.
+const pitfallBodyLong: React.CSSProperties = {
+  fontSize: 13.5,
+  lineHeight: 1.7,
   margin: 0,
-  color: "var(--text-secondary, #B8C5E0)",
+  color: "var(--text-primary, #EEF2FF)",
+  whiteSpace: "pre-wrap",
 };
 
 const collapseToggle: React.CSSProperties = {
@@ -546,7 +618,7 @@ const triggerButton: React.CSSProperties = {
 const footerRow: React.CSSProperties = {
   marginTop: 14,
   paddingTop: 8,
-  borderTop: "1px solid rgba(255,255,255,0.05)",
+  borderTop: "1px solid var(--surface-elev1)",
   fontSize: 10,
   color: "var(--text-faint, #7A8BAD)",
   fontFamily: "var(--font-mono, monospace)",

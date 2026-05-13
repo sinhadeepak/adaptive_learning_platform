@@ -28,6 +28,34 @@ class QuizClient {
     return QuizSessionStart.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
+  /// F1 — Mistake replay. Pre-loads a PRACTICE-mode session with the
+  /// user's most recent wrong-answered items. `topicId`/`sinceDays`/`limit`
+  /// are all optional filters (defaults: all topics, all time, 10 items).
+  Future<QuizSessionStart> startMistakeReplay({
+    required String userId,
+    String? topicId,
+    int? sinceDays,
+    int limit = 10,
+  }) async {
+    final body = <String, dynamic>{'userId': userId, 'limit': limit};
+    if (topicId != null) body['topicId'] = topicId;
+    if (sinceDays != null && sinceDays > 0) body['sinceDays'] = sinceDays;
+    final res = await auth.apiPost('/quiz/sessions/start-mistake-replay', body);
+    if (res.statusCode == 422) {
+      throw const QuizError(
+        'No wrong-answered questions yet — answer some practice items first.',
+        QuizErrorCode.emptyTopic,
+      );
+    }
+    if (res.statusCode != 201) {
+      throw QuizError(
+        'Could not start replay (${res.statusCode}).',
+        QuizErrorCode.unknown,
+      );
+    }
+    return QuizSessionStart.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
   Future<QuizNext> next(String sessionId) async {
     final res = await auth.apiGet('/quiz/sessions/$sessionId/next');
     if (res.statusCode == 409) {
@@ -39,10 +67,20 @@ class QuizClient {
     return QuizNext.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
-  Future<QuizAnswer> answer(String sessionId, {required int itemIdx, required int answerIdx}) async {
+  Future<QuizAnswer> answer(
+    String sessionId, {
+    required int itemIdx,
+    required int answerIdx,
+    // Sprint 7/8 — non-MCQ types submit a structured response payload
+    // alongside answerIdx. The Quiz Go server forwards it to
+    // /grading/grade for symbolic / range / text matching. Ignored
+    // (and may be 0) for MCQ_SINGLE — answerIdx is canonical there.
+    Map<String, dynamic>? responsePayload,
+  }) async {
     final res = await auth.apiPost('/quiz/sessions/$sessionId/answers', {
       'itemIdx': itemIdx,
       'answerIdx': answerIdx,
+      if (responsePayload != null) 'responsePayload': responsePayload,
     });
     if (res.statusCode != 200) {
       throw QuizError('Answer rejected (${res.statusCode}).', QuizErrorCode.unknown);
@@ -109,16 +147,25 @@ class QuizNext {
 }
 
 class QuizItem {
-  QuizItem({required this.itemIdx, required this.questionId, required this.stem, required this.choices});
+  QuizItem(
+      {required this.itemIdx,
+      required this.questionId,
+      required this.stem,
+      required this.choices,
+      this.questionType = 'MCQ_SINGLE',});
   final int itemIdx;
   final String questionId;
   final String stem;
   final List<String> choices;
+  // Sprint 7/8 — drives renderer choice on the client.
+  // Empty / unknown falls back to MCQ_SINGLE (the existing path).
+  final String questionType;
   factory QuizItem.fromJson(Map<String, dynamic> j) => QuizItem(
         itemIdx: (j['itemIdx'] as num).toInt(),
         questionId: j['questionId'] as String,
         stem: j['stem'] as String,
         choices: (j['choices'] as List).cast<String>(),
+        questionType: (j['questionType'] ?? 'MCQ_SINGLE') as String,
       );
 }
 

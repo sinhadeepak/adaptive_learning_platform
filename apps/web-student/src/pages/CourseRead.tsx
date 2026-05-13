@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { AppShell } from "../components/AppShell";
 import {
   type CourseDetail,
   type CourseStructureView,
@@ -48,17 +49,19 @@ export function CourseRead() {
 
   if (error) {
     return (
-      <main className="page" style={{ padding: 24 }}>
-        <p className="banner banner-error">{error}</p>
-        <Link to="/courses-mine">← Back to my courses</Link>
-      </main>
+      <AppShell title="Course">
+        <div style={{ padding: "16px 24px" }}>
+          <p className="banner banner-error">{error}</p>
+          <Link to="/courses-mine" style={{ color: "var(--color-blue)" }}>← Back to my courses</Link>
+        </div>
+      </AppShell>
     );
   }
   if (!course) {
     return (
-      <main className="page" style={{ padding: 24 }}>
-        <p>Loading…</p>
-      </main>
+      <AppShell title="Course">
+        <div style={{ padding: "16px 24px", color: "var(--text-muted)" }}>Loading…</div>
+      </AppShell>
     );
   }
 
@@ -67,22 +70,27 @@ export function CourseRead() {
   if (!hasStructure) {
     // Legacy unstructured course — render content_md verbatim.
     return (
-      <main className="page" style={{ padding: 24, maxWidth: 800 }}>
-        <Link to="/courses-mine">← Back</Link>
-        <h1>{course.title}</h1>
-        <p style={{ color: "var(--text-muted)" }}>{course.description}</p>
-        <article
-          style={{
-            background: "var(--bg-surface-1, #fff)",
-            padding: 24,
-            borderRadius: 8,
-            marginTop: 16,
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {course.contentMd}
-        </article>
-      </main>
+      <AppShell title={course.title}>
+        <div style={{ padding: "16px 24px 32px", maxWidth: 880 }}>
+          <Link to="/courses-mine" style={{ color: "var(--color-blue)", fontSize: 13 }}>← Back to my courses</Link>
+          <h1 style={{ marginTop: 12 }}>{course.title}</h1>
+          <p style={{ color: "var(--text-muted)" }}>{course.description}</p>
+          <article
+            style={{
+              background: "var(--bg-surface1)",
+              border: "1px solid var(--border)",
+              padding: 24,
+              borderRadius: 8,
+              marginTop: 16,
+              whiteSpace: "pre-wrap",
+              color: "var(--text-secondary)",
+              lineHeight: 1.6,
+            }}
+          >
+            {course.contentMd}
+          </article>
+        </div>
+      </AppShell>
     );
   }
 
@@ -91,9 +99,10 @@ export function CourseRead() {
     : 0;
 
   return (
-    <main className="page" style={{ padding: 24, maxWidth: 1200 }}>
-      <Link to="/courses-mine">← Back</Link>
-      <h1>{course.title}</h1>
+    <AppShell title={course.title}>
+    <div style={{ padding: "16px 24px 32px", maxWidth: 1200 }}>
+      <Link to="/courses-mine" style={{ color: "var(--color-blue)", fontSize: 13 }}>← Back to my courses</Link>
+      <h1 style={{ marginTop: 12 }}>{course.title}</h1>
       <p style={{ color: "var(--text-muted)" }}>{course.description}</p>
       <p style={{ color: "var(--text-muted)" }}>
         Lesson {activeIndex} of {allLessons.length}
@@ -160,6 +169,7 @@ export function CourseRead() {
           )}
         </article>
       </div>
-    </main>
+    </div>
+    </AppShell>
   );
 }

@@ -19,7 +19,8 @@ class ProfileRepo:
             await self.s.execute(
                 text(
                     "SELECT user_id, first_name, last_name, email, avatar_url, locale, language_pref, "
-                    "daily_goal_minutes, onboarding_state, timezone, tenant_id, notification_prefs "
+                    "daily_goal_minutes, onboarding_state, timezone, tenant_id, notification_prefs, "
+                    "diagnostic_waived "
                     "FROM profile_schema.profiles WHERE user_id = :uid"
                 ),
                 {"uid": str(user_id)},
@@ -145,11 +146,35 @@ class ProfileRepo:
             {"uid": str(user_id), "lang": language, "goal": daily_goal_minutes},
         )
         # Advance onboarding FSM on daily-goal set (terminal step).
+        # F2b: the legal transitions for "complete onboarding" are now:
+        #   EXAM_SELECTED → ONBOARDED   (consumer-tier OR diagnostic_waived)
+        #   DIAGNOSTIC_DONE → ONBOARDED (institutional post-diagnostic)
+        # We need the tenant's require_onboarding_diagnostic flag to know
+        # whether EXAM_SELECTED can skip the diagnostic. Skipping is
+        # allowed when (a) tenant flag is FALSE, (b) tenant_id is NULL
+        # (consumer user), or (c) the user has been admin-waived.
         if daily_goal_minutes is not None:
             await self.s.execute(
                 text(
-                    "UPDATE profile_schema.profiles SET onboarding_state = 'ONBOARDED', updated_at = NOW() "
-                    "WHERE user_id = :uid AND onboarding_state = 'EXAM_SELECTED'"
+                    """
+                    UPDATE profile_schema.profiles p
+                       SET onboarding_state = 'ONBOARDED',
+                           updated_at = NOW()
+                     WHERE user_id = :uid
+                       AND (
+                            onboarding_state = 'DIAGNOSTIC_DONE'
+                         OR (onboarding_state = 'EXAM_SELECTED' AND (
+                              p.diagnostic_waived = TRUE
+                              OR p.tenant_id IS NULL
+                              OR NOT EXISTS (
+                                   SELECT 1
+                                     FROM institution_schema.tenants t
+                                    WHERE t.id = p.tenant_id
+                                      AND t.require_onboarding_diagnostic = TRUE
+                                 )
+                            ))
+                       )
+                    """
                 ),
                 {"uid": str(user_id)},
             )
@@ -166,6 +191,61 @@ class ProfileRepo:
             {"uid": str(user_id)},
         )
 
+    async def mark_diagnostic_complete(self, user_id: UUID | str) -> None:
+        """F2b — transition EXAM_SELECTED → DIAGNOSTIC_DONE after a
+        post-onboarding placement diagnostic has been persisted. Called
+        from /profile/me/diagnostic-complete after the screening flow
+        in /onboarding/diagnostic writes to user_theta_prior.
+
+        Idempotent: only advances from EXAM_SELECTED.
+        """
+        await self.s.execute(
+            text(
+                """
+                UPDATE profile_schema.profiles
+                   SET onboarding_state = 'DIAGNOSTIC_DONE',
+                       updated_at = NOW()
+                 WHERE user_id = :uid
+                   AND onboarding_state = 'EXAM_SELECTED'
+                """
+            ),
+            {"uid": str(user_id)},
+        )
+
+    async def set_diagnostic_waived(
+        self, user_id: UUID | str, *, waived: bool,
+    ) -> None:
+        """F2b — admin escape hatch. Sets profiles.diagnostic_waived so
+        the daily-goal path can bypass DIAGNOSTIC_DONE for this user.
+        Called by tenant-admin tooling, not by students directly.
+        """
+        await self.s.execute(
+            text(
+                "UPDATE profile_schema.profiles SET "
+                "diagnostic_waived = :w, updated_at = NOW() "
+                "WHERE user_id = :uid"
+            ),
+            {"uid": str(user_id), "w": waived},
+        )
+
+    async def tenant_requires_diagnostic(
+        self, tenant_id: UUID | str | None,
+    ) -> bool:
+        """F2b — quick lookup so onboarding-routing code (web client +
+        post-exam-select hook) can decide whether to push the user into
+        the diagnostic screen or straight to /onboarding/daily-goal.
+        """
+        if tenant_id is None:
+            return False
+        row = (await self.s.execute(
+            text(
+                "SELECT require_onboarding_diagnostic FROM "
+                "institution_schema.tenants WHERE id = :tid"
+            ),
+            {"tid": str(tenant_id)},
+        )).first()
+        return bool(row[0]) if row else False
+
 
 class ExamRepo:
     def __init__(self, session: AsyncSession) -> None:
@@ -175,7 +255,8 @@ class ExamRepo:
         rows = (
             await self.s.execute(
                 text(
-                    "SELECT exam_id, target_date FROM profile_schema.exam_selections "
+                    "SELECT exam_id, target_date, options "
+                    "FROM profile_schema.exam_selections "
                     "WHERE user_id = :uid AND removed_at IS NULL ORDER BY selected_at"
                 ),
                 {"uid": str(user_id)},
@@ -192,6 +273,31 @@ class ExamRepo:
             ),
             {"uid": str(user_id), "eid": exam_id},
         )
+
+    async def set_options(
+        self, *, user_id: UUID | str, exam_id: str, options: dict[str, list[str]] | None,
+    ) -> bool:
+        """Whole-document replace for the per-pool picks (Phase 7).
+
+        `options` shape: `{poolCode: [subjectId, ...]}`. Pass None to
+        clear. Caller validates pick_min/pick_max constraints against
+        the catalog before writing — this layer just stores.
+        """
+        import json as _json
+
+        result = await self.s.execute(
+            text(
+                "UPDATE profile_schema.exam_selections "
+                "SET options = CAST(:opts AS jsonb) "
+                "WHERE user_id = :uid AND exam_id = :eid AND removed_at IS NULL"
+            ),
+            {
+                "uid": str(user_id),
+                "eid": exam_id,
+                "opts": _json.dumps(options) if options is not None else None,
+            },
+        )
+        return bool(result.rowcount)
 
     async def set_target_date(self, *, user_id: UUID | str, exam_id: str, target: date | None) -> bool:
         result = await self.s.execute(

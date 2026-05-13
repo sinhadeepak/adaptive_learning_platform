@@ -36,7 +36,9 @@ export function CulturalReview() {
           style={{
             padding: 16,
             marginTop: 16,
-            background: "var(--bg-subtle, #f8f9fc)",
+            background: "var(--bg-surface1)",
+            border: "1px solid var(--border)",
+            color: "var(--text-secondary)",
             borderRadius: 8,
             fontSize: 13,
             lineHeight: 1.5,
@@ -49,11 +51,12 @@ export function CulturalReview() {
               marginBottom: 8,
             }}
           >
-            <strong>About cultural review</strong>
+            <strong style={{ color: "var(--text-primary)" }}>About cultural review</strong>
             <button
               onClick={() => setShowRationale(false)}
               style={{
                 background: "transparent",
+                color: "var(--text-muted)",
                 border: "none",
                 cursor: "pointer",
                 fontSize: 13,
@@ -87,8 +90,22 @@ export function CulturalReview() {
         </Banner>
 
         <div style={{ marginTop: 16 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Manual lookup</h2>
-          <p style={{ fontSize: 13, opacity: 0.8, marginBottom: 12 }}>
+          <h2
+            style={{
+              fontSize: 16,
+              marginBottom: 8,
+              color: "var(--text-primary)",
+            }}
+          >
+            Manual lookup
+          </h2>
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--text-secondary)",
+              marginBottom: 12,
+            }}
+          >
             Use the Translation Review page to load a flagged artifact, then
             select the affected language. Cultural-only actions (substitute,
             revert) land alongside the queue-driven UI in a follow-up sprint.
@@ -98,11 +115,13 @@ export function CulturalReview() {
             style={{
               display: "inline-block",
               padding: "8px 16px",
-              background: "var(--color-blue, #4f87f6)",
+              background: "var(--color-blue)",
               color: "white",
+              border: "1px solid var(--border)",
               borderRadius: 4,
               textDecoration: "none",
               fontSize: 13,
+              fontWeight: 600,
             }}
           >
             Open Translation Review →
@@ -110,7 +129,15 @@ export function CulturalReview() {
         </div>
 
         <div style={{ marginTop: 24 }}>
-          <h3 style={{ fontSize: 14, marginBottom: 8 }}>SLA tracking</h3>
+          <h3
+            style={{
+              fontSize: 14,
+              marginBottom: 8,
+              color: "var(--text-primary)",
+            }}
+          >
+            SLA tracking
+          </h3>
           <div
             style={{
               display: "grid",
@@ -118,48 +145,39 @@ export function CulturalReview() {
               gap: 12,
             }}
           >
-            <div
-              style={{
-                padding: 12,
-                border: "1px solid var(--border, #e1e5ee)",
-                borderRadius: 6,
-              }}
-            >
-              <div style={{ fontSize: 11, opacity: 0.7, textTransform: "uppercase" }}>
-                Pending review
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 700 }}>—</div>
-              <div style={{ fontSize: 11, opacity: 0.6 }}>queue endpoint pending</div>
-            </div>
-            <div
-              style={{
-                padding: 12,
-                border: "1px solid var(--border, #e1e5ee)",
-                borderRadius: 6,
-              }}
-            >
-              <div style={{ fontSize: 11, opacity: 0.7, textTransform: "uppercase" }}>
-                Within SLA
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 700 }}>—</div>
-              <div style={{ fontSize: 11, opacity: 0.6 }}>&lt; 5 working days</div>
-            </div>
-            <div
-              style={{
-                padding: 12,
-                border: "1px solid var(--border, #e1e5ee)",
-                borderRadius: 6,
-              }}
-            >
-              <div style={{ fontSize: 11, opacity: 0.7, textTransform: "uppercase" }}>
-                SLA breach
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 700 }}>—</div>
-              <div style={{ fontSize: 11, opacity: 0.6 }}>&gt; 5 working days</div>
-            </div>
+            <SlaCard label="Pending review" hint="queue endpoint pending" />
+            <SlaCard label="Within SLA" hint="< 5 working days" />
+            <SlaCard label="SLA breach" hint="> 5 working days" />
           </div>
         </div>
       </section>
     </AppShell>
+  );
+}
+
+function SlaCard({ label, hint }: { label: string; hint: string }) {
+  return (
+    <div
+      style={{
+        padding: 12,
+        background: "var(--bg-surface1)",
+        border: "1px solid var(--border)",
+        borderRadius: 6,
+        color: "var(--text-primary)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          color: "var(--text-muted)",
+          textTransform: "uppercase",
+          letterSpacing: 0.04,
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ fontSize: 24, fontWeight: 700, marginTop: 4 }}>—</div>
+      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{hint}</div>
+    </div>
   );
 }

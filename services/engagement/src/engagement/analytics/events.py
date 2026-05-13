@@ -364,6 +364,82 @@ async def _on_session_completed(msg: Msg) -> None:
                         "transfer_outcomes.failed session=%s", session_id
                     )
 
+                # Phase 1D-9 — gamification XP. Award per-session XP +
+                # per-correct XP. Best-effort: a gamification write
+                # failure must not roll back mastery / readiness.
+                try:
+                    from engagement.gamification import service as _gam
+
+                    correct_count = sum(
+                        1 for it in items if bool(it.get("is_correct"))
+                    )
+                    base_xp = _gam.XP_RULES.get("quiz_completed", 0)
+                    per_correct = _gam.XP_RULES.get("quiz_correct_answer", 0)
+                    total_xp = base_xp + per_correct * correct_count
+                    if total_xp > 0:
+                        await _gam.award_xp(
+                            session,
+                            user_id=user_id,
+                            event_type="quiz_completed",
+                            source_id=session_id,
+                            xp_delta=total_xp,
+                        )
+                    # Mastery milestone — for any per-item topic that just
+                    # crossed 0.7 EWA on this update, award milestone XP.
+                    # Detection: re-read mastery rows we just updated and
+                    # check current EWA against a synthetic prior (>=0.7
+                    # now, was <0.7 before). v1 uses a coarser proxy: if
+                    # the session's primary topic crosses, award once.
+                    try:
+                        from sqlalchemy import text as _t
+                        row = (
+                            await session.execute(
+                                _t(
+                                    """
+                                    SELECT ewa FROM analytics_schema.mastery
+                                     WHERE user_id = CAST(:uid AS uuid)
+                                       AND topic_id = CAST(:tid AS uuid)
+                                    """
+                                ),
+                                {"uid": user_id, "tid": topic_id},
+                            )
+                        ).first()
+                        if row is not None and float(row[0]) >= 0.7:
+                            # Awarded only if there's no prior milestone
+                            # event for this (user, topic) — dedupe via
+                            # source_id.
+                            existed = (
+                                await session.execute(
+                                    _t(
+                                        """
+                                        SELECT 1
+                                          FROM analytics_schema.xp_events
+                                         WHERE user_id = CAST(:uid AS uuid)
+                                           AND event_type = 'mastery_milestone'
+                                           AND source_id = CAST(:tid AS uuid)
+                                         LIMIT 1
+                                        """
+                                    ),
+                                    {"uid": user_id, "tid": topic_id},
+                                )
+                            ).first()
+                            if not existed:
+                                await _gam.award_xp(
+                                    session,
+                                    user_id=user_id,
+                                    event_type="mastery_milestone",
+                                    source_id=topic_id,
+                                )
+                    except Exception:
+                        log.exception(
+                            "gamification.milestone.failed user=%s topic=%s",
+                            user_id, topic_id,
+                        )
+                except Exception:
+                    log.exception(
+                        "gamification.xp.failed session=%s", session_id,
+                    )
+
             await session.commit()
         with contextlib.suppress(Exception):
             await msg.ack()

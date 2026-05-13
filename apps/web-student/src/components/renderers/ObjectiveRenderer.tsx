@@ -54,7 +54,7 @@ export const MCQSingleRenderer: Renderer<MCQSinglePayload, MCQSingleResponse> = 
                   : "1px solid var(--border, #e1e5ee)",
                 borderRadius: 6,
                 cursor: disabled ? "not-allowed" : "pointer",
-                background: selected ? "var(--color-blue-bg, #dbeafe)" : "white",
+                background: selected ? "var(--color-blue-bg, #dbeafe)" : "var(--bg-surface2)",
               }}
             >
               <input
@@ -130,7 +130,7 @@ export const MCQMultiRenderer: Renderer<MCQMultiPayload, MCQMultiResponse> = ({
                   : "1px solid var(--border, #e1e5ee)",
                 borderRadius: 6,
                 cursor: disabled ? "not-allowed" : "pointer",
-                background: isSelected ? "var(--color-blue-bg, #dbeafe)" : "white",
+                background: isSelected ? "var(--color-blue-bg, #dbeafe)" : "var(--bg-surface2)",
               }}
             >
               <input
@@ -187,7 +187,7 @@ export const TrueFalseRenderer: Renderer<TrueFalsePayload, TrueFalseResponse> = 
                   ? b
                     ? "var(--color-green, #10c47a)"
                     : "var(--color-red, #f43f5e)"
-                  : "white",
+                  : "var(--bg-surface2)",
                 color: selected ? "white" : "inherit",
                 border: selected
                   ? "2px solid transparent"

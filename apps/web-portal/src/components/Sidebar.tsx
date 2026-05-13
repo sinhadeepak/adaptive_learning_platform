@@ -33,6 +33,21 @@ const NAV: NavEntry[] = [
     match: (p) => p.startsWith("/content/resources"),
   },
   { id: "analytics", to: "/analytics", icon: "📊", label: "Analytics" },
+  {
+    id: "tutoring",
+    to: "/tutor",
+    icon: "🧑‍🏫",
+    label: "Tutoring",
+    match: (p) => p.startsWith("/tutor"),
+  },
+  {
+    id: "creator",
+    to: "/creator/courses",
+    icon: "🎬",
+    label: "My courses",
+    match: (p) => p.startsWith("/creator/courses"),
+  },
+  { id: "earnings", to: "/creator/earnings", icon: "💰", label: "Earnings" },
 ];
 
 export function Sidebar({

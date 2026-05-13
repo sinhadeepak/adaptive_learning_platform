@@ -430,7 +430,7 @@ class _ConceptCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                )),
+                ),),
           ],
           if (summary.isNotEmpty) ...[
             const SizedBox(height: 8),

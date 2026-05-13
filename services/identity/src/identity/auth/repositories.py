@@ -63,35 +63,44 @@ class UserRepo:
         *,
         q: str | None,
         limit: int,
-    ) -> list[dict[str, Any]]:
-        """Bare list endpoint for the educator-scope admin UI.
+        offset: int = 0,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """List users with optional role + substring filters.
 
         Filters out is_deleted users. q is a case-insensitive substring
-        match against email + full_name. Limit is hard-capped by the
-        caller; we trust it here.
+        match against email + full_name. Returns (rows, total) so the
+        admin UI can render "page X of Y" without an extra COUNT call.
         """
-        params: dict[str, Any] = {"limit": limit}
-        sql = (
-            "SELECT id, email, full_name, role, admin_access_level, "
-            "       account_status "
-            "FROM auth_schema.users "
-            "WHERE is_deleted = FALSE "
-        )
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        where = "WHERE u.is_deleted = FALSE "
         if roles:
             placeholders = ",".join(f":r{i}" for i in range(len(roles)))
-            sql += (
-                f"  AND role IN ({placeholders}) "
-            )
+            where += f"  AND u.role IN ({placeholders}) "
             for i, r in enumerate(roles):
                 params[f"r{i}"] = r
         if q:
-            sql += (
-                "  AND (LOWER(email) LIKE :q OR LOWER(full_name) LIKE :q) "
-            )
+            where += "  AND (LOWER(u.email) LIKE :q OR LOWER(u.full_name) LIKE :q) "
             params["q"] = f"%{q.lower()}%"
-        sql += "ORDER BY email LIMIT :limit"
-        rows = (await self.s.execute(text(sql), params)).mappings().all()
-        return [dict(r) for r in rows]
+
+        rows_sql = (
+            "SELECT u.id, u.email, u.full_name, u.role, u.admin_access_level, "
+            "       u.account_status, u.institution_id, "
+            "       t.name AS institution_name, t.slug AS institution_slug, "
+            "       t.kind AS institution_kind "
+            "FROM auth_schema.users u "
+            "LEFT JOIN institution_schema.tenants t ON t.id = u.institution_id "
+            f"{where}"
+            "ORDER BY u.email LIMIT :limit OFFSET :offset"
+        )
+        count_sql = (
+            "SELECT count(*) AS n FROM auth_schema.users u "
+            f"{where}"
+        )
+
+        rows = (await self.s.execute(text(rows_sql), params)).mappings().all()
+        total_row = (await self.s.execute(text(count_sql), params)).mappings().first()
+        total = int(total_row["n"]) if total_row else 0
+        return [dict(r) for r in rows], total
 
     async def activate(self, user_id: UUID | str) -> None:
         await self.s.execute(

@@ -12,7 +12,11 @@ import type { Renderer } from "./types";
 // ─────────────────────────────────────────────────────────────────────────
 
 export interface FillBlankSinglePayload {
-  stem: string;
+  stem?: string;
+  // Legacy seed shape — the field is named `template` and uses
+  // `[BLANK]` placeholders. Accepting either shape keeps the renderer
+  // tolerant against the unmigrated content_schema fixtures.
+  template?: string;
   match_mode?: "exact" | "case_insensitive" | "fuzzy_token";
   explanation?: string;
 }
@@ -21,13 +25,47 @@ export interface FillBlankSingleResponse {
   answer: string;
 }
 
+// Escape a string so it can be embedded verbatim in a RegExp source.
+function escapeReg(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export const FillBlankSingleRenderer: Renderer<FillBlankSinglePayload, FillBlankSingleResponse> = ({
   payload,
   value,
   onChange,
   disabled,
 }): ReactNode => {
-  const parts = payload.stem.split(/(_{3,}|\{\{1\}\})/);
+  // Split on every supported placeholder syntax: `___+`, `{{1}}`,
+  // `[BLANK]`. Using `?? ""` defends against fully missing text so the
+  // renderer never crashes on a partial payload — at worst we draw an
+  // empty input.
+  let text = payload.stem ?? payload.template ?? "";
+
+  // Seed-data repair: some legacy fill-in-the-blank rows ship a
+  // template *without* a `[BLANK]` marker — the author wrote the full
+  // sentence and listed `accepted: [["word"]]` separately. Auto-mask
+  // the first occurrence of the canonical answer so the student sees
+  // a real blank. Case-insensitive, whole-word match; no-op when the
+  // template already contains a placeholder or no word matches.
+  const hasPlaceholder = /_{3,}|\{\{1\}\}|\[BLANK\]/.test(text);
+  const accepted = (payload as { accepted?: unknown }).accepted;
+  const firstAccepted: string | null = Array.isArray(accepted)
+    ? typeof accepted[0] === "string"
+      ? (accepted[0] as string)
+      : Array.isArray(accepted[0]) && typeof (accepted[0] as unknown[])[0] === "string"
+      ? ((accepted[0] as unknown[])[0] as string)
+      : null
+    : null;
+  if (!hasPlaceholder && firstAccepted) {
+    const re = new RegExp(`\\b${escapeReg(firstAccepted)}\\b`, "i");
+    if (re.test(text)) {
+      text = text.replace(re, "[BLANK]");
+    }
+  }
+
+  const parts = text.split(/(_{3,}|\{\{1\}\}|\[BLANK\])/);
+  const finalHasBlank = /_{3,}|\{\{1\}\}|\[BLANK\]/.test(text);
   return (
     <div>
       <p
@@ -38,7 +76,7 @@ export const FillBlankSingleRenderer: Renderer<FillBlankSinglePayload, FillBlank
         }}
       >
         {parts.map((part, idx) => {
-          if (/^_{3,}$/.test(part) || part === "{{1}}") {
+          if (/^_{3,}$/.test(part) || part === "{{1}}" || part === "[BLANK]") {
             return (
               <input
                 key={idx}
@@ -69,13 +107,58 @@ export const FillBlankSingleRenderer: Renderer<FillBlankSinglePayload, FillBlank
           return <span key={idx}>{part}</span>;
         })}
       </p>
+      {!finalHasBlank && (
+        // Author shipped a stem without a blank marker AND no
+        // accepted-answer hint we could auto-mask. Show a free-form
+        // input below so the student can still submit something.
+        <div style={{ marginTop: 12 }}>
+          <label
+            style={{
+              display: "block",
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--text-muted)",
+              marginBottom: 6,
+            }}
+            htmlFor="fb-single-fallback"
+          >
+            Your answer
+          </label>
+          <input
+            id="fb-single-fallback"
+            type="text"
+            value={value?.answer ?? ""}
+            onChange={(e) =>
+              e.target.value === ""
+                ? onChange(null)
+                : onChange({ answer: e.target.value })
+            }
+            disabled={disabled}
+            placeholder="Type your answer here"
+            style={{
+              width: "100%",
+              maxWidth: 480,
+              padding: "8px 12px",
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              background: "var(--bg-surface3)",
+              fontSize: 14,
+              color: "var(--text-primary)",
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };
 
 export interface FillBlankMultiPayload {
-  stem: string;
-  blanks: { id: string; match_mode?: string }[];
+  stem?: string;
+  // Legacy: seeds ship `template` with `[BLANK]` placeholders + an
+  // `accepted: [[...synonyms...]]` list. Renderer reads either shape.
+  template?: string;
+  blanks?: { id: string; match_mode?: string }[];
+  accepted?: string[][];
   partial_credit?: boolean;
   explanation?: string;
 }
@@ -105,15 +188,36 @@ export const FillBlankMultiRenderer: Renderer<FillBlankMultiPayload, FillBlankMu
     });
   }
 
-  // Split stem on {{n}} placeholders; render an <input> per known blank id.
-  const parts = payload.stem.split(/(\{\{[^}]+\}\})/);
+  // Split stem on every supported placeholder syntax. The seed shape
+  // uses `[BLANK]` with no explicit ids, so when we hit one we mint a
+  // synthetic blank_id (`b0`, `b1`, …) for the answer map.
+  let text = payload.stem ?? payload.template ?? "";
+
+  // Seed-data repair: if the template lacks any `[BLANK]` markers
+  // but the `accepted: [[...],[...]]` array still describes multiple
+  // blanks, mask the first occurrence of each accepted-set's first
+  // synonym so the inline inputs are still drawn. No-op when the
+  // template already contains placeholders.
+  const hasPlaceholder = /\{\{[^}]+\}\}|\[BLANK\]/.test(text);
+  if (!hasPlaceholder && Array.isArray(payload.accepted)) {
+    for (const synonyms of payload.accepted) {
+      const word = Array.isArray(synonyms) ? synonyms[0] : null;
+      if (typeof word !== "string" || word.length === 0) continue;
+      const re = new RegExp(`\\b${escapeReg(word)}\\b`, "i");
+      if (re.test(text)) text = text.replace(re, "[BLANK]");
+    }
+  }
+
+  const parts = text.split(/(\{\{[^}]+\}\}|\[BLANK\])/);
+  const finalHasBlank = /\{\{[^}]+\}\}|\[BLANK\]/.test(text);
+  let blankSeq = 0;
   return (
     <div>
       <p style={{ fontSize: 16, lineHeight: 1.8 }}>
         {parts.map((part, idx) => {
           const m = part.match(/^\{\{([^}]+)\}\}$/);
-          if (m) {
-            const blankId = m[1];
+          if (m || part === "[BLANK]") {
+            const blankId = m ? m[1] : `b${blankSeq++}`;
             return (
               <input
                 key={idx}
@@ -140,13 +244,46 @@ export const FillBlankMultiRenderer: Renderer<FillBlankMultiPayload, FillBlankMu
           return <span key={idx}>{part}</span>;
         })}
       </p>
+      {!finalHasBlank && (
+        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>
+            Your answers
+          </span>
+          {(payload.accepted ?? [["b0"]]).map((_, i) => {
+            const id = `b${i}`;
+            return (
+              <input
+                key={id}
+                type="text"
+                value={answersMap.get(id) ?? ""}
+                onChange={(e) => setAnswer(id, e.target.value)}
+                disabled={disabled}
+                placeholder={`Answer ${i + 1}`}
+                style={{
+                  maxWidth: 360,
+                  padding: "6px 10px",
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  background: "var(--bg-surface3)",
+                  fontSize: 13,
+                  color: "var(--text-primary)",
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
 
 export interface ClozePassagePayload {
-  passage: string;
-  blanks: { id: string }[];
+  passage?: string;
+  // Legacy: seeds ship `template` instead of `passage`, no explicit
+  // `blanks` list, and an `accepted: [[...synonyms...]]` array.
+  template?: string;
+  blanks?: { id: string }[];
+  accepted?: string[][];
   word_bank?: string[] | null;
   partial_credit?: boolean;
   explanation?: string;
@@ -176,7 +313,8 @@ export const ClozePassageRenderer: Renderer<ClozePassagePayload, FillBlankMultiR
       )}
       <FillBlankMultiRenderer
         payload={{
-          stem: payload.passage,
+          stem: payload.passage ?? payload.template,
+          template: payload.template,
           blanks: payload.blanks,
           partial_credit: payload.partial_credit,
         }}

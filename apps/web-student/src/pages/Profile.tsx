@@ -1,3 +1,12 @@
+// Profile — production-grade redesign (2026-05-11).
+//
+// Layout: pg-shell → identity hero (avatar + name + actions) →
+// pg-stat-strip (streak / exams / topics / language) → pg-2col with
+// main column carrying Account + Preferences (pg-section + pg-fields)
+// and aside column carrying My exams + achievements/heatmap. The dense
+// two-column grid replaces the previous full-width stack which left
+// huge empty bands of background.
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { auth } from "../lib/api";
@@ -5,14 +14,9 @@ import { useAuth } from "../lib/auth-provider";
 import { ActivityHeatmap } from "../components/ActivityHeatmap";
 import { AppShell } from "../components/AppShell";
 import { setCachedAvatar } from "../lib/avatar";
-import { Banner, Pill, SkeletonRows } from "../components/dashboard";
-
-// ─────────────────────────────────────────────────────────────────────────
-// Profile — the "your account" overview screen.
-// Reached from the sidebar avatar / footer or the Profile nav item.
-// Mirrors the AI-first dashboard chrome (PRs #56-61): gradient hero +
-// stat tiles + content cards.
-// ─────────────────────────────────────────────────────────────────────────
+import { Banner, SkeletonRows } from "../components/dashboard";
+import { LeaderboardOptIn } from "../components/LeaderboardOptIn";
+import { RealExamReport } from "../components/RealExamReport";
 
 interface User {
   id: string;
@@ -64,6 +68,17 @@ const LANG_NAME: Record<string, string> = {
   hi: "हिन्दी (Hindi)",
   hinglish: "Hinglish",
 };
+
+function daysUntil(iso: string | null): { label: string; tone: "info" | "warn" | "danger" | "muted" } {
+  if (!iso) return { label: "No target date", tone: "muted" };
+  const d = new Date(iso);
+  const days = Math.ceil((d.getTime() - Date.now()) / 86400000);
+  if (days < 0) return { label: `${-days} days past`, tone: "muted" };
+  if (days === 0) return { label: "Today!", tone: "danger" };
+  if (days < 30) return { label: `${days} days left`, tone: "danger" };
+  if (days < 90) return { label: `${days} days left`, tone: "warn" };
+  return { label: `${days} days left`, tone: "info" };
+}
 
 export function Profile() {
   const { user: authUser, logout } = useAuth();
@@ -178,9 +193,9 @@ export function Profile() {
   if (error) {
     return (
       <AppShell title="Profile">
-        <Banner tone="danger" role="alert">
-          {error}
-        </Banner>
+        <div className="pg-shell">
+          <Banner tone="danger" role="alert">{error}</Banner>
+        </div>
       </AppShell>
     );
   }
@@ -188,7 +203,9 @@ export function Profile() {
   if (!profile) {
     return (
       <AppShell title="Profile">
-        <SkeletonRows count={3} />
+        <div className="pg-shell">
+          <SkeletonRows count={3} />
+        </div>
       </AppShell>
     );
   }
@@ -196,60 +213,29 @@ export function Profile() {
   const user = profile.user;
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || "Learner";
   const initial = (user.firstName || "?").slice(0, 1).toUpperCase();
-  const onboardingPill =
-    user.onboardingState === "ONBOARDED"
-      ? { tone: "success" as const, label: "Onboarded" }
-      : user.onboardingState === "EXAM_SELECTED"
-        ? { tone: "warning" as const, label: "In progress" }
-        : { tone: "info" as const, label: "New" };
+  const verified = !!user.emailVerifiedAt;
 
   return (
     <AppShell title="Profile">
-      {/* ── Hero ────────────────────────────────────────────────── */}
-      <section className="ai-header" aria-label="Profile">
-        <div className="ai-header-left">
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              alignItems: "center",
-              flexWrap: "wrap",
-              marginBottom: 4,
-            }}
-          >
-            <span className="ai-pill">◈ ADAPTIVELEARN PROFILE</span>
-            <Pill tone={onboardingPill.tone}>{onboardingPill.label}</Pill>
-            {user.role ? <Pill tone="muted">{user.role}</Pill> : null}
-          </div>
-          <h1 className="ai-header-name">
-            <span className="ai-header-name-accent">{fullName}</span>
-          </h1>
-          <p className="ai-header-sub">
-            <strong>{user.email}</strong>
-            {user.phone ? ` · ${user.phone}` : ""} ·{" "}
-            {user.emailVerifiedAt ? "Email verified" : "Email pending verification"}
-          </p>
-          <div className="ai-header-btns">
-            <Link to="/settings" className="btn-ai">
-              ◈ Settings
-            </Link>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => void logout()}
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-        <div className="ai-header-stats" style={{ alignItems: "center" }}>
+      <div className="pg-shell">
+        {/* ── Identity strip ────────────────────────────────────── */}
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 18,
+            paddingBottom: 22,
+            marginBottom: 22,
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
           <label
             htmlFor="avatar-input"
             title={profile.avatarUrl ? "Replace avatar" : "Upload avatar"}
             style={{
               position: "relative",
-              width: 90,
-              height: 90,
+              width: 82,
+              height: 82,
               borderRadius: "50%",
               background: profile.avatarUrl
                 ? `center/cover url(${profile.avatarUrl})`
@@ -257,13 +243,13 @@ export function Profile() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 38,
+              fontSize: 34,
               fontWeight: 800,
               color: "#fff",
               fontFamily: "var(--font-display)",
               cursor: avatarBusy ? "wait" : "pointer",
               overflow: "hidden",
-              border: profile.avatarUrl ? "2px solid var(--color-blue)" : "none",
+              flexShrink: 0,
             }}
           >
             {profile.avatarUrl ? null : initial}
@@ -300,292 +286,378 @@ export function Profile() {
               {avatarBusy ? "…" : "✎"}
             </span>
           </label>
-          {profile.avatarUrl ? (
-            <button
-              type="button"
-              onClick={removeAvatar}
-              disabled={avatarBusy}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1
               style={{
-                marginTop: 8,
-                background: "transparent",
-                border: 0,
-                color: "var(--text-muted)",
-                fontSize: 11,
-                cursor: "pointer",
-                fontFamily: "inherit",
+                margin: 0,
+                fontSize: 22,
+                fontWeight: 700,
+                color: "var(--text-primary)",
+                letterSpacing: "-0.01em",
               }}
             >
-              Remove avatar
-            </button>
-          ) : null}
-        </div>
-      </section>
+              {fullName}
+            </h1>
+            <p style={{ margin: "4px 0 8px", fontSize: 13, color: "var(--text-muted)" }}>
+              {user.email}
+              {user.phone ? ` · ${user.phone}` : ""}
+              {" · "}
+              {verified ? (
+                <span style={{ color: "var(--color-green)" }}>✓ Verified</span>
+              ) : (
+                <span style={{ color: "var(--color-amber)" }}>Email pending</span>
+              )}
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Link to="/settings" className="pg-btn pg-btn-subtle pg-btn-sm">
+                ⚙ Settings
+              </Link>
+              {profile.avatarUrl && (
+                <button
+                  type="button"
+                  onClick={removeAvatar}
+                  disabled={avatarBusy}
+                  className="pg-btn pg-btn-ghost pg-btn-sm"
+                >
+                  Remove avatar
+                </button>
+              )}
+              <button
+                type="button"
+                className="pg-btn pg-btn-ghost pg-btn-sm"
+                onClick={() => void logout()}
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </header>
 
-      {/* ── Stat tiles ─────────────────────────────────────────── */}
-      <section
-        className="topic-stats"
-        style={{ marginTop: "var(--sp-4)" }}
-        aria-label="Profile stats"
-      >
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-amber)" }}>
-            {streak?.currentStreak ?? 0} 🔥
+        {/* ── KPI strip ─────────────────────────────────────────── */}
+        <div className="pg-stat-strip">
+          <div className="pg-stat">
+            <div className="pg-stat-label">Current streak</div>
+            <div className="pg-stat-value" style={{ color: "var(--color-amber)" }}>
+              {streak?.currentStreak ?? 0}🔥
+            </div>
+            <div className="pg-stat-delta">
+              best {streak?.longestStreak ?? 0} day{streak?.longestStreak === 1 ? "" : "s"}
+            </div>
           </div>
-          <div className="topic-stat-lbl">Current streak</div>
-          <div className="topic-stat-foot">
-            best: {streak?.longestStreak ?? 0} day{streak?.longestStreak === 1 ? "" : "s"}
+          <div className="pg-stat">
+            <div className="pg-stat-label">Active exams</div>
+            <div className="pg-stat-value" style={{ color: "var(--color-blue)" }}>
+              {profile.exams.length}
+            </div>
+            <div className="pg-stat-delta">
+              {profile.exams.length === 0 ? "pick one to get started" : "tracked below"}
+            </div>
+          </div>
+          <div className="pg-stat">
+            <div className="pg-stat-label">Topics in motion</div>
+            <div className="pg-stat-value" style={{ color: "var(--color-green)" }}>
+              {topicsTracked ?? 0}
+            </div>
+            <div className="pg-stat-delta">analytics-tracked</div>
+          </div>
+          <div className="pg-stat">
+            <div className="pg-stat-label">Achievements</div>
+            <div className="pg-stat-value" style={{ color: "var(--color-purple)" }}>
+              {achievements.length}
+            </div>
+            <div className="pg-stat-delta">
+              {achievements.length === 0 ? "earn your first badge" : "unlocked"}
+            </div>
           </div>
         </div>
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-blue)" }}>
-            {profile.exams.length}
-          </div>
-          <div className="topic-stat-lbl">Active exams</div>
-          <div className="topic-stat-foot">
-            {profile.exams.length === 0 ? "none yet" : "tracked"}
-          </div>
-        </div>
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-green)" }}>
-            {topicsTracked ?? 0}
-          </div>
-          <div className="topic-stat-lbl">Topics in motion</div>
-          <div className="topic-stat-foot">analytics-tracked</div>
-        </div>
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-ai)" }}>
-            {LANG_NAME[profile.preferences.language] ?? profile.preferences.language}
-          </div>
-          <div className="topic-stat-lbl">Language</div>
-          <div className="topic-stat-foot">change in settings</div>
-        </div>
-      </section>
 
-      {/* ── Achievements ──────────────────────────────────────── */}
-      <section className="topic-section" style={{ marginTop: "var(--sp-5)" }}>
-        <h2 className="topic-section-title">
-          Achievements · {achievements.length}
-        </h2>
-        {achievements.length > 0 ? (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 10,
-              marginBottom: 16,
-            }}
-          >
-            {achievements.map((a) => {
-              const meta = badgeFor(a);
-              return (
+        {/* ── Two-column body ───────────────────────────────────── */}
+        <div className="pg-2col">
+          <div>
+            <section className="pg-section">
+              <h2 className="pg-section-title">
+                Account
+                {!verified && (
+                  <button
+                    type="button"
+                    className="pg-btn pg-btn-subtle pg-btn-sm"
+                    onClick={async () => {
+                      try {
+                        await auth.fetch("/api/v1/auth/resend-verification", {
+                          method: "POST",
+                        });
+                        alert("Verification email resent.");
+                      } catch {
+                        alert("Couldn't send right now.");
+                      }
+                    }}
+                  >
+                    Resend verification
+                  </button>
+                )}
+              </h2>
+              <div className="pg-fields">
+                <div>
+                  <div className="pg-field-label">Full name</div>
+                  <div className="pg-field-value">{fullName}</div>
+                </div>
+                <div>
+                  <div className="pg-field-label">Email</div>
+                  <div className="pg-field-value">{user.email}</div>
+                </div>
+                <div>
+                  <div className="pg-field-label">Phone</div>
+                  <div className={user.phone ? "pg-field-value" : "pg-field-value pg-field-value-empty"}>
+                    {user.phone ?? "Not set"}
+                  </div>
+                </div>
+                <div>
+                  <div className="pg-field-label">Locale</div>
+                  <div className={user.locale ? "pg-field-value" : "pg-field-value pg-field-value-empty"}>
+                    {user.locale ?? "Not set"}
+                  </div>
+                </div>
+                <div>
+                  <div className="pg-field-label">Member since</div>
+                  <div className={user.createdAt ? "pg-field-value" : "pg-field-value pg-field-value-empty"}>
+                    {user.createdAt
+                      ? new Date(user.createdAt).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })
+                      : "—"}
+                  </div>
+                </div>
+                <div>
+                  <div className="pg-field-label">Email verified</div>
+                  <div className="pg-field-value">
+                    {verified ? (
+                      <span style={{ color: "var(--color-green)" }}>✓ Verified</span>
+                    ) : (
+                      <span style={{ color: "var(--color-amber)" }}>Pending</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="pg-section">
+              <h2 className="pg-section-title">
+                Preferences
+                <Link to="/settings" className="pg-btn pg-btn-subtle pg-btn-sm">
+                  Edit
+                </Link>
+              </h2>
+              <div className="pg-fields">
+                <div>
+                  <div className="pg-field-label">Language</div>
+                  <div className="pg-field-value">
+                    {LANG_NAME[profile.preferences.language] ??
+                      profile.preferences.language}
+                  </div>
+                </div>
+                <div>
+                  <div className="pg-field-label">Daily goal</div>
+                  <div
+                    className={
+                      profile.preferences.dailyGoalMinutes
+                        ? "pg-field-value"
+                        : "pg-field-value pg-field-value-empty"
+                    }
+                  >
+                    {profile.preferences.dailyGoalMinutes
+                      ? `${profile.preferences.dailyGoalMinutes} min/day`
+                      : "Not set"}
+                  </div>
+                </div>
+                <div>
+                  <div className="pg-field-label">Onboarding</div>
+                  <div className="pg-field-value">
+                    {user.onboardingState === "ONBOARDED" ? (
+                      <span style={{ color: "var(--color-green)" }}>✓ Complete</span>
+                    ) : user.onboardingState === "EXAM_SELECTED" ? (
+                      <span style={{ color: "var(--color-amber)" }}>In progress</span>
+                    ) : (
+                      <span style={{ color: "var(--text-muted)" }}>New</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="pg-section">
+              <h2 className="pg-section-title">
+                Activity
+                <span className="pg-section-title-sub">last 30 days</span>
+              </h2>
+              <ActivityHeatmap />
+            </section>
+
+            <LeaderboardOptIn />
+            <RealExamReport />
+          </div>
+
+          <div>
+            <section className="pg-section">
+              <h2 className="pg-section-title">
+                My exams
+                <Link to="/onboarding/exam" className="pg-btn pg-btn-subtle pg-btn-sm">
+                  Edit
+                </Link>
+              </h2>
+              {profile.exams.length === 0 ? (
+                <div style={{ padding: "8px 0" }}>
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: "var(--text-muted)",
+                      margin: "0 0 12px",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Pick an exam to lock in your prep target — we'll surface
+                    syllabus coverage, weak areas, and mock tests tailored to it.
+                  </p>
+                  <Link to="/onboarding/exam" className="pg-btn pg-btn-primary pg-btn-sm">
+                    Pick an exam →
+                  </Link>
+                </div>
+              ) : (
+                <div className="pg-list">
+                  {profile.exams.map((e) => {
+                    const meta = examsMeta[e.examId];
+                    const cd = daysUntil(e.targetDate);
+                    return (
+                      <Link
+                        key={e.examId}
+                        to={`/exams/${e.examId}`}
+                        className="pg-row"
+                        style={{ padding: "10px 12px" }}
+                      >
+                        <div className="pg-row-main">
+                          <p className="pg-row-title" style={{ fontSize: 13 }}>
+                            {meta?.name ?? "Exam"}
+                          </p>
+                          <div className="pg-row-meta">
+                            <span>{meta?.subtitle ?? "Prep target"}</span>
+                            {e.targetDate && (
+                              <>
+                                <span className="pg-row-meta-dot">·</span>
+                                <span>
+                                  {new Date(e.targetDate).toLocaleDateString("en-IN", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <span className={`pg-pill pg-pill-${cd.tone}`}>{cd.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            <section className="pg-section">
+              <h2 className="pg-section-title">
+                Achievements
+                <span className="pg-section-title-sub">{achievements.length} earned</span>
+              </h2>
+              {achievements.length > 0 ? (
                 <div
-                  key={a.id}
-                  title={`${meta.label} · ${new Date(a.awardedAt).toLocaleDateString()}`}
                   style={{
                     display: "flex",
-                    alignItems: "center",
+                    flexWrap: "wrap",
                     gap: 8,
-                    padding: "8px 12px",
-                    borderRadius: 999,
-                    background: meta.bg,
-                    border: `1px solid ${meta.border}`,
+                    marginBottom: achievements.length > 0 ? 12 : 0,
                   }}
                 >
-                  <span style={{ fontSize: 20 }}>{meta.icon}</span>
-                  <span
-                    style={{
-                      color: "var(--text-primary)",
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {meta.label}
-                  </span>
+                  {achievements.map((a) => {
+                    const meta = badgeFor(a);
+                    return (
+                      <div
+                        key={a.id}
+                        title={`${meta.label} · ${new Date(a.awardedAt).toLocaleDateString()}`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "6px 10px",
+                          borderRadius: 999,
+                          background: meta.bg,
+                          border: `1px solid ${meta.border}`,
+                        }}
+                      >
+                        <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                        <span style={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 600 }}>
+                          {meta.label}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p
-            style={{
-              color: "var(--text-muted)",
-              fontSize: 13,
-              margin: "0 0 var(--sp-3) 0",
-            }}
-          >
-            No badges yet — start practicing to unlock the first one.
-          </p>
-        )}
-        {(() => {
-          const earned = new Set(achievements.map((a) => a.kind));
-          const locked = ALL_BADGE_KINDS.filter((k) => !earned.has(k.kind)).slice(0, 4);
-          if (locked.length === 0) return null;
-          return (
-            <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  fontWeight: 700,
-                  letterSpacing: 0.6,
-                  textTransform: "uppercase",
-                  marginBottom: 8,
-                }}
-              >
-                Up next
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                {locked.map((meta) => (
-                  <div
-                    key={meta.kind}
-                    title="Keep going to unlock"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "8px 12px",
-                      borderRadius: 999,
-                      background: "var(--bg-surface-1)",
-                      border: "1px dashed var(--border-default)",
-                      opacity: 0.55,
-                    }}
-                  >
-                    <span style={{ fontSize: 18, filter: "grayscale(0.8)" }}>{meta.icon}</span>
-                    <span
+              ) : (
+                <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 12px", lineHeight: 1.5 }}>
+                  No badges yet — start practicing to unlock the first one.
+                </p>
+              )}
+              {(() => {
+                const earned = new Set(achievements.map((a) => a.kind));
+                const locked = ALL_BADGE_KINDS.filter((k) => !earned.has(k.kind)).slice(0, 3);
+                if (locked.length === 0) return null;
+                return (
+                  <div>
+                    <div
                       style={{
-                        color: "var(--text-muted)",
-                        fontSize: 13,
-                        fontWeight: 500,
+                        fontSize: 10,
+                        color: "var(--text-faint)",
+                        fontWeight: 700,
+                        letterSpacing: 0.6,
+                        textTransform: "uppercase",
+                        marginBottom: 6,
                       }}
                     >
-                      {meta.label}
-                    </span>
+                      Up next
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {locked.map((meta) => (
+                        <div
+                          key={meta.kind}
+                          title="Keep going to unlock"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "6px 10px",
+                            borderRadius: 999,
+                            background: "var(--bg-surface3)",
+                            border: "1px dashed var(--border)",
+                            opacity: 0.55,
+                          }}
+                        >
+                          <span style={{ fontSize: 14, filter: "grayscale(0.8)" }}>{meta.icon}</span>
+                          <span style={{ color: "var(--text-muted)", fontSize: 12, fontWeight: 500 }}>
+                            {meta.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
-      </section>
-
-      {/* ── Activity heatmap ───────────────────────────────────── */}
-      <section className="topic-section" style={{ marginTop: "var(--sp-5)" }}>
-        <h2 className="topic-section-title">Activity · last 30 days</h2>
-        <ActivityHeatmap />
-      </section>
-
-      {/* ── Sections ───────────────────────────────────────────── */}
-      <div style={{ marginTop: "var(--sp-5)" }}>
-        <section className="topic-section">
-          <h2 className="topic-section-title">Account</h2>
-          <dl className="kv-list" style={{ padding: 0, gap: "var(--sp-5)" }}>
-            <div>
-              <dt>Full name</dt>
-              <dd>{fullName}</dd>
-            </div>
-            <div>
-              <dt>Email</dt>
-              <dd>{user.email}</dd>
-            </div>
-            <div>
-              <dt>Phone</dt>
-              <dd>{user.phone ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>Locale</dt>
-              <dd>{user.locale ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>Member since</dt>
-              <dd>
-                {user.createdAt
-                  ? new Date(user.createdAt).toLocaleDateString()
-                  : "—"}
-              </dd>
-            </div>
-            <div>
-              <dt>Email verified</dt>
-              <dd>{user.emailVerifiedAt ? "Yes" : "Pending"}</dd>
-            </div>
-          </dl>
-        </section>
-
-        <section className="topic-section">
-          <h2 className="topic-section-title">My exams</h2>
-          {profile.exams.length === 0 ? (
-            <p className="topic-section-body">
-              You haven't picked an exam yet.{" "}
-              <Link to="/onboarding/exam" className="auth-link">
-                Pick one →
-              </Link>
-            </p>
-          ) : (
-            <ul className="row-list">
-              {profile.exams.map((e) => {
-                const meta = examsMeta[e.examId];
-                return (
-                  <li key={e.examId}>
-                    <Link to={`/exams/${e.examId}`} className="row-link">
-                      <div className="row-link-body">
-                        <p className="row-link-title">
-                          {meta?.name ?? "Exam"}
-                        </p>
-                        <p className="row-link-meta">
-                          {meta?.subtitle ?? "Prep target"}
-                          {e.targetDate
-                            ? ` · target ${new Date(e.targetDate).toLocaleDateString()}`
-                            : " · no target date"}
-                        </p>
-                      </div>
-                      <span className="chevron" aria-hidden>
-                        ›
-                      </span>
-                    </Link>
-                  </li>
                 );
-              })}
-            </ul>
-          )}
-        </section>
-
-        <section className="topic-section">
-          <h2 className="topic-section-title">Preferences</h2>
-          <dl className="kv-list" style={{ padding: 0, gap: "var(--sp-5)" }}>
-            <div>
-              <dt>Language</dt>
-              <dd>
-                {LANG_NAME[profile.preferences.language] ??
-                  profile.preferences.language}
-              </dd>
-            </div>
-            <div>
-              <dt>Daily goal</dt>
-              <dd>
-                {profile.preferences.dailyGoalMinutes
-                  ? `${profile.preferences.dailyGoalMinutes} min/day`
-                  : "not set"}
-              </dd>
-            </div>
-            <div>
-              <dt>Onboarding</dt>
-              <dd>{user.onboardingState ?? "—"}</dd>
-            </div>
-          </dl>
-          <div style={{ display: "flex", gap: 8, marginTop: "var(--sp-3)" }}>
-            <Link to="/settings" className="btn btn-primary">
-              Edit preferences
-            </Link>
+              })()}
+            </section>
           </div>
-        </section>
+        </div>
       </div>
     </AppShell>
   );
 }
 
-// Static catalog of every badge kind the platform can award. The "Up next"
-// section subtracts the user's earned set from this list to show what's
-// available to chase. Order matters — early entries are typically the
-// easiest to earn so they show first when a new student lands.
 const ALL_BADGE_KINDS: Array<{ kind: string; label: string; icon: string }> = [
   { kind: "first_session", label: "First session", icon: "🎯" },
   { kind: "streak_3", label: "3-day streak", icon: "🔥" },
@@ -599,15 +671,6 @@ const ALL_BADGE_KINDS: Array<{ kind: string; label: string; icon: string }> = [
   { kind: "streak_14", label: "14-day streak", icon: "🔥" },
   { kind: "questions_250", label: "250 questions answered", icon: "❓" },
   { kind: "streak_30", label: "30-day streak", icon: "🔥" },
-  { kind: "sessions_100", label: "100 sessions", icon: "📚" },
-  { kind: "mocks_10", label: "10 mock tests", icon: "🎓" },
-  { kind: "questions_1000", label: "1,000 questions answered", icon: "❓" },
-  { kind: "streak_60", label: "60-day streak", icon: "🔥" },
-  { kind: "streak_100", label: "100-day streak", icon: "🔥" },
-  { kind: "mocks_25", label: "25 mock tests", icon: "🎓" },
-  { kind: "sessions_500", label: "500 sessions", icon: "📚" },
-  { kind: "questions_5000", label: "5,000 questions answered", icon: "❓" },
-  { kind: "streak_365", label: "365-day streak", icon: "🔥" },
 ];
 
 function badgeFor(a: {
@@ -625,67 +688,29 @@ function badgeFor(a: {
     };
   }
   if (a.kind === "first_session") {
-    return {
-      icon: "🎯",
-      label: "First session",
-      bg: "rgba(99,102,241,0.10)",
-      border: "rgba(99,102,241,0.40)",
-    };
+    return { icon: "🎯", label: "First session", bg: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.40)" };
   }
   if (a.kind === "daily_goal_first") {
-    return {
-      icon: "✓",
-      label: "Daily goal hit",
-      bg: "rgba(34,197,94,0.10)",
-      border: "rgba(34,197,94,0.40)",
-    };
+    return { icon: "✓", label: "Daily goal hit", bg: "rgba(34,197,94,0.10)", border: "rgba(34,197,94,0.40)" };
   }
   if (a.kind === "mock_first") {
-    return {
-      icon: "🎓",
-      label: "First mock test",
-      bg: "rgba(168,85,247,0.10)",
-      border: "rgba(168,85,247,0.40)",
-    };
+    return { icon: "🎓", label: "First mock test", bg: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.40)" };
   }
   if (a.kind.startsWith("mocks_")) {
     const n = parseInt(a.kind.slice("mocks_".length), 10) || 0;
-    return {
-      icon: "🎓",
-      label: `${n} mock tests`,
-      bg: "rgba(168,85,247,0.10)",
-      border: "rgba(168,85,247,0.40)",
-    };
+    return { icon: "🎓", label: `${n} mock tests`, bg: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.40)" };
   }
   if (a.kind.startsWith("sessions_")) {
     const n = parseInt(a.kind.slice("sessions_".length), 10) || 0;
-    return {
-      icon: "📚",
-      label: `${n} sessions`,
-      bg: "rgba(34,197,94,0.10)",
-      border: "rgba(34,197,94,0.40)",
-    };
+    return { icon: "📚", label: `${n} sessions`, bg: "rgba(34,197,94,0.10)", border: "rgba(34,197,94,0.40)" };
   }
   if (a.kind.startsWith("questions_")) {
     const n = parseInt(a.kind.slice("questions_".length), 10) || 0;
-    return {
-      icon: "❓",
-      label: `${n} questions answered`,
-      bg: "rgba(99,102,241,0.10)",
-      border: "rgba(99,102,241,0.40)",
-    };
+    return { icon: "❓", label: `${n} questions answered`, bg: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.40)" };
   }
-  return {
-    icon: "🏆",
-    label: a.kind.replace(/_/g, " "),
-    bg: "rgba(99,102,241,0.10)",
-    border: "rgba(99,102,241,0.40)",
-  };
+  return { icon: "🏆", label: a.kind.replace(/_/g, " "), bg: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.40)" };
 }
 
-// Client-side downscale via canvas. Caps the longest edge to `maxEdge`,
-// preserves aspect ratio, and re-encodes as JPEG @ 0.85 quality so the
-// resulting data URL stays under the backend's 400KB cap.
 async function downscaleImage(file: File, maxEdge: number): Promise<string> {
   const url = URL.createObjectURL(file);
   try {

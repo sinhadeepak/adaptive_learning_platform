@@ -26,6 +26,13 @@ import { MyCourses } from "./pages/MyCourses";
 import { CourseAuthor } from "./pages/CourseAuthor";
 import { ResourceCurator } from "./pages/ResourceCurator";
 import { CreatorEarnings } from "./pages/CreatorEarnings";
+// Track 2 follow-ups — Sprint A3 + A4 (web side).
+import { TeacherDashboard } from "./pages/TeacherDashboard";
+import { CohortDeepDive } from "./pages/CohortDeepDive";
+import { FlashcardModeration } from "./pages/FlashcardModeration";
+import { StudentDeepDive } from "./pages/StudentDeepDive";
+import { CuratedTestAuthor } from "./pages/CuratedTestAuthor";
+import { CuratedReviewQueue } from "./pages/CuratedReviewQueue";
 
 const protectedRoute = (path: string, element: ReactElement): RouteObject => ({
   path,
@@ -105,7 +112,12 @@ export const routes: RouteObject[] = [
   ),
   // Sprint 21 (P3-S6) — at-risk educator drill-down.
   protectedRoute("/cohort-at-risk", <CohortAtRisk />),
-  protectedRoute("/analytics", <Analytics />),
+  // P7 — `/analytics` used to render the "Lands in Phase 2" placeholder
+  // while the real teacher dashboard lived at /teacher/dashboard.
+  // Point both at the same live component so the sidebar entry stops
+  // showing a stub.
+  protectedRoute("/analytics", <TeacherDashboard />),
+  protectedRoute("/analytics-stub", <Analytics />),
   // Sprint 16 (P3-S1) — Tutor marketplace, supply side.
   protectedRoute("/tutor", <TutorDashboard />),
   protectedRoute("/tutor/apply", <TutorApply />),
@@ -127,5 +139,27 @@ export const routes: RouteObject[] = [
   protectedRoute("/creator/courses/new", <CourseAuthor />),
   protectedRoute("/creator/courses/:courseId/edit", <CourseAuthor />),
   protectedRoute("/creator/earnings", <CreatorEarnings />),
+  // Track 2 — teacher analytics (A3) + intervention flag (A4).
+  protectedRoute("/teacher/dashboard", <TeacherDashboard />),
+  protectedRoute("/teacher/cohorts/:cohortId", <CohortDeepDive />),
+  protectedRoute(
+    "/teacher/cohorts/:cohortId/students/:userId",
+    <StudentDeepDive />,
+  ),
+  // Phase 1D-8 — flashcard moderation queue (MODERATOR+ role).
+  protectedRoute("/moderation/flashcards", <FlashcardModeration />),
+  // F6 — Curated Test Library (educator portal). Author surface gated
+  // by canAuthor; review queue gated server-side to MODERATOR+.
+  {
+    path: "/curated/new",
+    element: (
+      <ProtectedRoute>
+        <RoleGate allow={canAuthor}>
+          <CuratedTestAuthor />
+        </RoleGate>
+      </ProtectedRoute>
+    ),
+  },
+  protectedRoute("/curated/review", <CuratedReviewQueue />),
   { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];

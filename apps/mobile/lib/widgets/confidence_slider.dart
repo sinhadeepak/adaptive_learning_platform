@@ -48,13 +48,13 @@ class ConfidenceSlider extends StatelessWidget {
                     TextSpan(
                       text: t('quiz.confidence.label'),
                       style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w500),
+                        fontSize: 13, fontWeight: FontWeight.w500,),
                     ),
                     const TextSpan(text: ' '),
                     TextSpan(
                       text: t('quiz.confidence.optional'),
                       style: TextStyle(
-                        fontSize: 13, color: Colors.grey.shade600),
+                        fontSize: 13, color: Colors.grey.shade600,),
                     ),
                   ],
                 ),
@@ -83,7 +83,7 @@ class ConfidenceSlider extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                     child: Text(t(key),
-                        style: const TextStyle(fontSize: 11)),
+                        style: const TextStyle(fontSize: 11),),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -104,7 +104,7 @@ class ConfidenceSlider extends StatelessWidget {
               child: Text(
                 '${(value! * 100).toStringAsFixed(0)}% confident',
                 style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w600),
+                    fontSize: 12, fontWeight: FontWeight.w600,),
               ),
             ),
         ],

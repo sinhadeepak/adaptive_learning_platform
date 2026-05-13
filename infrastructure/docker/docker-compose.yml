@@ -15,7 +15,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_MULTIPLE_DATABASES: identity,learning,engagement,payment,quiz,marketplace
+      POSTGRES_MULTIPLE_DATABASES: identity,learning,engagement,payment,quiz,marketplace,battle
     ports: ["35432:5432"]
     volumes:
       - pg-data:/var/lib/postgresql/data
@@ -89,6 +89,57 @@ services:
       - "31025:1025"  # SMTP
       - "38025:8025"  # Web UI
 
+  # ---- Object storage ----
+  # MinIO is the dev-time S3 we sign uploads against (case-study
+  # response files, doubt-photos, content media, etc). Browsers PUT
+  # directly to localhost:39000 via presigned URLs the backend signs;
+  # backend services talk to it via the in-network `minio:9000`. The
+  # init container bootstraps the buckets + folder layout described
+  # in docs/storage_layout.md so every service writes to the same
+  # well-known prefixes.
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio-root
+      MINIO_ROOT_PASSWORD: minio-root-password-change-me
+      # CORS: dev only — wide-open so the SPA at any localhost port can
+      # PUT directly to the presigned URL. Staging/prod tighten this to
+      # the deployed origin via Helm values.
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+    ports:
+      - "39000:9000"  # S3 API (browser presigned PUTs hit this)
+      - "39001:9001"  # Console UI
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      # `/minio/health/live` is MinIO's built-in liveness probe; no auth
+      # needed and faster than spinning up `mc`. curl is on every minio
+      # image since RELEASE.2024-x.
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+  # One-shot bucket bootstrap. Creates the `alp-uploads` bucket plus
+  # an `alp-app` IAM user the backend services use to sign URLs (least
+  # privilege — no admin access). Idempotent; safe to re-run.
+  minio-setup:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      minio: { condition: service_healthy }
+    entrypoint: >
+      /bin/sh -c "
+      set -e;
+      mc alias set local http://minio:9000 minio-root minio-root-password-change-me;
+      mc mb --ignore-existing local/alp-uploads;
+      mc anonymous set none local/alp-uploads;
+      mc admin user add local alp-app alp-app-password-change-me 2>/dev/null || true;
+      mc admin policy attach local readwrite --user=alp-app 2>/dev/null || true;
+      echo '✓ minio bootstrap complete: bucket=alp-uploads user=alp-app';
+      "
+
   # ---- Backend services (Python) — consolidated per ADR-0005 ----
   identity:
     build:
@@ -159,11 +210,23 @@ services:
       # the search endpoint degrades to a "paste-URL" hint until set.
       YOUTUBE_DATA_API_KEY: ${YOUTUBE_DATA_API_KEY:-}
       REDIS_URL: redis://redis:6379/4
+      # ── Object storage (MinIO in dev, S3 in staging/prod) ──
+      # `MINIO_*` for the app→server connection (in-network).
+      # `MINIO_PUBLIC_ENDPOINT` is the URL the *browser* will see in
+      # presigned PUT URLs — must be reachable from the user's
+      # machine, not just from inside docker.
+      UPLOADS_BUCKET: alp-uploads
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://localhost:39000
+      MINIO_REGION: us-east-1
+      MINIO_ACCESS_KEY: alp-app
+      MINIO_SECRET_KEY: alp-app-password-change-me
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
       opensearch: { condition: service_healthy }
       nats: { condition: service_healthy }
+      minio-setup: { condition: service_completed_successfully }
 
   engagement:
     build:
@@ -177,6 +240,15 @@ services:
       ANALYTICS_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/engagement
       ANALYTICS_NATS_URL: nats://nats:4222
       ANALYTICS_QUIZ_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/quiz
+      # Analytics needs to reach Institution (cohort membership lookup
+      # for the class-leaderboard endpoint, AP-01 HTTP join) and Learning
+      # (syllabus tree + question_concepts fan-out for multi-parameter
+      # mastery, S37.5 + S39). Without these, the analytics module falls
+      # back to the defaults (http://institution:8000, http://learning:8000)
+      # — `institution` doesn't resolve and the leaderboard silently
+      # returns an empty list.
+      ANALYTICS_INSTITUTION_BASE_URL: http://identity:8000
+      ANALYTICS_LEARNING_BASE_URL: http://learning:8000
       # Notification
       NOTIFICATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/engagement
       NOTIFICATION_NATS_URL: nats://nats:4222
@@ -227,6 +299,7 @@ services:
       MARKETPLACE_NATS_URL: nats://nats:4222
       MARKETPLACE_IDENTITY_BASE_URL: http://identity:8000
       MARKETPLACE_PAYMENT_BASE_URL: http://payment:8000
+      MARKETPLACE_SEED_LOCAL: "1"
     depends_on:
       postgres: { condition: service_healthy }
       nats: { condition: service_healthy }
@@ -249,6 +322,30 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       nats: { condition: service_healthy }
+
+  # F7 (ADR-0027) — real-time battle service. WebSocket gateway +
+  # matchmaker. Uses the same shared JWT secret as identity so the
+  # bearer token from a logged-in student verifies here without a
+  # round-trip back to identity.
+  battle:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.golang
+      args: { SERVICE: battle }
+    image: alp/battle:local
+    ports: ["38012:8000"]
+    environment:
+      BATTLE_DATABASE_URL: postgres://postgres:postgres@postgres:5432/battle?sslmode=disable
+      BATTLE_JWT_SECRET: dev-only-change-me-in-staging-at-least-32-bytes-long
+      BATTLE_LEARNING_BASE_URL: http://learning:8000
+      BATTLE_QUIZ_BASE_URL: http://quiz:8000
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   # ---- Web apps ----
   web-student:
@@ -298,3 +395,4 @@ volumes:
   opensearch-data:
   nats-data:
   localstack-data:
+  minio-data:

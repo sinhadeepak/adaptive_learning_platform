@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill } from "../components/primitives";
 import {
@@ -7,6 +8,26 @@ import {
   type TranslationStatusRow,
 } from "../lib/phase5-api";
 import { useAuth } from "../lib/auth-provider";
+import { auth } from "../lib/api";
+import { env } from "../lib/env";
+
+interface QuestionSource {
+  stem: string;
+  choices: string[];
+}
+
+async function fetchQuestionSource(qid: string): Promise<QuestionSource | null> {
+  try {
+    const r = await auth.fetch(
+      `${env.apiBaseUrl}/content/questions/${encodeURIComponent(qid)}`,
+    );
+    if (!r.ok) return null;
+    const body = (await r.json()) as { stem: string; choices: string[] };
+    return { stem: body.stem, choices: body.choices };
+  } catch {
+    return null;
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // CE-402 — translation review UI.
@@ -53,7 +74,9 @@ function PayloadDiff({
     return (
       <pre
         style={{
-          background: "var(--bg-subtle, #f8f9fc)",
+          background: "var(--bg-surface1)",
+          color: "var(--text-primary)",
+          border: "1px solid var(--border)",
           padding: 12,
           borderRadius: 6,
           fontSize: 12,
@@ -75,19 +98,22 @@ function PayloadDiff({
             gridTemplateColumns: "1fr 1fr",
             gap: 12,
             padding: 12,
-            border: "1px solid var(--border-subtle, #f0f2f6)",
+            background: "var(--bg-surface2)",
+            border: "1px solid var(--border)",
             borderRadius: 6,
           }}
         >
           <div>
-            <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>{f.path} (source)</div>
-            <div style={{ fontSize: 14 }}>{f.src}</div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
+              {f.path} (source)
+            </div>
+            <div style={{ fontSize: 14, color: "var(--text-primary)" }}>{f.src}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
               {f.path} ({tr.language})
             </div>
-            <div style={{ fontSize: 14 }}>{f.tgt}</div>
+            <div style={{ fontSize: 14, color: "var(--text-primary)" }}>{f.tgt}</div>
           </div>
         </div>
       ))}
@@ -97,31 +123,88 @@ function PayloadDiff({
 
 export function TranslationReview() {
   const { user } = useAuth();
-  const [questionId, setQuestionId] = useState("");
+  const { questionId: routeQuestionId } = useParams<{ questionId?: string }>();
+  const [questionId, setQuestionId] = useState(routeQuestionId ?? "");
   const [list, setList] = useState<TranslationStatusRow[] | null>(null);
   const [selected, setSelected] = useState<SingleTranslation | null>(null);
+  const [source, setSource] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function loadList() {
+  // Auto-load translations when arriving from the list page (URL has
+  // /:questionId). Run only once per questionId — `lastAutoLoadedRef`
+  // guards against React StrictMode double-mount or re-renders that
+  // would otherwise refetch on every state change.
+  const lastAutoLoadedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!routeQuestionId) return;
+    if (lastAutoLoadedRef.current === routeQuestionId) return;
+    lastAutoLoadedRef.current = routeQuestionId;
+    setQuestionId(routeQuestionId);
+    void loadList(routeQuestionId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeQuestionId]);
+
+  async function loadList(qid: string = questionId) {
+    if (!qid) return;
     setError(null);
+    setSource(null);
     try {
-      const rows = await translation.listForArtifact(questionId);
+      const rows = await translation.listForArtifact(qid);
       setList(rows);
+      // Fetch the question's actual source payload so the reviewer can
+      // diff source ↔ translation. Reviewer needs the EN side to judge
+      // whether the HI rendering preserves intent.
+      const src = await fetchQuestionSource(qid);
+      if (src) setSource(src as unknown as Record<string, unknown>);
       if (rows.length > 0) {
         const first = rows.find((r) => r.status !== "PUBLISHED") ?? rows[0];
-        await loadOne(first.language);
+        await loadOne(first.language, qid);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't load translations");
     }
   }
 
-  async function loadOne(lang: string) {
+  async function loadOne(lang: string, qid: string = questionId) {
+    if (!qid) return;
     try {
-      setSelected(await translation.getOne(questionId, lang));
+      setSelected(await translation.getOne(qid, lang));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't load translation");
+    }
+  }
+
+  // Phase-2 target languages per Phase-5 plan; reviewer can kick off a
+  // fresh translation for any not yet in the list.
+  const SUPPORTED_LANGS = ["hi", "ta", "te", "bn", "mr"];
+  const existingLangs = new Set((list ?? []).map((r) => r.language));
+  const missingLangs = SUPPORTED_LANGS.filter((l) => !existingLangs.has(l));
+
+  async function startTranslation(targetLang: string): Promise<void> {
+    if (!questionId || !source) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await auth.fetch(`${env.apiBaseUrl}/localisation/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          artifactId: questionId,
+          sourceLang: "en",
+          targetLang,
+          subject: "general",
+          payload: source,
+          translatablePaths: ["stem", "choices[*]"],
+        }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      await loadList(questionId);
+      await loadOne(targetLang, questionId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Translation failed");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -146,10 +229,30 @@ export function TranslationReview() {
 
   return (
     <AppShell title="Translation Review" chips={[{ label: "Phase 5" }]}>
+      <div style={{ marginBottom: 12 }}>
+        <Link
+          to="/translation-review"
+          style={{
+            fontSize: 13,
+            color: "var(--text-secondary)",
+            textDecoration: "none",
+          }}
+        >
+          ← Back to questions
+        </Link>
+      </div>
+
       {error && <Banner tone="danger">{error}</Banner>}
 
       <section style={{ marginBottom: 16 }}>
-        <label style={{ display: "block", fontSize: 13, marginBottom: 4 }}>
+        <label
+          style={{
+            display: "block",
+            fontSize: 13,
+            color: "var(--text-secondary)",
+            marginBottom: 4,
+          }}
+        >
           Question UUID
         </label>
         <div style={{ display: "flex", gap: 8 }}>
@@ -161,7 +264,9 @@ export function TranslationReview() {
             style={{
               flex: 1,
               padding: "6px 10px",
-              border: "1px solid var(--border, #e1e5ee)",
+              background: "var(--bg-surface3)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border)",
               borderRadius: 4,
               fontFamily: "monospace",
               fontSize: 13,
@@ -172,11 +277,12 @@ export function TranslationReview() {
             disabled={!questionId}
             style={{
               padding: "6px 16px",
-              background: "var(--color-blue, #4f87f6)",
-              color: "white",
-              border: "none",
+              background: questionId ? "var(--color-blue)" : "var(--bg-surface3)",
+              color: questionId ? "white" : "var(--text-muted)",
+              border: "1px solid var(--border)",
               borderRadius: 4,
               cursor: questionId ? "pointer" : "not-allowed",
+              fontWeight: 600,
             }}
           >
             Load translations
@@ -184,30 +290,119 @@ export function TranslationReview() {
         </div>
       </section>
 
+      {source && (
+        <section
+          style={{
+            marginBottom: 16,
+            padding: 12,
+            background: "var(--bg-surface1)",
+            border: "1px solid var(--border)",
+            borderRadius: 8,
+            color: "var(--text-primary)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--text-muted)",
+              textTransform: "uppercase",
+              letterSpacing: 0.04,
+              marginBottom: 6,
+            }}
+          >
+            Source (EN)
+          </div>
+          <div style={{ fontSize: 14, marginBottom: 8 }}>
+            {String((source as { stem?: string }).stem ?? "—")}
+          </div>
+          {Array.isArray((source as { choices?: unknown }).choices) && (
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: 18,
+                fontSize: 13,
+                color: "var(--text-secondary)",
+              }}
+            >
+              {((source as { choices: string[] }).choices).map((c, i) => (
+                <li key={i}>{c}</li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       {list && list.length > 0 && (
         <section style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 14, marginBottom: 8 }}>Languages</h2>
+          <h2
+            style={{
+              fontSize: 14,
+              marginBottom: 8,
+              color: "var(--text-primary)",
+            }}
+          >
+            Languages
+          </h2>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {list.map((row) => (
-              <button
-                key={row.language}
-                onClick={() => void loadOne(row.language)}
+            {list.map((row) => {
+              const isActive = selected?.language === row.language;
+              return (
+                <button
+                  key={row.language}
+                  onClick={() => void loadOne(row.language)}
+                  style={{
+                    padding: "6px 12px",
+                    border: "1px solid var(--border)",
+                    borderRadius: 4,
+                    background: isActive ? "var(--color-blue)" : "var(--bg-surface2)",
+                    color: isActive ? "white" : "var(--text-primary)",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 600,
+                  }}
+                >
+                  {row.language.toUpperCase()}{" "}
+                  <Pill tone={statusTone(row.status)}>{row.status}</Pill>
+                </button>
+              );
+            })}
+          </div>
+
+          {missingLangs.length > 0 && source && (
+            <div style={{ marginTop: 12 }}>
+              <div
                 style={{
-                  padding: "6px 12px",
-                  border: "1px solid var(--border, #e1e5ee)",
-                  borderRadius: 4,
-                  background:
-                    selected?.language === row.language ? "var(--color-blue, #4f87f6)" : "white",
-                  color: selected?.language === row.language ? "white" : "inherit",
-                  cursor: "pointer",
-                  fontSize: 13,
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  marginBottom: 6,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.04,
                 }}
               >
-                {row.language.toUpperCase()}{" "}
-                <Pill tone={statusTone(row.status)}>{row.status}</Pill>
-              </button>
-            ))}
-          </div>
+                Translate to
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {missingLangs.map((lang) => (
+                  <button
+                    key={lang}
+                    onClick={() => void startTranslation(lang)}
+                    disabled={busy}
+                    style={{
+                      padding: "6px 12px",
+                      background: "var(--bg-surface2)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 4,
+                      cursor: busy ? "not-allowed" : "pointer",
+                      fontSize: 12,
+                    }}
+                  >
+                    + {lang.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -217,7 +412,9 @@ export function TranslationReview() {
             style={{
               padding: 12,
               marginBottom: 16,
-              background: "var(--bg-subtle, #f8f9fc)",
+              background: "var(--bg-surface1)",
+              border: "1px solid var(--border)",
+              color: "var(--text-primary)",
               borderRadius: 6,
               fontSize: 13,
             }}
@@ -230,7 +427,7 @@ export function TranslationReview() {
               : "n/a"}
           </div>
 
-          <PayloadDiff source={null} translation={selected} />
+          <PayloadDiff source={source} translation={selected} />
 
           <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
             <button
@@ -240,9 +437,10 @@ export function TranslationReview() {
                 padding: "8px 16px",
                 background: "var(--color-green, #10c47a)",
                 color: "white",
-                border: "none",
+                border: "1px solid var(--border)",
                 borderRadius: 4,
                 cursor: busy ? "not-allowed" : "pointer",
+                fontWeight: 600,
               }}
             >
               ✓ Approve & publish
@@ -254,9 +452,10 @@ export function TranslationReview() {
                 padding: "8px 16px",
                 background: "var(--color-red, #f43f5e)",
                 color: "white",
-                border: "none",
+                border: "1px solid var(--border)",
                 borderRadius: 4,
                 cursor: busy ? "not-allowed" : "pointer",
+                fontWeight: 600,
               }}
             >
               ✗ Reject

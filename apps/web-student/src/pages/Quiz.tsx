@@ -6,6 +6,7 @@ import { AppShell } from "../components/AppShell";
 import { Banner, SkeletonRows } from "../components/dashboard";
 // P5-S60 — polymorphic question renderer dispatcher.
 import { QuestionRenderer } from "../components/renderers";
+import { RendererErrorBoundary } from "../components/RendererErrorBoundary";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Quiz play (AI Practice) — React port of
@@ -419,9 +420,11 @@ export function Quiz() {
                   ◈ AI-SELECTED · IRT-driven
                 </span>
               </div>
-              {(!item.questionType || item.questionType === "MCQ_SINGLE") && (
-                <h1 className="q-text">{item.stem}</h1>
-              )}
+              {/* Stem is the question text — always rendered, regardless
+                  of type. Per-type renderers below handle the *answer
+                  input* (textarea, numeric, hotspot, etc.) and don't
+                  duplicate the stem. */}
+              <h1 className="q-text">{item.stem}</h1>
               {hintNote && (
                 <div
                   role="status"
@@ -463,14 +466,27 @@ export function Quiz() {
                 for that path (no /grading/grade round-trip). */}
             {item.questionType && item.questionType !== "MCQ_SINGLE" ? (
               <div style={{ marginTop: 8 }}>
-                <QuestionRenderer
-                  typeId={item.questionType}
-                  payload={item.payload ?? {}}
-                  value={responsePayload}
-                  onChange={setResponsePayload}
-                  language="en"
-                  disabled={showFeedback}
-                />
+                <RendererErrorBoundary
+                  resetKey={`${item.questionId}:${item.itemIdx}`}
+                  onSkip={() => {
+                    // Submit an empty response so the server records the
+                    // skip + advances; the next question is then served
+                    // by the post-submit fetchSession() flow.
+                    setResponsePayload({});
+                    void submitAnswer();
+                  }}
+                >
+                  <QuestionRenderer
+                    typeId={item.questionType}
+                    payload={item.payload ?? {}}
+                    value={responsePayload}
+                    onChange={setResponsePayload}
+                    language="en"
+                    disabled={showFeedback}
+                    sessionId={sessionId}
+                    questionId={item.questionId}
+                  />
+                </RendererErrorBoundary>
               </div>
             ) : (
               <ol
@@ -522,7 +538,9 @@ export function Quiz() {
                   <p className="exp-text">
                     {verdict!.isCorrect
                       ? "Nice — that's right. Per-question explanations from the content library land in a future sprint."
-                      : `The correct answer is ${String.fromCharCode(65 + verdict!.correctIdx)}. Per-question explanations from the content library land in a future sprint.`}
+                      : (!item.questionType || item.questionType === "MCQ_SINGLE") && verdict!.correctIdx >= 0
+                      ? `The correct answer is ${String.fromCharCode(65 + verdict!.correctIdx)}. Per-question explanations from the content library land in a future sprint.`
+                      : "That's not quite right — review the explanation, then try a similar question. Per-item solutions ship in a future sprint."}
                   </p>
                 </div>
 
@@ -785,8 +803,16 @@ function MasteryRing({ pct }: { pct: number }) {
   const r = 21;
   const circ = 2 * Math.PI * r;
   const offset = circ - (pct / 100) * circ;
+  // SVG stroke needs concrete color values resolved at runtime — these
+  // map onto the same tokens via getComputedStyle when rendered.
   const stroke =
-    pct >= 70 ? "#10C47A" : pct >= 40 ? "#4F87F6" : pct > 0 ? "#F43F5E" : "#3E4D6A";
+    pct >= 70
+      ? "var(--color-green)"
+      : pct >= 40
+        ? "var(--color-blue)"
+        : pct > 0
+          ? "var(--color-red)"
+          : "var(--text-faint)";
   return (
     <div
       className="mr-ring"
@@ -799,7 +825,7 @@ function MasteryRing({ pct }: { pct: number }) {
           cy="26"
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,0.06)"
+          stroke="var(--border)"
           strokeWidth="5"
         />
         <circle

@@ -103,7 +103,7 @@ export function WeaknessDiagnosis({ userId }: { userId: string }) {
               key={i}
               style={{
                 padding: 12,
-                background: "rgba(255,255,255,0.03)",
+                background: "var(--surface-elev1)",
                 borderLeft: `3px solid ${SEV_TONE[p.severity]}`,
                 borderRadius: 4,
               }}
@@ -174,7 +174,7 @@ export function WeaknessDiagnosis({ userId }: { userId: string }) {
             fontSize: 12,
             color: "var(--text-muted)",
             padding: "8px 12px",
-            background: "rgba(255,255,255,0.03)",
+            background: "var(--surface-elev1)",
             borderRadius: 4,
           }}
         >

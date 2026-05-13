@@ -137,6 +137,7 @@ export function Dashboard() {
         ) : null
       }
     >
+      <div className="pg-shell">
       {/* ── Hero ──────────────────────────────────────────────── */}
       <section className="ai-header" aria-label="Educator overview">
         <div className="ai-header-left">
@@ -196,15 +197,11 @@ export function Dashboard() {
 
       {/* ── Sprint 11 S11-F — pinned tenant + cohort quick-access ── */}
       <section
+        className="pg-section"
         aria-label="Cohorts"
-        style={{
-          marginTop: "var(--sp-4)",
-          padding: 16,
-          border: "1px solid var(--border-faint)",
-          borderRadius: 8,
-        }}
+        style={{ marginTop: "var(--sp-4)" }}
       >
-        <h2 style={{ marginTop: 0 }}>Your cohorts</h2>
+        <h2 className="pg-section-title" style={{ marginBottom: 12 }}>Your cohorts</h2>
         {!tenantId ? (
           <form
             onSubmit={(e) => {
@@ -527,6 +524,7 @@ export function Dashboard() {
             the institution + assignments surfaces wire up.
           </p>
         </div>
+      </div>
       </div>
     </AppShell>
   );

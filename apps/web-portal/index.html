@@ -6,6 +6,22 @@
     <title>Adaptive Learning — Portal</title>
   </head>
   <body>
+    <!-- Pre-React theme bootstrap (mirror of web-student). Reads the
+         user's preference from localStorage and applies data-theme to
+         <html> before stylesheets paint, so the first paint matches the
+         chosen theme. -->
+    <script>
+      (function () {
+        try {
+          var s = localStorage.getItem('alp.theme') || 'system';
+          var effective = s === 'system'
+            ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+            : s;
+          document.documentElement.setAttribute('data-theme', effective);
+          document.documentElement.style.colorScheme = effective;
+        } catch (e) { /* localStorage blocked — stays on default (dark) */ }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

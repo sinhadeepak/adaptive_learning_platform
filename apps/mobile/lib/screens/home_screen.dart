@@ -37,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => QuizScreen(client: client, sessionId: session.sessionId),
-      ));
+      ),);
     } on QuizError catch (e) {
       setState(() => _error = e.message);
     } finally {

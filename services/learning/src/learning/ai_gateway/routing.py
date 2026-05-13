@@ -23,11 +23,11 @@ Touchpoint = Literal[
     "vision",
 ]
 
-ProviderName = Literal["openai", "stub"]
-# Per user direction 2026-04-30: OpenAI is the sole real LLM provider
-# in v1. The Literal stays narrow so a config typo fails Pydantic
-# validation instead of silently routing to an absent provider.
-# Future vendor additions (anthropic / google / llama) require both:
+ProviderName = Literal["openai", "stub", "admin_chain"]
+# `admin_chain` is the Phase-7 multi-provider adapter that walks the
+# admin-managed `ai_provider_config` table (Ollama / OpenAI / Anthropic
+# in priority order). Adding a real direct-vendor client (anthropic /
+# google / llama) requires both:
 #   (a) extending this Literal, and
 #   (b) adding the provider client under ai_gateway/providers/.
 
@@ -70,13 +70,25 @@ def load_routing(path: str | Path) -> RoutingConfig:
 
 
 def default_stub_config() -> RoutingConfig:
-    """Fallback when no config file exists — every touchpoint routes
-    to the in-process stub provider. Used for tests and for the dev
-    stack while DPDP / API keys (ENG-OAQ-1, ENG-OAQ-2) are pending."""
-    stub_provider = ProviderConfig(provider="stub", model="stub-v1", max_tokens=2000)
+    """Fallback when no routing YAML exists — every touchpoint routes
+    primary to the admin-managed chain (Ollama / OpenAI / Anthropic
+    in priority order, configured at /admin/ai-providers). Falls back
+    to the in-process stub when no admin row is enabled, so the dev
+    stack still works without configuring anything.
+    """
+    chain_provider = ProviderConfig(
+        provider="admin_chain", model="auto", max_tokens=2000,
+    )
+    stub_provider = ProviderConfig(
+        provider="stub", model="stub-v1", max_tokens=2000,
+    )
     return RoutingConfig(
         routing={
-            tp: TouchpointRouting(primary=stub_provider, timeout_ms=5000)
+            tp: TouchpointRouting(
+                primary=chain_provider,
+                fallback=stub_provider,
+                timeout_ms=15000,
+            )
             for tp in (
                 "authoring",
                 "quality_check",

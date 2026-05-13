@@ -82,10 +82,10 @@ async def list_high_risk_in_cohort(
             text(f"""
                 SELECT user_id, score, risk_band, intervention_kind, computed_at
                   FROM {SCHEMA}.predictive_dropout_scores
-                 WHERE user_id = ANY(:uids)
+                 WHERE user_id = ANY(CAST(:uids AS uuid[]))
                    AND risk_band IN ('HIGH', 'MEDIUM')
                  ORDER BY score DESC
-            """).bindparams(),
+            """),
             {"uids": user_ids},
         )
     ).mappings().all()

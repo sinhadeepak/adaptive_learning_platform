@@ -15,6 +15,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from learning.content.db import sessionmaker
@@ -420,6 +421,177 @@ async def delete_resource(
 # ─────────────────────────────────────────────────────────────────────────
 # View tracking — fired by the yt-nocookie embed on the student web app
 # ─────────────────────────────────────────────────────────────────────────
+
+
+# ── Phase 1D-6 — Resource engagement aggregations ────────────────────
+
+
+@router.get("/my-views")
+async def list_my_resource_views(
+    session: SessionDep,
+    principal: PrincipalDep,
+    limit: int = Query(50, ge=1, le=200),
+) -> dict:
+    """Per-user watch history: which resources viewed, when, last
+    progress event."""
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT v.resource_id::text AS resource_id,
+                       MAX(v.event_type) AS last_event,
+                       MAX(v.occurred_at) AS last_seen,
+                       COUNT(*) AS event_count,
+                       MAX(v.position_seconds) AS max_position_seconds,
+                       r.title AS title,
+                       r.url AS url,
+                       r.topic_id::text AS topic_id
+                  FROM content_schema.resource_view_events v
+                  JOIN content_schema.concept_resources r ON r.id = v.resource_id
+                 WHERE v.user_id = CAST(:uid AS uuid)
+                 GROUP BY v.resource_id, r.title, r.url, r.topic_id
+                 ORDER BY last_seen DESC
+                 LIMIT :lim
+                """
+            ),
+            {"uid": principal.user_id, "lim": limit},
+        )
+    ).mappings().all()
+    return {
+        "items": [
+            {
+                "resourceId": r["resource_id"],
+                "title": r["title"],
+                "url": r["url"],
+                "topicId": r["topic_id"],
+                "lastEvent": r["last_event"],
+                "lastSeenAt": r["last_seen"].isoformat() if r["last_seen"] else None,
+                "eventCount": int(r["event_count"]),
+                "maxPositionSeconds": int(r["max_position_seconds"] or 0),
+                "completed": r["last_event"] == "completed",
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/cohort-engagement/{cohort_id}")
+async def cohort_resource_engagement(
+    cohort_id: str,
+    session: SessionDep,
+    limit: int = Query(20, ge=1, le=100),
+) -> dict:
+    """Per-cohort: most-watched resources by members. Aggregates view
+    events scoped to the user list returned from institution service."""
+    import httpx
+    from learning.adaptive.config import settings as _adp
+
+    base = _adp.institution_base_url.rstrip("/")
+    user_ids: list[str] = []
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            r = await client.get(f"{base}/institution/cohorts/{cohort_id}/members")
+            if r.status_code == 200:
+                user_ids = [
+                    m["userId"]
+                    for m in r.json()
+                    if (m.get("role") or "STUDENT") == "STUDENT"
+                ]
+    except httpx.HTTPError:
+        pass
+
+    if not user_ids:
+        return {"cohortId": cohort_id, "items": []}
+
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT v.resource_id::text AS resource_id,
+                       r.title, r.url, r.topic_id::text AS topic_id,
+                       COUNT(DISTINCT v.user_id) AS n_viewers,
+                       COUNT(*) FILTER (WHERE v.event_type = 'completed') AS n_completed,
+                       COUNT(*) AS n_events
+                  FROM content_schema.resource_view_events v
+                  JOIN content_schema.concept_resources r ON r.id = v.resource_id
+                 WHERE v.user_id = ANY(CAST(:uids AS uuid[]))
+                 GROUP BY v.resource_id, r.title, r.url, r.topic_id
+                 ORDER BY n_viewers DESC, n_events DESC
+                 LIMIT :lim
+                """
+            ),
+            {"uids": user_ids, "lim": limit},
+        )
+    ).mappings().all()
+    return {
+        "cohortId": cohort_id,
+        "nMembers": len(user_ids),
+        "items": [
+            {
+                "resourceId": r["resource_id"],
+                "title": r["title"],
+                "url": r["url"],
+                "topicId": r["topic_id"],
+                "nViewers": int(r["n_viewers"]),
+                "nCompleted": int(r["n_completed"]),
+                "nEvents": int(r["n_events"]),
+                "completionRate": round(
+                    int(r["n_completed"]) / int(r["n_viewers"]), 4
+                ) if int(r["n_viewers"]) > 0 else 0.0,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/platform-effectiveness")
+async def platform_resource_effectiveness(
+    session: SessionDep,
+    limit: int = Query(25, ge=1, le=100),
+) -> dict:
+    """Top resources platform-wide ranked by completion rate × viewer count."""
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT v.resource_id::text AS resource_id,
+                       r.title, r.url, r.topic_id::text AS topic_id,
+                       COUNT(DISTINCT v.user_id) AS n_viewers,
+                       COUNT(*) FILTER (WHERE v.event_type = 'completed') AS n_completed,
+                       COUNT(*) AS n_events
+                  FROM content_schema.resource_view_events v
+                  JOIN content_schema.concept_resources r ON r.id = v.resource_id
+                 WHERE r.status = 'PUBLISHED'
+                 GROUP BY v.resource_id, r.title, r.url, r.topic_id
+                HAVING COUNT(DISTINCT v.user_id) >= 5
+                 ORDER BY (
+                   COUNT(*) FILTER (WHERE v.event_type = 'completed')::float
+                   / NULLIF(COUNT(DISTINCT v.user_id), 0)
+                 ) DESC NULLS LAST,
+                  COUNT(DISTINCT v.user_id) DESC
+                 LIMIT :lim
+                """
+            ),
+            {"lim": limit},
+        )
+    ).mappings().all()
+    return {
+        "items": [
+            {
+                "resourceId": r["resource_id"],
+                "title": r["title"],
+                "url": r["url"],
+                "topicId": r["topic_id"],
+                "nViewers": int(r["n_viewers"]),
+                "nCompleted": int(r["n_completed"]),
+                "nEvents": int(r["n_events"]),
+                "completionRate": round(
+                    int(r["n_completed"]) / int(r["n_viewers"]), 4
+                ) if int(r["n_viewers"]) > 0 else 0.0,
+            }
+            for r in rows
+        ],
+    }
 
 
 @router.post("/{rid}/view", status_code=204)

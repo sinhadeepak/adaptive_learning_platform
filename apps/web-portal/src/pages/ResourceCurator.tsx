@@ -524,8 +524,11 @@ export function ResourceCurator() {
                 <div
                   key={i}
                   style={{
-                    background: "rgba(12,20,34,0.7)",
-                    border: "1px solid var(--border, rgba(255,255,255,0.07))",
+                    // Auto-themed surface — was hardcoded rgba(12,20,34,0.7)
+                    // (a deep navy at 70% alpha) which rendered as a dark
+                    // stripe on the light cyan-tinted panel in light mode.
+                    background: "var(--bg-surface3)",
+                    border: "1px solid var(--border)",
                     borderRadius: 6,
                     padding: 12,
                     display: "flex",

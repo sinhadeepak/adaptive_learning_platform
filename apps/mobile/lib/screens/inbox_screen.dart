@@ -55,10 +55,12 @@ class _InboxScreenState extends State<InboxScreen> {
         _loading = false;
       });
     } catch (e) {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _error = '$e';
         _loading = false;
       });
+      }
     }
   }
 
@@ -78,7 +80,7 @@ class _InboxScreenState extends State<InboxScreen> {
                     createdAt: it.createdAt,
                     readAt: DateTime.now().toUtc().toIso8601String(),
                   )
-                : it)
+                : it,)
             .toList(),
       );
     });
@@ -104,7 +106,7 @@ class _InboxScreenState extends State<InboxScreen> {
                     payload: it.payload,
                     createdAt: it.createdAt,
                     readAt: it.readAt ?? now,
-                  ))
+                  ),)
               .toList(),
         );
       });
@@ -126,14 +128,14 @@ class _InboxScreenState extends State<InboxScreen> {
             sessionId: sessionId,
             api: widget.api,
           ),
-        ));
+        ),);
       }
     } else if (n.type == 'doubt.answered') {
       final doubtId = n.payload['doubtId'];
       if (doubtId is String && doubtId.isNotEmpty) {
         await Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => DoubtDetailScreen(api: widget.api, doubtId: doubtId),
-        ));
+        ),);
       }
     } else if (n.type == 'mock.completed') {
       // Hydrate the persisted attempt so we can re-render the result page
@@ -183,7 +185,7 @@ class _InboxScreenState extends State<InboxScreen> {
               sections: match.sections,
             ),
           ),
-        ));
+        ),);
       }
     }
     // streak.milestone / goal.reached are presentational — no destination.
@@ -205,7 +207,7 @@ class _InboxScreenState extends State<InboxScreen> {
             TextButton(
               onPressed: _busy ? null : _markAll,
               child: Text(_busy ? 'Marking…' : 'Mark all read',
-                  style: const TextStyle(color: AlpColors.colorAi, fontWeight: FontWeight.w600)),
+                  style: const TextStyle(color: AlpColors.colorAi, fontWeight: FontWeight.w600),),
             ),
         ],
       ),
@@ -498,7 +500,7 @@ class _ErrorState extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(error,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AlpColors.colorRed)),
+                style: const TextStyle(color: AlpColors.colorRed),),
           ),
         ),
         const SizedBox(height: 12),

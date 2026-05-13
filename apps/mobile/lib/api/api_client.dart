@@ -44,7 +44,7 @@ class ApiClient {
               topicId: t['topicId'] as String,
               ewa: (t['ewa'] as num).toDouble(),
               n: (t['n'] as num).toInt(),
-            ))
+            ),)
         .toList();
   }
 
@@ -59,7 +59,7 @@ class ApiClient {
               sessions: ((m['sessions'] ?? 0) as num).toInt(),
               questions: ((m['questions'] ?? 0) as num).toInt(),
               minutes: ((m['minutes'] ?? 0) as num).toInt(),
-            ))
+            ),)
         .toList();
   }
 
@@ -256,7 +256,7 @@ class ApiClient {
               code: e['code'] as String,
               name: e['name'] as String,
               subtitle: e['subtitle'] as String?,
-            ))
+            ),)
         .toList();
   }
 
@@ -269,7 +269,7 @@ class ApiClient {
               examId: s['examId'] as String,
               name: s['name'] as String,
               topicCount: (s['topicCount'] as num).toInt(),
-            ))
+            ),)
         .toList();
   }
 
@@ -283,7 +283,7 @@ class ApiClient {
               title: t['title'] as String,
               questionCount: (t['questionCount'] as num).toInt(),
               tier: (t['tier'] ?? 'FREE') as String,
-            ))
+            ),)
         .toList();
   }
 
@@ -351,13 +351,16 @@ class ApiClient {
                 topicTitle: (s['topicTitle'] ?? '') as String,
                 why: (s['why'] ?? '') as String,
                 estMinutes: (s['estMinutes'] ?? 15) as int,
-              ))
+              ),)
           .toList(),
     );
   }
 
-  Future<WeaknessDiagnosis> weaknessDiagnosis(String userId) async {
-    final r = await auth.apiGet('/adaptive/weakness-diagnosis/$userId');
+  Future<WeaknessDiagnosis> weaknessDiagnosis(String userId, {String? examCode}) async {
+    // Sprint 4 — passes ?exam=<code> so the diagnosis is scoped to the
+    // user's active exam instead of including cross-exam sessions.
+    final qs = examCode == null ? '' : '?exam=$examCode';
+    final r = await auth.apiGet('/adaptive/weakness-diagnosis/$userId$qs');
     final j = jsonDecode(r.body) as Map<String, dynamic>;
     final patterns = (j['patterns'] as List? ?? []).cast<Map<String, dynamic>>();
     return WeaknessDiagnosis(
@@ -370,7 +373,7 @@ class ApiClient {
                 severity: (p['severity'] ?? 'medium') as String,
                 evidenceCount: ((p['evidence_count'] ?? 0) as num).toInt(),
                 prescription: (p['prescription'] ?? '') as String,
-              ))
+              ),)
           .toList(),
       weakestTopics: ((j['weakest_topics'] ?? []) as List).cast<String>(),
       nAttemptsAnalyzed: ((j['n_attempts_analyzed'] ?? 0) as num).toInt(),
@@ -398,14 +401,14 @@ class ApiClient {
                 rank: ((p['rank'] ?? 0) as num).toInt(),
                 rationale: (p['rationale'] ?? '') as String,
                 targetMastery: ((p['targetMastery'] ?? 0) as num).toDouble(),
-              ))
+              ),)
           .toList(),
       schedule: schedule
           .map((d) => StudyDay(
                 day: (d['day'] ?? '') as String,
                 focus: (d['focus'] ?? '') as String,
                 actions: ((d['actions'] ?? []) as List).cast<String>(),
-              ))
+              ),)
           .toList(),
     );
   }
@@ -428,7 +431,7 @@ class ApiClient {
                 id: (s['id'] ?? '') as String,
                 stem: (s['stem'] ?? '') as String,
                 topicId: (s['topicId'] ?? '') as String,
-              ))
+              ),)
           .toList(),
       source: (j['source'] ?? 'stub') as String,
     );
@@ -489,40 +492,59 @@ class ApiClient {
       'userId': userId,
       'examCode': examCode,
     });
-    final j = jsonDecode(r.body) as Map<String, dynamic>;
+    final Map<String, dynamic> j;
+    try {
+      j = jsonDecode(r.body) as Map<String, dynamic>;
+    } catch (_) {
+      return MockPlan.error('parse_failed', 'Mock plan response was not valid JSON.');
+    }
     if (j['error'] != null) {
       return MockPlan.error(
         j['error'] as String,
         (j['message'] ?? '') as String,
       );
     }
-    final questions = (j['questions'] as List).cast<Map<String, dynamic>>();
-    final sections = (j['sections'] as List).cast<Map<String, dynamic>>();
+    // Defensive parsing — when the backend has no blueprint for this exam
+    // it may return a 200 with null/missing `questions` / `sections`. The
+    // old code crashed with "type 'Null' is not a subtype of type 'List'".
+    final rawQuestions = j['questions'];
+    final rawSections = j['sections'];
+    if (rawQuestions is! List || rawSections is! List || rawQuestions.isEmpty) {
+      return MockPlan.error(
+        'blueprint_missing',
+        "Mock blueprint isn't available for $examCode yet. "
+        'Try Adaptive Practice or another exam.',
+      );
+    }
+    final questions = rawQuestions.cast<Map<String, dynamic>>();
+    final sections = rawSections.cast<Map<String, dynamic>>();
     return MockPlan(
-      mockId: j['mockId'] as String,
-      examCode: j['examCode'] as String,
-      examName: j['examName'] as String,
-      durationMinutes: (j['durationMinutes'] as num).toInt(),
-      totalQuestions: (j['totalQuestions'] as num).toInt(),
-      maxMarks: (j['maxMarks'] as num).toInt(),
-      marksCorrect: (j['marksCorrect'] as num).toInt(),
-      marksWrong: (j['marksWrong'] as num).toInt(),
+      mockId: (j['mockId'] ?? '') as String,
+      examCode: (j['examCode'] ?? examCode) as String,
+      examName: (j['examName'] ?? examCode) as String,
+      durationMinutes: ((j['durationMinutes'] ?? 0) as num).toInt(),
+      totalQuestions: ((j['totalQuestions'] ?? questions.length) as num).toInt(),
+      maxMarks: ((j['maxMarks'] ?? 0) as num).toInt(),
+      marksCorrect: ((j['marksCorrect'] ?? 0) as num).toInt(),
+      marksWrong: ((j['marksWrong'] ?? 0) as num).toInt(),
       sections: sections
           .map((s) => MockSection(
-                name: s['name'] as String,
-                questionCount: (s['questionCount'] as num).toInt(),
-                fromIdx: (s['fromIdx'] as num).toInt(),
-                toIdx: (s['toIdx'] as num).toInt(),
-              ))
+                name: (s['name'] ?? 'Section') as String,
+                questionCount: ((s['questionCount'] ?? 0) as num).toInt(),
+                fromIdx: ((s['fromIdx'] ?? 0) as num).toInt(),
+                toIdx: ((s['toIdx'] ?? 0) as num).toInt(),
+              ),)
           .toList(),
       questions: questions
           .map((q) => MockQuestion(
-                id: q['id'] as String,
-                topicId: q['topicId'] as String,
-                stem: q['stem'] as String,
-                choices: (q['choices'] as List).cast<String>(),
+                id: (q['id'] ?? '') as String,
+                topicId: (q['topicId'] ?? '') as String,
+                stem: (q['stem'] ?? '') as String,
+                choices: ((q['choices'] as List?) ?? const [])
+                    .map((e) => e?.toString() ?? '')
+                    .toList(),
                 difficultyB: ((q['difficultyB'] ?? 0) as num).toDouble(),
-              ))
+              ),)
           .toList(),
     );
   }
@@ -562,7 +584,7 @@ class ApiClient {
                 wrong: (s['wrong'] as num).toInt(),
                 unanswered: (s['unanswered'] as num).toInt(),
                 total: (s['total'] as num).toInt(),
-              ))
+              ),)
           .toList(),
     );
   }
@@ -630,6 +652,19 @@ class Streak {
   final String? lastActiveDate;
 }
 
+class UserExam {
+  UserExam({required this.examId, this.targetDate});
+  final String examId;
+  final DateTime? targetDate;
+
+  factory UserExam.fromJson(Map<String, dynamic> j) => UserExam(
+        examId: j['examId'] as String,
+        targetDate: j['targetDate'] is String
+            ? DateTime.tryParse(j['targetDate'] as String)
+            : null,
+      );
+}
+
 class UserProfile {
   UserProfile({
     required this.firstName,
@@ -639,6 +674,7 @@ class UserProfile {
     this.dailyGoalMinutes,
     this.avatarUrl,
     this.notificationPrefs = const {},
+    this.exams = const [],
   });
   final String firstName;
   final String lastName;
@@ -647,11 +683,13 @@ class UserProfile {
   final int? dailyGoalMinutes;
   final String? avatarUrl;
   final Map<String, bool> notificationPrefs;
+  final List<UserExam> exams;
 
   factory UserProfile.fromJson(Map<String, dynamic> j) {
     final user = (j['user'] ?? {}) as Map<String, dynamic>;
     final prefs = (j['preferences'] ?? {}) as Map<String, dynamic>;
     final notif = (j['notificationPrefs'] as Map<String, dynamic>?) ?? const {};
+    final rawExams = (j['exams'] as List?) ?? const [];
     return UserProfile(
       firstName: (user['firstName'] ?? '') as String,
       lastName: (user['lastName'] ?? '') as String,
@@ -660,6 +698,10 @@ class UserProfile {
       dailyGoalMinutes: (prefs['dailyGoalMinutes'] as num?)?.toInt(),
       avatarUrl: j['avatarUrl'] as String?,
       notificationPrefs: notif.map((k, v) => MapEntry(k, v == true)),
+      exams: rawExams
+          .whereType<Map<String, dynamic>>()
+          .map(UserExam.fromJson)
+          .toList(),
     );
   }
 }
@@ -1055,7 +1097,7 @@ class MockAttemptRow {
                   wrong: ((s['wrong'] ?? 0) as num).toInt(),
                   unanswered: ((s['unanswered'] ?? 0) as num).toInt(),
                   total: ((s['total'] ?? 0) as num).toInt(),
-                ))
+                ),)
             .toList(),
       );
 }

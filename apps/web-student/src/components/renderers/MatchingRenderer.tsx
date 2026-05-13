@@ -88,8 +88,11 @@ export const MatchTheFollowingRenderer: Renderer<MatchPayload, MatchResponse> = 
 };
 
 export interface SequencingPayload {
-  stem: string;
-  items: { id: string; text: string }[];
+  stem?: string;
+  // Two payload shapes accepted:
+  //   1. `{id, text}[]` — original Phase-5 schema.
+  //   2. `string[]` — seed-data shape; we synthesise stable ids from index.
+  items: ({ id: string; text: string } | string)[];
   explanation?: string;
 }
 
@@ -103,7 +106,14 @@ export const SequencingRenderer: Renderer<SequencingPayload, SequencingResponse>
   onChange,
   disabled,
 }): ReactNode => {
-  const order = value?.ordered_ids ?? payload.items.map((it) => it.id);
+  // Normalise items to {id, text}. Plain strings get a deterministic
+  // id (`i0`, `i1`, …) so the response's ordered_ids stays stable across
+  // re-renders.
+  const normItems: { id: string; text: string }[] = (payload.items ?? []).map(
+    (it, i) =>
+      typeof it === "string" ? { id: `i${i}`, text: it } : it,
+  );
+  const order = value?.ordered_ids ?? normItems.map((it) => it.id);
 
   function moveUp(idx: number) {
     if (idx === 0) return;
@@ -120,12 +130,14 @@ export const SequencingRenderer: Renderer<SequencingPayload, SequencingResponse>
 
   return (
     <div>
-      <p style={{ fontSize: 16, lineHeight: 1.5, marginBottom: 16 }}>
-        {payload.stem}
-      </p>
+      {payload.stem && (
+        <p style={{ fontSize: 16, lineHeight: 1.5, marginBottom: 16 }}>
+          {payload.stem}
+        </p>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {order.map((id, idx) => {
-          const item = payload.items.find((it) => it.id === id);
+          const item = normItems.find((it) => it.id === id);
           return (
             <div
               key={id}
@@ -150,7 +162,7 @@ export const SequencingRenderer: Renderer<SequencingPayload, SequencingResponse>
                   padding: "4px 10px",
                   border: "1px solid var(--border, #e1e5ee)",
                   borderRadius: 4,
-                  background: "white",
+                  background: "var(--bg-surface3)",
                   cursor: disabled || idx === 0 ? "not-allowed" : "pointer",
                 }}
               >
@@ -164,7 +176,7 @@ export const SequencingRenderer: Renderer<SequencingPayload, SequencingResponse>
                   padding: "4px 10px",
                   border: "1px solid var(--border, #e1e5ee)",
                   borderRadius: 4,
-                  background: "white",
+                  background: "var(--bg-surface3)",
                   cursor:
                     disabled || idx === order.length - 1
                       ? "not-allowed"
@@ -182,9 +194,15 @@ export const SequencingRenderer: Renderer<SequencingPayload, SequencingResponse>
 };
 
 export interface ClassificationPayload {
-  stem: string;
-  items: { id: string; text: string }[];
-  categories: { id: string; label: string }[];
+  stem?: string;
+  // Items: {id,text} or {text,category} (seed). We synthesise id from
+  // index when missing.
+  items: (
+    | { id: string; text: string }
+    | { text: string; category?: string }
+  )[];
+  // Categories: {id,label} or plain string (seed).
+  categories: ({ id: string; label: string } | string)[];
   explanation?: string;
 }
 
@@ -198,6 +216,21 @@ export const ClassificationRenderer: Renderer<ClassificationPayload, Classificat
   onChange,
   disabled,
 }): ReactNode => {
+  // Normalise both items and categories so the rest of the renderer
+  // can speak the canonical {id, …} shape.
+  const normItems: { id: string; text: string }[] = (payload.items ?? []).map(
+    (it, i) => ({
+      id: "id" in it && it.id ? it.id : `i${i}`,
+      text: it.text,
+    }),
+  );
+  const normCats: { id: string; label: string }[] = (payload.categories ?? []).map(
+    (c, i) =>
+      typeof c === "string"
+        ? { id: `c${i}`, label: c }
+        : { id: c.id, label: c.label },
+  );
+
   const map = new Map<string, string>(
     (value?.assignments ?? []).map((a) => [a.item_id, a.category_id]),
   );
@@ -214,11 +247,13 @@ export const ClassificationRenderer: Renderer<ClassificationPayload, Classificat
   }
   return (
     <div>
-      <p style={{ fontSize: 16, lineHeight: 1.5, marginBottom: 16 }}>
-        {payload.stem}
-      </p>
+      {payload.stem && (
+        <p style={{ fontSize: 16, lineHeight: 1.5, marginBottom: 16 }}>
+          {payload.stem}
+        </p>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {payload.items.map((it) => (
+        {normItems.map((it) => (
           <div
             key={it.id}
             style={{
@@ -242,7 +277,7 @@ export const ClassificationRenderer: Renderer<ClassificationPayload, Classificat
               }}
             >
               <option value="">— pick category —</option>
-              {payload.categories.map((c) => (
+              {normCats.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
                 </option>

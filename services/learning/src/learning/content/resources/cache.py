@@ -24,7 +24,10 @@ CACHE_TTL_SECONDS = 24 * 3600
 def _key(language: str, query: str) -> str:
     norm = (language or "en").lower() + "|" + " ".join(query.lower().split())
     h = hashlib.sha256(norm.encode("utf-8")).hexdigest()[:32]
-    return f"resources:youtube:search:{language}:{h}"
+    # `v2` namespace bump: search filters now enforce a 20-minute
+    # duration floor, so any v1-cached results may include short clips
+    # and must not be served. Roll the prefix when filter contracts change.
+    return f"resources:youtube:search:v2:{language}:{h}"
 
 
 class _NullCache:
