@@ -3,6 +3,8 @@
 Thumbs.db
 # Windows alternate-data-stream metadata created on download; per-machine artefact.
 *:Zone.Identifier
+# MS Office lock files (created while a .docx/.xlsx/.pptx is open)
+~$*
 
 # Editors
 .idea/
