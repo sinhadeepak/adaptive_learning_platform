@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
+import { useIsMobileViewport } from "../lib/use-viewport";
+import { QuizOfflineQueue } from "../lib/quiz-offline-queue";
 import { AppShell } from "../components/AppShell";
 import { Banner, SkeletonRows } from "../components/dashboard";
-// P5-S60 — polymorphic question renderer dispatcher.
-import { QuestionRenderer } from "../components/renderers";
-import { RendererErrorBoundary } from "../components/RendererErrorBoundary";
+import { QuizPlayer } from "../components/QuizPlayer";
+import { QuizSessionMenu } from "../components/QuizSessionMenu";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Quiz play (AI Practice) — React port of
@@ -97,6 +98,14 @@ export function Quiz() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isMobile = useIsMobileViewport();
+
+  // S51 UX-32 v0 — offline answer queue. Persists each /answers POST
+  // when the network fails so the answer isn't lost; drain on mount.
+  const offlineQueueRef = useRef<QuizOfflineQueue>(new QuizOfflineQueue());
+  const [offlinePending, setOfflinePending] = useState(0);
+  const [offlineReplayed, setOfflineReplayed] = useState(false);
+  const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
 
   const [item, setItem] = useState<QuizItem | null>(null);
   const [done, setDone] = useState(false);
@@ -212,6 +221,46 @@ export function Quiz() {
     fetchNext();
   }, [fetchSession, fetchNext]);
 
+  // S51 UX-32 — drain queued answers on mount + whenever connectivity
+  // returns. Quiz Go /answers is idempotent on (session_id, item_idx)
+  // per Sprint-1 GAP-08 so re-sending duplicates is safe.
+  const drainOfflineQueue = useCallback(async () => {
+    if (!sessionId) return;
+    const queue = offlineQueueRef.current;
+    const replayed = await queue.drain(sessionId, async (entry) => {
+      const r = await auth.fetch(
+        `/api/v1/quiz/sessions/${sessionId}/answers`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            itemIdx: entry.itemIdx,
+            ...(entry.answerIdx !== undefined
+              ? { answerIdx: entry.answerIdx }
+              : {}),
+            ...(entry.responsePayload !== undefined
+              ? { responsePayload: entry.responsePayload }
+              : {}),
+          }),
+        },
+      );
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return (await r.json()) as AnswerResponse;
+    });
+    if (replayed > 0) {
+      setOfflineReplayed(true);
+      fetchSession(); // refresh counts after replay.
+    }
+    setOfflinePending(queue.load(sessionId).length);
+  }, [sessionId, fetchSession]);
+
+  useEffect(() => {
+    drainOfflineQueue();
+    const onOnline = () => drainOfflineQueue();
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [drainOfflineQueue]);
+
   async function submitAnswer() {
     if (!sessionId || !item || submitting) return;
 
@@ -226,10 +275,10 @@ export function Quiz() {
     if (!isLegacyMcq && responsePayload === null) return;
 
     setSubmitting(true);
+    const body = isLegacyMcq
+      ? { itemIdx: item.itemIdx, answerIdx: selectedIdx ?? undefined }
+      : { itemIdx: item.itemIdx, responsePayload };
     try {
-      const body = isLegacyMcq
-        ? { itemIdx: item.itemIdx, answerIdx: selectedIdx }
-        : { itemIdx: item.itemIdx, responsePayload };
       const r = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/answers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -238,10 +287,34 @@ export function Quiz() {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const respBody = (await r.json()) as AnswerResponse;
       setVerdict(respBody);
+      // Drop any stale queue entry for this item now that the server
+      // has accepted it (safe even if there was none).
+      offlineQueueRef.current.remove(sessionId, item.itemIdx);
+      setOfflinePending(offlineQueueRef.current.load(sessionId).length);
       // Re-fetch the session so the items[] (q-grid) updates.
       fetchSession();
     } catch {
-      setError("We couldn't record that answer.");
+      // Network blip / TLS / DNS — assume offline and queue. Server
+      // is idempotent on (session_id, item_idx) so replay is safe.
+      offlineQueueRef.current.enqueue({
+        sessionId,
+        itemIdx: item.itemIdx,
+        answerIdx: isLegacyMcq ? (selectedIdx ?? undefined) : undefined,
+        responsePayload: isLegacyMcq ? undefined : responsePayload,
+        queuedAt: Date.now(),
+      });
+      setOfflinePending(offlineQueueRef.current.load(sessionId).length);
+      // Optimistic verdict so the player doesn't deadlock. Caller will
+      // see "saved offline" copy and can advance. Server is the source
+      // of truth — correctIdx = -1 signals "unknown yet".
+      setVerdict({
+        sessionId,
+        itemIdx: item.itemIdx,
+        isCorrect: false,
+        correctIdx: -1,
+        servedCount: (session?.servedCount ?? 0) + 1,
+        correctCount: session?.correctCount ?? 0,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -353,7 +426,54 @@ export function Quiz() {
           >
             End quiz
           </button>
+          {isMobile && (
+            <button
+              type="button"
+              className="sb-menu"
+              onClick={() => setSessionMenuOpen(true)}
+              aria-label="Session menu"
+            >
+              ⋯ Session
+            </button>
+          )}
         </div>
+
+        {/* Offline-recovery status strips (S51 UX-32 v0). Render above
+            the progress bar so the student spots them immediately. */}
+        {offlineReplayed && (
+          <div
+            className="quiz-status-banner quiz-status-banner-success"
+            role="status"
+          >
+            <span>✓ Synced offline answers — we caught up.</span>
+            <button
+              type="button"
+              onClick={() => setOfflineReplayed(false)}
+              style={{
+                marginLeft: "auto",
+                background: "transparent",
+                border: "none",
+                color: "inherit",
+                cursor: "pointer",
+              }}
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        {offlinePending > 0 && (
+          <div
+            className="quiz-status-banner quiz-status-banner-warning"
+            role="status"
+          >
+            <span>
+              {offlinePending === 1
+                ? "1 answer waiting to sync — we'll send it when you're back online."
+                : `${offlinePending} answers waiting to sync — we'll send them when you're back online.`}
+            </span>
+          </div>
+        )}
 
         {/* ── 2. Progress strip ───────────────────────────────── */}
         <div
@@ -410,140 +530,35 @@ export function Quiz() {
 
         {/* ── 4. Body (question + right panel) ───────────────── */}
         <div className="practice-body">
-          <main className="q-area">
-            <div>
-              <div className="q-num">
-                <span>
-                  QUESTION {questionNumber} OF {counts.target}
-                </span>
-                <span className="ai-sel-badge">
-                  ◈ AI-SELECTED · IRT-driven
-                </span>
-              </div>
-              {/* Stem is the question text — always rendered, regardless
-                  of type. Per-type renderers below handle the *answer
-                  input* (textarea, numeric, hotspot, etc.) and don't
-                  duplicate the stem. */}
-              <h1 className="q-text">{item.stem}</h1>
-              {hintNote && (
-                <div
-                  role="status"
-                  style={{
-                    marginTop: 12,
-                    padding: "10px 14px",
-                    borderRadius: 8,
-                    background: "rgba(245,166,35,0.08)",
-                    border: "1px solid rgba(245,166,35,0.3)",
-                    color: "var(--text-secondary, #B8C5E0)",
-                    fontSize: 13,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 12,
-                  }}
-                >
-                  <span>💡 {hintNote}</span>
-                  <button
-                    type="button"
-                    onClick={() => setHintNote(null)}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: "var(--text-faint, #7A8BAD)",
-                      cursor: "pointer",
-                      fontSize: 14,
-                    }}
-                    aria-label="Dismiss hint"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* P5-S60 — non-MCQ types render through the polymorphic
-                dispatcher. MCQ_SINGLE keeps the legacy two-column +
-                option-button layout because Quiz Go inlines the grade
-                for that path (no /grading/grade round-trip). */}
-            {item.questionType && item.questionType !== "MCQ_SINGLE" ? (
-              <div style={{ marginTop: 8 }}>
-                <RendererErrorBoundary
-                  resetKey={`${item.questionId}:${item.itemIdx}`}
-                  onSkip={() => {
-                    // Submit an empty response so the server records the
-                    // skip + advances; the next question is then served
-                    // by the post-submit fetchSession() flow.
-                    setResponsePayload({});
-                    void submitAnswer();
-                  }}
-                >
-                  <QuestionRenderer
-                    typeId={item.questionType}
-                    payload={item.payload ?? {}}
-                    value={responsePayload}
-                    onChange={setResponsePayload}
-                    language="en"
-                    disabled={showFeedback}
-                    sessionId={sessionId}
-                    questionId={item.questionId}
-                  />
-                </RendererErrorBoundary>
-              </div>
-            ) : (
-              <ol
-                className="options"
-                role="radiogroup"
-                aria-label="Answer choices"
-              >
-                {item.choices.map((choice, idx) => {
-                  const isSelected = selectedIdx === idx;
-                  const isCorrectAnswer =
-                    showFeedback && idx === verdict!.correctIdx;
-                  const isWrongPick =
-                    showFeedback &&
-                    idx === selectedIdx &&
-                    !verdict!.isCorrect;
-                  let variant = "";
-                  if (isCorrectAnswer) variant = "opt-correct";
-                  else if (isWrongPick) variant = "opt-wrong";
-                  else if (isSelected) variant = "opt-selected";
-                  return (
-                    <li key={idx}>
-                      <button
-                        type="button"
-                        onClick={() => !showFeedback && setSelectedIdx(idx)}
-                        disabled={showFeedback}
-                        className={`opt ${variant}`.trim()}
-                        aria-pressed={isSelected}
-                      >
-                        <div className="opt-key">
-                          {String.fromCharCode(65 + idx)}
-                        </div>
-                        <div className="opt-text">{choice}</div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-
-            {showFeedback ? (
-              <>
-                <div
-                  role="status"
-                  className={`explanation ${verdict!.isCorrect ? "" : "explanation-wrong"}`.trim()}
-                >
-                  <div className="exp-title">
-                    {verdict!.isCorrect ? "✓ Correct" : "✗ Not quite"}
-                  </div>
-                  <p className="exp-text">
-                    {verdict!.isCorrect
-                      ? "Nice — that's right. Per-question explanations from the content library land in a future sprint."
-                      : (!item.questionType || item.questionType === "MCQ_SINGLE") && verdict!.correctIdx >= 0
-                      ? `The correct answer is ${String.fromCharCode(65 + verdict!.correctIdx)}. Per-question explanations from the content library land in a future sprint.`
-                      : "That's not quite right — review the explanation, then try a similar question. Per-item solutions ship in a future sprint."}
-                  </p>
-                </div>
-
+          <QuizPlayer
+            item={item}
+            selectedIdx={selectedIdx}
+            onSelectChoice={(idx) => setSelectedIdx(idx)}
+            responsePayload={responsePayload}
+            onChangeResponse={setResponsePayload}
+            verdict={
+              verdict
+                ? {
+                    itemIdx: verdict.itemIdx,
+                    isCorrect: verdict.isCorrect,
+                    correctIdx: verdict.correctIdx,
+                  }
+                : null
+            }
+            questionNumber={questionNumber}
+            totalQuestions={counts.target}
+            sessionId={sessionId}
+            hintNote={hintNote}
+            onDismissHint={() => setHintNote(null)}
+            onSkip={() => {
+              // Submit an empty response so the server records the
+              // skip + advances; the next question is then served by
+              // the post-submit fetchSession() flow.
+              setResponsePayload({});
+              void submitAnswer();
+            }}
+            feedbackPanel={
+              showFeedback ? (
                 <div className="ai-feedback">
                   <div className="af-title">◈ AI UPDATE · after this answer</div>
                   <div className="af-row">
@@ -587,9 +602,9 @@ export function Quiz() {
                     </span>
                   </div>
                 </div>
-              </>
-            ) : null}
-          </main>
+              ) : undefined
+            }
+          />
 
           {/* ── Right panel ──────────────────────────────────── */}
           <aside className="practice-right" aria-label="Session insights">
@@ -795,6 +810,41 @@ export function Quiz() {
           )}
         </div>
       </div>
+      {/* Mobile session-menu — bottom-sheet wired to End / Bookmark /
+          Adjust difficulty. Rendered unconditionally so it works for
+          test viewports too; the trigger only appears on < 640 px via
+          the `.sb-menu` media query in shell.css. */}
+      <QuizSessionMenu
+        open={sessionMenuOpen}
+        onClose={() => setSessionMenuOpen(false)}
+        isBookmarked={item ? bookmarks.has(item.questionId) : false}
+        onToggleBookmark={() => {
+          if (!item) return;
+          setBookmarks((prev) => {
+            const next = new Set(prev);
+            if (next.has(item.questionId)) next.delete(item.questionId);
+            else next.add(item.questionId);
+            try {
+              localStorage.setItem(
+                bookmarkStorageKey,
+                JSON.stringify([...next]),
+              );
+            } catch {
+              /* storage may be disabled — ignore */
+            }
+            return next;
+          });
+        }}
+        onAdjustDifficulty={() => {
+          // Difficulty agency lands with Phase 6 S54 (intent_anchor +
+          // friction prompt). The affordance ships now; wiring comes
+          // with that sprint's frontend slice.
+          setHintNote(
+            "Difficulty agency arrives with the S54 frontend slice.",
+          );
+        }}
+        onEndQuiz={finishSession}
+      />
     </AppShell>
   );
 }

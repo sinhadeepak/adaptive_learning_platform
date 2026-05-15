@@ -6097,3 +6097,206 @@
 .catalog-table tbody .catalog-row:hover { background: rgba(79, 135, 246, 0.07); }
 .catalog-table tbody .catalog-row:hover .btn-ghost { border-color: var(--color-ai); color: var(--color-ai); }
 .catalog-table thead th { position: sticky; top: 0; z-index: 1; }
+
+/* ─── Phase 6 S51 — quiz player extracted + mobile bottom-sheet menu ─── */
+
+/* Hint chip (moved out of Quiz.tsx inline styles when extracted) */
+.hint-chip {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(245, 166, 35, 0.08);
+  border: 1px solid rgba(245, 166, 35, 0.3);
+  color: var(--text-secondary, #B8C5E0);
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.hint-chip-close {
+  background: transparent;
+  border: none;
+  color: var(--text-faint, #7A8BAD);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* Mobile session-menu trigger (hamburger button beside the End button) */
+.sb-menu {
+  display: none;
+  border: 1px solid var(--border, rgba(255,255,255,0.10));
+  background: transparent;
+  color: var(--text-secondary, #B8C5E0);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+@media (max-width: 639.9px) {
+  /* On mobile, drop the AI telemetry strip — it lives in the right
+     panel's bottom-sheet variant. Question-first. */
+  .ai-ctx { display: none; }
+  /* Surface the session-menu trigger in the session bar; hide the
+     bulky "End quiz" inline button. */
+  .sb-menu { display: inline-flex; align-items: center; gap: 4px; }
+  .sb-exit { display: none; }
+  /* Compact the session bar so it fits on a 360-wide phone. */
+  .sess-bar { padding: 8px 12px; gap: 8px; }
+  .sb-topic-name { font-size: 13px; }
+  .sb-topic-sub { display: none; }
+  /* The footer hint button is the lowest-priority action — hide it.
+     Bookmark moves into the bottom-sheet, leaving Skip on the left. */
+  .q-footer .foot-left .btn-q-ghost:first-child,
+  .q-footer .foot-left .btn-q-ghost:nth-child(2) {
+    display: none;
+  }
+}
+
+/* Quiz session-menu bottom-sheet — used on mobile only.
+   The component renders unconditionally when `open`, so the scrim
+   shows on any viewport. We intentionally keep the styles viewport-
+   agnostic; the caller (Quiz.tsx) gates rendering by useIsMobileViewport. */
+.qsm-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 12, 24, 0.50);
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: qsm-fade-in 160ms ease-out;
+}
+.qsm-sheet {
+  width: 100%;
+  max-width: 520px;
+  background: var(--bg-surface-1, #0F1A2E);
+  border: 1px solid var(--border, rgba(255,255,255,0.10));
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  padding: 8px 12px 16px;
+  color: var(--text-primary, #E8EEF8);
+  animation: qsm-slide-up 220ms ease-out;
+}
+.qsm-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--text-faint, #7A8BAD);
+  opacity: 0.6;
+  margin: 6px auto 12px;
+}
+.qsm-header { padding: 4px 12px 12px; }
+.qsm-title { font-size: 16px; font-weight: 700; }
+.qsm-sub { font-size: 12px; color: var(--text-faint, #7A8BAD); margin-top: 2px; }
+.qsm-list { list-style: none; padding: 0; margin: 0; }
+.qsm-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 12px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 10px;
+}
+.qsm-row:hover { background: rgba(255,255,255,0.04); }
+.qsm-row-destructive { color: var(--color-red, #F4685A); }
+.qsm-glyph { width: 24px; text-align: center; font-size: 16px; }
+.qsm-label { font-size: 15px; font-weight: 500; }
+.qsm-cancel {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg-surface-2, #16213A);
+  border: 1px solid var(--border, rgba(255,255,255,0.10));
+  color: var(--text-secondary, #B8C5E0);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+@keyframes qsm-fade-in {
+  from { background: rgba(7, 12, 24, 0); }
+  to   { background: rgba(7, 12, 24, 0.50); }
+}
+@keyframes qsm-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* Offline-recovery banners — slim status strips above the practice page. */
+.quiz-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.quiz-status-banner-warning {
+  background: rgba(245, 166, 35, 0.12);
+  border: 1px solid rgba(245, 166, 35, 0.35);
+  color: var(--color-amber, #F5A623);
+}
+.quiz-status-banner-success {
+  background: rgba(94, 200, 134, 0.12);
+  border: 1px solid rgba(94, 200, 134, 0.35);
+  color: var(--color-green, #5EC886);
+}
+
+/* ─── QuizResult — Zone 2 collapsible summary (P6 S51) ─── */
+.qr-analysis-summary { margin-bottom: 0; }
+.qr-analysis-headline {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(34, 212, 238, 0.08),
+    rgba(124, 58, 237, 0.06)
+  );
+  border: 1px solid rgba(124, 58, 237, 0.18);
+  color: var(--text-primary, #E8EEF8);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease-out;
+}
+.qr-analysis-headline:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(34, 212, 238, 0.12),
+    rgba(124, 58, 237, 0.10)
+  );
+}
+.qr-analysis-glyph {
+  color: var(--color-ai, #7C3AED);
+  font-size: 18px;
+  line-height: 1;
+}
+.qr-analysis-text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.qr-analysis-toggle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #B8C5E0);
+  white-space: nowrap;
+}
+@media (max-width: 639.9px) {
+  .qr-analysis-headline { padding: 12px 14px; gap: 10px; }
+  .qr-analysis-text { font-size: 13px; }
+}

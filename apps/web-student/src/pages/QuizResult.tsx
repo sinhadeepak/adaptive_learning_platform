@@ -81,6 +81,11 @@ export function QuizResult() {
     prompt_template_version?: string | null;
   } | null>(null);
   const [aiInsightsError, setAiInsightsError] = useState<string | null>(null);
+  // S51 — Zone 2 + 2.5 collapse to a one-sentence headline by default.
+  // Tap "Show analysis" (or the headline itself) to reveal the full
+  // breakdown + LLM insight cards. Score hero (Zone 1) and Question
+  // review (Zone 3) stay visible above and below.
+  const [analysisOpen, setAnalysisOpen] = useState(false);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -465,8 +470,43 @@ export function QuizResult() {
         </div>
       </section>
 
+      {/* ── Zone 2 headline + collapse toggle (S51) ─────────────────
+          One-sentence summary the student can act on without reading
+          the full analysis. The detailed breakdown + LLM insight cards
+          unfurl when expanded; collapsed is the default per spec. */}
+      <section
+        aria-label="Session analysis summary"
+        className="qr-analysis-summary"
+        style={{ marginTop: "var(--sp-4)" }}
+      >
+        <button
+          type="button"
+          className="qr-analysis-headline"
+          onClick={() => setAnalysisOpen((v) => !v)}
+          aria-expanded={analysisOpen}
+          aria-controls="qr-analysis-detail"
+        >
+          <span className="qr-analysis-glyph">✦</span>
+          <span className="qr-analysis-text">
+            {pct >= 80
+              ? "Strong round — try the next difficulty band when you come back."
+              : pct >= 50
+                ? "Steady round — a couple of weak points worth a quick revisit."
+                : "Foundation round — spend a session on the basics before another mock."}
+          </span>
+          <span className="qr-analysis-toggle">
+            {analysisOpen ? "Hide analysis ▴" : "Show analysis ▾"}
+          </span>
+        </button>
+      </section>
+
       {/* ── Zone 2: Two-column — AI UPDATE + (reco + mastery delta) ── */}
-      <div className="dashboard-bottom-grid" style={{ marginTop: "var(--sp-4)" }}>
+      <div
+        id="qr-analysis-detail"
+        hidden={!analysisOpen}
+        className="dashboard-bottom-grid"
+        style={{ marginTop: "var(--sp-4)" }}
+      >
         {/* Left: Session breakdown — basic stats. Honest naming:
             this card is just arithmetic over correct/wrong/time, no
             LLM is involved. The real AI insights live below. */}
@@ -688,9 +728,12 @@ export function QuizResult() {
 
       {/* ── Zone 2.5: Real AI insights — the LLM analyses the
           pattern of mistakes, not just the count. Replaces the
-          rule-based "AI UPDATE" theatre that was here before. ── */}
+          rule-based "AI UPDATE" theatre that was here before.
+          S51 — gated by analysisOpen so the score band → review
+          path stays short. */}
       <section
         aria-label="AI insights"
+        hidden={!analysisOpen}
         style={{
           marginTop: "var(--sp-5)",
           padding: "20px 22px",
