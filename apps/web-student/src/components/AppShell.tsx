@@ -87,6 +87,7 @@ const NAV_GROUPS: NavSidebarGroup[] = [
   {
     heading: "Analyse",
     items: [
+      { key: "insights", href: "/insights", label: "Insights", icon: <Glyph>✦</Glyph> },
       { key: "analysis", href: "/analysis", label: "Analysis", icon: <Glyph>📊</Glyph> },
     ],
   },
@@ -151,6 +152,7 @@ function activeKeyFor(pathname: string): string | undefined {
   if (pathname.startsWith("/clans")) return "clans";
   if (pathname.startsWith("/leaderboards")) return "leaderboards";
   if (pathname.startsWith("/rank") || pathname.startsWith("/league")) return "rank";
+  if (pathname.startsWith("/insights")) return "insights";
   if (pathname.startsWith("/analysis") || pathname.startsWith("/concept-profile") || pathname.startsWith("/diagnostic-deep-dive")) return "analysis";
   if (pathname.startsWith("/experts")) return "experts";
   if (pathname.startsWith("/doubts") || pathname.startsWith("/tutor-history")) return "doubts";

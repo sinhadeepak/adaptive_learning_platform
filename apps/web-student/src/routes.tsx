@@ -5,6 +5,7 @@ import { Analysis } from "./pages/Analysis";
 // Phase 5 (P5-S56) — multi-parameter profile + diagnostic deep dive.
 import { ConceptProfile } from "./pages/ConceptProfile";
 import { DiagnosticDeepDive } from "./pages/DiagnosticDeepDive";
+import { Insights } from "./pages/Insights";
 import { AssignmentDetail } from "./pages/AssignmentDetail";
 import { Assignments } from "./pages/Assignments";
 import { Billing } from "./pages/Billing";
@@ -654,6 +655,19 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <CourseRead />
+      </ProtectedRoute>
+    ),
+  },
+
+  // Phase 6 S52 — Insights hub re-IA over the Phase-5 analytics surfaces.
+  // The legacy deep links (/concept-profile, /diagnostic-deep-dive,
+  // /syllabus, /revision) all remain reachable as the "Why am I seeing
+  // this?" targets per ADR-0020.
+  {
+    path: "/insights",
+    element: (
+      <ProtectedRoute>
+        <Insights />
       </ProtectedRoute>
     ),
   },
