@@ -8,6 +8,17 @@ import { AppShell } from "../components/AppShell";
 import { Banner, SkeletonRows } from "../components/dashboard";
 import { QuizPlayer } from "../components/QuizPlayer";
 import { QuizSessionMenu } from "../components/QuizSessionMenu";
+import { FrictionPrompt } from "../components/FrictionPrompt";
+import { IntentSelector } from "../components/IntentSelector";
+import {
+  checkFriction,
+  loadIntentForTopic,
+  saveIntentForTopic,
+  type FrictionAction,
+  type FrictionItemAttempt,
+  type FrictionTrigger,
+  type IntentAnchor,
+} from "../lib/difficulty-agency";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Quiz play (AI Practice) — React port of
@@ -138,6 +149,29 @@ export function Quiz() {
   // honest "not available" message instead of silently doing nothing.
   const [hintNote, setHintNote] = useState<string | null>(null);
 
+  // ─── Phase 6 S54 — difficulty agency state ─────────────────────────
+  //
+  // Three pieces:
+  //   1. friction history: { item_idx, is_correct, time_spent_ms, skipped }
+  //      accumulated per answer; submitted to /adaptive/friction/check.
+  //   2. lastFrictionAtIdx: short-circuits subsequent checks per ADR-0022
+  //      (at most one prompt per session).
+  //   3. intent picker modal: lets the student pick match/push/build_
+  //      confidence via the session menu; persisted per-topic in
+  //      localStorage until quiz/sessions/start accepts intent_anchor.
+  const frictionHistoryRef = useRef<FrictionItemAttempt[]>([]);
+  const questionStartedAtRef = useRef<number>(Date.now());
+  const [frictionTrigger, setFrictionTrigger] =
+    useState<FrictionTrigger | null>(null);
+  const [lastFrictionAtIdx, setLastFrictionAtIdx] = useState<number | null>(
+    null,
+  );
+  const [pendingIntentOffset, setPendingIntentOffset] = useState<
+    number | null
+  >(null);
+  const [intentModalOpen, setIntentModalOpen] = useState(false);
+  const [intent, setIntent] = useState<IntentAnchor>("match");
+
   // Timer — counts up from page load. Until quiz/sessions exposes
   // expires_at this is the closest stand-in for the mockup's MM:SS chip.
   useEffect(() => {
@@ -170,6 +204,9 @@ export function Quiz() {
         return;
       }
       setItem(body.item ?? null);
+      // S54 — reset the per-question timer when a new item lands.
+      // checkFriction needs time_spent_ms per answer.
+      questionStartedAtRef.current = Date.now();
     } catch {
       setError("We couldn't load the next question.");
     }
@@ -193,6 +230,12 @@ export function Quiz() {
   // Hydrate topic name (for session bar) + topic mastery (for right-panel ring).
   useEffect(() => {
     if (!session) return;
+    // S54 — hydrate the per-topic intent from localStorage so the
+    // session menu shows the student's last choice as the active
+    // option. When quiz/sessions/start accepts intent_anchor we
+    // can read it from the session payload instead.
+    const stored = loadIntentForTopic(session.topicId);
+    if (stored) setIntent(stored);
     (async () => {
       try {
         const r = await auth.fetch(`/api/v1/catalog/topics/${session.topicId}`);
@@ -293,6 +336,21 @@ export function Quiz() {
       setOfflinePending(offlineQueueRef.current.load(sessionId).length);
       // Re-fetch the session so the items[] (q-grid) updates.
       fetchSession();
+      // S54 — accumulate friction history + fire the check. We do this
+      // after the verdict lands (online path) so the friction prompt
+      // reflects real correctness. The offline branch below also
+      // appends a history entry but with no correctness signal.
+      const elapsedMs = Date.now() - questionStartedAtRef.current;
+      frictionHistoryRef.current = [
+        ...frictionHistoryRef.current,
+        {
+          itemIdx: item.itemIdx,
+          isCorrect: respBody.isCorrect,
+          timeSpentMs: elapsedMs,
+          skipped: false,
+        },
+      ];
+      runFrictionCheck();
     } catch {
       // Network blip / TLS / DNS — assume offline and queue. Server
       // is idempotent on (session_id, item_idx) so replay is safe.
@@ -318,6 +376,35 @@ export function Quiz() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // S54 — fire the friction-check evaluator after each answer. Errors
+  // are swallowed because the prompt is a nudge, not a critical path.
+  async function runFrictionCheck() {
+    if (lastFrictionAtIdx !== null) return; // at-most-one-per-session
+    try {
+      const trigger = await checkFriction(
+        frictionHistoryRef.current,
+        lastFrictionAtIdx,
+      );
+      if (trigger) setFrictionTrigger(trigger);
+    } catch {
+      /* swallow — never block the quiz on a friction call */
+    }
+  }
+
+  function acceptFriction(offset: number, _action: FrictionAction) {
+    // Until quiz/sessions/{id} accepts a mid-session offset write, we
+    // just pin the pending offset locally + record that the prompt
+    // fired. The next sprint wires this to Quiz Go.
+    setPendingIntentOffset(offset);
+    setLastFrictionAtIdx(item?.itemIdx ?? 0);
+    setFrictionTrigger(null);
+  }
+
+  function dismissFriction() {
+    setLastFrictionAtIdx(item?.itemIdx ?? 0);
+    setFrictionTrigger(null);
   }
 
   async function finishSession() {
@@ -835,16 +922,86 @@ export function Quiz() {
             return next;
           });
         }}
-        onAdjustDifficulty={() => {
-          // Difficulty agency lands with Phase 6 S54 (intent_anchor +
-          // friction prompt). The affordance ships now; wiring comes
-          // with that sprint's frontend slice.
-          setHintNote(
-            "Difficulty agency arrives with the S54 frontend slice.",
-          );
-        }}
+        onAdjustDifficulty={() => setIntentModalOpen(true)}
         onEndQuiz={finishSession}
       />
+
+      {/* S54 — pre/in-quiz intent picker (modal). Persists the choice
+          per topic in localStorage; full server-side wiring lands when
+          quiz/sessions/start accepts intent_anchor. */}
+      {intentModalOpen && (
+        <div
+          className="qsm-scrim"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Adjust difficulty intent"
+          onClick={() => setIntentModalOpen(false)}
+        >
+          <div
+            className="qsm-sheet intent-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="qsm-handle" aria-hidden />
+            <div className="qsm-header">
+              <div className="qsm-title">Adjust difficulty</div>
+              <div className="qsm-sub">
+                Where should the engine aim the next questions? Your mastery
+                numbers don't change either way.
+              </div>
+            </div>
+            <div style={{ padding: "0 12px 12px" }}>
+              <IntentSelector
+                value={intent}
+                onChange={(next) => {
+                  setIntent(next);
+                  if (session?.topicId) saveIntentForTopic(session.topicId, next);
+                }}
+                thetaHat={thetaSynth}
+              />
+            </div>
+            <button
+              type="button"
+              className="qsm-cancel"
+              onClick={() => setIntentModalOpen(false)}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* S54 — mid-quiz friction prompt. Caller fires checkFriction
+          after each verdict; at-most-one-per-session per ADR-0022. */}
+      <FrictionPrompt
+        trigger={frictionTrigger}
+        onAccept={acceptFriction}
+        onDismiss={dismissFriction}
+      />
+
+      {/* The pendingIntentOffset is set when the student accepted a
+          mid-quiz nudge. Surface a tiny status note so the change
+          is honest — until the backend actually shifts θ̂, the offset
+          is symbolic. */}
+      {pendingIntentOffset !== null && (
+        <div
+          role="status"
+          style={{
+            position: "fixed",
+            bottom: 16,
+            left: "50%",
+            transform: "translateX(-50%)",
+            padding: "6px 14px",
+            borderRadius: 20,
+            background: "rgba(124,58,237,0.18)",
+            color: "var(--color-ai)",
+            fontSize: 12,
+            fontWeight: 600,
+            zIndex: 60,
+          }}
+        >
+          Difficulty intent updated · {pendingIntentOffset > 0 ? "harder" : "easier"}
+        </div>
+      )}
     </AppShell>
   );
 }

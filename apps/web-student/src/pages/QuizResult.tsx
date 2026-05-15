@@ -5,6 +5,10 @@ import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill, SkeletonRows } from "../components/dashboard";
 import { ExplainCard } from "../components/ExplainCard";
+import {
+  PostQuizCalibration,
+  type CalibrationFeedback,
+} from "../components/PostQuizCalibration";
 
 // Practice Results — React port of
 // docs/ui/01_StudentPortal_Web/09_practice-results.html.
@@ -86,6 +90,23 @@ export function QuizResult() {
   // breakdown + LLM insight cards. Score hero (Zone 1) and Question
   // review (Zone 3) stay visible above and below.
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  // S54 — post-session calibration. Stored in localStorage until Quiz Go
+  // exposes a PATCH endpoint for calibration_feedback (the column landed
+  // with migration 010 but the app code wires it in a follow-up).
+  const calibrationKey = `quiz.calibration.v1.${sessionId ?? ""}`;
+  const [calibrationInitial, setCalibrationInitial] =
+    useState<CalibrationFeedback | null>(null);
+  useEffect(() => {
+    if (!sessionId) return;
+    try {
+      const raw = window.localStorage.getItem(calibrationKey);
+      if (raw === "too_easy" || raw === "right" || raw === "too_hard") {
+        setCalibrationInitial(raw);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [sessionId, calibrationKey]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -469,6 +490,25 @@ export function QuizResult() {
           </div>
         </div>
       </section>
+
+      {/* ── Phase 6 S54 — post-session calibration ──────────────────
+          Three-bucket feedback (too easy / right / too hard) that
+          biases the next session's intent without touching mastery
+          scores. Stored to localStorage until Quiz Go exposes a
+          PATCH endpoint for the calibration_feedback column. */}
+      {sessionId && (
+        <PostQuizCalibration
+          sessionId={sessionId}
+          initialValue={calibrationInitial}
+          onSubmit={async (value) => {
+            try {
+              window.localStorage.setItem(calibrationKey, value);
+            } catch {
+              /* swallow — feedback shows locally either way */
+            }
+          }}
+        />
+      )}
 
       {/* ── Zone 2 headline + collapse toggle (S51) ─────────────────
           One-sentence summary the student can act on without reading

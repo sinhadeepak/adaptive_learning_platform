@@ -41,6 +41,7 @@ import {
   WeeklyNarrativeCard,
   WeeklyNarrativeEmpty,
 } from "../components/WeeklyNarrativeCard";
+import { AdaptsExplainerCard } from "../components/AdaptsExplainerCard";
 import {
   fetchCurrentWeeklyNarrative,
   generateWeeklyNarrative,
@@ -465,6 +466,12 @@ export function Home() {
 
       {/* ── Today's plan (Phase B3 — IGS, legacy component preserved) ── */}
       {firstExam?.examId ? <DailyPlanCard examId={firstExam.examId} /> : null}
+
+      {/* ── How adaptive practice works (P6 S54 — first-quiz only) ────
+          The card self-gates on a localStorage flag set when the
+          student first dismisses it. Renders nothing for returning
+          users so the home page doesn't keep nagging. */}
+      <AdaptsExplainerCard />
 
       {/* ── Today's mission (Phase 6 S50 — legacy component preserved) ── */}
       <MissionCard />
