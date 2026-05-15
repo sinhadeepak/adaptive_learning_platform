@@ -6,6 +6,7 @@ import { Analysis } from "./pages/Analysis";
 import { ConceptProfile } from "./pages/ConceptProfile";
 import { DiagnosticDeepDive } from "./pages/DiagnosticDeepDive";
 import { Insights } from "./pages/Insights";
+import { StudyPlanPage } from "./pages/StudyPlan";
 import { AssignmentDetail } from "./pages/AssignmentDetail";
 import { Assignments } from "./pages/Assignments";
 import { Billing } from "./pages/Billing";
@@ -655,6 +656,16 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <CourseRead />
+      </ProtectedRoute>
+    ),
+  },
+
+  // Phase 6 S55 — Constrained plan editor.
+  {
+    path: "/plan",
+    element: (
+      <ProtectedRoute>
+        <StudyPlanPage />
       </ProtectedRoute>
     ),
   },

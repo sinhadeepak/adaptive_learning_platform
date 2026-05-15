@@ -72,6 +72,7 @@ const NAV_GROUPS: NavSidebarGroup[] = [
     heading: "Practice",
     items: [
       { key: "practice", href: "/practice", label: "Practice", icon: <Glyph>🎯</Glyph> },
+      { key: "plan", href: "/plan", label: "Plan", icon: <Glyph>🗓</Glyph> },
       { key: "battle", href: "/battle", label: "Battle", icon: <Glyph>⚔</Glyph> },
     ],
   },
@@ -147,6 +148,7 @@ function activeKeyFor(pathname: string): string | undefined {
   if (pathname === "/" || pathname.startsWith("/home")) return "home";
   if (pathname.startsWith("/catalog") || pathname.startsWith("/study") || pathname.startsWith("/exams")) return "study";
   if (pathname.startsWith("/practice") || pathname.startsWith("/quiz") || pathname.startsWith("/mock") || pathname.startsWith("/pyq")) return "practice";
+  if (pathname.startsWith("/plan")) return "plan";
   if (pathname.startsWith("/battle")) return "battle";
   if (pathname.startsWith("/friends")) return "friends";
   if (pathname.startsWith("/clans")) return "clans";
