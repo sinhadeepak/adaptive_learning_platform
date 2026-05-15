@@ -510,19 +510,32 @@ export function QuizResult() {
       </section>
 
       {/* ── Phase 6 S54 — post-session calibration ──────────────────
-          Three-bucket feedback (too easy / right / too hard) that
-          biases the next session's intent without touching mastery
-          scores. Stored to localStorage until Quiz Go exposes a
-          PATCH endpoint for the calibration_feedback column. */}
+          Three-bucket feedback (too_easy / right / too_hard) PATCHed
+          into quiz_sessions.calibration_feedback. localStorage echo
+          gives the page an instant pre-selected state after a refresh
+          without an extra round-trip. */}
       {sessionId && (
         <PostQuizCalibration
           sessionId={sessionId}
           initialValue={calibrationInitial}
           onSubmit={async (value) => {
+            const r = await auth.fetch(
+              `/api/v1/quiz/sessions/${sessionId}/calibration`,
+              {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ feedback: value }),
+              },
+            );
+            if (!r.ok) {
+              throw new Error(`calibration PATCH failed: HTTP ${r.status}`);
+            }
+            // Optimistic localStorage echo so reload pre-selects the
+            // saved bucket without a fetch.
             try {
               window.localStorage.setItem(calibrationKey, value);
             } catch {
-              /* swallow — feedback shows locally either way */
+              /* swallow */
             }
           }}
         />

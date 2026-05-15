@@ -47,6 +47,10 @@ func Router(logger *slog.Logger, sess *SessionService, flags FlagEvaluator) http
 		mux.HandleFunc("GET /quiz/sessions/{id}/items", sess.Items(logger))
 		mux.HandleFunc("POST /quiz/sessions/{id}/answers", sess.Answer(logger))
 		mux.HandleFunc("POST /quiz/sessions/{id}/submit", sess.Submit(logger))
+		// P6-S54 — end-of-session calibration feedback (too_easy / right
+		// / too_hard). Writes to quiz_sessions.calibration_feedback; the
+		// column has a CHECK constraint matching the 3-value enum.
+		mux.HandleFunc("PATCH /quiz/sessions/{id}/calibration", sess.PatchCalibration(logger))
 		mux.HandleFunc("GET /quiz/questions", sess.ListQuestions(logger))
 		mux.HandleFunc("GET /quiz/users/{userId}/answered-items", sess.UserAnsweredItems(logger))
 	} else {

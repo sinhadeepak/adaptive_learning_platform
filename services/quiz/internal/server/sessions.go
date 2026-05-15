@@ -177,6 +177,40 @@ type startRequest struct {
 	// item selection toward that band; "adaptive" keeps the user's
 	// current θ; "mixed" leaves θ=0 and widens the corridor.
 	DifficultyBand string `json:"difficultyBand,omitempty"`
+	// P6-S54 — pre-quiz intent picker. One of:
+	//   "match"            (default; no offset)
+	//   "push"             (+0.4 θ̂ — harder corridor)
+	//   "build_confidence" (-0.4 θ̂ — easier corridor)
+	// Unknown values are coerced to "match" so legacy callers stay safe.
+	// The CHECK constraint in migration 010 enforces the same set DB-side.
+	IntentAnchor string `json:"intentAnchor,omitempty"`
+}
+
+// normalizeIntentAnchor coerces an arbitrary client string to one of
+// the three allowed enum values. Empty / unknown → "match" so legacy
+// callers (and the DB's column DEFAULT) stay aligned.
+func normalizeIntentAnchor(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "push":
+		return "push"
+	case "build_confidence":
+		return "build_confidence"
+	default:
+		return "match"
+	}
+}
+
+// intentAnchorThetaOffset maps the intent enum to its IRT bias. Same
+// magnitudes as alp-learning's /adaptive/intent/theta-offset route.
+func intentAnchorThetaOffset(anchor string) float32 {
+	switch anchor {
+	case "push":
+		return 0.4
+	case "build_confidence":
+		return -0.4
+	default:
+		return 0
+	}
 }
 
 // difficultyBandToTheta maps a UI band to an initial ability estimate
@@ -260,17 +294,19 @@ func (svc *SessionService) Start(logger *slog.Logger) http.HandlerFunc {
 		}
 
 		now := svc.clock()
+		intentAnchor := normalizeIntentAnchor(req.IntentAnchor)
 		sess := domain.Session{
-			ID:          uuid.New(),
-			UserID:      userID,
-			TenantID:    req.TenantID,
-			TopicID:     topicID,
-			Mode:        mode,
-			Strategy:    svc.resolveStrategy(r.Context(), req.TenantID, userID),
-			Status:      domain.StatusInProgress,
-			TargetCount: svc.target,
-			StartedAt:   now,
-			ExpiresAt:   now.Add(svc.sessionTTL),
+			ID:           uuid.New(),
+			UserID:       userID,
+			TenantID:     req.TenantID,
+			TopicID:      topicID,
+			Mode:         mode,
+			Strategy:     svc.resolveStrategy(r.Context(), req.TenantID, userID),
+			Status:       domain.StatusInProgress,
+			TargetCount:  svc.target,
+			StartedAt:    now,
+			ExpiresAt:    now.Add(svc.sessionTTL),
+			IntentAnchor: intentAnchor,
 		}
 		// Seed the picker with a target θ when the caller asked for a
 		// fixed difficulty band. The picker reads AbilityEstimate to
@@ -281,6 +317,20 @@ func (svc *SessionService) Start(logger *slog.Logger) http.HandlerFunc {
 			logger.Info("session.difficulty_band_seeded",
 				"band", req.DifficultyBand,
 				"theta", seedTheta,
+				"user", userID,
+				"topic", topicID,
+			)
+		}
+		// P6-S54 — apply the intent-anchor θ̂ offset on top of any
+		// difficulty-band seed. Push biases items harder; build_confidence
+		// biases them easier. Per ADR-0022 the offset only affects item
+		// selection — mastery writes are sealed from this signal.
+		if offset := intentAnchorThetaOffset(intentAnchor); offset != 0 {
+			sess.AbilityEstimate += offset
+			logger.Info("session.intent_anchor_applied",
+				"anchor", intentAnchor,
+				"offset", offset,
+				"effective_theta", sess.AbilityEstimate,
 				"user", userID,
 				"topic", topicID,
 			)
@@ -1607,6 +1657,80 @@ func (svc *SessionService) loadActive(w http.ResponseWriter, r *http.Request, lo
 		return sess, false
 	}
 	return sess, true
+}
+
+// ── P6-S54 — Post-session calibration feedback ──────────────────────
+
+type calibrationPatchRequest struct {
+	Feedback string `json:"feedback"`
+}
+
+type calibrationPatchResponse struct {
+	SessionID            string `json:"sessionId"`
+	CalibrationFeedback  string `json:"calibrationFeedback"`
+}
+
+// normalizeCalibrationFeedback coerces the client value against the
+// CHECK constraint enum. Empty / unknown → error (caller-side typo
+// shouldn't silently write 'right').
+func normalizeCalibrationFeedback(v string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "too_easy":
+		return "too_easy", true
+	case "right":
+		return "right", true
+	case "too_hard":
+		return "too_hard", true
+	}
+	return "", false
+}
+
+// PatchCalibration handles PATCH /quiz/sessions/{id}/calibration.
+// Writes a single string to quiz_sessions.calibration_feedback. The
+// session must be SUBMITTED, EXPIRED, or IN_PROGRESS — calibration
+// is a post-session signal but we accept it on in-flight sessions
+// too so the student doesn't have to wait for the submit round-trip.
+func (svc *SessionService) PatchCalibration(logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := parseSessionID(r)
+		if err != nil {
+			writeProblem(w, http.StatusBadRequest, "invalid_session_id", err.Error())
+			return
+		}
+		var req calibrationPatchRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeProblem(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
+			return
+		}
+		feedback, ok := normalizeCalibrationFeedback(req.Feedback)
+		if !ok {
+			writeProblem(w, http.StatusBadRequest, "invalid_feedback",
+				"feedback must be one of too_easy | right | too_hard")
+			return
+		}
+		// Confirm the session exists. We don't gate on status — the
+		// student should be able to record calibration mid-quiz if they
+		// already know how the round feels.
+		_, err = svc.store.GetSession(r.Context(), id)
+		if errors.Is(err, store.ErrSessionNotFound) {
+			writeProblem(w, http.StatusNotFound, "session_not_found", "No such session")
+			return
+		}
+		if err != nil {
+			logger.Error("get_session.failed", "err", err)
+			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load session")
+			return
+		}
+		if err := svc.store.SetCalibrationFeedback(r.Context(), id, feedback); err != nil {
+			logger.Error("set_calibration.failed", "err", err)
+			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to record calibration")
+			return
+		}
+		writeJSON(w, http.StatusOK, calibrationPatchResponse{
+			SessionID:           id.String(),
+			CalibrationFeedback: feedback,
+		})
+	}
 }
 
 func parseSessionID(r *http.Request) (uuid.UUID, error) {

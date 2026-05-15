@@ -595,19 +595,42 @@ func (s *Store) CreateSession(ctx context.Context, sess domain.Session) error {
 	if sess.SourceShareSlug != "" {
 		slug = sess.SourceShareSlug
 	}
+	// P6-S54 — intent_anchor defaults to 'match' DB-side; falling
+	// through to the column DEFAULT keeps legacy callers safe but the
+	// Start handler always normalises this before reaching the store.
+	intentAnchor := sess.IntentAnchor
+	if intentAnchor == "" {
+		intentAnchor = "match"
+	}
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO quiz_schema.quiz_sessions
 		  (id, user_id, tenant_id, topic_id, mode, strategy, status, target_count,
 		   served_count, correct_count, ability_estimate, started_at, expires_at,
-		   assignment_id, blueprint_id, source_share_slug)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+		   assignment_id, blueprint_id, source_share_slug, intent_anchor)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
 		sess.ID, sess.UserID, sess.TenantID, sess.TopicID, sess.Mode, sess.Strategy,
 		sess.Status, sess.TargetCount, sess.ServedCount, sess.CorrectCount,
 		sess.AbilityEstimate, sess.StartedAt, sess.ExpiresAt,
-		sess.AssignmentID, sess.BlueprintID, slug,
+		sess.AssignmentID, sess.BlueprintID, slug, intentAnchor,
 	)
 	if err != nil {
 		return fmt.Errorf("insert session: %w", err)
+	}
+	return nil
+}
+
+// SetCalibrationFeedback writes the P6-S54 post-session feedback
+// (one of "too_easy" | "right" | "too_hard"; the CHECK constraint
+// rejects anything else). Caller-side normalisation must run first.
+func (s *Store) SetCalibrationFeedback(ctx context.Context, id uuid.UUID, feedback string) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE quiz_schema.quiz_sessions
+		   SET calibration_feedback = $1
+		 WHERE id = $2`,
+		feedback, id,
+	)
+	if err != nil {
+		return fmt.Errorf("update calibration_feedback: %w", err)
 	}
 	return nil
 }

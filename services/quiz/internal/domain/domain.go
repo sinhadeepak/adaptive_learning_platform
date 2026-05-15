@@ -97,6 +97,12 @@ type Session struct {
 	// link (/t/<slug>). Author's "MyTests" UI reads aggregated attempt
 	// counts by joining on this column. Empty string = organic launch.
 	SourceShareSlug string
+	// P6-S54 — difficulty agency. Set at session start from the
+	// student's pre-quiz intent picker. The picker shifts initial item
+	// selection by ±0.4 θ̂ but never modifies mastery writes. DB-level
+	// CHECK constraint enforces 'match' | 'push' | 'build_confidence';
+	// unset means the column DEFAULT applies (= 'match').
+	IntentAnchor string
 }
 
 func (s Session) IsExpired(now time.Time) bool {

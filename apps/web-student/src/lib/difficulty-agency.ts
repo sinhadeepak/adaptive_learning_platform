@@ -7,13 +7,12 @@
 // Spec: docs/02_planning/55_Phase6_UXCoPilot_Evaluation_and_SprintPlan.md S54
 // ADR:  docs/adr/0022-difficulty-agency.md
 //
-// NOTE — Quiz Go's /quiz/sessions/start endpoint doesn't accept
-// intent_anchor yet (migration 010 added the column with DEFAULT
-// 'match'; the app code wires it in a later sprint). For S54 v0 the
-// selected intent is stored client-side per-topic and used to preview
-// the effective θ̂ via /adaptive/intent/theta-offset. When the start
-// endpoint accepts the field, the IntentSelector caller just passes it
-// through and this file's behaviour doesn't change.
+// Quiz Go's /quiz/sessions/start accepts the `intentAnchor` field
+// (wired alongside migration 010's column). The selected intent is
+// also stored client-side per-topic so the IntentSelector can
+// re-open at the user's last choice and the offset preview stays
+// instant. Both layers agree — the server is authoritative for the
+// θ̂ shift, the client is authoritative for the picker's default.
 
 import { auth } from "./api";
 

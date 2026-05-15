@@ -240,6 +240,12 @@ export function TopicDetail() {
     setError(null);
     setStarting(true);
     try {
+      // P6-S54 — read the per-topic intent (set by the IntentSelector
+      // in Quiz.tsx's session menu) and forward it to Quiz Go. The
+      // server applies a ±0.4 θ̂ offset on top of the difficultyBand
+      // seed; "match" is the safe default for first-time topics.
+      const { loadIntentForTopic } = await import("../lib/difficulty-agency");
+      const intentAnchor = loadIntentForTopic(topicId) ?? "match";
       const r = await auth.fetch(`/api/v1/quiz/sessions/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -251,6 +257,7 @@ export function TopicDetail() {
           // ability estimate. The backend ignores unknown values and
           // falls back to adaptive on the user's existing θ.
           difficultyBand,
+          intentAnchor,
         }),
       });
       if (r.status === 422) {
