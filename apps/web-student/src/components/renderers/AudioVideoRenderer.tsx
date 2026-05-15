@@ -109,7 +109,10 @@ function MediaQuestion({
   disabled,
 }: MediaQuestionProps): ReactNode {
   const [showTranscript, setShowTranscript] = useState(false);
-  const childCount = children_.length;
+  // Defensive: a missing `children` in the payload should render the
+  // Phase-2 "limited support" banner instead of crashing. Older seeds
+  // (and the Phase-2 banner test) don't include a children array.
+  const childCount = (children_ ?? []).length;
 
   function markPlayed() {
     onChange({

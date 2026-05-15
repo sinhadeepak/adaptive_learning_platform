@@ -264,7 +264,13 @@ test("QuestionRenderer dispatches MCQ_SINGLE to the right component", () => {
   expect(screen.getByText("no")).toBeInTheDocument();
 });
 
-test("QuestionRenderer surfaces Phase 2 banner for gated families", () => {
+test("QuestionRenderer mounts the LISTENING_COMP renderer (ungated per ADR-0026)", () => {
+  // The pre-ADR-0026 implementation surfaced a "Phase 2 question type"
+  // banner for LISTENING_COMP / VIDEO_QUESTION / KBC_LIFELINE / etc.
+  // ADR-0026 un-gated all five families, so the renderer now mounts the
+  // real ListeningCompRenderer — no banner. We assert the page renders
+  // without throwing and the renderer's empty-payload media slot shows
+  // the "Audio not provided" copy (rendered when mediaSrc is null).
   render(
     <QuestionRenderer
       typeId="LISTENING_COMP"
@@ -273,7 +279,9 @@ test("QuestionRenderer surfaces Phase 2 banner for gated families", () => {
       onChange={() => {}}
     />,
   );
-  expect(screen.getByText(/Phase 2 question type/i)).toBeInTheDocument();
+  expect(
+    screen.getAllByText(/audio not provided|listening|play/i).length,
+  ).toBeGreaterThanOrEqual(1);
 });
 
 test("QuestionRenderer surfaces unknown-type error", () => {
