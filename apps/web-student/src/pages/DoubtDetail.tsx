@@ -4,6 +4,7 @@ import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill, SkeletonRows } from "../components/dashboard";
+import { DoubtPracticeBridge } from "../components/DoubtPracticeBridge";
 
 // Doubt detail — backed by /doubts/{id}. Renders the question + answer
 // stream chronologically with source/role badges, and a reply composer
@@ -442,6 +443,17 @@ export function DoubtDetail() {
           </div>
         </div>
       ) : null}
+
+      {/* P6 S58 UX-35 — once at least one answer exists, surface the
+          "practice this concept" CTA so the loop closes back to a
+          retrieval round. Hidden while the doubt is still OPEN. */}
+      {data && data.answers.length > 0 && (
+        <DoubtPracticeBridge
+          topicId={data.topicId}
+          topicTitle={data.topicTitle}
+          resolved={data.status !== "OPEN"}
+        />
+      )}
     </AppShell>
   );
 }

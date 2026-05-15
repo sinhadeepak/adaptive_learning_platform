@@ -17,6 +17,10 @@ import { Link } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill, SkeletonRows } from "../components/dashboard";
 import { DecayArrow } from "../components/DecayArrow";
+import { ErrorPatternCoachingCard } from "../components/ErrorPatternCoachingCard";
+import { ConfidenceCalibrationCard } from "../components/ConfidenceCalibrationCard";
+import { auth } from "../lib/api";
+import type { PatternRollup } from "../lib/error_patterns";
 import { useAuth } from "../lib/auth-provider";
 import {
   decaySeverityLabel,
@@ -32,6 +36,10 @@ export function Insights() {
   const { user } = useAuth();
   const [snap, setSnap] = useState<InsightsSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // S58 — error-pattern rollup fed into the coaching card. Errors
+  // are non-fatal; the coaching card simply hides itself when the
+  // rollup is empty/null.
+  const [errorRollup, setErrorRollup] = useState<PatternRollup | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -46,6 +54,26 @@ export function Insights() {
             e instanceof Error ? e.message : "Couldn't load insights.",
           );
         }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // S58 — fetch the error-pattern rollup once user is loaded.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await auth.fetch(
+          `/api/v1/analytics/student/${user.id}/error-patterns`,
+        );
+        if (!r.ok || cancelled) return;
+        setErrorRollup((await r.json()) as PatternRollup);
+      } catch {
+        /* swallow — coaching card is a soft surface */
       }
     })();
     return () => {
@@ -132,6 +160,28 @@ export function Insights() {
           <MissionTile pending={snap.whatToDo.missionsTodayPending} />
           <RevisionTile dueToday={snap.whatToDo.revisionDueToday} />
           <PlanTile />
+        </div>
+      </section>
+
+      {/* ── Phase 6 S58 — Coaching: ErrorPattern + Calibration ─────── */}
+      <section
+        className="insights-zone"
+        aria-labelledby="zone-coaching"
+      >
+        <header className="insights-zone-head">
+          <h2 id="zone-coaching" className="insights-zone-title">
+            Coaching
+          </h2>
+          <p className="insights-zone-sub">
+            The pattern beneath your top error tag + how your confidence
+            tracks your real accuracy.
+          </p>
+        </header>
+        <div className="insights-coaching-grid">
+          <ErrorPatternCoachingCard rollup={errorRollup} />
+          {/* Calibration card stays empty for v0 — wires to
+              concept-profile's calibration rows when that fetch lands. */}
+          <ConfidenceCalibrationCard rows={[]} />
         </div>
       </section>
     </AppShell>

@@ -28,6 +28,7 @@ import { useAvatar } from "../lib/avatar";
 import { useAuth } from "../lib/auth-provider";
 import { InboxBell } from "./InboxBell";
 import { ThemeToggle } from "./ThemeToggle";
+import { CommandPalette } from "./CommandPalette";
 import type { TopbarChip } from "./Topbar";
 import "@alp/design-system/shell.css";
 
@@ -342,6 +343,9 @@ export function AppShell({
       }
     >
       {children}
+      {/* P6 S58 — global Cmd+K palette. Self-mounts; only renders the
+          panel when open, so the AppShell DOM cost stays trivial. */}
+      <CommandPalette />
     </UiAppShell>
   );
 }
