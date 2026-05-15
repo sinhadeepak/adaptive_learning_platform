@@ -37,6 +37,15 @@ import { AppShell } from "../components/AppShell";
 import { PhotoDoubt } from "../components/PhotoDoubt";
 import { MissionCard } from "../components/MissionCard";
 import { DailyPlanCard } from "../components/DailyPlanCard";
+import {
+  WeeklyNarrativeCard,
+  WeeklyNarrativeEmpty,
+} from "../components/WeeklyNarrativeCard";
+import {
+  fetchCurrentWeeklyNarrative,
+  generateWeeklyNarrative,
+  type NarrativeRecord,
+} from "../lib/weekly-narrative";
 
 interface Profile {
   user: { firstName: string };
@@ -107,6 +116,61 @@ export function Home() {
   const [inProgress, setInProgress] = useState<InProgressSession[]>([]);
   const [inProgressTitles, setInProgressTitles] = useState<Map<string, string>>(new Map());
   const [examsMeta, setExamsMeta] = useState<Record<string, ExamMeta>>({});
+
+  // Phase 6 S53 — weekly narrative card. Three states:
+  //   - loading: fetch in flight, nothing rendered
+  //   - found: render WeeklyNarrativeCard
+  //   - absent: render WeeklyNarrativeEmpty with a Generate button
+  const [weeklyNarrative, setWeeklyNarrative] = useState<
+    | { kind: "loading" }
+    | { kind: "found"; record: NarrativeRecord }
+    | { kind: "absent"; reason: string }
+    | { kind: "error"; message: string }
+  >({ kind: "loading" });
+  const [generatingNarrative, setGeneratingNarrative] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchCurrentWeeklyNarrative(user.id);
+        if (cancelled) return;
+        setWeeklyNarrative(
+          res.kind === "found"
+            ? { kind: "found", record: res.record }
+            : { kind: "absent", reason: res.reason },
+        );
+      } catch (e) {
+        if (cancelled) return;
+        setWeeklyNarrative({
+          kind: "error",
+          message:
+            e instanceof Error ? e.message : "Couldn't load weekly narrative.",
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  async function onGenerateNarrative() {
+    if (!user || generatingNarrative) return;
+    setGeneratingNarrative(true);
+    try {
+      const record = await generateWeeklyNarrative(user.id);
+      setWeeklyNarrative({ kind: "found", record });
+    } catch (e) {
+      setWeeklyNarrative({
+        kind: "error",
+        message:
+          e instanceof Error ? e.message : "Couldn't generate narrative.",
+      });
+    } finally {
+      setGeneratingNarrative(false);
+    }
+  }
 
   useEffect(() => {
     (async () => {
@@ -404,6 +468,25 @@ export function Home() {
 
       {/* ── Today's mission (Phase 6 S50 — legacy component preserved) ── */}
       <MissionCard />
+
+      {/* ── Weekly narrative (Phase 6 S53) ─────────────────────────
+          Loads via GET /adaptive/weekly-narrative/current/{user_id}.
+          Renders the 5-section card on hit; offers a Generate button
+          when the week's narrative hasn't been written yet. We hide
+          the slot completely while loading so the home page doesn't
+          flash an empty card. */}
+      {weeklyNarrative.kind === "found" && (
+        <WeeklyNarrativeCard record={weeklyNarrative.record} />
+      )}
+      {weeklyNarrative.kind === "absent" && (
+        <WeeklyNarrativeEmpty
+          onGenerate={onGenerateNarrative}
+          generating={generatingNarrative}
+        />
+      )}
+      {weeklyNarrative.kind === "error" && (
+        <WeeklyNarrativeEmpty error={weeklyNarrative.message} />
+      )}
 
       {/* ── Resume practice (when in-progress sessions exist) ── */}
       {inProgress.length > 0 ? (

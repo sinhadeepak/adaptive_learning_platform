@@ -100,10 +100,12 @@ describe("camelize (raw aggregator → typed shape)", () => {
   test("tolerates a missing concept_mastery array (defensive)", () => {
     // FastAPI shouldn't emit this, but a future schema change shouldn't
     // crash the page. The client coalesces missing arrays to [].
+    // Deliberately omitting concept_mastery — the cast at the call
+    // site (`as never`) is what suppresses the type error; the test
+    // verifies the runtime coalesces missing arrays to [].
     const raw = {
       user_id: "u-x",
       my_state: {
-        // @ts-expect-error — deliberately omitting concept_mastery
         topic_decay: [],
         readiness: null,
       },
@@ -111,8 +113,6 @@ describe("camelize (raw aggregator → typed shape)", () => {
       what_to_do: { missions_today_pending: false, revision_due_today: 0 },
     };
 
-    // Type-cast since we're testing defensive runtime behaviour, not the
-    // declared input contract.
     const out = _camelizeForTest(raw as never);
     expect(out.myState.conceptMastery).toEqual([]);
   });
