@@ -16,6 +16,7 @@ import { Link } from "react-router-dom";
 
 import { AppShell } from "../components/AppShell";
 import { Banner, Pill, SkeletonRows } from "../components/dashboard";
+import { DecayArrow } from "../components/DecayArrow";
 import { useAuth } from "../lib/auth-provider";
 import {
   decaySeverityLabel,
@@ -221,6 +222,7 @@ function ConceptMasteryTile({ rows }: { rows: ConceptRow[] }) {
           {rows.slice(0, 5).map((r) => (
             <li key={r.conceptId}>
               <span className="concept-id">{shortId(r.conceptId)}</span>
+              <DecayArrow severity={r.decaySeverity} inline />
               <span className="concept-ewa">{Math.round(r.ewa * 100)}%</span>
               <span className="concept-n">n={r.n}</span>
             </li>

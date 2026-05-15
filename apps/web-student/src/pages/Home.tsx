@@ -42,6 +42,7 @@ import {
   WeeklyNarrativeEmpty,
 } from "../components/WeeklyNarrativeCard";
 import { AdaptsExplainerCard } from "../components/AdaptsExplainerCard";
+import { ReadinessBandCard } from "../components/ReadinessBandCard";
 import {
   fetchCurrentWeeklyNarrative,
   generateWeeklyNarrative,
@@ -466,6 +467,12 @@ export function Home() {
 
       {/* ── Today's plan (Phase B3 — IGS, legacy component preserved) ── */}
       {firstExam?.examId ? <DailyPlanCard examId={firstExam.examId} /> : null}
+
+      {/* ── Readiness band (P6 S56) ──────────────────────────────
+          Renders the user's current band + recovery actions. Hidden
+          until the fetch resolves so the page doesn't flash an empty
+          card. */}
+      {user && <ReadinessBandCard userId={user.id} />}
 
       {/* ── How adaptive practice works (P6 S54 — first-quiz only) ────
           The card self-gates on a localStorage flag set when the

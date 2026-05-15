@@ -7,6 +7,7 @@ import { ConceptProfile } from "./pages/ConceptProfile";
 import { DiagnosticDeepDive } from "./pages/DiagnosticDeepDive";
 import { Insights } from "./pages/Insights";
 import { StudyPlanPage } from "./pages/StudyPlan";
+import { RevisionRitual } from "./pages/RevisionRitual";
 import { AssignmentDetail } from "./pages/AssignmentDetail";
 import { Assignments } from "./pages/Assignments";
 import { Billing } from "./pages/Billing";
@@ -656,6 +657,16 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <CourseRead />
+      </ProtectedRoute>
+    ),
+  },
+
+  // Phase 6 S56 — Revision ritual (5-question recall flow).
+  {
+    path: "/revision/ritual/:conceptId?",
+    element: (
+      <ProtectedRoute>
+        <RevisionRitual />
       </ProtectedRoute>
     ),
   },

@@ -7017,3 +7017,227 @@
   color: var(--color-ai, #7C3AED);
 }
 .plan-row-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ─── Phase 6 S56 — Decay arrows + readiness bands + revision ritual ─── */
+
+/* DecayArrow inline glyph */
+.decay-arrow {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.decay-arrow.is-inline { padding: 0 2px; }
+.decay-arrow-glyph { font-size: 13px; line-height: 1; }
+.decay-arrow-days { font-size: 10px; opacity: 0.85; }
+.decay-arrow-danger { color: var(--color-red, #F4685A); }
+.decay-arrow-warning { color: var(--color-amber, #F5A623); }
+.decay-arrow-success { color: var(--color-green, #5EC886); }
+.decay-arrow-neutral { color: var(--text-faint, #7A8BAD); }
+
+/* ReadinessBandCard */
+.readiness-band-card {
+  margin-top: var(--sp-4);
+  padding: 16px 18px;
+  background: var(--bg-surface-1, #0F1A2E);
+  border: 1px solid var(--border, rgba(255,255,255,0.10));
+  border-radius: 12px;
+}
+.readiness-band-card.readiness-band-approaching {
+  border-color: rgba(94,200,134,0.40);
+  background: linear-gradient(
+    135deg,
+    rgba(94,200,134,0.05),
+    rgba(94,200,134,0.02)
+  );
+}
+.readiness-band-card.readiness-band-on_track {
+  border-color: rgba(79,135,246,0.40);
+  background: linear-gradient(
+    135deg,
+    rgba(79,135,246,0.05),
+    rgba(79,135,246,0.02)
+  );
+}
+.readiness-band-card.readiness-band-behind {
+  border-color: rgba(245,166,35,0.40);
+  background: linear-gradient(
+    135deg,
+    rgba(245,166,35,0.05),
+    rgba(245,166,35,0.02)
+  );
+}
+.readiness-band-card.readiness-band-at_risk {
+  border-color: rgba(244,104,90,0.40);
+  background: linear-gradient(
+    135deg,
+    rgba(244,104,90,0.07),
+    rgba(244,104,90,0.02)
+  );
+}
+.readiness-band-error {
+  border-color: rgba(244,104,90,0.40);
+  color: var(--color-red, #F4685A);
+  font-size: 12px;
+}
+
+.rb-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rb-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #B8C5E0);
+  margin-bottom: 2px;
+}
+.rb-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary, #E8EEF8);
+}
+.rb-meta {
+  margin: 8px 0 12px 0;
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary, #B8C5E0);
+}
+.rb-actions {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rb-actions li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary, #B8C5E0);
+}
+.rb-action-bullet { color: var(--color-ai, #7C3AED); font-weight: 700; }
+
+/* RevisionRitual */
+.ritual-stepper {
+  display: flex;
+  gap: 8px;
+  margin-bottom: var(--sp-3);
+  flex-wrap: wrap;
+}
+.ritual-step {
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: var(--bg-surface-2, #16213A);
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #B8C5E0);
+}
+.ritual-step.is-active {
+  background: rgba(124,58,237,0.18);
+  border-color: rgba(124,58,237,0.55);
+  color: var(--color-ai, #7C3AED);
+}
+.ritual-step.is-done {
+  color: var(--color-green, #5EC886);
+  border-color: rgba(94,200,134,0.30);
+}
+.ritual-title {
+  margin: 0 0 var(--sp-3) 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary, #E8EEF8);
+}
+.ritual-card {
+  padding: 20px 22px;
+  background: linear-gradient(
+    135deg,
+    rgba(124,58,237,0.05),
+    rgba(34,212,238,0.05)
+  );
+  border: 1px solid rgba(124,58,237,0.18);
+  border-radius: 14px;
+  margin-bottom: var(--sp-3);
+}
+.ritual-h2 {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.ritual-copy {
+  margin: 0 0 14px 0;
+  font-size: 13px;
+  color: var(--text-secondary, #B8C5E0);
+  line-height: 1.5;
+}
+.ritual-confidence {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.ritual-conf-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 10px;
+  background: var(--bg-surface-1, #0F1A2E);
+  border: 1px solid var(--border, rgba(255,255,255,0.10));
+  border-radius: 10px;
+  color: var(--text-primary, #E8EEF8);
+  font: inherit;
+  cursor: pointer;
+}
+.ritual-conf-btn.is-active {
+  border-color: var(--color-ai, #7C3AED);
+  background: rgba(124,58,237,0.10);
+}
+.ritual-conf-glyph {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--color-ai, #7C3AED);
+}
+.ritual-conf-label { font-size: 12px; font-weight: 600; }
+.ritual-cta-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ritual-cta {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border, rgba(255,255,255,0.10));
+  background: transparent;
+  color: var(--text-secondary, #B8C5E0);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.ritual-cta:hover:not(:disabled) {
+  border-color: rgba(124,58,237,0.40);
+  color: var(--color-ai, #7C3AED);
+}
+.ritual-cta:disabled { opacity: 0.5; cursor: not-allowed; }
+.ritual-cta-primary {
+  background: rgba(124,58,237,0.14);
+  border-color: rgba(124,58,237,0.55);
+  color: var(--color-ai, #7C3AED);
+}
+.ritual-footer {
+  font-size: 11px;
+  color: var(--text-faint, #7A8BAD);
+}
