@@ -17,9 +17,26 @@ class AlpColors {
   static const Color bgSurface4 = Color(0xFF1B2844); // nested element
 
   // ── Text (--text-primary / --text-secondary / --text-muted / --text-faint) ──
+  // DEPRECATED in Aurora v3 — these constants are dark-theme only and break
+  // light-mode rendering. Read from Theme.of(context).colorScheme.onSurface
+  // (or .onSurfaceVariant for secondary) instead. Wave 2 W2.11 sweeps the
+  // ~156 remaining inline sites and removes these constants.
+  @Deprecated(
+    'Read Theme.of(context).colorScheme.onSurface. Hardcoded dark-theme value '
+    'breaks light-mode surfaces — see Aurora v3 plan Wave 1.',
+  )
   static const Color textPrimary = Color(0xFFEEF2FF);
+  @Deprecated(
+    'Read Theme.of(context).colorScheme.onSurfaceVariant. See Aurora v3 plan.',
+  )
   static const Color textSecondary = Color(0xFFB8C5E0);
+  @Deprecated(
+    'Read Theme.of(context).hintColor or extension<AuroraColors>().neutral500.',
+  )
   static const Color textMuted = Color(0xFF7A8BAD);
+  @Deprecated(
+    'Read extension<AuroraColors>().neutral400 instead. See Aurora v3 plan.',
+  )
   static const Color textFaint = Color(0xFF3E4D6A);
 
   // ── Borders (rgba on white at 7% / 11%) ────────────────────────────────

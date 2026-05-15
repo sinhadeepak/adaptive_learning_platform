@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api/phase5_api.dart';
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 import '../l10n/strings.dart';
 
@@ -109,49 +110,53 @@ class _DiagnosticDeepDiveScreenState extends State<DiagnosticDeepDiveScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(t('diagnostic.title'))),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: t('diagnostic.title')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (_error != null)
-            Card(
-              color: Theme.of(context).colorScheme.errorContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(_error!),
+          if (_error != null) ...[
+            AuroraCard(
+              padding: AuroraCardPadding.sm,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_error!)),
+                ],
               ),
             ),
-          const SizedBox(height: 8),
+            const SizedBox(height: 8),
+          ],
           Text(
             t('diagnostic.subtitle'),
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
-          TextField(
+          AuroraTextField(
             controller: _conceptCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Primary concept id',
-              hintText: 'newton2',
-              border: OutlineInputBorder(),
-            ),
-            style: const TextStyle(fontFamily: 'monospace'),
+            label: 'Primary concept id',
+            placeholder: 'newton2',
           ),
           const SizedBox(height: 12),
-          TextField(
+          AuroraTextField(
             controller: _edgesCtrl,
+            label: 'Prereq edges (one per line, "from -> to")',
+            placeholder: 'newton2 -> newton1\nnewton1 -> vectors',
             maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Prereq edges (one per line, "from -> to")',
-              hintText: 'newton2 -> newton1\nnewton1 -> vectors',
-              border: OutlineInputBorder(),
-            ),
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+            minLines: 4,
           ),
           const SizedBox(height: 12),
-          ElevatedButton(
+          AuroraButton(
+            label: _busy ? t('common.loading') : t('diagnostic.run_button'),
+            variant: AuroraButtonVariant.aurora,
+            loading: _busy,
+            iconLeft: const Text('✦'),
             onPressed: _busy ? null : _run,
-            child: Text(_busy ? t('common.loading') : t('diagnostic.run_button')),
           ),
           const SizedBox(height: 24),
           if (_result != null) _ResultCard(result: _result!, mastery: _masteryMap),

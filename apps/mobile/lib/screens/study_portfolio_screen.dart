@@ -8,8 +8,8 @@ import 'dart:convert';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
-import '../widgets/alp_card.dart';
 
 class StudyPortfolioScreen extends StatefulWidget {
   const StudyPortfolioScreen({
@@ -98,85 +98,104 @@ class _StudyPortfolioScreenState extends State<StudyPortfolioScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Study Portfolio')),
+    final colors = Theme.of(context).extension<AuroraColors>()!;
+    final typography = Theme.of(context).extension<AuroraTypography>()!;
+
+    return AuroraScaffold(
+      appBar: const AuroraAppBar(title: 'Study Portfolio'),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AuroraSpinner(size: 28))
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text("Couldn't load portfolio: $_error"),
+              ? Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: AuroraEmptyState(
+                    illustration: const Icon(Icons.cloud_off_outlined),
+                    title: "Couldn't load portfolio",
+                    description: _error,
                   ),
                 )
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    AlpCard(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
+                    AuroraCard(
+                      tone: AuroraCardTone.auroraAi,
+                      padding: AuroraCardPadding.lg,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                '✦',
+                                style: TextStyle(color: colors.aurora500),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'STUDY PORTFOLIO',
+                                style: typography.overline.copyWith(
+                                  color: colors.aurora500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Where is your effort going?',
+                            style: typography.h3.copyWith(
+                              color: colors.neutral900,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          for (final b in _buckets) ...[
+                            _bucketRow(b),
+                            const SizedBox(height: 12),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (_hint.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      AuroraCard(
+                        padding: AuroraCardPadding.md,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              '◈ STUDY PORTFOLIO',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.6,
-                                color: AlpColors.colorAi,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Where is your effort going?',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            for (final b in _buckets) ...[
-                              _bucketRow(b),
-                              const SizedBox(height: 12),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (_hint.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: AlpCard(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            Row(
                               children: [
-                                const Text(
-                                  '◈ REBALANCE HINT',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.6,
-                                    color: AlpColors.colorAi,
-                                  ),
+                                Text(
+                                  '✦',
+                                  style:
+                                      TextStyle(color: colors.aurora500),
                                 ),
-                                const SizedBox(height: 8),
-                                Text(_hint,
-                                    style: const TextStyle(fontSize: 14)),
-                                const SizedBox(height: 12),
-                                ElevatedButton(
-                                  onPressed: _recomputing ? null : _rebalance,
-                                  child: Text(_recomputing
-                                      ? 'Rebalancing…'
-                                      : 'Rebalance my plan →'),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'REBALANCE HINT',
+                                  style: typography.overline.copyWith(
+                                    color: colors.aurora500,
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _hint,
+                              style: typography.body.copyWith(
+                                color: colors.neutral700,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            AuroraButton(
+                              label: _recomputing
+                                  ? 'Rebalancing…'
+                                  : 'Rebalance my plan →',
+                              variant: AuroraButtonVariant.aurora,
+                              loading: _recomputing,
+                              onPressed: _recomputing ? null : _rebalance,
+                            ),
+                          ],
                         ),
                       ),
+                    ],
                   ],
                 ),
     );

@@ -1,6 +1,12 @@
+// Login — Aurora redesign (split-screen).
+//
+// Spec: docs/02-design/design-system-v2-aurora.md §8.2.1
+// ADR:  docs/adr/0028-design-system-v2-aurora.md (S8 deliverable)
+
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { AuthError } from "@alp/auth-client";
+import { Button, Checkbox, FormField, Input } from "@alp/ui";
 import { useAuth } from "../lib/auth-provider";
 import { Banner } from "../components/dashboard";
 import "@alp/design-system/shell.css";
@@ -52,46 +58,68 @@ export function Login() {
   }
 
   return (
-    <div className="auth-page">
-      <main className="auth-card">
-        <div className="auth-mark">
-          <div className="sidebar-mark">A</div>
-          <span className="sidebar-mark-text">AdaptiveLearn</span>
+    <div className="alp-authpage">
+      {/* ── Illustration column (md+) ── */}
+      <aside className="alp-authpage__illustration" aria-hidden>
+        <div className="alp-authpage__brand">
+          <span className="alp-authpage__brand-mark">A</span>
+          AdaptiveLearn
         </div>
-        <h1 className="page-greeting" style={{ marginBottom: "var(--sp-1)" }}>
-          Log in
-        </h1>
-        <p className="page-subhead">Welcome back, learner.</p>
+        <div>
+          <div className="alp-authpage__tagline">
+            Practice smarter. Improve faster.
+          </div>
+          <div className="alp-authpage__tagline-sub">
+            Your AI coach picks the next question at your level — and remembers
+            what you've already mastered.
+          </div>
+        </div>
+        <div style={{ opacity: 0.8, fontSize: 13 }}>
+          🔥 30M+ questions practiced this month
+        </div>
+      </aside>
 
-        {error ? (
-          <Banner tone="danger" role="alert">
-            {error}
-          </Banner>
-        ) : null}
+      {/* ── Form column ── */}
+      <main className="alp-authpage__panel">
+        <form
+          onSubmit={onSubmit}
+          className="alp-authpage__form"
+          aria-label="Log in"
+        >
+          <div className="alp-authpage__mobile-brand">
+            <span className="alp-authpage__brand-mark">A</span>
+            AdaptiveLearn
+          </div>
+          <header>
+            <h1 className="alp-authpage__title">Log in</h1>
+            <p className="alp-authpage__subtitle">Welcome back, learner.</p>
+          </header>
 
-        <form onSubmit={onSubmit} className="auth-form" aria-label="Log in">
-          <label className="form-field">
-            <span className="form-label">Email</span>
-            <input
+          {error ? (
+            <Banner tone="danger" role="alert">
+              {error}
+            </Banner>
+          ) : null}
+
+          <FormField label="Email" required>
+            <Input
               type="email"
               autoComplete="email"
               value={email}
               required
               onChange={(e) => setEmail(e.target.value)}
-              className="form-input"
             />
-          </label>
-          <label className="form-field">
-            <span className="form-label">Password</span>
-            <input
+          </FormField>
+
+          <FormField label="Password" required>
+            <Input
               type="password"
               autoComplete="current-password"
               value={password}
               required
               onChange={(e) => setPassword(e.target.value)}
-              className="form-input"
             />
-          </label>
+          </FormField>
 
           <div
             style={{
@@ -103,39 +131,53 @@ export function Login() {
           >
             <label
               style={{
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
-                gap: "var(--sp-2)",
-                color: "var(--text-secondary)",
+                gap: 8,
+                color: "var(--neutral-700)",
               }}
             >
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
               />
               Remember me
             </label>
-            <Link to="/forgot-password" className="auth-link">
+            <Link
+              to="/forgot-password"
+              style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+            >
               Forgot?
             </Link>
           </div>
 
-          <button
+          <Button
             type="submit"
-            className="btn btn-primary btn-block"
-            disabled={submitting}
+            variant="primary"
+            size="lg"
+            fullWidth
+            loading={submitting}
           >
             {submitting ? "Logging in…" : "Log in"}
-          </button>
-        </form>
+          </Button>
 
-        <p className="auth-footer">
-          New here?{" "}
-          <Link to="/register" className="auth-link">
-            Sign up
-          </Link>
-        </p>
+          <p
+            style={{
+              textAlign: "center",
+              margin: 0,
+              color: "var(--neutral-600)",
+              fontSize: 14,
+            }}
+          >
+            New here?{" "}
+            <Link
+              to="/register"
+              style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+            >
+              Sign up
+            </Link>
+          </p>
+        </form>
       </main>
     </div>
   );

@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Card } from "@alp/ui";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
+import { useTheme, type Theme } from "../lib/theme";
+import { useDensity, type Density } from "../lib/density";
 import { AppShell } from "../components/AppShell";
 import { Banner, SkeletonRows } from "../components/dashboard";
 
@@ -238,6 +241,9 @@ export function Settings() {
       ) : null}
 
       <div style={{ marginTop: "var(--sp-5)" }}>
+        {/* ── Theme & density (Aurora v2 — S8 deliverable) ──────── */}
+        <ThemeDensitySection />
+
         {/* ── Language ─────────────────────────────────────────── */}
         <section className="topic-section">
           <h2 className="topic-section-title">Study language</h2>
@@ -462,5 +468,147 @@ export function Settings() {
         </section>
       </div>
     </AppShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Theme & Density picker (Aurora v2 — S8).
+// Lets the user switch:
+//   * Theme:   system / light / dark   → `data-theme` on <html>
+//   * Density: junior / aspirant / pro → `data-density` on <html>
+//
+// Backed by ThemeProvider + DensityProvider in src/lib/. Both persist
+// to localStorage and apply pre-paint via index.html bootstrap.
+//
+// Spec: docs/02-design/design-system-v2-aurora.md §5 + §12
+// ─────────────────────────────────────────────────────────────────────────
+
+const THEME_OPTIONS: Array<{ id: Theme; label: string; description: string }> = [
+  { id: "system", label: "System", description: "Match your device's light/dark setting." },
+  { id: "light", label: "Light", description: "Bright canvas, dark text." },
+  { id: "dark", label: "Dark", description: "Quiet canvas — easier for long sessions." },
+];
+
+const DENSITY_OPTIONS: Array<{ id: Density; label: string; description: string }> = [
+  {
+    id: "junior",
+    label: "Junior",
+    description: "Comfortable spacing + larger touch targets. Best for Class 5–10.",
+  },
+  {
+    id: "aspirant",
+    label: "Aspirant",
+    description: "Standard density. NEET / JEE / UPSC / Class 11–12 (default).",
+  },
+  {
+    id: "pro",
+    label: "Pro",
+    description: "Compact spacing + smaller chrome. Working pros and tutors.",
+  },
+];
+
+function ThemeDensitySection() {
+  const { theme, setTheme } = useTheme();
+  const { density, setDensity } = useDensity();
+  return (
+    <section
+      className="topic-section"
+      aria-label="Theme and density"
+      style={{ marginBottom: 16 }}
+    >
+      <h2 className="topic-section-title">Theme &amp; density</h2>
+      <p className="topic-section-body" style={{ marginBottom: 12 }}>
+        Aurora adapts the visual system to your environment and persona. Both
+        switches apply instantly across every screen.
+      </p>
+
+      {/* Theme picker */}
+      <div
+        role="radiogroup"
+        aria-label="Theme"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 8,
+          marginBottom: 16,
+        }}
+      >
+        {THEME_OPTIONS.map((opt) => {
+          const active = theme === opt.id;
+          return (
+            <Card
+              key={opt.id}
+              asButton
+              padding="md"
+              interactive
+              tone={active ? "aurora-ai" : "neutral"}
+              role="radio"
+              aria-checked={active}
+              onClick={() => setTheme(opt.id)}
+              style={{
+                borderColor: active ? "var(--brand-500)" : undefined,
+                outline: active ? "2px solid var(--brand-500)" : "none",
+                outlineOffset: 0,
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <div style={{ fontWeight: 600, color: "var(--neutral-900)" }}>
+                {opt.label}
+              </div>
+              <div style={{ fontSize: 13, color: "var(--neutral-600)", marginTop: 4 }}>
+                {opt.description}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Density picker */}
+      <div style={{ fontWeight: 600, color: "var(--neutral-800)", marginBottom: 8 }}>
+        Density
+      </div>
+      <div
+        role="radiogroup"
+        aria-label="Density"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: 8,
+        }}
+      >
+        {DENSITY_OPTIONS.map((opt) => {
+          const active = density === opt.id;
+          return (
+            <Card
+              key={opt.id}
+              asButton
+              padding="md"
+              interactive
+              role="radio"
+              aria-checked={active}
+              onClick={() => setDensity(opt.id)}
+              style={{
+                borderColor: active ? "var(--brand-500)" : undefined,
+                outline: active ? "2px solid var(--brand-500)" : "none",
+                outlineOffset: 0,
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <div style={{ fontWeight: 600, color: "var(--neutral-900)" }}>
+                {opt.label}
+                {active ? (
+                  <span style={{ color: "var(--brand-600)", marginLeft: 8 }}>✓</span>
+                ) : null}
+              </div>
+              <div style={{ fontSize: 13, color: "var(--neutral-600)", marginTop: 4 }}>
+                {opt.description}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </section>
   );
 }

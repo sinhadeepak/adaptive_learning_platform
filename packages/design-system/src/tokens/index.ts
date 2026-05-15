@@ -28,3 +28,14 @@ export const tokens = {
 } as const;
 
 export type Tokens = typeof tokens;
+
+// ───── Aurora v2 tokens (additive — see docs/02-design/design-system-v2-aurora.md) ─────
+export {
+  aurora,
+  bucketForEwa,
+} from "./v2";
+export type {
+  AuroraTokens,
+  MasteryBucket,
+  Density,
+} from "./v2";

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../../aurora/widgets/widgets.dart';
 
 import '../../api/marketplace.dart';
 import '../../widgets/alp_card.dart';
@@ -129,9 +130,8 @@ class _TutorDetailScreenState extends State<TutorDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final p = _profile;
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(title: Text(p?.displayName ?? 'Tutor')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: p?.displayName ?? 'Tutor'),
       body: p == null
           ? Center(
               child: _error != null
@@ -139,7 +139,7 @@ class _TutorDetailScreenState extends State<TutorDetailScreen> {
                       padding: const EdgeInsets.all(16),
                       child: Text(_error!,
                           style: const TextStyle(color: AlpColors.colorRed),),)
-                  : const CircularProgressIndicator(),
+                  : const AuroraSpinner(size: 32),
             )
           : ListView(
               padding: const EdgeInsets.all(16),
@@ -158,7 +158,6 @@ class _TutorDetailScreenState extends State<TutorDetailScreen> {
                       Text(
                         '${_rupees(p.hourlyRatePaise)} /hr',
                         style: const TextStyle(
-                            color: AlpColors.textPrimary,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,),
                       ),
@@ -173,7 +172,6 @@ class _TutorDetailScreenState extends State<TutorDetailScreen> {
                       children: [
                         const Text('About',
                             style: TextStyle(
-                                color: AlpColors.textPrimary,
                                 fontWeight: FontWeight.bold,),),
                         const SizedBox(height: 6),
                         Text(p.bio,
@@ -191,7 +189,6 @@ class _TutorDetailScreenState extends State<TutorDetailScreen> {
                       children: [
                         const Text('Qualifications',
                             style: TextStyle(
-                                color: AlpColors.textPrimary,
                                 fontWeight: FontWeight.bold,),),
                         const SizedBox(height: 6),
                         ...p.qualifications.map((q) => Padding(
@@ -226,7 +223,6 @@ class _TutorDetailScreenState extends State<TutorDetailScreen> {
                       children: [
                         const Text('Weekly availability',
                             style: TextStyle(
-                                color: AlpColors.textPrimary,
                                 fontWeight: FontWeight.bold,),),
                         const SizedBox(height: 6),
                         ...p.availability.map((a) => Text(
@@ -248,7 +244,6 @@ class _TutorDetailScreenState extends State<TutorDetailScreen> {
                         children: [
                           const Text('Book a session',
                               style: TextStyle(
-                                  color: AlpColors.textPrimary,
                                   fontWeight: FontWeight.bold,),),
                           TextButton.icon(
                             onPressed: _pickDate,
@@ -289,8 +284,8 @@ class _TutorDetailScreenState extends State<TutorDetailScreen> {
                                 .padLeft(2, '0');
                             return ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AlpColors.bgSurface3,
-                                foregroundColor: AlpColors.textPrimary,
+                                foregroundColor:
+                                    Theme.of(context).colorScheme.onSurface,
                               ),
                               onPressed: _booking ? null : () => _bookSlot(s),
                               child: Text('$h:$m'),

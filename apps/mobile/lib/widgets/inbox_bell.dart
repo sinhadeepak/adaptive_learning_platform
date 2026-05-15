@@ -67,7 +67,7 @@ class _InboxBellButtonState extends State<InboxBellButton> {
             border: Border.all(color: AlpColors.borderDefault),
           ),
           child: IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: AlpColors.textPrimary, size: 20),
+            icon: const Icon(Icons.notifications_outlined, size: 20),
             onPressed: _open,
             tooltip: _unread > 0 ? '$_unread unread' : 'Inbox',
             splashRadius: 22,

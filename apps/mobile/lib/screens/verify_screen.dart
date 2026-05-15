@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 
 /// Verify screen — mobile parity of web-student/src/pages/Verify.tsx (Pass 1 §3 wireframe).
@@ -142,8 +143,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.surfaceSecondary,
+    return AuroraScaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

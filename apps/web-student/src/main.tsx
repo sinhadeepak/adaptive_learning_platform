@@ -6,8 +6,14 @@ import ReactDOM from "react-dom/client";
 // index.html before React mounts (avoids dark→light flash).
 import "@alp/design-system/tokens.css";
 
+// Aurora primitives (Button, Tag, Card, Avatar, EmptyState, Skeleton, …).
+// Component CSS must load AFTER the token sheet so its custom-property
+// references resolve to the active theme + density.
+import "@alp/ui/ui.css";
+
 import { App } from "./App";
 import { ThemeProvider } from "./lib/theme";
+import { DensityProvider } from "./lib/density";
 
 // Surface fatal errors to the page so a blank-screen failure isn't silent.
 // (Keeps until staging gets proper observability.)
@@ -67,7 +73,9 @@ try {
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <ThemeProvider>
-        <App />
+        <DensityProvider>
+          <App />
+        </DensityProvider>
       </ThemeProvider>
     </React.StrictMode>,
   );

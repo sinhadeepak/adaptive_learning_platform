@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
@@ -117,7 +118,6 @@ class _ProgressTabState extends State<ProgressTab> {
 
     return RefreshIndicator(
       onRefresh: _refresh,
-      backgroundColor: AlpColors.bgSurface2,
       color: AlpColors.colorAi,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -130,7 +130,7 @@ class _ProgressTabState extends State<ProgressTab> {
                   children: [
                     const Text(
                       'My Progress',
-                      style: TextStyle(color: AlpColors.textPrimary, fontSize: 24, fontWeight: FontWeight.w700),
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -204,23 +204,23 @@ class _ProgressTabState extends State<ProgressTab> {
           ),
 
           // Weekly bar chart — last 7 days from real telemetry
-          const AlpSectionHeading('Last 7 days'),
+          const AuroraSectionHeading('Last 7 days'),
           AlpCard(
             padding: const EdgeInsets.all(18),
             child: _WeeklyBars(activity: _activity),
           ),
 
           // 90-day activity heatmap
-          const AlpSectionHeading('Activity heatmap'),
+          const AuroraSectionHeading('Activity heatmap'),
           AlpCard(
             padding: const EdgeInsets.all(14),
             child: _ActivityHeatmap(activity: _activity),
           ),
 
           // Subject mastery
-          AlpSectionHeading(
+          AuroraSectionHeading(
             'Subject Mastery',
-            trailing: Text(
+            action: Text(
               'EWA',
               style: TextStyle(color: AlpColors.textFaint, fontSize: 11),
             ),
@@ -228,7 +228,7 @@ class _ProgressTabState extends State<ProgressTab> {
           if (_loading)
             const Padding(
               padding: EdgeInsets.all(24),
-              child: Center(child: CircularProgressIndicator(color: AlpColors.colorAi)),
+              child: Center(child: AuroraSpinner(size: 32)),
             )
           else if (_mastery == null || _mastery!.isEmpty)
             const AlpCard(
@@ -315,7 +315,6 @@ class _ScoreRing extends StatelessWidget {
               Text(
                 pct.toStringAsFixed(0),
                 style: const TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                   height: 1,
@@ -541,7 +540,7 @@ class _ActivityHeatmap extends StatelessWidget {
           children: [
             Text(
               '$totalSessions sessions · ${totalMinutes ~/ 60}h ${totalMinutes % 60}m',
-              style: const TextStyle(color: AlpColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
             const Spacer(),
             const Text('Last 90 days', style: TextStyle(color: AlpColors.textMuted, fontSize: 11)),
@@ -605,7 +604,6 @@ class _MasteryBar extends StatelessWidget {
                   child: Text(
                     title,
                     style: const TextStyle(
-                      color: AlpColors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -623,7 +621,6 @@ class _MasteryBar extends StatelessWidget {
               child: LinearProgressIndicator(
                 minHeight: 4,
                 value: ewa.clamp(0, 1),
-                backgroundColor: AlpColors.bgSurface3,
                 valueColor: AlwaysStoppedAnimation<Color>(tone),
               ),
             ),

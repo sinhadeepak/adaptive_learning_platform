@@ -1,5 +1,11 @@
+// Register — Aurora redesign (split-screen).
+//
+// Spec: docs/02-design/design-system-v2-aurora.md §8.2.1
+// ADR:  docs/adr/0028-design-system-v2-aurora.md (S8 deliverable)
+
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Button, Checkbox, FormField, Input } from "@alp/ui";
 import { auth } from "../lib/api";
 import { Banner } from "../components/dashboard";
 import "@alp/design-system/shell.css";
@@ -53,125 +59,159 @@ export function Register() {
   }
 
   return (
-    <div className="auth-page">
-      <main className="auth-card">
-        <div className="auth-mark">
-          <div className="sidebar-mark">A</div>
-          <span className="sidebar-mark-text">AdaptiveLearn</span>
+    <div className="alp-authpage">
+      <aside className="alp-authpage__illustration" aria-hidden>
+        <div className="alp-authpage__brand">
+          <span className="alp-authpage__brand-mark">A</span>
+          AdaptiveLearn
         </div>
-        <h1 className="page-greeting" style={{ marginBottom: "var(--sp-5)" }}>
-          Create account
-        </h1>
+        <div>
+          <div className="alp-authpage__tagline">
+            Join the AI-coached generation.
+          </div>
+          <div className="alp-authpage__tagline-sub">
+            Set your exam target. Take a 5-minute diagnostic. We build your plan
+            from there.
+          </div>
+        </div>
+        <div style={{ opacity: 0.8, fontSize: 13 }}>
+          ✦ Free to start · upgrade anytime
+        </div>
+      </aside>
 
-        {error ? (
-          <Banner tone="danger" role="alert">
-            {error}
-          </Banner>
-        ) : null}
+      <main className="alp-authpage__panel">
+        <form
+          onSubmit={onSubmit}
+          className="alp-authpage__form"
+          aria-label="Create account"
+        >
+          <div className="alp-authpage__mobile-brand">
+            <span className="alp-authpage__brand-mark">A</span>
+            AdaptiveLearn
+          </div>
+          <header>
+            <h1 className="alp-authpage__title">Create account</h1>
+            <p className="alp-authpage__subtitle">
+              Takes 30 seconds. We'll send a verification code next.
+            </p>
+          </header>
 
-        <form onSubmit={onSubmit} className="auth-form" aria-label="Create account">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--sp-3)" }}>
-            <label className="form-field">
-              <span className="form-label">First name</span>
-              <input
+          {error ? (
+            <Banner tone="danger" role="alert">
+              {error}
+            </Banner>
+          ) : null}
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <FormField label="First name" required>
+              <Input
                 value={firstName}
                 required
                 onChange={(e) => setFirstName(e.target.value)}
-                className="form-input"
               />
-            </label>
-            <label className="form-field">
-              <span className="form-label">Last name</span>
-              <input
+            </FormField>
+            <FormField label="Last name" required>
+              <Input
                 value={lastName}
                 required
                 onChange={(e) => setLastName(e.target.value)}
-                className="form-input"
               />
-            </label>
+            </FormField>
           </div>
 
-          <label className="form-field">
-            <span className="form-label">Email</span>
-            <input
+          <FormField label="Email">
+            <Input
               type="email"
               autoComplete="email"
               value={email}
               required
               onChange={(e) => setEmail(e.target.value)}
-              className="form-input"
             />
-          </label>
+          </FormField>
 
-          <label className="form-field">
-            <span className="form-label">Phone (optional — for SMS OTP)</span>
-            <input
+          <FormField label="Phone (optional — for SMS OTP)">
+            <Input
               type="tel"
               value={phone}
               placeholder="+91 ..."
               onChange={(e) => setPhone(e.target.value)}
-              className="form-input"
             />
-          </label>
+          </FormField>
 
-          <div>
-            <label className="form-field">
-              <span className="form-label">Password (min 12 characters)</span>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                required
-                onChange={(e) => setPassword(e.target.value)}
-                className="form-input"
-              />
-            </label>
-            {password ? <StrengthMeter score={strength.score} label={strength.label} /> : null}
-          </div>
+          <FormField label="Password" required helper="At least 12 characters.">
+            <Input
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              required
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </FormField>
+          {password ? (
+            <StrengthMeter score={strength.score} label={strength.label} />
+          ) : null}
 
           <label
             style={{
               display: "flex",
               alignItems: "flex-start",
-              gap: "var(--sp-2)",
+              gap: 8,
               fontSize: 13,
-              color: "var(--text-secondary)",
+              color: "var(--neutral-700)",
             }}
           >
-            <input
-              type="checkbox"
+            <Checkbox
               checked={tos}
               onChange={(e) => setTos(e.target.checked)}
               required
             />
             <span>
               I agree to the{" "}
-              <a href="/terms" className="auth-link">
+              <a
+                href="/terms"
+                style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+              >
                 Terms
               </a>{" "}
               and{" "}
-              <a href="/privacy" className="auth-link">
+              <a
+                href="/privacy"
+                style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+              >
                 Privacy
               </a>
               .
             </span>
           </label>
 
-          <button
+          <Button
             type="submit"
-            className="btn btn-primary btn-block"
+            variant="primary"
+            size="lg"
+            fullWidth
+            loading={submitting}
             disabled={!canSubmit}
           >
             {submitting ? "Creating account…" : "Create account"}
-          </button>
-        </form>
+          </Button>
 
-        <p className="auth-footer">
-          Have an account?{" "}
-          <Link to="/login" className="auth-link">
-            Log in
-          </Link>
-        </p>
+          <p
+            style={{
+              textAlign: "center",
+              margin: 0,
+              color: "var(--neutral-600)",
+              fontSize: 14,
+            }}
+          >
+            Have an account?{" "}
+            <Link
+              to="/login"
+              style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+            >
+              Log in
+            </Link>
+          </p>
+        </form>
       </main>
     </div>
   );
@@ -196,21 +236,31 @@ function passwordStrength(pw: string): StrengthResult {
 
 function StrengthMeter({ score, label }: StrengthResult) {
   const segmentColor = (i: number): string => {
-    if (i >= score) return "var(--bg-surface3)";
-    if (score <= 1) return "var(--color-red)";
-    if (score === 2) return "var(--color-amber)";
-    return "var(--color-green)";
+    if (i >= score) return "var(--neutral-200)";
+    if (score <= 1) return "var(--danger-500)";
+    if (score === 2) return "var(--developing-500)";
+    return "var(--success-500)";
   };
   return (
-    <div className="strength-meter" aria-live="polite">
+    <div
+      aria-live="polite"
+      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}
+    >
       {[0, 1, 2, 3].map((i) => (
         <div
           key={i}
-          className="strength-meter-seg"
-          style={{ background: segmentColor(i) }}
+          style={{
+            height: 4,
+            flex: 1,
+            borderRadius: 2,
+            background: segmentColor(i),
+            transition: "background 200ms var(--m-ease)",
+          }}
         />
       ))}
-      <span className="strength-meter-label">{label}</span>
+      <span style={{ color: "var(--neutral-600)", minWidth: 56, textAlign: "right" }}>
+        {label}
+      </span>
     </div>
   );
 }

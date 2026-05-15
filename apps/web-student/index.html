@@ -6,21 +6,28 @@
     <title>Adaptive Learning — Student</title>
   </head>
   <body>
-    <!-- Pre-React theme bootstrap. Reads the user's preference from
-         localStorage (set by ThemeProvider in /src/lib/theme.tsx) and
-         applies data-theme to <html> before stylesheets paint, so the
-         first paint matches the chosen theme. Without this, a user on
-         light mode sees a dark flash for ~50ms during the React boot. -->
+    <!-- Pre-React theme + density bootstrap. Reads the user's preferences
+         from localStorage (set by ThemeProvider in /src/lib/theme.tsx and
+         DensityProvider in /src/lib/density.tsx) and applies data-theme
+         and data-density to <html> before stylesheets paint, so the first
+         paint matches both choices. Without this, a light-mode user sees
+         a dark flash for ~50ms; without density, spacing/type/radius
+         scalars would jump on hydrate. -->
     <script>
       (function () {
         try {
-          var s = localStorage.getItem('alp.theme') || 'system';
-          var effective = s === 'system'
+          var t = localStorage.getItem('alp.theme') || 'system';
+          var effective = t === 'system'
             ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
-            : s;
+            : t;
           document.documentElement.setAttribute('data-theme', effective);
           document.documentElement.style.colorScheme = effective;
         } catch (e) { /* localStorage blocked — stays on default :root (dark) */ }
+        try {
+          var d = localStorage.getItem('alp.density');
+          if (d !== 'junior' && d !== 'aspirant' && d !== 'pro') d = 'aspirant';
+          document.documentElement.setAttribute('data-density', d);
+        } catch (e) { /* localStorage blocked — stays on baseline aspirant */ }
       })();
     </script>
     <div id="root"></div>

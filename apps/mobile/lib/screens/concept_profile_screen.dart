@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../api/phase5_api.dart';
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 import '../l10n/strings.dart';
 
@@ -120,21 +121,16 @@ class _ConceptProfileScreenState extends State<ConceptProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(t('concept_profile.title'))),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: t('concept_profile.title')),
       body: _error != null
           ? _ErrorView(message: _error!, onRetry: _load)
           : _profile == null
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: AuroraSpinner(size: 32))
               : _profile!.concepts.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          t('concept_profile.no_data'),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                  ? AuroraEmptyState(
+                      illustration: const Icon(Icons.insights_outlined),
+                      title: t('concept_profile.no_data'),
                     )
                   : _buildBody(),
     );
@@ -382,29 +378,17 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline,
-                size: 48, color: Theme.of(context).colorScheme.error,),
-            const SizedBox(height: 12),
-            Text(t('common.error'),
-                style: Theme.of(context).textTheme.titleMedium,),
-            const SizedBox(height: 4),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: onRetry,
-              child: Text(t('common.retry')),
-            ),
-          ],
+    return AuroraEmptyState(
+      illustration: const Icon(Icons.error_outline),
+      title: t('common.error'),
+      description: message,
+      actions: [
+        AuroraButton(
+          label: t('common.retry'),
+          variant: AuroraButtonVariant.primary,
+          onPressed: onRetry,
         ),
-      ),
+      ],
     );
   }
 }

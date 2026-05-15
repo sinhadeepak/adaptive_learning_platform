@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../../aurora/widgets/widgets.dart';
 
 import '../../api/marketplace.dart';
 import '../../widgets/alp_card.dart';
@@ -44,9 +45,8 @@ class _CoursesScreenState extends State<CoursesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(title: const Text('Courses')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'Courses'),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
@@ -71,7 +71,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
             else if (_items == null)
               const Padding(
                 padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: AuroraSpinner(size: 32)),
               )
             else if (_items!.isEmpty)
               const Text('No published courses yet.',
@@ -113,7 +113,6 @@ class _CoursesScreenState extends State<CoursesScreen> {
                                 children: [
                                   Text(c.title,
                                       style: const TextStyle(
-                                          color: AlpColors.textPrimary,
                                           fontSize: 15,
                                           fontWeight: FontWeight.bold,),),
                                   if (c.description.isNotEmpty)
@@ -135,7 +134,6 @@ class _CoursesScreenState extends State<CoursesScreen> {
                                     children: [
                                       Text(_rupees(c.pricePaise),
                                           style: const TextStyle(
-                                              color: AlpColors.textPrimary,
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,),),
                                       if ((c.ratingCount ?? 0) > 0)

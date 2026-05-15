@@ -8,6 +8,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../aurora/widgets/widgets.dart';
 
 import '../auth/auth_client.dart';
 
@@ -70,8 +71,8 @@ class _JoinCohortScreenState extends State<JoinCohortScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Join Cohort')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'Join Cohort'),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: _joined

@@ -15,6 +15,7 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 import '../quiz/quiz_client.dart';
 import '../quiz/quiz_screen.dart';
@@ -191,7 +192,6 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
   Future<void> _pickTopic() async {
     final picked = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: AlpColors.bgSurface1,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -236,18 +236,15 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
         ? (_examMastery.toList()..sort((a, b) => b.ewa.compareTo(a.ewa))).first
         : null;
 
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(
-        backgroundColor: AlpColors.bgBase,
-        title: Text(widget.examName),
-      ),
+    final auroraColors = Theme.of(context).extension<AuroraColors>()!;
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: widget.examName),
       body: RefreshIndicator(
         onRefresh: _load,
-        backgroundColor: AlpColors.bgSurface2,
-        color: AlpColors.colorAi,
+        backgroundColor: auroraColors.neutral0,
+        color: auroraColors.brand600,
         child: _loading
-            ? const Center(child: CircularProgressIndicator(color: AlpColors.colorAi))
+            ? const Center(child: AuroraSpinner(size: 32))
             : ListView(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                 children: [
@@ -323,7 +320,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                   // "AIR" is intimidating. Senior keeps the full
                   // exam-day framing.
                   () {
-                    final p = personaForExamCode(widget.examCode);
+                    final p = legacyAudienceForExamCode(widget.examCode);
                     return _ActionCard(
                       icon: Icons.emoji_events_outlined,
                       accent: AlpColors.colorAmber,
@@ -358,14 +355,14 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                   // they belong on the exam-specific dashboard rather
                   // than polluting the global home.
                   const SizedBox(height: 24),
-                  const AlpSectionHeading('AI insights'),
+                  const AuroraSectionHeading('AI insights'),
                   // Sprint 3 — Predicted-AIR card for senior personas
                   // only (juniors don't get a meaningful rank
                   // projection from the IRT engine yet). Cross-tab
                   // navigation now works via MainScaffoldScope so the
                   // "View full trajectory" tap deep-links into the
                   // Rank tab instead of dead-ending on the dashboard.
-                  if (personaForExamCode(widget.examCode).isSenior) ...[
+                  if (legacyAudienceForExamCode(widget.examCode).isSenior) ...[
                     HomeRankCompactCard(
                       api: widget.api,
                       auth: widget.auth,
@@ -426,7 +423,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
 
                   // ── Analysis ────────────────────────────────────────
                   const SizedBox(height: 24),
-                  const AlpSectionHeading('Your analysis'),
+                  const AuroraSectionHeading('Your analysis'),
                   if (!hasMastery)
                     AlpCard(
                       padding: const EdgeInsets.all(16),
@@ -472,8 +469,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                     ),
                     const SizedBox(height: 12),
                     ..._examMastery.take(6).map((m) => _MasteryRow(
-                          title: _topicMeta[m.topicId]?.title ??
-                              'Topic ${m.topicId.substring(0, 8)}',
+                          title: _topicMeta[m.topicId]?.title ?? 'Topic…',
                           subject: _topicMeta[m.topicId]?.subjectName ?? '',
                           ewa: m.ewa,
                           n: m.n,
@@ -482,7 +478,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
 
                   // ── Quick links ─────────────────────────────────────
                   const SizedBox(height: 24),
-                  const AlpSectionHeading('Quick links'),
+                  const AuroraSectionHeading('Quick links'),
                   Row(
                     children: [
                       Expanded(
@@ -562,7 +558,6 @@ class _ActionCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(title,
               style: const TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,),),
           const SizedBox(height: 4),
@@ -665,7 +660,6 @@ class _MasteryRow extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              color: AlpColors.textPrimary,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,),),
                       const SizedBox(height: 2),
@@ -688,7 +682,6 @@ class _MasteryRow extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: ewa.clamp(0.0, 1.0),
                 minHeight: 4,
-                backgroundColor: AlpColors.bgSurface3,
                 valueColor: AlwaysStoppedAnimation(tone),
               ),
             ),
@@ -717,7 +710,6 @@ class _QuickLink extends StatelessWidget {
           const SizedBox(width: 10),
           Text(label,
               style: const TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,),),
           const Spacer(),
@@ -746,7 +738,6 @@ class _MiniRing extends StatelessWidget {
             child: CircularProgressIndicator(
               value: (pct / 100).clamp(0.0, 1.0),
               strokeWidth: 6,
-              backgroundColor: AlpColors.bgSurface3,
               valueColor: AlwaysStoppedAnimation(
                 pct >= 60
                     ? AlpColors.colorGreen
@@ -758,7 +749,6 @@ class _MiniRing extends StatelessWidget {
           ),
           Text('${pct.round()}',
               style: const TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,),),
         ],
@@ -818,8 +808,8 @@ class _ScopedTopicPickerState extends State<_ScopedTopicPicker> {
               children: [
                 if (_selectedSubject != null)
                   IconButton(
-                    icon: const Icon(Icons.arrow_back,
-                        color: AlpColors.textPrimary,),
+                    icon: Icon(Icons.arrow_back,
+                        color: Theme.of(context).colorScheme.onSurface,),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () => setState(() {
@@ -832,7 +822,6 @@ class _ScopedTopicPickerState extends State<_ScopedTopicPicker> {
                   child: Text(
                     _selectedSubject?.name ?? 'Pick a subject',
                     style: const TextStyle(
-                        color: AlpColors.textPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,),
                   ),
@@ -919,7 +908,6 @@ class _PickerRow extends StatelessWidget {
               children: [
                 Text(title,
                     style: const TextStyle(
-                        color: AlpColors.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,),),
                 const SizedBox(height: 2),

@@ -11,6 +11,7 @@
 // Profile → Help & Support row.
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -46,9 +47,8 @@ class HelpSupportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(title: const Text('Help & Support')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'Help & Support'),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         children: [
@@ -65,7 +65,6 @@ class HelpSupportScreen extends StatelessWidget {
                     SizedBox(width: 10),
                     Text('Email support',
                         style: TextStyle(
-                            color: AlpColors.textPrimary,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,),),
                   ],
@@ -95,7 +94,8 @@ class HelpSupportScreen extends StatelessWidget {
                   icon: const Icon(Icons.copy, size: 16),
                   label: const Text(_supportEmail),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AlpColors.textPrimary,
+                    foregroundColor:
+                        Theme.of(context).colorScheme.onSurface,
                     side: const BorderSide(color: AlpColors.borderDefault),
                   ),
                 ),
@@ -105,7 +105,7 @@ class HelpSupportScreen extends StatelessWidget {
           const SizedBox(height: 16),
 
           // FAQs
-          const AlpSectionHeading('Frequently asked'),
+          const AuroraSectionHeading('Frequently asked'),
           ..._faqs.map((f) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: AlpCard(
@@ -116,7 +116,6 @@ class HelpSupportScreen extends StatelessWidget {
                     title: Text(
                       f.q,
                       style: const TextStyle(
-                          color: AlpColors.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,),
                     ),
@@ -154,7 +153,6 @@ class HelpSupportScreen extends StatelessWidget {
                     SizedBox(width: 10),
                     Text('Report a bug',
                         style: TextStyle(
-                            color: AlpColors.textPrimary,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,),),
                   ],

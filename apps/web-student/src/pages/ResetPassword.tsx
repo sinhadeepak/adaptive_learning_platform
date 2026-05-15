@@ -1,6 +1,9 @@
+// ResetPassword — Aurora redesign (split-screen).
+
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthError } from "@alp/auth-client";
+import { Button, FormField, Input } from "@alp/ui";
 import { auth } from "../lib/api";
 import { Banner } from "../components/dashboard";
 import "@alp/design-system/shell.css";
@@ -45,90 +48,111 @@ export function ResetPassword() {
     }
   }
 
-  if (done) {
-    return (
-      <div className="auth-page">
-        <main className="auth-card">
-          <h1 className="page-greeting" style={{ marginBottom: "var(--sp-3)" }}>
-            Password updated
-          </h1>
-          <p style={{ color: "var(--text-primary)", fontSize: 13, lineHeight: 1.5 }}>
-            You can now log in with your new password. All previous sessions have
-            been signed out.
-          </p>
-          <button
-            type="button"
-            className="btn btn-primary btn-block"
-            style={{ marginTop: "var(--sp-4)" }}
-            onClick={() => navigate("/login", { replace: true })}
-          >
-            Go to log in
-          </button>
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <div className="auth-page">
-      <main className="auth-card">
-        <h1 className="page-greeting" style={{ marginBottom: "var(--sp-1)" }}>
-          Set a new password
-        </h1>
-        <p className="page-subhead">Pick a password you haven't used here before.</p>
+    <div className="alp-authpage">
+      <aside className="alp-authpage__illustration" aria-hidden>
+        <div className="alp-authpage__brand">
+          <span className="alp-authpage__brand-mark">A</span>
+          AdaptiveLearn
+        </div>
+        <div>
+          <div className="alp-authpage__tagline">Pick a fresh password.</div>
+          <div className="alp-authpage__tagline-sub">
+            All previous sessions will be signed out for safety.
+          </div>
+        </div>
+        <div />
+      </aside>
 
-        {error ? (
-          <Banner tone="danger" role="alert">
-            {error}
-          </Banner>
-        ) : null}
+      <main className="alp-authpage__panel">
+        {done ? (
+          <div className="alp-authpage__form" aria-live="polite">
+            <div className="alp-authpage__mobile-brand">
+              <span className="alp-authpage__brand-mark">A</span>
+              AdaptiveLearn
+            </div>
+            <header>
+              <h1 className="alp-authpage__title">Password updated</h1>
+              <p className="alp-authpage__subtitle">
+                You can now log in with your new password. All previous sessions
+                have been signed out.
+              </p>
+            </header>
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              onClick={() => navigate("/login", { replace: true })}
+            >
+              Go to log in
+            </Button>
+          </div>
+        ) : (
+          <form
+            onSubmit={onSubmit}
+            className="alp-authpage__form"
+            aria-label="Reset password"
+          >
+            <div className="alp-authpage__mobile-brand">
+              <span className="alp-authpage__brand-mark">A</span>
+              AdaptiveLearn
+            </div>
+            <header>
+              <h1 className="alp-authpage__title">Set a new password</h1>
+              <p className="alp-authpage__subtitle">
+                Pick a password you haven't used here before.
+              </p>
+            </header>
 
-        <form onSubmit={onSubmit} className="auth-form" aria-label="Reset password">
-          <div className="form-field">
-            <label className="form-field" style={{ gap: 6 }}>
-              <span className="form-label">New password</span>
-              <input
+            {error ? (
+              <Banner tone="danger" role="alert">
+                {error}
+              </Banner>
+            ) : null}
+
+            <FormField label="New password" helper="At least 12 characters.">
+              <Input
                 type="password"
                 autoComplete="new-password"
                 value={password}
                 required
                 minLength={12}
                 onChange={(e) => setPassword(e.target.value)}
-                className="form-input"
               />
-            </label>
-            <span style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-              At least 12 characters.
-            </span>
-          </div>
+            </FormField>
 
-          <label className="form-field">
-            <span className="form-label">Confirm new password</span>
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={confirm}
-              required
-              minLength={12}
-              onChange={(e) => setConfirm(e.target.value)}
-              className="form-input"
-            />
-          </label>
+            <FormField label="Confirm new password">
+              <Input
+                type="password"
+                autoComplete="new-password"
+                value={confirm}
+                required
+                minLength={12}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
+            </FormField>
 
-          <button
-            type="submit"
-            className="btn btn-primary btn-block"
-            disabled={!token || submitting}
-          >
-            {submitting ? "Updating…" : "Update password"}
-          </button>
-        </form>
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              fullWidth
+              loading={submitting}
+              disabled={!token || submitting}
+            >
+              {submitting ? "Updating…" : "Update password"}
+            </Button>
 
-        <p className="auth-footer">
-          <Link to="/login" className="auth-link">
-            ← Back to log in
-          </Link>
-        </p>
+            <p style={{ margin: 0, textAlign: "center" }}>
+              <Link
+                to="/login"
+                style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+              >
+                ← Back to log in
+              </Link>
+            </p>
+          </form>
+        )}
       </main>
     </div>
   );

@@ -144,7 +144,7 @@ class _ReportOutcomeDialogState extends State<_ReportOutcomeDialog> {
     return AlertDialog(
       backgroundColor: AlpColors.bgSurface1,
       title: const Text('Share your real result?',
-          style: TextStyle(color: AlpColors.textPrimary)),
+          style: TextStyle()),
       content: SizedBox(
         width: 320,
         child: Column(

@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../../aurora/widgets/widgets.dart';
 
 import '../../api/marketplace.dart';
 import '../../widgets/alp_card.dart';
@@ -47,9 +48,8 @@ class _TutorsScreenState extends State<TutorsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(title: const Text('Find a tutor')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'Find a tutor'),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
@@ -74,7 +74,7 @@ class _TutorsScreenState extends State<TutorsScreen> {
             else if (_items == null)
               const Padding(
                 padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: AuroraSpinner(size: 32)),
               )
             else if (_items!.isEmpty)
               const Text(
@@ -122,7 +122,6 @@ class _RateFilter extends StatelessWidget {
               Text(
                 '₹$valueRupees',
                 style: const TextStyle(
-                  color: AlpColors.textPrimary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -206,7 +205,6 @@ class _TutorCard extends StatelessWidget {
                         Text(
                           tutor.displayName,
                           style: const TextStyle(
-                            color: AlpColors.textPrimary,
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                           ),
@@ -258,7 +256,6 @@ class _TutorCard extends StatelessWidget {
                     RichText(
                       text: TextSpan(
                         style: const TextStyle(
-                          color: AlpColors.textPrimary,
                           fontSize: 14,
                         ),
                         children: [
@@ -316,7 +313,9 @@ class _Banner extends StatelessWidget {
         ),
         child: Text(text,
             style: TextStyle(
-              color: isError ? AlpColors.colorRed : AlpColors.textPrimary,
+              color: isError
+                  ? AlpColors.colorRed
+                  : Theme.of(context).colorScheme.onSurface,
               fontSize: 13,
             ),),
       );

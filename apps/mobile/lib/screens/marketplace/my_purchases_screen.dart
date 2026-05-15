@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../../aurora/widgets/widgets.dart';
 
 import '../../api/marketplace.dart';
 import '../../widgets/alp_card.dart';
@@ -57,9 +58,8 @@ class _MyPurchasesScreenState extends State<MyPurchasesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(title: const Text('My purchases')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'My purchases'),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
@@ -90,7 +90,7 @@ class _MyPurchasesScreenState extends State<MyPurchasesScreen> {
             else if (_items == null)
               const Padding(
                 padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: AuroraSpinner(size: 32)),
               )
             else if (_items!.isEmpty)
               const Padding(
@@ -113,7 +113,6 @@ class _MyPurchasesScreenState extends State<MyPurchasesScreen> {
                                 child: Text(
                                   'Course ${p.courseId.substring(0, 8)}…',
                                   style: const TextStyle(
-                                      color: AlpColors.textPrimary,
                                       fontWeight: FontWeight.bold,),
                                 ),
                               ),

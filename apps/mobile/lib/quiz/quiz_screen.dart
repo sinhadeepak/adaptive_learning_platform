@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 
 import '../api/api_client.dart';
+import '../aurora/widgets/widgets.dart';
 import 'quiz_client.dart';
 import 'quiz_result_screen.dart';
 
@@ -303,19 +304,22 @@ class _QuizScreenState extends State<QuizScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AuroraColors>()!;
+
     if (_error != null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Quiz')),
+      return AuroraScaffold(
+        appBar: const AuroraAppBar(title: 'Quiz'),
         body: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(_error!, style: TextStyle(color: AlpColors.dangerFg)),
-              const SizedBox(height: 16),
-              FilledButton(
+          child: AuroraEmptyState(
+            illustration: const Icon(Icons.error_outline),
+            title: 'Something went wrong',
+            description: _error,
+            actions: [
+              AuroraButton(
+                label: 'Back',
+                variant: AuroraButtonVariant.secondary,
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Back'),
               ),
             ],
           ),
@@ -324,9 +328,9 @@ class _QuizScreenState extends State<QuizScreen> {
     }
 
     if (_loading || _item == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Quiz')),
-        body: const Center(child: CircularProgressIndicator()),
+      return AuroraScaffold(
+        appBar: const AuroraAppBar(title: 'Quiz'),
+        body: const Center(child: AuroraSpinner(size: 32)),
       );
     }
 
@@ -334,21 +338,58 @@ class _QuizScreenState extends State<QuizScreen> {
     final verdict = _verdict;
     final showFeedback = verdict != null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Question ${(_served + (showFeedback ? 0 : 1)).clamp(1, _target)}/$_target  ·  $_correct correct',
-        ),
-        actions: [
-          TextButton(
-            onPressed: _submitting ? null : _submitAndShowResult,
-            child: const Text('End'),
+    // Focus-mode shell — no global nav, just the in-quiz session bar
+    // (question count + End) acting as the focus chrome. Status bar
+    // tints automatically via AuroraScaffold.
+    return AuroraScaffold(
+      focusMode: true,
+      body: Column(
+        children: [
+          // In-quiz session bar.
+          Container(
+            color: colors.neutral0,
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+            child: Row(
+              children: [
+                AuroraIconButton(
+                  icon: const Icon(Icons.close),
+                  semanticLabel: 'Close quiz',
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
+                Expanded(
+                  child: Text(
+                    'Q ${(_served + (showFeedback ? 0 : 1)).clamp(1, _target)}/$_target  ·  $_correct correct',
+                    style: Theme.of(context)
+                        .extension<AuroraTypography>()!
+                        .h4
+                        .copyWith(color: colors.neutral900),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                AuroraButton(
+                  label: 'End',
+                  variant: AuroraButtonVariant.ghost,
+                  size: AuroraButtonSize.sm,
+                  onPressed: _submitting ? null : _submitAndShowResult,
+                ),
+              ],
+            ),
           ),
+          Container(height: 1, color: colors.neutral200),
+          Expanded(child: _quizBody(item)),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: SingleChildScrollView(
+    );
+  }
+
+  /// Per-question content extracted so the scaffold above stays focused
+  /// on chrome. Keeps the body's logic untouched from the v1 quiz screen.
+  Widget _quizBody(QuizItem item) {
+    final verdict = _verdict;
+    final showFeedback = verdict != null;
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -494,7 +535,6 @@ class _QuizScreenState extends State<QuizScreen> {
             ],
           ),
         ),
-      ),
     );
   }
 }

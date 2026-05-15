@@ -295,7 +295,7 @@ export function Quiz() {
 
   if (error) {
     return (
-      <AppShell title="Quiz">
+      <AppShell title="Quiz" focusMode>
         <Banner tone="danger" role="alert">
           {error}
         </Banner>
@@ -312,7 +312,7 @@ export function Quiz() {
 
   if (done || !item) {
     return (
-      <AppShell title="Quiz">
+      <AppShell title="Quiz" focusMode>
         <SkeletonRows count={2} />
       </AppShell>
     );
@@ -327,7 +327,7 @@ export function Quiz() {
   const backHref = topic?.subjectId ? `/catalog/topic/${topic.id}` : "/home";
 
   return (
-    <AppShell title={`${topicTitle} · AI Practice`}>
+    <AppShell title={`${topicTitle} · AI Practice`} focusMode>
       <div className="practice-page">
 
         {/* ── 1. Session bar ──────────────────────────────────── */}

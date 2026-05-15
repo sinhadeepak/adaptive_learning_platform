@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 
 /// Mobile parity of web-student/src/pages/ForgotPassword.tsx — collects an
@@ -59,14 +60,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.surfaceSecondary,
-      appBar: AppBar(
+    return AuroraScaffold(
+      appBar: AuroraAppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: widget.onBackToLogin,
         ),
-        title: const Text('Reset password'),
+        title: 'Reset password',
       ),
       body: SafeArea(
         child: Center(

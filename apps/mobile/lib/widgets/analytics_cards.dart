@@ -72,7 +72,6 @@ class _ConceptMasteryCardState extends State<ConceptMasteryCard> {
               const Expanded(
                 child: Text('Concept mastery',
                     style: TextStyle(
-                        color: AlpColors.textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w700)),
               ),
@@ -115,7 +114,7 @@ class _ConceptMasteryCardState extends State<ConceptMasteryCard> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  color: AlpColors.textPrimary, fontSize: 12),
+                  fontSize: 12),
             ),
           ),
           Expanded(
@@ -201,7 +200,6 @@ class _ErrorPatternsCardState extends State<ErrorPatternsCard> {
               SizedBox(width: 8),
               Text('Common mistakes',
                   style: TextStyle(
-                      color: AlpColors.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w700)),
             ],
@@ -240,7 +238,6 @@ class _ErrorPatternsCardState extends State<ErrorPatternsCard> {
                         children: [
                           Text(p.classification,
                               style: const TextStyle(
-                                  color: AlpColors.textPrimary,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600)),
                           if (p.topTopics.isNotEmpty) ...[
@@ -429,7 +426,6 @@ class _RevisionQueueCardState extends State<RevisionQueueCard> {
               const Expanded(
                 child: Text('Due for revision',
                     style: TextStyle(
-                        color: AlpColors.textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w700)),
               ),
@@ -458,13 +454,11 @@ class _RevisionQueueCardState extends State<RevisionQueueCard> {
                     children: [
                       Expanded(
                         child: Text(
-                          it.topicTitle.isEmpty
-                              ? 'Topic ${it.topicId.substring(0, 8)}'
-                              : it.topicTitle,
+                          it.topicTitle.isEmpty ? 'Topic…' : it.topicTitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              color: AlpColors.textPrimary, fontSize: 13),
+                              fontSize: 13),
                         ),
                       ),
                       if (it.overdueDays > 0)
@@ -558,7 +552,6 @@ class _MultiProfileCardState extends State<MultiProfileCard> {
               SizedBox(width: 8),
               Text('Multi-dimensional profile',
                   style: TextStyle(
-                      color: AlpColors.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w700)),
             ],
@@ -580,7 +573,6 @@ class _MultiProfileCardState extends State<MultiProfileCard> {
                 Text(
                   d.confidenceBrier!.toStringAsFixed(3),
                   style: const TextStyle(
-                      color: AlpColors.textPrimary,
                       fontSize: 11,
                       fontWeight: FontWeight.w700),
                 ),
@@ -733,7 +725,6 @@ class _InsightsSnapshotCardState extends State<InsightsSnapshotCard> {
               SizedBox(width: 8),
               Text('Insights snapshot',
                   style: TextStyle(
-                      color: AlpColors.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w700)),
               Spacer(),
@@ -859,7 +850,6 @@ class _TimeBySectionCardState extends State<TimeBySectionCard> {
               SizedBox(width: 8),
               Text('Time per section',
                   style: TextStyle(
-                      color: AlpColors.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w700)),
             ],

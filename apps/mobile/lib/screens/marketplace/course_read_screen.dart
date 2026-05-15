@@ -14,6 +14,7 @@
 // returns no modules, mirroring the web's fallback behaviour.
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../../aurora/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
@@ -85,12 +86,11 @@ class _CourseReadScreenState extends State<CourseReadScreen> {
   @override
   Widget build(BuildContext context) {
     final s = _structure;
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(title: Text(widget.courseTitle)),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: widget.courseTitle),
       body: _loading
           ? const Center(
-              child: CircularProgressIndicator(color: AlpColors.colorAi),)
+              child: AuroraSpinner(size: 32),)
           : _error != null
               ? _buildError(_error!)
               : (s == null || s.modules.isEmpty)
@@ -194,7 +194,6 @@ class _CourseReadScreenState extends State<CourseReadScreen> {
                   child: Text(
                     'Continue where you left off',
                     style: TextStyle(
-                        color: AlpColors.textPrimary,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,),
                   ),
@@ -236,7 +235,6 @@ class _ModuleTile extends StatelessWidget {
             title: Text(
               'Module ${module.position}: ${module.title}',
               style: const TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,),
             ),
@@ -284,7 +282,6 @@ class _ModuleTile extends StatelessWidget {
                           ),
                           title: Text(l.title,
                               style: const TextStyle(
-                                  color: AlpColors.textPrimary,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,),),
                           subtitle: l.durationSeconds == null
@@ -328,9 +325,8 @@ class _LessonReader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(title: Text(lesson.title)),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: lesson.title),
       body: !contentVisible || lesson.contentMd.trim().isEmpty
           ? Center(
               child: Padding(
@@ -370,7 +366,6 @@ class _LessonReader extends StatelessWidget {
                 Text(
                   lesson.title,
                   style: const TextStyle(
-                      color: AlpColors.textPrimary,
                       fontSize: 22,
                       fontWeight: FontWeight.w700,),
                 ),
@@ -390,11 +385,11 @@ MarkdownStyleSheet _markdownStyle(BuildContext context) {
     p: const TextStyle(
         color: AlpColors.textSecondary, fontSize: 14, height: 1.55,),
     h1: const TextStyle(
-        color: AlpColors.textPrimary, fontSize: 22, fontWeight: FontWeight.w700,),
+        fontSize: 22, fontWeight: FontWeight.w700,),
     h2: const TextStyle(
-        color: AlpColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700,),
+        fontSize: 18, fontWeight: FontWeight.w700,),
     h3: const TextStyle(
-        color: AlpColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700,),
+        fontSize: 15, fontWeight: FontWeight.w700,),
     code: const TextStyle(
         color: AlpColors.colorAi,
         fontFamily: 'monospace',

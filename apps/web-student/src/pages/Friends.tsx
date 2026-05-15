@@ -1,13 +1,24 @@
-// F8a — Friends page.
-// URL: /friends
+// Friends — Aurora redesign (F8a).
 //
-// Three sections: incoming requests / current friends / add by user id.
-// The X-User-Id header is set by nginx based on the validated JWT
-// (configured server-side); the SPA just calls /api/v1/social/* normally.
+// Spec: docs/02-design/redesign/friends.md
+// ADR:  docs/adr/0028-design-system-v2-aurora.md (S7 deliverable)
+//
+// API surface preserved exactly: /api/v1/social/friends (list),
+// /api/v1/social/friends/pending (incoming), POST request, POST accept,
+// DELETE unfriend, POST block.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import {
+  Avatar,
+  Button,
+  Card,
+  EmptyState,
+  FormField,
+  Input,
+  Tag,
+} from "@alp/ui";
 import { AppShell } from "../components/AppShell";
 import { Banner } from "../components/dashboard";
 import { social } from "../lib/social";
@@ -156,142 +167,253 @@ export function Friends() {
     [load],
   );
 
+  const isEmpty = friends.length === 0 && pending.length === 0;
+
   return (
     <AppShell
       title="Friends"
       actions={
-        <Link to="/battle" className="pg-btn pg-btn-ghost">
-          Battle →
+        <Link to="/battle" style={{ textDecoration: "none" }}>
+          <Button variant="ghost" size="sm">Battle →</Button>
         </Link>
       }
     >
-      <div className="pg-shell" style={{ maxWidth: 880 }}>
-        {error && <Banner tone="danger">{error}</Banner>}
-        {success && <Banner tone="info">{success}</Banner>}
+      {error ? <Banner tone="danger">{error}</Banner> : null}
+      {success ? <Banner tone="info">{success}</Banner> : null}
 
-        <header className="pg-header">
-          <div className="pg-header-main">
-            <h1 className="pg-header-title">Friends</h1>
-            <p className="pg-header-sub">
-              Add other students to challenge them to battles and compare
-              progress. Add them by the email they registered with.
-            </p>
+      <header style={{ maxWidth: 880, marginBottom: 24 }}>
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "var(--t-h1-size)",
+            lineHeight: "var(--t-h1-line)",
+            fontWeight: 700,
+            color: "var(--neutral-900)",
+          }}
+        >
+          Friends
+        </h1>
+        <p style={{ margin: "4px 0 0", color: "var(--neutral-600)" }}>
+          Add other students to challenge them to battles and compare progress.
+        </p>
+      </header>
+
+      {/* ── Empty hero — full illustrated EmptyState when nothing to show ── */}
+      {isEmpty ? (
+        <Card padding="lg" style={{ maxWidth: 880, marginBottom: 20 }}>
+          <EmptyState
+            illustration={<span aria-hidden style={{ fontSize: 40 }}>👥</span>}
+            title="Add friends. Battle. Climb the leaderboard."
+            description="Study together — even when you're studying alone. Add a friend by their registered email below."
+          />
+        </Card>
+      ) : null}
+
+      {/* ── "What friends unlock" preview cards (only when empty) ── */}
+      {isEmpty ? (
+        <section
+          aria-label="What friends unlock"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 12,
+            marginBottom: 24,
+            maxWidth: 880,
+          }}
+        >
+          <Card padding="md">
+            <div style={{ fontSize: 28, marginBottom: 8 }} aria-hidden>⚔</div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>1v1 Battle</div>
+            <div style={{ fontSize: 13, color: "var(--neutral-600)" }}>
+              Race through 5 quick questions head-to-head.
+            </div>
+          </Card>
+          <Card padding="md">
+            <div style={{ fontSize: 28, marginBottom: 8 }} aria-hidden>🎯</div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>Compare progress</div>
+            <div style={{ fontSize: 13, color: "var(--neutral-600)" }}>
+              See where you rank vs your friends, week by week.
+            </div>
+          </Card>
+          <Card padding="md">
+            <div style={{ fontSize: 28, marginBottom: 8 }} aria-hidden>🏆</div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>Friends leaderboard</div>
+            <div style={{ fontSize: 13, color: "var(--neutral-600)" }}>
+              Win the week against people you actually know.
+            </div>
+          </Card>
+        </section>
+      ) : null}
+
+      {/* ── Add a friend ── */}
+      <section
+        aria-label="Add a friend"
+        style={{ maxWidth: 880, marginBottom: 20 }}
+      >
+        <Card padding="md">
+          <div style={{ fontWeight: 600, color: "var(--neutral-900)", marginBottom: 8 }}>
+            Add a friend
           </div>
-        </header>
-
-        <section className="pg-section">
-          <h2 className="pg-section-title">Add a friend</h2>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              value={addEmail}
-              onChange={(e) => setAddEmail(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") sendRequest();
-              }}
-              placeholder="friend@example.com"
-              type="email"
-              autoComplete="off"
-              style={{ flex: 1, padding: 10, fontSize: 14 }}
-            />
-            <button
-              type="button"
-              className="pg-btn pg-btn-primary"
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <FormField label="Their registered email">
+                <Input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="off"
+                  placeholder="friend@example.com"
+                  value={addEmail}
+                  onChange={(e) => setAddEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") sendRequest();
+                  }}
+                />
+              </FormField>
+            </div>
+            <Button
+              variant="primary"
+              loading={busy === "send"}
               onClick={sendRequest}
               disabled={busy === "send" || !addEmail.trim()}
             >
               Send request
-            </button>
+            </Button>
           </div>
-        </section>
+        </Card>
+      </section>
 
-        <section className="pg-section">
-          <h2 className="pg-section-title">
-            Incoming requests
-            <span className="pg-section-title-sub">
-              {pending.length === 0 ? "none" : `${pending.length} pending`}
-            </span>
-          </h2>
-          {pending.length > 0 && (
-            <div className="pg-list">
-              {pending.map((p) => (
-                <div className="pg-row" key={p.fromUserId}>
-                  <div className="pg-row-main">
-                    <p className="pg-row-title">{formatUser(p.fromUserId, dir[p.fromUserId])}</p>
-                    <div className="pg-row-meta">
-                      <span>
-                        Sent {new Date(p.requestedAt).toLocaleString()}
-                      </span>
+      {/* ── Incoming requests ── */}
+      {pending.length > 0 ? (
+        <section
+          aria-label="Incoming requests"
+          style={{ maxWidth: 880, marginBottom: 20 }}
+        >
+          <SectionHeading
+            title="Incoming requests"
+            chip={<Tag size="sm" tone="brand" variant="soft">{pending.length}</Tag>}
+          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {pending.map((p) => (
+              <Card key={p.fromUserId} padding="md">
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Avatar name={formatUser(p.fromUserId, dir[p.fromUserId])} size="md" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        color: "var(--neutral-900)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {formatUser(p.fromUserId, dir[p.fromUserId])}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--neutral-500)" }}>
+                      Sent {new Date(p.requestedAt).toLocaleString()}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="pg-btn pg-btn-primary"
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    loading={busy === "accept:" + p.fromUserId}
                     onClick={() => accept(p.fromUserId)}
-                    disabled={busy === "accept:" + p.fromUserId}
                   >
                     Accept
-                  </button>
-                  <button
-                    type="button"
-                    className="pg-btn pg-btn-ghost"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => block(p.fromUserId)}
                   >
                     Block
-                  </button>
+                  </Button>
                 </div>
-              ))}
-            </div>
-          )}
+              </Card>
+            ))}
+          </div>
         </section>
+      ) : null}
 
-        <section className="pg-section">
-          <h2 className="pg-section-title">
-            Your friends
-            <span className="pg-section-title-sub">
-              {friends.length === 0 ? "none yet" : `${friends.length}`}
-            </span>
-          </h2>
-          {friends.length === 0 && (
-            <div
-              style={{
-                padding: 24,
-                textAlign: "center",
-                color: "var(--text-muted)",
-                border: "1px dashed var(--border-subtle)",
-                borderRadius: 8,
-              }}
-            >
-              No friends yet. Send a request above.
-            </div>
-          )}
-          {friends.length > 0 && (
-            <div className="pg-list">
-              {friends.map((f) => (
-                <div className="pg-row" key={f.userId}>
-                  <div className="pg-row-main">
-                    <p className="pg-row-title">{formatUser(f.userId, dir[f.userId])}</p>
-                    <div className="pg-row-meta">
-                      <span>
-                        Since{" "}
-                        {f.acceptedAt
-                          ? new Date(f.acceptedAt).toLocaleDateString()
-                          : "?"}
-                      </span>
+      {/* ── Your friends ── */}
+      {friends.length > 0 ? (
+        <section
+          aria-label="Your friends"
+          style={{ maxWidth: 880, marginBottom: 20 }}
+        >
+          <SectionHeading
+            title="Your friends"
+            chip={<Tag size="sm" tone="neutral" variant="soft">{friends.length}</Tag>}
+          />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: 12,
+            }}
+          >
+            {friends.map((f) => (
+              <Card key={f.userId} padding="md">
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Avatar
+                    name={formatUser(f.userId, dir[f.userId])}
+                    size="md"
+                    status="offline"
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        color: "var(--neutral-900)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {formatUser(f.userId, dir[f.userId])}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--neutral-500)" }}>
+                      Since {f.acceptedAt ? new Date(f.acceptedAt).toLocaleDateString() : "?"}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="pg-btn pg-btn-ghost"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => unfriend(f.userId)}
                   >
                     Unfriend
-                  </button>
+                  </Button>
                 </div>
-              ))}
-            </div>
-          )}
+              </Card>
+            ))}
+          </div>
         </section>
-      </div>
+      ) : null}
     </AppShell>
+  );
+}
+
+function SectionHeading({
+  title,
+  chip,
+}: {
+  title: string;
+  chip?: React.ReactNode;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+      <h2
+        style={{
+          margin: 0,
+          fontSize: "var(--t-h3-size)",
+          lineHeight: "var(--t-h3-line)",
+          fontWeight: 600,
+          color: "var(--neutral-800)",
+        }}
+      >
+        {title}
+      </h2>
+      {chip}
+    </div>
   );
 }

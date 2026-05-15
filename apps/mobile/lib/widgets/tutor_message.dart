@@ -309,12 +309,12 @@ MarkdownStyleSheet _styleSheet(BuildContext context) {
     color: AlpColors.colorAi,
   );
   return MarkdownStyleSheet(
-    p: const TextStyle(color: AlpColors.textPrimary, fontSize: 14, height: 1.55),
-    strong: const TextStyle(color: AlpColors.textPrimary, fontWeight: FontWeight.w700),
-    em: const TextStyle(color: AlpColors.textPrimary, fontStyle: FontStyle.italic),
-    h1: const TextStyle(color: AlpColors.textPrimary, fontSize: 20, fontWeight: FontWeight.w700, height: 1.3),
-    h2: const TextStyle(color: AlpColors.textPrimary, fontSize: 17, fontWeight: FontWeight.w700, height: 1.3),
-    h3: const TextStyle(color: AlpColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700, height: 1.3),
+    p: const TextStyle(fontSize: 14, height: 1.55),
+    strong: const TextStyle(fontWeight: FontWeight.w700),
+    em: const TextStyle(fontStyle: FontStyle.italic),
+    h1: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, height: 1.3),
+    h2: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, height: 1.3),
+    h3: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, height: 1.3),
     listBullet: const TextStyle(color: AlpColors.textSecondary, fontSize: 14),
     code: monospace.copyWith(
       backgroundColor: AlpColors.bgSurface3,
@@ -335,7 +335,7 @@ MarkdownStyleSheet _styleSheet(BuildContext context) {
     ),
     blockquotePadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
     a: const TextStyle(color: AlpColors.colorAi, decoration: TextDecoration.underline),
-    tableHead: const TextStyle(color: AlpColors.textPrimary, fontWeight: FontWeight.w700, fontSize: 12),
+    tableHead: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
     tableBody: const TextStyle(color: AlpColors.textSecondary, fontSize: 12),
     tableBorder: TableBorder.all(color: AlpColors.borderDefault, width: 1),
     tableCellsPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -401,7 +401,6 @@ class _ConceptCard extends StatelessWidget {
             Text(
               title,
               style: const TextStyle(
-                color: AlpColors.textPrimary,
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
               ),
@@ -486,7 +485,6 @@ class _FormulaCard extends StatelessWidget {
               Text(
                 name,
                 style: const TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
@@ -628,7 +626,7 @@ class _QuickQuizCardState extends State<_QuickQuizCard> {
             const SizedBox(height: 8),
             Text(
               question,
-              style: const TextStyle(color: AlpColors.textPrimary, fontSize: 13, height: 1.5),
+              style: const TextStyle(fontSize: 13, height: 1.5),
             ),
           ],
           const SizedBox(height: 10),
@@ -674,7 +672,7 @@ class _QuickQuizCardState extends State<_QuickQuizCard> {
                       Expanded(
                         child: Text(
                           choices[i],
-                          style: const TextStyle(color: AlpColors.textPrimary, fontSize: 12),
+                          style: const TextStyle(fontSize: 12),
                         ),
                       ),
                       if (showFeedback && isAnsCorrect)

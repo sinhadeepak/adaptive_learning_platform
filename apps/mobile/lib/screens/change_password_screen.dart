@@ -1,4 +1,5 @@
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
 import '../auth/auth_client.dart';
@@ -52,9 +53,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final email = widget.auth.user?.email ?? '';
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(title: const Text('Change Password'), backgroundColor: AlpColors.bgSurface1),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'Change Password', backgroundColor: AlpColors.bgSurface1),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
@@ -68,7 +68,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 const Text(
                   'Reset your password',
                   style: TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -106,7 +105,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             child: ElevatedButton(
               onPressed: _sending ? null : _send,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AlpColors.colorBlue,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               child: Text(

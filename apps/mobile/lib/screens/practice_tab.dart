@@ -2,6 +2,7 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 import '../quiz/quiz_client.dart';
 import '../quiz/quiz_screen.dart';
@@ -16,14 +17,17 @@ class PracticeTab extends StatelessWidget {
       {super.key,
       required this.api,
       required this.auth,
-      this.persona = Persona.senior,
+      this.persona = LegacyAudience.senior,
       this.activeExamCode,});
   final ApiClient api;
   final AuthClient auth;
-  // Junior persona swaps "Mock Test" copy to "Practice test" and
+  // Junior audience swaps "Mock Test" copy to "Practice test" and
   // softens the framing — competitive-exam vocabulary is intimidating
-  // for a Class 8 student.
-  final Persona persona;
+  // for a Class 8 student. Renamed from `Persona` to `LegacyAudience`
+  // as part of Aurora v3 W2.0 to clear a type collision with the new
+  // four-mode Persona system. This whole field goes away when
+  // PracticeTab is replaced by the persona-aware variant in W2.5/W2.7.
+  final LegacyAudience persona;
   // The user's active exam code (e.g. "NEET", "CBSE"). Drives the
   // pill on the Adaptive card so we don't hardcode "NEET" for a
   // CBSE-Class-8 student.
@@ -51,7 +55,6 @@ class PracticeTab extends StatelessWidget {
   Future<void> _pickTopic(BuildContext context) async {
     final picked = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: AlpColors.bgSurface1,
       isScrollControlled: true,
       builder: (_) => _TopicPicker(api: api),
     );
@@ -79,7 +82,6 @@ class PracticeTab extends StatelessWidget {
     if (user == null) return;
     final choice = await showModalBottomSheet<int?>(
       context: context,
-      backgroundColor: AlpColors.bgSurface1,
       builder: (_) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
@@ -90,7 +92,6 @@ class PracticeTab extends StatelessWidget {
               const Text(
                 'Drill mistakes — pick recency',
                 style: TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
@@ -152,24 +153,27 @@ class PracticeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AuroraColors>()!;
+    final typography = Theme.of(context).extension<AuroraTypography>()!;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       children: [
-        const Text(
+        Text(
           'Practice Modes',
-          style: TextStyle(color: AlpColors.textPrimary, fontSize: 24, fontWeight: FontWeight.w700),
+          style: typography.h1.copyWith(color: colors.neutral900),
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'Choose how you want to study today',
-          style: TextStyle(color: AlpColors.textMuted, fontSize: 13),
+          style: typography.body.copyWith(color: colors.neutral600),
         ),
         const SizedBox(height: 20),
 
-        // Adaptive Practice (highlighted)
-        AlpCard(
-          padding: const EdgeInsets.all(18),
-          borderColor: AlpColors.colorBlue.withValues(alpha: 0.30),
+        // Adaptive Practice — Aurora hero card.
+        AuroraCard(
+          tone: AuroraCardTone.auroraAi,
+          padding: AuroraCardPadding.lg,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -179,55 +183,65 @@ class PracticeTab extends StatelessWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: AlpColors.colorBlue.withValues(alpha: 0.18),
+                      gradient: colors.auroraAi,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.bolt_rounded, color: AlpColors.colorBlue, size: 26),
+                    child: Icon(
+                      Icons.bolt_rounded,
+                      color: colors.neutral0,
+                      size: 26,
+                    ),
                   ),
                   const Spacer(),
-                  const AlpPill(label: 'AI-POWERED', color: AlpColors.colorAi),
+                  AuroraTag(
+                    label: 'AI-POWERED',
+                    tone: AuroraTagTone.aurora,
+                    variant: AuroraTagVariant.soft,
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
-              const Text(
+              Text(
                 'Adaptive Practice',
-                style: TextStyle(color: AlpColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700),
+                style: typography.h3.copyWith(color: colors.neutral900),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Questions adapt to your exact ability level using 3PL IRT model. Gets smarter with every answer.',
-                style: TextStyle(color: AlpColors.textSecondary, fontSize: 13, height: 1.4),
+              Text(
+                'Questions adapt to your exact ability level using 3PL IRT model. '
+                'Gets smarter with every answer.',
+                style: typography.bodySm.copyWith(color: colors.neutral700),
               ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 6,
+                runSpacing: 6,
                 children: [
-                  const AlpPill(label: '15 Qs', color: AlpColors.colorBlue),
-                  // Bind to the user's active exam — was hardcoded
-                  // "NEET" before Sprint 1 honesty pass.
+                  AuroraTag(
+                    label: '15 Qs',
+                    tone: AuroraTagTone.brand,
+                    variant: AuroraTagVariant.soft,
+                  ),
                   if (activeExamCode != null && activeExamCode!.isNotEmpty)
-                    AlpPill(
-                        label: activeExamCode!.replaceAll('_', ' '),
-                        color: AlpColors.colorGreen,),
-                  const AlpPill(label: '~20 min', color: AlpColors.colorAmber),
+                    AuroraTag(
+                      label: activeExamCode!.replaceAll('_', ' '),
+                      tone: AuroraTagTone.success,
+                      variant: AuroraTagVariant.soft,
+                    ),
+                  AuroraTag(
+                    label: '~20 min',
+                    tone: AuroraTagTone.warning,
+                    variant: AuroraTagVariant.soft,
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => _startAdaptive(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AlpColors.colorBlue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: const Text(
-                    'Start Adaptive Practice ▶',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                ),
+              AuroraButton(
+                label: 'Start Adaptive Practice',
+                variant: AuroraButtonVariant.aurora,
+                size: AuroraButtonSize.lg,
+                fullWidth: true,
+                iconLeft: const Text('✦'),
+                onPressed: () => _startAdaptive(context),
               ),
             ],
           ),
@@ -252,7 +266,7 @@ class PracticeTab extends StatelessWidget {
               const SizedBox(height: 14),
               const Text(
                 'Topic Quiz',
-                style: TextStyle(color: AlpColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
               const Text(
@@ -279,7 +293,7 @@ class PracticeTab extends StatelessWidget {
                   ),
                   child: const Text(
                     'Select Topic →',
-                    style: TextStyle(color: AlpColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                   ),
                 ),
               ),
@@ -309,7 +323,6 @@ class PracticeTab extends StatelessWidget {
               const Text(
                 'Drill your mistakes',
                 style: TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
@@ -342,7 +355,6 @@ class PracticeTab extends StatelessWidget {
                   child: const Text(
                     '🎯 Start mistake drill →',
                     style: TextStyle(
-                      color: AlpColors.textPrimary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
@@ -382,7 +394,6 @@ class PracticeTab extends StatelessWidget {
               Text(
                 persona.isJunior ? 'Practice Test' : 'Mock Test',
                 style: const TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,),
               ),
@@ -409,7 +420,6 @@ class PracticeTab extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () => _startMock(context),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AlpColors.colorAmber,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -433,7 +443,7 @@ class PracticeTab extends StatelessWidget {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator(color: AlpColors.colorAi)),
+      builder: (_) => const Center(child: AuroraSpinner(size: 32)),
     );
     try {
       // Default to NEET; future: read user's target exam from profile.
@@ -547,13 +557,13 @@ class _TopicPickerState extends State<_TopicPicker> {
                   : _exam != null
                       ? 'Pick a subject in ${_exam!.name}'
                       : 'Pick an exam',
-              style: const TextStyle(color: AlpColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
             if (_loading)
               const Center(child: Padding(
                 padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(color: AlpColors.colorAi),
+                child: AuroraSpinner(size: 32),
               ),)
             else if (_subject != null)
               ..._topics.map((t) => _PickerRow(
@@ -599,7 +609,7 @@ class _PickerRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(color: AlpColors.textPrimary, fontWeight: FontWeight.w600)),
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
                   Text(subtitle, style: const TextStyle(color: AlpColors.textMuted, fontSize: 11)),
                 ],
@@ -647,7 +657,6 @@ class _MistakeChoiceTile extends StatelessWidget {
                     Text(
                       label,
                       style: const TextStyle(
-                        color: AlpColors.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

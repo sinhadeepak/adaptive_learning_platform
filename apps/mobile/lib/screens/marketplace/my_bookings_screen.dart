@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../../aurora/widgets/widgets.dart';
 
 import '../../api/marketplace.dart';
 import '../../widgets/alp_card.dart';
@@ -107,9 +108,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(title: const Text('My bookings')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'My bookings'),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
@@ -140,7 +140,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             else if (_items == null)
               const Padding(
                 padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: AuroraSpinner(size: 32)),
               )
             else if (_items!.isEmpty)
               const Padding(
@@ -168,7 +168,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                                 '${start.year}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}'
                                 ' ${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}',
                                 style: const TextStyle(
-                                    color: AlpColors.textPrimary,
                                     fontWeight: FontWeight.bold,),
                               ),
                             ),

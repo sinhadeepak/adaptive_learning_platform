@@ -12,6 +12,7 @@
 // `widget.onJump(2)` jump-to-Practice-tab behaviour).
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
@@ -58,7 +59,7 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
   List<TopicMastery> _masteryAfter = const [];
   Map<String, String> _topicTitles = const {};
 
-  Persona get _persona => personaForExamCode(widget.examCode);
+  LegacyAudience get _persona => legacyAudienceForExamCode(widget.examCode);
 
   Future<void> _start() async {
     if (_starting) return;
@@ -164,18 +165,14 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(
-        title: Text(_stage == _Stage.outro
-            ? 'Diagnostic — Done'
-            : 'Diagnostic Round',),
-        backgroundColor: AlpColors.bgBase,
+    return AuroraScaffold(
+      appBar: AuroraAppBar(
+        title: _stage == _Stage.outro ? 'Diagnostic — Done' : 'Diagnostic Round',
       ),
       body: switch (_stage) {
         _Stage.intro => _buildIntro(),
         _Stage.quiz => const Center(
-            child: CircularProgressIndicator(color: AlpColors.colorAi),),
+            child: AuroraSpinner(size: 32),),
         _Stage.outro => _buildOutro(),
       },
     );
@@ -220,7 +217,6 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
                     ? "Let's see what you already know"
                     : 'Calibrate your readiness',
                 style: const TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.w700,),
               ),
@@ -278,7 +274,6 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
                 child: ElevatedButton(
                   onPressed: _starting ? null : _start,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AlpColors.colorAi,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -343,7 +338,6 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
                   SizedBox(width: 8),
                   Text('Diagnostic complete',
                       style: TextStyle(
-                          color: AlpColors.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,),),
                 ],
@@ -387,10 +381,8 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
                           ),
                           Expanded(
                             child: Text(
-                              _topicTitles[m.topicId] ??
-                                  'Topic ${m.topicId.substring(0, 8)}',
+                              _topicTitles[m.topicId] ?? 'Topic…',
                               style: const TextStyle(
-                                  color: AlpColors.textPrimary,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,),
                             ),
@@ -412,7 +404,6 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
                 child: ElevatedButton(
                   onPressed: _openExamDashboard,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AlpColors.colorAi,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(

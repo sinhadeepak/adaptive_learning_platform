@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { Button, Card } from "@alp/ui";
 import { AppShell } from "../components/AppShell";
 import { Banner } from "../components/dashboard";
 import { battleClient, type BattleEnvelope } from "../lib/battle";
@@ -221,8 +222,8 @@ export function Battle() {
     <AppShell
       title="Battle"
       actions={
-        <Link to="/practice" className="pg-btn pg-btn-ghost">
-          ← Practice
+        <Link to="/practice" style={{ textDecoration: "none" }}>
+          <Button variant="ghost" size="sm">← Practice</Button>
         </Link>
       }
     >
@@ -282,29 +283,51 @@ export function Battle() {
 function IdlePhase({ connected, onQueue }: { connected: boolean; onQueue: () => void }) {
   return (
     <>
-      <header className="pg-header">
-        <div className="pg-header-main">
-          <h1 className="pg-header-title">Battle other students live</h1>
-          <p className="pg-header-sub">
-            10 questions. 30 seconds each. Server-authoritative scoring with
-            Glicko-2 ratings. Find an opponent near your skill level.
-          </p>
-        </div>
-      </header>
-      <section className="pg-section" style={{ padding: 48, textAlign: "center" }}>
-        <div style={{ fontSize: 14, marginBottom: 16, color: "var(--text-muted)" }}>
-          {connected ? "✓ Connected to battle server" : "Connecting…"}
-        </div>
-        <button
-          type="button"
-          className="pg-btn pg-btn-primary"
-          onClick={onQueue}
-          disabled={!connected}
-          style={{ minWidth: 200, fontSize: 16, padding: "12px 24px" }}
+      <header style={{ marginBottom: 20 }}>
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "var(--t-h1-size)",
+            lineHeight: "var(--t-h1-line)",
+            fontWeight: 700,
+            color: "var(--neutral-900)",
+          }}
         >
-          Find opponent
-        </button>
-      </section>
+          Battle other students live
+        </h1>
+        <p style={{ margin: "4px 0 0", color: "var(--neutral-600)" }}>
+          10 questions. 30 seconds each. Server-authoritative scoring with
+          Glicko-2 ratings. Find an opponent near your skill level.
+        </p>
+      </header>
+      <Card padding="lg">
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 16,
+            padding: "32px 0",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ fontSize: 56, lineHeight: 1 }} aria-hidden>⚔</div>
+          <div style={{ color: "var(--neutral-600)", fontSize: 13 }}>
+            {connected
+              ? "✓ Connected to battle server"
+              : "Connecting to battle server…"}
+          </div>
+          <Button
+            variant="aurora"
+            size="xl"
+            onClick={onQueue}
+            disabled={!connected}
+            iconLeft={<span aria-hidden>⚔</span>}
+          >
+            Find opponent
+          </Button>
+        </div>
+      </Card>
     </>
   );
 }

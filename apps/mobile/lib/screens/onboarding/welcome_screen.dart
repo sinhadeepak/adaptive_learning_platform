@@ -7,6 +7,7 @@
 // hands off to ExamSelectScreen via the standard onContinue callback.
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../../aurora/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -55,8 +56,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isLast = _page == _slides.length - 1;
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
+    return AuroraScaffold(
       body: SafeArea(
         child: Column(
           children: [
@@ -103,7 +103,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           s.title,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                              color: AlpColors.textPrimary,
                               fontSize: 24,
                               fontWeight: FontWeight.w700,),
                         ),
@@ -154,7 +153,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             curve: Curves.easeOut,
                           ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AlpColors.colorAi,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),),

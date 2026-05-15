@@ -147,6 +147,9 @@ importers:
       '@alp/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
+      '@alp/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       katex:
         specifier: ^0.16.45
         version: 0.16.45
@@ -274,6 +277,31 @@ importers:
       vite:
         specifier: ^5.4.10
         version: 5.4.21(@types/node@22.19.17)
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@22.19.17)(jsdom@25.0.1)
+
+  packages/ui:
+    dependencies:
+      '@alp/design-system':
+        specifier: workspace:*
+        version: link:../design-system
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.12
+        version: 18.3.28
+      '@types/react-dom':
+        specifier: ^18.3.1
+        version: 18.3.7(@types/react@18.3.28)
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
       vitest:
         specifier: ^2.1.4
         version: 2.1.9(@types/node@22.19.17)(jsdom@25.0.1)

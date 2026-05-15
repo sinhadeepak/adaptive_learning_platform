@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  AIInsightCard,
+  Button,
+  EmptyState,
+  StatCard,
+} from "@alp/ui";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
@@ -492,11 +498,13 @@ export function Analysis() {
             display: "flex",
             gap: 6,
             alignItems: "center",
-            marginBottom: "var(--sp-3)",
+            marginBottom: 16,
             flexWrap: "wrap",
           }}
+          role="group"
+          aria-label="Exam scope"
         >
-          <span style={{ fontSize: 11, color: "var(--text-faint)", marginRight: 4 }}>
+          <span style={{ fontSize: 11, color: "var(--neutral-500)", marginRight: 4 }}>
             Scope:
           </span>
           {enrolledExamIds.map((examId) => {
@@ -508,13 +516,18 @@ export function Analysis() {
                 key={examId}
                 type="button"
                 onClick={() => setActiveExamId(examId)}
-                className="topbar-chip"
+                aria-pressed={active}
                 style={{
                   cursor: "pointer",
-                  background: active ? "rgba(79,135,246,0.14)" : undefined,
-                  borderColor: active ? "rgba(79,135,246,0.3)" : undefined,
-                  color: active ? "var(--color-blue)" : undefined,
+                  appearance: "none",
+                  background: active ? "var(--brand-100)" : "var(--neutral-50)",
+                  border: `1px solid ${active ? "var(--brand-500)" : "var(--neutral-300)"}`,
+                  borderRadius: "var(--r-pill)",
+                  color: active ? "var(--brand-700)" : "var(--neutral-700)",
+                  padding: "4px 12px",
+                  fontSize: 13,
                   fontWeight: active ? 700 : 500,
+                  transition: "all 120ms var(--m-ease)",
                 }}
               >
                 {meta.name}
@@ -526,24 +539,18 @@ export function Analysis() {
 
       {/* Empty state when learner has no sessions yet */}
       {!hasData ? (
-        <div className="card" style={{ textAlign: "center", padding: "32px 20px" }}>
-          <div style={{ fontSize: 28, marginBottom: 8 }}>📊</div>
-          <h2 className="section-heading" style={{ justifyContent: "center" }}>
-            Analysis unlocks after your first session
-          </h2>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)", maxWidth: 440, margin: "0 auto" }}>
-            Run any practice round on a topic and we'll start tracking your readiness,
-            mastery, and AI ability estimate. Insights and projections appear once you
-            have at least 3 answered items.
-          </p>
-          <Link
-            to="/catalog"
-            className="btn-ai"
-            style={{ marginTop: 14, display: "inline-flex" }}
-          >
-            ◈ Start practice
-          </Link>
-        </div>
+        <EmptyState
+          illustration={<span aria-hidden style={{ fontSize: 40 }}>📊</span>}
+          title="Analysis unlocks after your first session"
+          description="Run any practice round on a topic and we'll start tracking your readiness, mastery, and AI ability estimate. Insights and projections appear once you have at least 3 answered items."
+          actions={
+            <Link to="/catalog" style={{ textDecoration: "none" }}>
+              <Button variant="aurora" iconLeft={<span aria-hidden>✦</span>}>
+                Start practice
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <>
           {/* Phase 1B — Performance cards: rank projection + readiness band.
@@ -759,100 +766,110 @@ export function Analysis() {
             </section>
           )}
 
-          {/* KPI strip */}
-          <section className="an-kpi-row" aria-label="Key analytics">
-            <div className="an-kpi">
-              <div className="an-kpi-num" style={{ color: "var(--color-green)" }}>
-                {readinessPct.toFixed(1)}
-              </div>
-              <div className="an-kpi-lbl">AI Readiness Score</div>
-              <div className="an-kpi-delta an-neu">
-                {readiness?.nTopics ? `${readiness.nTopics} topics tracked` : "—"}
-              </div>
-            </div>
-
-            <div className="an-kpi">
-              <div className="an-kpi-num" style={{ color: "var(--color-ai)" }}>
-                {projectedReadiness
+          {/* KPI strip — 5 Aurora StatCards */}
+          <section
+            aria-label="Key analytics"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+              gap: 12,
+              marginBottom: 16,
+            }}
+          >
+            <StatCard
+              size="sm"
+              label="AI Readiness"
+              value={readinessPct.toFixed(1)}
+              deltaLabel={
+                readiness?.nTopics
+                  ? `${readiness.nTopics} topic${readiness.nTopics === 1 ? "" : "s"} tracked`
+                  : "—"
+              }
+              tone="success"
+            />
+            <StatCard
+              size="sm"
+              label={
+                projectedReadiness
+                  ? `Predicted ${formatShortDate(projectedReadiness.target)}`
+                  : "Predicted"
+              }
+              value={
+                projectedReadiness
                   ? Math.round(projectedReadiness.projected * 100)
-                  : "—"}
-              </div>
-              <div className="an-kpi-lbl">
-                {projectedReadiness
-                  ? `Predicted by ${formatShortDate(projectedReadiness.target)}`
-                  : "Predicted"}
-              </div>
-              <div
-                className={
-                  "an-kpi-delta " +
-                  (projectedReadiness
-                    ? projectedReadiness.projected > readiness!.score
-                      ? "an-up"
-                      : "an-neu"
-                    : "an-neu")
-                }
-              >
-                {projectedReadiness
+                  : "—"
+              }
+              deltaLabel={
+                projectedReadiness
                   ? `▲ ${projectedReadiness.days} days to target`
-                  : "Set a target date to project"}
-              </div>
-            </div>
-
-            <div className="an-kpi">
-              <div className="an-kpi-num" style={{ color: "var(--color-blue)" }}>
-                θ {theta >= 0 ? `+${theta.toFixed(2)}` : theta.toFixed(2)}
-              </div>
-              <div className="an-kpi-lbl">AI Ability estimate</div>
-              <div className="an-kpi-delta an-neu">{abilityBand}</div>
-            </div>
-
-            <div className="an-kpi">
-              <div className="an-kpi-num" style={{ color: "var(--color-amber)" }}>
-                {answerPrecisionPct}%
-              </div>
-              <div className="an-kpi-lbl">Answer Precision</div>
-              <div className="an-kpi-delta an-neu">
-                avg mastery · {tested.length} topic{tested.length === 1 ? "" : "s"}
-              </div>
-            </div>
-
-            <div className="an-kpi">
-              <div className="an-kpi-num" style={{ color: "var(--color-purple)" }}>
-                {(learningEvents ?? 0).toLocaleString()}
-              </div>
-              <div className="an-kpi-lbl">Learning Events</div>
-              <div className="an-kpi-delta an-neu">
-                {totalSessions} session{totalSessions === 1 ? "" : "s"}
-                {streak?.currentStreak ? ` · ${streak.currentStreak}d streak` : ""}
-              </div>
-            </div>
+                  : "Set a target date to project"
+              }
+              tone="aurora"
+            />
+            <StatCard
+              size="sm"
+              label="AI Ability (θ)"
+              value={theta >= 0 ? `+${theta.toFixed(2)}` : theta.toFixed(2)}
+              deltaLabel={abilityBand}
+              tone="brand"
+            />
+            <StatCard
+              size="sm"
+              label="Answer precision"
+              value={`${answerPrecisionPct}%`}
+              deltaLabel={`avg mastery · ${tested.length} topic${tested.length === 1 ? "" : "s"}`}
+              tone="warning"
+            />
+            <StatCard
+              size="sm"
+              label="Learning events"
+              value={(learningEvents ?? 0).toLocaleString()}
+              deltaLabel={
+                `${totalSessions} session${totalSessions === 1 ? "" : "s"}` +
+                (streak?.currentStreak ? ` · ${streak.currentStreak}d streak` : "")
+              }
+              tone="aurora"
+            />
           </section>
 
-          {/* AI insights */}
+          {/* AI insights — first goes in an AIInsightCard, rest as a list. */}
           {insights.length > 0 ? (
-            <section
-              className="ai-insight-panel"
-              style={{ marginTop: "var(--sp-4)" }}
-              aria-label="AI insights"
-            >
-              <div className="ai-insight-title">
-                ◈ AI-GENERATED INSIGHTS
-                {activeExam ? <> · {activeExam.name}</> : null}
-                {readiness?.updatedAt ? (
-                  <> · updated {formatRelative(readiness.updatedAt)}</>
-                ) : null}
-              </div>
-              <div className="an-ins-grid">
-                {insights.map((ins, i) => (
-                  <div key={i} className="an-ins-item">
-                    <div className="an-ins-dot" style={{ background: ins.color }} />
-                    <div
-                      className="an-ins-text"
-                      dangerouslySetInnerHTML={{ __html: ins.text }}
-                    />
-                  </div>
-                ))}
-              </div>
+            <section aria-label="AI insights" style={{ marginBottom: 16 }}>
+              <AIInsightCard
+                eyebrow={
+                  <>
+                    AI-GENERATED INSIGHTS
+                    {activeExam ? <> · {activeExam.name}</> : null}
+                    {readiness?.updatedAt ? (
+                      <> · updated {formatRelative(readiness.updatedAt)}</>
+                    ) : null}
+                  </>
+                }
+                headline={stripHtml(insights[0]!.text)}
+                description={
+                  insights.length > 1 ? (
+                    <ul style={{ margin: "8px 0 0", paddingLeft: 18, lineHeight: 1.6 }}>
+                      {insights.slice(1).map((ins, i) => (
+                        <li key={i} style={{ color: "var(--neutral-700)" }}>
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              display: "inline-block",
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              background: ins.color,
+                              marginRight: 8,
+                              verticalAlign: "middle",
+                            }}
+                          />
+                          {stripHtml(ins.text)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : undefined
+                }
+              />
             </section>
           ) : null}
 
@@ -1351,6 +1368,13 @@ function strengthClassFor(s: ReturnType<typeof strengthFor>): string {
 
 function formatShortDate(d: Date): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+// Strip HTML tags from an insight string. buildInsights() produces
+// strings like "<strong>On track.</strong> At your pace…". We render
+// the plain text so AI insight cards stay free of dangerouslySetInnerHTML.
+function stripHtml(s: string): string {
+  return s.replace(/<[^>]*>/g, "");
 }
 
 function formatRelative(iso: string): string {

@@ -12,6 +12,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../aurora/widgets/widgets.dart';
 
 import '../api/billing.dart';
 import 'paywall_webview_screen.dart';
@@ -110,8 +111,8 @@ class _BillingScreenState extends State<BillingScreen> {
   @override
   Widget build(BuildContext context) {
     final display = premiumDisplay(_sub);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Billing & Subscription')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'Billing & Subscription'),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
@@ -120,7 +121,7 @@ class _BillingScreenState extends State<BillingScreen> {
             if (_banner != null) _bannerWidget(_banner!),
             if (_error != null) _bannerWidget(_error!, error: true),
             if (_loading)
-              const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+              const Center(child: Padding(padding: EdgeInsets.all(24), child: AuroraSpinner(size: 32)))
             else
               Card(
                 child: Padding(

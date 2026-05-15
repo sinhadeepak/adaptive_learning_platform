@@ -4,6 +4,7 @@
 //   - Inline answer radios as a fallback (offline-friendly path).
 
 import 'package:flutter/material.dart';
+import '../aurora/widgets/widgets.dart';
 
 import '../api/assignments.dart';
 import '../quiz/quiz_client.dart';
@@ -77,15 +78,15 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Assignment')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'Assignment'),
       body: _error != null
           ? Padding(
               padding: const EdgeInsets.all(16),
               child: Text(_error!, style: const TextStyle(color: Colors.red)),
             )
           : _assignment == null || _questions == null
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: AuroraSpinner(size: 32))
               : _result != null
                   ? _buildResult(_result!)
                   : _buildQuiz(),

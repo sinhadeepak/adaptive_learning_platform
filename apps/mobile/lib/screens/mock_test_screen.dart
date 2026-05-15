@@ -4,6 +4,7 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../aurora/widgets/widgets.dart';
 import '../widgets/alp_card.dart';
 import '../widgets/report_outcome_dialog.dart';
 import 'mock_result_screen.dart';
@@ -91,8 +92,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
-          backgroundColor: AlpColors.bgSurface1,
-          title: const Text('Submit mock?', style: TextStyle(color: AlpColors.textPrimary)),
+          title: const Text('Submit mock?', style: TextStyle()),
           content: Text(
             'Answered: ${_answers.length} of ${widget.plan.totalQuestions}\n'
             'Flagged: ${_flagged.length}',
@@ -124,7 +124,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
       // (juniors don't take real competitive exams) for their actual
       // outcome. Strict opt-in; honoured "don't ask again" flag.
       if (!mounted) return;
-      if (personaForExamCode(widget.plan.examCode).isSenior &&
+      if (legacyAudienceForExamCode(widget.plan.examCode).isSenior &&
           await shouldAskOutcome(widget.api.auth)) {
         if (!mounted) return;
         await showReportOutcomeDialog(
@@ -147,8 +147,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
     final res = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AlpColors.bgSurface1,
-        title: const Text('Quit mock?', style: TextStyle(color: AlpColors.textPrimary)),
+        title: const Text('Quit mock?', style: TextStyle()),
         content: const Text(
           'Your progress will be lost. The mock cannot be resumed.',
           style: TextStyle(color: AlpColors.textSecondary),
@@ -181,10 +180,9 @@ class _MockTestScreenState extends State<MockTestScreen> {
         if (didPop) return;
         if (await _confirmExit() && mounted) Navigator.of(context).pop();
       },
-      child: Scaffold(
-        backgroundColor: AlpColors.bgBase,
-        body: SafeArea(
-          child: Column(
+      child: AuroraScaffold(
+        focusMode: true,
+        body: Column(
             children: [
               _Header(
                 examName: widget.plan.examName,
@@ -258,7 +256,6 @@ class _MockTestScreenState extends State<MockTestScreen> {
                       Text(
                         _current.stem,
                         style: const TextStyle(
-                          color: AlpColors.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                           height: 1.5,
@@ -293,7 +290,6 @@ class _MockTestScreenState extends State<MockTestScreen> {
               ),
             ],
           ),
-        ),
       ),
     );
   }
@@ -339,7 +335,6 @@ class _Header extends StatelessWidget {
                 Text(
                   examName,
                   style: const TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -496,7 +491,12 @@ class _ChoiceTile extends StatelessWidget {
             child: Text(
               text,
               style: TextStyle(
-                color: picked ? AlpColors.textPrimary : AlpColors.textSecondary,
+                // W2.11 partial: active picks theme onSurface; inactive
+                // still uses legacy textSecondary (Wave-1 dark lock keeps
+                // it visible; W2.11.2 sweeps the muted token next).
+                color: picked
+                    ? Theme.of(context).colorScheme.onSurface
+                    : AlpColors.textSecondary,
                 fontSize: 14,
                 height: 1.4,
               ),
@@ -541,14 +541,13 @@ class _BottomBar extends StatelessWidget {
               side: const BorderSide(color: AlpColors.borderStrong),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
-            child: const Text('← Prev', style: TextStyle(color: AlpColors.textPrimary)),
+            child: const Text('← Prev', style: TextStyle()),
           ),
           const Spacer(),
           if (!isLast)
             ElevatedButton(
               onPressed: onNext,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AlpColors.colorBlue,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
@@ -565,7 +564,6 @@ class _BottomBar extends StatelessWidget {
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AlpColors.colorGreen,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),

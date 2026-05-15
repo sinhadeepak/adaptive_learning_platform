@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../../aurora/widgets/widgets.dart';
 
 import '../../api/marketplace.dart';
 import '../../widgets/alp_card.dart';
@@ -138,9 +139,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final c = _course;
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(title: Text(c?.title ?? 'Course')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: c?.title ?? 'Course'),
       body: c == null
           ? Center(
               child: _error != null
@@ -148,7 +148,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                       padding: const EdgeInsets.all(16),
                       child: Text(_error!,
                           style: const TextStyle(color: AlpColors.colorRed),),)
-                  : const CircularProgressIndicator(),
+                  : const AuroraSpinner(size: 32),
             )
           : ListView(
               padding: const EdgeInsets.all(16),
@@ -169,7 +169,6 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                 const SizedBox(height: 16),
                 Text(c.title,
                     style: const TextStyle(
-                        color: AlpColors.textPrimary,
                         fontSize: 22,
                         fontWeight: FontWeight.bold,),),
                 const SizedBox(height: 8),
@@ -189,13 +188,11 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                       const SizedBox(height: 4),
                       Text(_owned ? 'Purchased' : _rupees(c.pricePaise),
                           style: const TextStyle(
-                              color: AlpColors.textPrimary,
                               fontSize: 28,
                               fontWeight: FontWeight.bold,),),
                       const SizedBox(height: 12),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AlpColors.colorBlue,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
@@ -232,7 +229,6 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                   const SizedBox(height: 24),
                   const Text('About this course',
                       style: TextStyle(
-                          color: AlpColors.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,),),
                   const SizedBox(height: 8),
@@ -315,7 +311,6 @@ class _RateCourseCardState extends State<_RateCourseCard> {
         children: [
           const Text('Rate this course',
               style: TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,),),
           const SizedBox(height: 4),
@@ -361,7 +356,6 @@ class _RateCourseCardState extends State<_RateCourseCard> {
             child: ElevatedButton(
               onPressed: _stars >= 1 && !_busy ? _submit : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AlpColors.colorAi,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 13),
               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 
 /// Consumes a reset token (typically delivered via deep-link) and sets a new
@@ -61,9 +62,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.surfaceSecondary,
-      appBar: AppBar(title: const Text('Set new password')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'Set new password'),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

@@ -34,3 +34,8 @@ We document significant architectural decisions here. Use the [template](0000-te
 | [0022](0022-difficulty-agency.md) | Difficulty agency model — intent · friction · calibration (Phase 6) | proposed | 2026-05-02 |
 | [0023](0023-constrained-plan-coediting.md) | Constrained plan co-editing (Phase 6) | proposed | 2026-05-02 |
 | [0024](0024-todays-mission-entrypoint.md) | Today's Mission as the primary daily entrypoint (Phase 6) | proposed | 2026-05-02 |
+| [0025](0025-cbse-class-8-9-split.md) | Split combined "CBSE (Class 8-9)" exam into two exams | proposed | 2026-05-04 |
+| [0026](0026-phase2-question-type-evaluation.md) | Phase 2 question type evaluation semantics + un-gating | proposed | 2026-05-11 |
+| [0027](0027-real-time-battle-service.md) | Real-time Battle service (`alp-battle`) | proposed | 2026-05-11 |
+| [0028](0028-design-system-v2-aurora.md) | Design System v2 — "Aurora" (student portal redesign) | proposed | 2026-05-13 |
+| [0029](0029-component-primitives-package.md) | Component Primitives Package (`packages/ui`) | proposed | 2026-05-13 |

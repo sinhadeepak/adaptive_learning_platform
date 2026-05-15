@@ -1,8 +1,11 @@
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../widgets/alp_card.dart';
+import 'onboarding/welcome_screen.dart';
 
 /// Edit preferences: language + daily-goal minutes. Wired to PATCH /profile/preferences.
 class PreferencesScreen extends StatefulWidget {
@@ -77,11 +80,10 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(title: const Text('Study Preferences'), backgroundColor: AlpColors.bgSurface1),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'Study Preferences', backgroundColor: AlpColors.bgSurface1),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AlpColors.colorAi))
+          ? const Center(child: AuroraSpinner(size: 32))
           : ListView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
               children: [
@@ -105,7 +107,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                             groupValue: _language,
                             onChanged: (v) => setState(() => _language = v ?? 'en'),
                             activeColor: AlpColors.colorAi,
-                            title: Text(opt.$2, style: const TextStyle(color: AlpColors.textPrimary)),
+                            title: Text(opt.$2, style: const TextStyle()),
                             contentPadding: EdgeInsets.zero,
                             dense: true,
                           ),),
@@ -131,7 +133,6 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                       Text(
                         '$_dailyGoal min / day',
                         style: const TextStyle(
-                          color: AlpColors.textPrimary,
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
                         ),
@@ -169,7 +170,6 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                   child: ElevatedButton(
                     onPressed: _saving ? null : _save,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AlpColors.colorBlue,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: Text(
@@ -178,6 +178,63 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                     ),
                   ),
                 ),
+                if (kDebugMode) ...[
+                  const SizedBox(height: 24),
+                  AlpCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'DEBUG',
+                          style: TextStyle(
+                            color: AlpColors.textMuted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Visible in debug builds only — stripped from release.',
+                          style: TextStyle(color: AlpColors.textFaint, fontSize: 11),
+                        ),
+                        const SizedBox(height: 12),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          title: const Text(
+                            'Preview onboarding flow',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Step through Welcome → Exam → Language → Target → Goal '
+                            'without touching server-side onboarding state.',
+                            style: TextStyle(color: AlpColors.textMuted, fontSize: 12),
+                          ),
+                          trailing: const Icon(
+                            Icons.chevron_right,
+                            color: AlpColors.textMuted,
+                          ),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => WelcomeScreen(
+                                  onContinue: () =>
+                                      Navigator.of(context).pop(),
+                                ),
+                                fullscreenDialog: true,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
     );

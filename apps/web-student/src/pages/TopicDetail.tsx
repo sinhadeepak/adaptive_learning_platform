@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  AIInsightCard,
+  Button,
+  Card,
+  ProgressRing,
+  StatCard,
+  Tag,
+} from "@alp/ui";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
-import { Banner, Pill, SkeletonRows } from "../components/dashboard";
+import { Banner, SkeletonRows } from "../components/dashboard";
 import { AITutorChat } from "../components/AITutorChat";
 import { ResourceShelf } from "../components/ResourceShelf";
 import { blockedLabel, summariseGate, type GateResponse } from "../lib/prereq_gate";
@@ -294,126 +302,146 @@ export function TopicDetail() {
           : "weak";
   const isWeak = bucket === "weak";
 
+  const ringTone: "weak" | "developing" | "strong" | "neutral" =
+    bucket === "weak" ? "weak"
+    : bucket === "developing" ? "developing"
+    : bucket === "strong" ? "strong"
+    : "neutral";
+  const bucketLabel =
+    bucket === "strong" ? "Strong"
+    : bucket === "developing" ? "Developing"
+    : bucket === "weak" ? "Weak"
+    : "Not started";
+  const bucketTagTone: "success" | "warning" | "danger" | "neutral" =
+    bucket === "strong" ? "success"
+    : bucket === "developing" ? "warning"
+    : bucket === "weak" ? "danger"
+    : "neutral";
+
+  const gateState = summariseGate(gate);
+  const ptsToGain = mastery
+    ? bucket === "weak"
+      ? `+${(2.5 + (1 - mastery.ewa) * 2).toFixed(1)}`
+      : bucket === "developing"
+        ? `+${(0.8 + (1 - mastery.ewa) * 1.2).toFixed(1)}`
+        : "Maintain"
+    : "—";
+
   return (
     <AppShell title={topic.title} actions={backAction}>
-      {/* ── Zone 1: AI hero ─────────────────────────────────────── */}
-      <section className="topic-hero" aria-label={`${topic.title} overview`}>
-        <div className="topic-hero-left">
-          <div className="topic-hero-tag">
-            <span className="ai-pill">◈ AI ADAPTIVE PRACTICE</span>
-            <Pill tone={topic.tier === "PREMIUM" ? "warning" : "muted"}>
-              {topic.tier === "PREMIUM" ? "Premium" : "Free"}
-            </Pill>
-            {mastery !== null ? (
-              <Pill
-                tone={
-                  bucket === "strong"
-                    ? "success"
-                    : bucket === "developing"
-                      ? "info"
-                      : "danger"
-                }
+      {/* ── Aurora hero — topic identity, mastery ring, primary CTA ── */}
+      <Card padding="lg" style={{ marginBottom: 20 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 20,
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+          }}
+        >
+          <ProgressRing
+            value={mastery?.ewa ?? 0}
+            size={96}
+            thickness={9}
+            tone={ringTone}
+          >
+            {masteryPct !== null ? `${masteryPct}%` : "—"}
+          </ProgressRing>
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                flexWrap: "wrap",
+                marginBottom: 8,
+              }}
+            >
+              <Tag tone="aurora" variant="soft" size="sm">
+                ✦ AI Adaptive Practice
+              </Tag>
+              <Tag
+                tone={topic.tier === "PREMIUM" ? "warning" : "neutral"}
+                variant="soft"
+                size="sm"
               >
-                {bucket === "strong"
-                  ? "Strong"
-                  : bucket === "developing"
-                    ? "Developing"
-                    : "Weak"}
-              </Pill>
-            ) : null}
-          </div>
-          <h1 className="topic-hero-title">
-            {topic.title}
-            {importance && (
-              <span style={{ marginLeft: 12, verticalAlign: "middle" }}>
-                <ImportancePill {...importance} />
-              </span>
-            )}
-          </h1>
-          {/* Sprint 26 (P4-S26) — prereq gate pill. Hidden when no prereqs. */}
-          {(() => {
-            const state = summariseGate(gate);
-            if (state.kind === "hidden") return null;
-            if (state.kind === "ready") {
-              return (
-                <p
-                  className="prereq-pill prereq-pill-ready"
-                  style={{
-                    display: "inline-block",
-                    padding: "4px 10px",
-                    borderRadius: 12,
-                    background: "var(--color-green, #10C47A)",
-                    color: "#fff",
-                    fontSize: 13,
-                    margin: "8px 0",
-                  }}
-                >
-                  ✓ You're ready for this topic
-                </p>
-              );
-            }
-            return (
-              <Link
-                to={`/topics/${state.first.topicId}`}
-                className="prereq-pill prereq-pill-blocked"
-                style={{
-                  display: "inline-block",
-                  padding: "4px 10px",
-                  borderRadius: 12,
-                  background: "var(--color-amber, #F5A623)",
-                  color: "#fff",
-                  fontSize: 13,
-                  margin: "8px 0",
-                  textDecoration: "none",
-                }}
-              >
-                ⚠ {blockedLabel(state)} →
-              </Link>
-            );
-          })()}
-          <p className="topic-hero-sub">
-            {topic.description ?? (
-              <>
+                {topic.tier === "PREMIUM" ? "Premium" : "Free"}
+              </Tag>
+              {mastery !== null ? (
+                <Tag tone={bucketTagTone} variant="soft" size="sm">
+                  {bucketLabel}
+                </Tag>
+              ) : null}
+              {importance ? <ImportancePill {...importance} /> : null}
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "var(--t-h1-size)",
+                lineHeight: "var(--t-h1-line)",
+                fontWeight: 700,
+                color: "var(--neutral-900)",
+              }}
+            >
+              {topic.title}
+            </h1>
+            {topic.description ? (
+              <p style={{ margin: "8px 0 0", color: "var(--neutral-600)" }}>
+                {topic.description}
+              </p>
+            ) : (
+              <p style={{ margin: "8px 0 0", color: "var(--neutral-600)" }}>
                 Practice this topic with the IRT engine. Each session adapts
                 to your current ability so the next item is always within
                 reach.
-              </>
+              </p>
             )}
-          </p>
-          <div className="topic-hero-actions">
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => startQuiz("adaptive")}
-              disabled={starting}
-            >
-              {starting ? "Starting…" : "◈ Start AI practice"}
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => setDifficultyPickerOpen(true)}
-              disabled={starting}
-              title="Pick a difficulty band and start a practice round"
-            >
-              ▦ Practice this topic
-            </button>
-            {user && topicId && (
-              <MistakeReplayButton userId={user.id} topicId={topicId} />
-            )}
-            <button
-              type="button"
-              className="btn btn-ghost"
-              disabled
-              title="Lessons land in a future sprint"
-            >
-              Read lesson notes
-            </button>
+
+            {/* Prereq gate pill */}
+            {gateState.kind === "ready" ? (
+              <div style={{ marginTop: 12 }}>
+                <Tag tone="success" variant="soft" size="md">
+                  ✓ You're ready for this topic
+                </Tag>
+              </div>
+            ) : gateState.kind === "blocked" ? (
+              <Link
+                to={`/topics/${gateState.first.topicId}`}
+                style={{ textDecoration: "none", display: "inline-block", marginTop: 12 }}
+              >
+                <Tag tone="warning" variant="soft" size="md">
+                  ⚠ {blockedLabel(gateState)} →
+                </Tag>
+              </Link>
+            ) : null}
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
+              <Button
+                variant="aurora"
+                size="lg"
+                loading={starting}
+                onClick={() => startQuiz("adaptive")}
+                iconLeft={<span aria-hidden>✦</span>}
+              >
+                {starting ? "Starting…" : "Start AI practice"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setDifficultyPickerOpen(true)}
+                disabled={starting}
+                title="Pick a difficulty band and start a practice round"
+              >
+                Practice this topic
+              </Button>
+              {user && topicId ? (
+                <MistakeReplayButton userId={user.id} topicId={topicId} />
+              ) : null}
+            </div>
           </div>
         </div>
-      </section>
+      </Card>
 
-      {/* ── Zone 1.5: Watch & Learn shelf (R-S2) ──────────────── */}
+      {/* ── Watch & Learn shelf (R-S2) ──────────────── */}
       <ResourceShelf
         topicId={topicId}
         title="Watch & Learn"
@@ -425,70 +453,78 @@ export function TopicDetail() {
         hideWhenEmpty={false}
       />
 
-      {/* ── Zone 2: Stats row ───────────────────────────────────── */}
-      <section className="topic-stats" aria-label="Topic stats">
-        <div className="topic-stat">
-          <div
-            className="topic-stat-num"
-            style={{ color: "var(--color-blue)" }}
-          >
-            {topic.questionCount}
-          </div>
-          <div className="topic-stat-lbl">Questions</div>
-          <div className="topic-stat-foot">
-            in this topic's bank
-          </div>
-        </div>
-        <div className="topic-stat">
-          <div
-            className="topic-stat-num"
-            style={{
-              color:
-                bucket === "strong"
-                  ? "var(--color-green)"
-                  : bucket === "developing"
-                    ? "var(--color-blue)"
-                    : bucket === "weak"
-                      ? "var(--color-red)"
-                      : "var(--text-muted)",
-            }}
-          >
-            {masteryPct !== null ? `${masteryPct}%` : "—"}
-          </div>
-          <div className="topic-stat-lbl">Mastery (EWA)</div>
-          <div className="topic-stat-foot">
-            {mastery === null ? "Not started" : "Recency-weighted"}
-          </div>
-        </div>
-        <div className="topic-stat">
-          <div
-            className="topic-stat-num"
-            style={{ color: "var(--color-amber)" }}
-          >
-            {mastery?.n ?? 0}
-          </div>
-          <div className="topic-stat-lbl">Sessions</div>
-          <div className="topic-stat-foot">
-            {mastery && mastery.n > 0 ? "completed" : "no attempts yet"}
-          </div>
-        </div>
-        <div className="topic-stat">
-          <div
-            className="topic-stat-num"
-            style={{ color: "var(--color-ai)" }}
-          >
-            {mastery
-              ? bucket === "weak"
-                ? `+${(2.5 + (1 - mastery.ewa) * 2).toFixed(1)}`
-                : bucket === "developing"
-                  ? `+${(0.8 + (1 - mastery.ewa) * 1.2).toFixed(1)}`
-                  : "Maintain"
-              : "—"}
-          </div>
-          <div className="topic-stat-lbl">Pts to gain</div>
-          <div className="topic-stat-foot">est. per 10-min round</div>
-        </div>
+      {/* ── Stats strip — 4 StatCards ──────────────────────────── */}
+      <section
+        aria-label="Topic stats"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 12,
+          margin: "20px 0",
+        }}
+      >
+        <StatCard
+          size="sm"
+          label="Questions"
+          value={topic.questionCount}
+          deltaLabel="in this topic's bank"
+          tone="brand"
+        />
+        <StatCard
+          size="sm"
+          label="Mastery (EWA)"
+          value={masteryPct !== null ? `${masteryPct}%` : "—"}
+          deltaLabel={mastery === null ? "Not started" : "Recency-weighted"}
+          tone={
+            bucket === "strong"
+              ? "success"
+              : bucket === "developing"
+                ? "warning"
+                : bucket === "weak"
+                  ? "danger"
+                  : "neutral"
+          }
+        />
+        <StatCard
+          size="sm"
+          label="Sessions"
+          value={mastery?.n ?? 0}
+          deltaLabel={mastery && mastery.n > 0 ? "completed" : "no attempts yet"}
+          tone="reward"
+        />
+        <StatCard
+          size="sm"
+          label="Pts to gain"
+          value={ptsToGain}
+          deltaLabel="est. per 10-min round"
+          tone="aurora"
+        />
       </section>
+
+      {/* ── AI insight banner when this topic is weak ────────── */}
+      {isWeak ? (
+        <div style={{ margin: "20px 0" }}>
+          <AIInsightCard
+            headline={
+              <>
+                <strong>{topic.title}</strong> needs focused practice — a 10-minute
+                drill will move you the most.
+              </>
+            }
+            description="Adaptive mode picks items at your ability so every question is just within reach."
+            action={
+              <Button
+                variant="aurora"
+                onClick={() => startQuiz("adaptive")}
+                loading={starting}
+                iconLeft={<span aria-hidden>✦</span>}
+              >
+                Start a 10-min drill
+              </Button>
+            }
+          />
+        </div>
+      ) : null}
 
       {/* Phase 1C — Time-to-mastery card */}
       {user && topicId && (

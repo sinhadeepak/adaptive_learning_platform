@@ -1,13 +1,29 @@
-// F8b — Leaderboards.
-// URL: /leaderboards
+// Leaderboards — Aurora redesign (F8b).
 //
-// Tabs for the well-known boards. Backed by /social/leaderboards/{id};
-// the engagement service populates rows every 15 min from the job at
-// engagement/jobs/leaderboards.py.
+// Spec: docs/02-design/redesign/leaderboards.md
+// ADR:  docs/adr/0028-design-system-v2-aurora.md (S7 deliverable)
+//
+// Data: GET /api/v1/social/leaderboards/{boardId} (rows of {userId, rank, score})
+// refreshed every 15 min by engagement service.
+//
+// Aurora restructure:
+//   * Tabs replace the legacy `.pg-tabs` button row
+//   * PodiumCard for top-3 (gold/silver/bronze rings + scores + names)
+//   * Card-styled rows for the remaining ranks
+//   * EmptyState when board is empty
+//   * Skeleton rows while loading
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import {
+  Avatar,
+  Button,
+  Card,
+  EmptyState,
+  Skeleton,
+  Tag,
+} from "@alp/ui";
 import { AppShell } from "../components/AppShell";
 import { Banner } from "../components/dashboard";
 import { useUserDirectory, formatUser } from "../lib/user_directory";
@@ -24,7 +40,7 @@ const BOARDS: Array<{ id: string; label: string; hint: string }> = [
 ];
 
 export function Leaderboards() {
-  const [boardId, setBoardId] = useState<string>(BOARDS[0].id);
+  const [boardId, setBoardId] = useState<string>(BOARDS[0]!.id);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,94 +70,285 @@ export function Leaderboards() {
   const ids = useMemo(() => (rows ?? []).map((r) => r.userId), [rows]);
   const dir = useUserDirectory(ids);
 
+  const top3 = rows ? rows.slice(0, 3) : [];
+  const rest = rows ? rows.slice(3) : [];
+
   return (
     <AppShell
       title="Leaderboards"
       actions={
-        <Link to="/clans" className="pg-btn pg-btn-ghost">
-          Clans →
+        <Link to="/clans" style={{ textDecoration: "none" }}>
+          <Button variant="ghost" size="sm">Clans →</Button>
         </Link>
       }
     >
-      <div className="pg-shell" style={{ maxWidth: 880 }}>
-        {error && <Banner tone="danger">{error}</Banner>}
+      {error ? <Banner tone="danger">{error}</Banner> : null}
 
-        <header className="pg-header">
-          <div className="pg-header-main">
-            <h1 className="pg-header-title">Leaderboards</h1>
-            <p className="pg-header-sub">
-              Rankings refresh every 15 minutes. New battles need ~1 cycle
-              before they affect the boards.
-            </p>
-          </div>
-        </header>
+      <header style={{ marginBottom: 20 }}>
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "var(--t-h1-size)",
+            lineHeight: "var(--t-h1-line)",
+            fontWeight: 700,
+            color: "var(--neutral-900)",
+          }}
+        >
+          Leaderboards
+        </h1>
+        <p style={{ margin: "4px 0 0", color: "var(--neutral-600)" }}>
+          Rankings refresh every 15 minutes. New battles need ~1 cycle before
+          they affect the boards.
+        </p>
+      </header>
 
-        <section className="pg-section">
-          <div className="pg-tabs" role="tablist">
-            {BOARDS.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                className={"pg-tab" + (boardId === b.id ? " pg-tab-active" : "")}
-                onClick={() => setBoardId(b.id)}
-              >
-                {b.label}
-              </button>
-            ))}
-          </div>
-          {board && (
-            <div style={{ fontSize: 12, color: "var(--text-muted)", margin: "8px 0 16px" }}>
-              {board.hint}
-            </div>
-          )}
-
-          {rows === null && <div>Loading…</div>}
-          {rows !== null && rows.length === 0 && (
-            <div
+      {/* ── Board picker — segmented-style tabs ── */}
+      <div
+        role="tablist"
+        aria-label="Leaderboard"
+        style={{
+          display: "inline-flex",
+          gap: 0,
+          backgroundColor: "var(--neutral-100)",
+          borderRadius: "var(--r-pill)",
+          padding: 2,
+          marginBottom: 12,
+        }}
+      >
+        {BOARDS.map((b) => {
+          const active = boardId === b.id;
+          return (
+            <button
+              key={b.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setBoardId(b.id)}
               style={{
-                padding: 24,
-                textAlign: "center",
-                color: "var(--text-muted)",
-                border: "1px dashed var(--border-subtle)",
-                borderRadius: 8,
+                appearance: "none",
+                border: 0,
+                background: active ? "var(--neutral-0)" : "transparent",
+                color: active ? "var(--neutral-900)" : "var(--neutral-600)",
+                fontFamily: "var(--font-ui)",
+                fontSize: 13,
+                fontWeight: active ? 700 : 500,
+                padding: "6px 16px",
+                borderRadius: "var(--r-pill)",
+                cursor: "pointer",
+                boxShadow: active ? "var(--sh-sm)" : "none",
+                transition: "all 120ms var(--m-ease)",
               }}
             >
-              No entries yet. The first refresh will populate the board.
-            </div>
-          )}
-          {rows !== null && rows.length > 0 && (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr
+              {b.label}
+            </button>
+          );
+        })}
+      </div>
+      {board ? (
+        <div style={{ fontSize: 13, color: "var(--neutral-500)", marginBottom: 20 }}>
+          {board.hint}
+        </div>
+      ) : null}
+
+      {/* ── Loading skeletons ── */}
+      {rows === null ? (
+        <>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 12,
+              marginBottom: 20,
+            }}
+          >
+            {[0, 1, 2].map((i) => (
+              <Card key={i} padding="md">
+                <div style={{ height: 96 }}>
+                  <Skeleton shape="circle" width={56} height={56} />
+                </div>
+              </Card>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Card key={i} padding="sm">
+                <Skeleton shape="text" width="60%" />
+              </Card>
+            ))}
+          </div>
+        </>
+      ) : rows.length === 0 ? (
+        <EmptyState
+          illustration={<span aria-hidden style={{ fontSize: 40 }}>🏅</span>}
+          title="No entries yet"
+          description="The first refresh will populate the board — practice or battle to earn your spot."
+          actions={
+            <Link to="/catalog" style={{ textDecoration: "none" }}>
+              <Button variant="aurora" iconLeft={<span aria-hidden>✦</span>}>
+                Start practice
+              </Button>
+            </Link>
+          }
+        />
+      ) : (
+        <>
+          {/* ── Podium for top 3 ── */}
+          {top3.length > 0 ? (
+            <section
+              aria-label="Top 3"
+              style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${Math.min(3, top3.length)}, 1fr)`,
+                gap: 12,
+                marginBottom: 20,
+              }}
+            >
+              {top3.map((r) => {
+                const medal = r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : "🥉";
+                const ring =
+                  r.rank === 1
+                    ? "var(--reward-500)"
+                    : r.rank === 2
+                      ? "var(--neutral-400)"
+                      : "#A16207";
+                return (
+                  <Card key={r.userId} padding="md">
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 8,
+                        textAlign: "center",
+                      }}
+                    >
+                      <div style={{ fontSize: 32, lineHeight: 1 }} aria-hidden>
+                        {medal}
+                      </div>
+                      <span
+                        style={{
+                          padding: 3,
+                          borderRadius: "50%",
+                          background: ring,
+                          display: "inline-block",
+                        }}
+                      >
+                        <Avatar
+                          name={formatUser(r.userId, dir[r.userId])}
+                          size="lg"
+                        />
+                      </span>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          color: "var(--neutral-900)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "100%",
+                          fontSize: 13,
+                        }}
+                      >
+                        {formatUser(r.userId, dir[r.userId])}
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 20,
+                          fontWeight: 700,
+                          color: "var(--neutral-900)",
+                          fontFeatureSettings: '"tnum"',
+                        }}
+                      >
+                        {Math.round(r.score).toLocaleString()}
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </section>
+          ) : null}
+
+          {/* ── Remaining ranks ── */}
+          {rest.length > 0 ? (
+            <section aria-label="Other rankings">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <h2
                   style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid var(--border-subtle)",
+                    margin: 0,
+                    fontSize: "var(--t-h3-size)",
+                    lineHeight: "var(--t-h3-line)",
+                    fontWeight: 600,
+                    color: "var(--neutral-800)",
                   }}
                 >
-                  <th style={{ padding: 8, width: 60 }}>Rank</th>
-                  <th style={{ padding: 8 }}>User</th>
-                  <th style={{ padding: 8, textAlign: "right" }}>Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.userId} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                    <td style={{ padding: 8, fontWeight: 700 }}>
-                      {r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : r.rank === 3 ? "🥉" : r.rank}
-                    </td>
-                    <td style={{ padding: 8, fontSize: 13 }}>
-                      {formatUser(r.userId, dir[r.userId])}
-                    </td>
-                    <td style={{ padding: 8, textAlign: "right", fontSize: 13 }}>
-                      {Math.round(r.score).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
-      </div>
+                  All rankings
+                </h2>
+                <Tag size="sm" tone="neutral" variant="soft">
+                  {rows.length}
+                </Tag>
+              </div>
+              <Card padding="sm">
+                <ol style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                  {rest.map((r, idx) => (
+                    <li
+                      key={r.userId}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "10px 8px",
+                        borderTop:
+                          idx === 0 ? "none" : "1px solid var(--neutral-200)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          minWidth: 32,
+                          fontFamily: "var(--font-mono)",
+                          fontWeight: 700,
+                          color: "var(--neutral-700)",
+                          fontFeatureSettings: '"tnum"',
+                          textAlign: "right",
+                        }}
+                      >
+                        {r.rank}
+                      </span>
+                      <Avatar
+                        name={formatUser(r.userId, dir[r.userId])}
+                        size="sm"
+                      />
+                      <span
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          color: "var(--neutral-900)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          fontSize: 13,
+                        }}
+                      >
+                        {formatUser(r.userId, dir[r.userId])}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontWeight: 600,
+                          color: "var(--neutral-700)",
+                          fontFeatureSettings: '"tnum"',
+                        }}
+                      >
+                        {Math.round(r.score).toLocaleString()}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </Card>
+            </section>
+          ) : null}
+        </>
+      )}
     </AppShell>
   );
 }

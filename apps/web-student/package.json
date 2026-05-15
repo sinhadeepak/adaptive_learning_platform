@@ -20,6 +20,7 @@
     "@alp/api-client": "workspace:*",
     "@alp/auth-client": "workspace:*",
     "@alp/design-system": "workspace:*",
+    "@alp/ui": "workspace:*",
     "katex": "^0.16.45",
     "leaflet": "^1.9",
     "react": "^18.3.1",

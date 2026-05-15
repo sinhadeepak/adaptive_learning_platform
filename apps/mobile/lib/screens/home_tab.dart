@@ -8,6 +8,7 @@ import '../api/marketplace.dart';
 import '../auth/auth_client.dart';
 import '../quiz/quiz_client.dart';
 import '../quiz/quiz_screen.dart';
+import '../aurora/widgets/widgets.dart';
 import '../widgets/alp_card.dart';
 import '../widgets/daily_plan_card.dart';
 import '../widgets/analytics_cards.dart';
@@ -54,7 +55,7 @@ class _HomeTabState extends State<HomeTab> {
       (_profile?.exams.isNotEmpty == true) ? _profile!.exams.first.examId : null;
   String? get _activeExamCode =>
       _activeExamId != null ? _examsMeta[_activeExamId!]?.code : null;
-  Persona get _persona => personaForExamCode(_activeExamCode);
+  LegacyAudience get _persona => legacyAudienceForExamCode(_activeExamCode);
 
   // True when the user has nothing meaningful on their dashboard yet —
   // no completed sessions, no active streak, no in-progress quiz.
@@ -269,14 +270,17 @@ class _HomeTabState extends State<HomeTab> {
     final readinessPct =
         _readiness == null ? 0 : (_readiness!.score * 100).round();
 
+    final auroraColors = Theme.of(context).extension<AuroraColors>()!;
+    final auroraTypography = Theme.of(context).extension<AuroraTypography>()!;
+
     return RefreshIndicator(
       onRefresh: _refresh,
-      backgroundColor: AlpColors.bgSurface2,
-      color: AlpColors.colorAi,
+      backgroundColor: auroraColors.neutral0,
+      color: auroraColors.brand600,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         children: [
-          // Greeting + inbox bell
+          // Aurora greeting + inbox bell.
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -284,16 +288,26 @@ class _HomeTabState extends State<HomeTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('$greeting 🌅',
-                        style: const TextStyle(
-                            color: AlpColors.textMuted, fontSize: 13,),),
-                    const SizedBox(height: 4),
                     Text(
-                      firstName,
-                      style: const TextStyle(
-                        color: AlpColors.textPrimary,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
+                      '$greeting 🌅',
+                      style: auroraTypography.bodySm.copyWith(
+                        color: auroraColors.neutral500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    RichText(
+                      text: TextSpan(
+                        style: auroraTypography.h1.copyWith(
+                          color: auroraColors.neutral900,
+                        ),
+                        children: [
+                          TextSpan(text: firstName),
+                          const TextSpan(text: ' '),
+                          TextSpan(
+                            text: '👋',
+                            style: TextStyle(color: auroraColors.brand600),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -360,9 +374,9 @@ class _HomeTabState extends State<HomeTab> {
           // the student can swap exam context, set a target date, or
           // browse the marketplace right from the home screen.
           const SizedBox(height: 16),
-          AlpSectionHeading(
+          AuroraSectionHeading(
             'My exams & courses',
-            trailing: TextButton(
+            action: TextButton(
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) =>
                     CoursesScreen(client: MarketplaceClient(widget.auth)),
@@ -412,7 +426,7 @@ class _HomeTabState extends State<HomeTab> {
           //       so this row is reserved for things the dock can't
           //       reach at one tap.
           const SizedBox(height: 16),
-          const AlpSectionHeading('Explore'),
+          const AuroraSectionHeading('Explore'),
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
@@ -478,14 +492,14 @@ class _HomeTabState extends State<HomeTab> {
     // 1) Streak in danger — most urgent.
     if (s != null && s.current > 0 && isStreakInDanger(s)) {
       return [
-        const AlpSectionHeading('Today'),
+        const AuroraSectionHeading('Today'),
         _StreakDangerCard(streak: s, onStart: () => widget.onJump(2)),
       ];
     }
     // 2) Resume an in-exam session.
     if (inProgress.isNotEmpty) {
       return [
-        const AlpSectionHeading('Today'),
+        const AuroraSectionHeading('Today'),
         _ResumeCard(
           row: inProgress.first,
           topicTitle: _topicTitles[inProgress.first.topicId],
@@ -497,7 +511,7 @@ class _HomeTabState extends State<HomeTab> {
     // 3) Daily-goal progress (if set in Preferences).
     if (goalMin > 0) {
       return [
-        const AlpSectionHeading('Today'),
+        const AuroraSectionHeading('Today'),
         _DailyGoalCard(
           goalMinutes: goalMin,
           minutesToday: _todayMinutes,
@@ -508,7 +522,7 @@ class _HomeTabState extends State<HomeTab> {
     // 4) Active streak (no resume / no goal yet).
     if (s != null && s.current > 0) {
       return [
-        const AlpSectionHeading('Today'),
+        const AuroraSectionHeading('Today'),
         _StreakCard(streak: s),
       ];
     }
@@ -519,7 +533,7 @@ class _HomeTabState extends State<HomeTab> {
     //    so the student isn't confused about what they're starting.
     final isJunior = _persona.isJunior;
     return [
-      const AlpSectionHeading('Start here'),
+      const AuroraSectionHeading('Start here'),
       AlpCard(
         onTap: _startDiagnostic,
         padding: const EdgeInsets.all(20),
@@ -555,7 +569,6 @@ class _HomeTabState extends State<HomeTab> {
                   ? 'Take a quick 5-question check'
                   : 'Run your 5-question diagnostic',
               style: const TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,),
             ),
@@ -599,7 +612,6 @@ class _HomeTabState extends State<HomeTab> {
               child: ElevatedButton(
                 onPressed: _startDiagnostic,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AlpColors.colorAi,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   shape: RoundedRectangleBorder(
@@ -666,7 +678,6 @@ class _ReadinessRing extends StatelessWidget {
           Text(
             pct.toStringAsFixed(0),
             style: const TextStyle(
-              color: AlpColors.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.w700,
             ),
@@ -747,7 +758,6 @@ class _StreakDangerCard extends StatelessWidget {
                 Text(
                   "Don't lose your ${streak.current}-day streak",
                   style: const TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -765,7 +775,6 @@ class _StreakDangerCard extends StatelessWidget {
           ElevatedButton(
             onPressed: onStart,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AlpColors.colorAmber,
               foregroundColor: Colors.black,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               shape: RoundedRectangleBorder(
@@ -817,7 +826,6 @@ class _ResumeCard extends StatelessWidget {
                 child: Text(
                   'Resume practice',
                   style: TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -830,8 +838,8 @@ class _ResumeCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            topicTitle ?? 'Topic #${row.topicId.substring(0, 8)}',
-            style: const TextStyle(color: AlpColors.textPrimary, fontSize: 14),
+            topicTitle ?? 'Topic…',
+            style: const TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 4),
           Text(
@@ -853,7 +861,6 @@ class _ResumeCard extends StatelessWidget {
               label: const Text('Continue',
                   style: TextStyle(fontWeight: FontWeight.w700),),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AlpColors.colorAi,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -916,7 +923,6 @@ class _DailyGoalCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: pct,
               minHeight: 10,
-              backgroundColor: AlpColors.bgSurface3,
               valueColor: AlwaysStoppedAnimation<Color>(tone),
             ),
           ),
@@ -927,7 +933,6 @@ class _DailyGoalCard extends StatelessWidget {
               Text(
                 '$minutesToday / $goalMinutes min',
                 style: const TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1087,7 +1092,6 @@ class _MyExamsRow extends StatelessWidget {
                 children: [
                   Text('Pick your exam or course',
                       style: TextStyle(
-                          color: AlpColors.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.w600,),),
                   SizedBox(height: 2),
@@ -1173,7 +1177,6 @@ class _ExamTile extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              color: AlpColors.textPrimary,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,),),
                       const SizedBox(height: 2),
@@ -1198,7 +1201,6 @@ class _ExamTile extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: (readinessPct / 100).clamp(0.0, 1.0),
                 minHeight: 4,
-                backgroundColor: AlpColors.bgSurface3,
                 valueColor: AlwaysStoppedAnimation(barColor),
               ),
             ),
@@ -1267,7 +1269,6 @@ class _AddExamTile extends StatelessWidget {
             const Text('Add exam or course',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,),),
             const SizedBox(height: 2),
@@ -1316,7 +1317,6 @@ class _QuickAction extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              color: AlpColors.textPrimary,
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),

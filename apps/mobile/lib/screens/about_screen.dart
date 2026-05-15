@@ -6,6 +6,7 @@
 // for runtime version lookup if pubspec drift becomes a concern.
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -22,9 +23,8 @@ class AboutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(title: const Text('About')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'About'),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
         children: [
@@ -47,7 +47,6 @@ class AboutScreen extends StatelessWidget {
             child: Text(
               'Adaptive Learning Platform',
               style: TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,),
             ),
@@ -140,7 +139,6 @@ class _AboutRow extends StatelessWidget {
       leading: Icon(icon, color: AlpColors.colorAi, size: 20),
       title: Text(title,
           style: const TextStyle(
-              color: AlpColors.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.w500,),),
       trailing: const Icon(Icons.chevron_right,

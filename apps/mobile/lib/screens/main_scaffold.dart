@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 
 import '../api/api_client.dart';
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 import 'home_tab.dart';
 import 'practice_tab.dart';
@@ -33,7 +34,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   // tabs in the IndexedStack so existing onJump(N) calls (PracticeTab=2,
   // ProgressTab=1, RankTab=3 …) stay stable; the dock just hides the
   // Rank button when it shouldn't be shown.
-  Persona _persona = Persona.junior;
+  LegacyAudience _persona = LegacyAudience.junior;
   bool _hasAnySession = false;
   // Active exam code passed down to surfaces that previously hardcoded
   // "NEET" — Practice tab's Adaptive card pill, etc.
@@ -72,7 +73,7 @@ class _MainScaffoldState extends State<MainScaffold> {
       }
       setState(() {
         _avatarUrl = profile?.avatarUrl;
-        _persona = personaForExamCode(activeCode);
+        _persona = legacyAudienceForExamCode(activeCode);
         _hasAnySession = mastery.any((m) => m.n > 0);
         _activeExamCode = activeCode;
       });
@@ -110,19 +111,15 @@ class _MainScaffoldState extends State<MainScaffold> {
       ProfileTab(api: _api, auth: widget.auth, onSignOut: widget.onSignOut),
     ];
     final showRank = shouldShowRankTab(
-      persona: _persona,
+      audience: _persona,
       hasAnySession: _hasAnySession,
     );
     return MainScaffoldScope(
       switchToTab: _switchTo,
       activeTabIndex: _index,
-      child: Scaffold(
-        backgroundColor: AlpColors.bgBase,
-        body: SafeArea(
-          bottom: false,
-          child: IndexedStack(index: _index, children: tabs),
-        ),
-        bottomNavigationBar: _BottomNav(
+      child: AuroraScaffold(
+        body: IndexedStack(index: _index, children: tabs),
+        bottomNav: _BottomNav(
           index: _index,
           avatarUrl: _avatarUrl,
           showRank: showRank,

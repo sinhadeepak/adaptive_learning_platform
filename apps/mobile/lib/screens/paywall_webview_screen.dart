@@ -6,6 +6,7 @@
 // then polls /payment/me until the webhook flips isPremium → true.
 
 import 'package:flutter/material.dart';
+import '../aurora/widgets/widgets.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class PaywallWebViewScreen extends StatefulWidget {
@@ -48,9 +49,9 @@ class _PaywallWebViewScreenState extends State<PaywallWebViewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Upgrade to Premium'),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(
+        title: 'Upgrade to Premium',
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(CheckoutOutcome.dismissed),

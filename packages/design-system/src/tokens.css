@@ -1,9 +1,25 @@
 /* ============================================================
    ADAPTIVELEARN — GLOBAL DESIGN SYSTEM
-   Student Portal · v1.0 · April 2026
+   Student Portal · v1.0 (legacy) + v2 "Aurora" (additive)
+
+   v1 tokens below are kept for the migration window (one release).
+   v2 tokens are added via the @import statements below — they
+   layer ON TOP of v1 so existing components keep working while
+   new components consume `--brand-*`, `--aurora-*`, `--mastery-*`,
+   `--neutral-*`, `--t-*`, `--sp-*`, `--r-*` etc.
+
+   See:
+   * docs/02-design/design-system-v2-aurora.md
+   * docs/adr/0028-design-system-v2-aurora.md
+   * docs/adr/0029-component-primitives-package.md
    ============================================================ */
 
-/* ── CUSTOM PROPERTIES (DESIGN TOKENS) ── */
+/* v2 Aurora tokens (additive — full light + dark spec) */
+@import "./tokens.v2.css";
+/* Density modes (Junior / Aspirant / Pro) — must follow tokens.v2.css */
+@import "./density.css";
+
+/* ── v1 CUSTOM PROPERTIES (DESIGN TOKENS) — preserved for migration ── */
 :root {
   /* Backgrounds */
   --bg-base:       #07090F;   /* page / app shell */

@@ -4,6 +4,7 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../aurora/widgets/widgets.dart';
 import '../api/api_client.dart';
 import '../api/assignments.dart';
 import '../api/billing.dart';
@@ -235,7 +236,6 @@ class _ProfileTabState extends State<ProfileTab> {
           Text(
             label,
             style: const TextStyle(
-              color: AlpColors.textPrimary,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -254,12 +254,13 @@ class _ProfileTabState extends State<ProfileTab> {
 
     final joined = _formatJoined();
 
+    final auroraColors = Theme.of(context).extension<AuroraColors>()!;
     return RefreshIndicator(
       onRefresh: () async {
         await Future.wait([_loadAvatar(), _loadAchievements()]);
       },
-      color: AlpColors.colorAi,
-      backgroundColor: AlpColors.bgSurface2,
+      color: auroraColors.brand600,
+      backgroundColor: auroraColors.neutral0,
       child: ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       physics: const AlwaysScrollableScrollPhysics(),
@@ -353,7 +354,7 @@ class _ProfileTabState extends State<ProfileTab> {
         Center(
           child: Text(
             name.isEmpty ? 'Student' : name,
-            style: const TextStyle(color: AlpColors.textPrimary, fontSize: 20, fontWeight: FontWeight.w700),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
           ),
         ),
         const SizedBox(height: 4),
@@ -621,7 +622,6 @@ class _ProfileTabState extends State<ProfileTab> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('$name — coming in next mobile pass'),
-        backgroundColor: AlpColors.bgSurface3,
       ),
     );
   }
@@ -757,7 +757,7 @@ class _SettingsRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(color: AlpColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
               ),
               if (trailing != null)

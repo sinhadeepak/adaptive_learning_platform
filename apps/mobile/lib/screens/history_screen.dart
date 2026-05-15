@@ -1,4 +1,5 @@
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
@@ -131,11 +132,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(
-        title: const Text('Practice history'),
-        backgroundColor: AlpColors.bgSurface1,
+    return AuroraScaffold(
+      appBar: AuroraAppBar(
+        title: 'Practice history',
       ),
       body: SafeArea(
         child: Column(
@@ -161,9 +160,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
               child: RefreshIndicator(
                 onRefresh: _load,
                 color: AlpColors.colorAi,
-                backgroundColor: AlpColors.bgSurface2,
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator(color: AlpColors.colorAi))
+                    ? const Center(child: AuroraSpinner(size: 32))
                     : _error != null
                         ? _ErrorState(error: _error!, onRetry: _load)
                         : (_filtered.isEmpty && _mocks.isEmpty)
@@ -232,7 +230,9 @@ class _FilterChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? Colors.white : AlpColors.textPrimary,
+            color: selected
+                ? Colors.white
+                : Theme.of(context).colorScheme.onSurface,
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
@@ -292,9 +292,8 @@ class _HistoryRow extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              title ?? 'Topic #${row.topicId.substring(0, 8)}',
+              title ?? 'Topic…',
               style: const TextStyle(
-                color: AlpColors.textPrimary,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -354,7 +353,6 @@ class _MockRow extends StatelessWidget {
           Text(
             mock.examName ?? mock.examCode,
             style: const TextStyle(
-              color: AlpColors.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -387,7 +385,7 @@ class _EmptyState extends StatelessWidget {
         Center(
           child: Text(
             'No practice sessions yet',
-            style: TextStyle(color: AlpColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
         ),
         SizedBox(height: 6),

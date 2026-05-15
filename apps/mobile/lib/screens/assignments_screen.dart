@@ -3,6 +3,7 @@
 // Mirrors the web /assignments page. Tap a row → opens the detail screen.
 
 import 'package:flutter/material.dart';
+import '../aurora/widgets/widgets.dart';
 
 import '../api/assignments.dart';
 import 'assignment_detail_screen.dart';
@@ -38,8 +39,8 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('My Assignments')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'My Assignments'),
       body: RefreshIndicator(
         onRefresh: _load,
         child: _error != null
@@ -48,7 +49,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                 ? const Center(
                     child: Padding(
                       padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator(),
+                      child: AuroraSpinner(size: 32),
                     ),
                   )
                 : _items!.isEmpty

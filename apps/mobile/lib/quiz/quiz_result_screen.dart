@@ -4,6 +4,7 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../aurora/widgets/widgets.dart';
 import '../screens/doubt_detail_screen.dart';
 import '../widgets/alp_card.dart';
 import 'quiz_client.dart';
@@ -197,21 +198,23 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
   @override
   Widget build(BuildContext context) {
     if (_error != null) {
-      return Scaffold(
-        backgroundColor: AlpColors.bgBase,
-        appBar: AppBar(title: const Text('Result'), backgroundColor: AlpColors.bgSurface1),
+      return AuroraScaffold(
+        appBar: const AuroraAppBar(title: 'Result'),
         body: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(_error!, style: const TextStyle(color: AlpColors.colorRed)),
+          child: AuroraEmptyState(
+            illustration: const Icon(Icons.error_outline),
+            title: 'Something went wrong',
+            description: _error,
+          ),
         ),
       );
     }
     final d = _detail;
     if (d == null) {
-      return Scaffold(
-        backgroundColor: AlpColors.bgBase,
-        appBar: AppBar(backgroundColor: AlpColors.bgSurface1),
-        body: const Center(child: CircularProgressIndicator(color: AlpColors.colorAi)),
+      return const AuroraScaffold(
+        appBar: AuroraAppBar(title: 'Result'),
+        body: Center(child: AuroraSpinner(size: 32)),
       );
     }
 
@@ -231,10 +234,8 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                 ? 'Solid run · Accuracy: $pct%'
                 : 'Keep going · Accuracy: $pct%';
 
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      body: SafeArea(
-        child: ListView(
+    return AuroraScaffold(
+      body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           children: [
             // Trophy hero
@@ -282,7 +283,6 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
               child: Text(
                 headlineCopy,
                 style: const TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                 ),
@@ -395,7 +395,6 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                   Text(
                     'Review questions',
                     style: const TextStyle(
-                      color: AlpColors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -439,7 +438,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                 ),
                 child: const Text(
                   'Retry Same Topic',
-                  style: TextStyle(color: AlpColors.textPrimary, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -456,7 +455,6 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -629,7 +627,7 @@ class _ItemReviewRow extends StatelessWidget {
                 stem,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: AlpColors.textPrimary, fontSize: 13, height: 1.35),
+                style: const TextStyle(fontSize: 13, height: 1.35),
               ),
             ),
           ],
@@ -755,7 +753,6 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
               const Text(
                 'Report an issue',
                 style: TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -801,7 +798,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
                     Expanded(
                       child: Text(
                         opt.$2,
-                        style: const TextStyle(color: AlpColors.textPrimary, fontSize: 13),
+                        style: const TextStyle(fontSize: 13),
                       ),
                     ),
                   ],
@@ -813,7 +810,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
             minLines: 2,
             maxLines: 4,
             maxLength: 500,
-            style: const TextStyle(color: AlpColors.textPrimary, fontSize: 13),
+            style: const TextStyle(fontSize: 13),
             decoration: InputDecoration(
               hintText: 'Optional — what went wrong?',
               hintStyle: const TextStyle(color: AlpColors.textMuted),

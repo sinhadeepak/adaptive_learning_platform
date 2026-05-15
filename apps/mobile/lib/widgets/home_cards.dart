@@ -290,7 +290,6 @@ class _GuidedNextStepsCardState extends State<GuidedNextStepsCard> {
                 child: Text(
                   d.headline,
                   style: const TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -349,7 +348,6 @@ class _GuidedNextStepsCardState extends State<GuidedNextStepsCard> {
                           Text(
                             s.topicTitle,
                             style: const TextStyle(
-                              color: AlpColors.textPrimary,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
@@ -454,7 +452,6 @@ class _WeaknessDiagnosisCardState extends State<WeaknessDiagnosisCard> {
                 child: Text(
                   'Cross-topic weakness',
                   style: TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -493,7 +490,6 @@ class _WeaknessDiagnosisCardState extends State<WeaknessDiagnosisCard> {
                             child: Text(
                               p.name,
                               style: const TextStyle(
-                                color: AlpColors.textPrimary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -633,7 +629,6 @@ class StudyPlanCard extends StatelessWidget {
                 Text(
                   '7-day Study Plan',
                   style: TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -727,7 +722,6 @@ class _StudyPlanSheetState extends State<_StudyPlanSheet> {
                   child: Text(
                     _plan!.headline,
                     style: const TextStyle(
-                      color: AlpColors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
@@ -787,7 +781,6 @@ class _StudyPlanSheetState extends State<_StudyPlanSheet> {
                               Text(
                                 p.title,
                                 style: const TextStyle(
-                                  color: AlpColors.textPrimary,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
                                 ),
@@ -852,7 +845,6 @@ class _StudyPlanSheetState extends State<_StudyPlanSheet> {
                               child: Text(
                                 d.focus,
                                 style: const TextStyle(
-                                  color: AlpColors.textPrimary,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
                                 ),
