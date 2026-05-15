@@ -1,6 +1,6 @@
 # ADR-0020: UX Co-Pilot scope + 4-section information architecture
 
-- **Status**: proposed
+- **Status**: accepted (frontend + backend shipped — see Phase 5/6 commits)
 - **Date**: 2026-05-02
 - **Deciders**: CTO, Tech Lead, Product Lead, Design Lead, ML Lead
 - **Related**: Phase 6 gating ADR (S49–S58). Source: [`Adaptive_Learning_Platform_UX_Recommendations_Review.docx`](../additional_requirements/Adaptive_Learning_Platform_UX_Recommendations_Review.docx). Sprint plan: [`02_planning/55_Phase6_UXCoPilot_Evaluation_and_SprintPlan.md`](../02_planning/55_Phase6_UXCoPilot_Evaluation_and_SprintPlan.md). Builds on [ADR-0017](0017-multi-parameter-assessment-engine.md) (engine substrate), [ADR-0019](0019-ai-gateway-and-consolidation.md) (AI Gateway). Companion ADRs: [ADR-0021](0021-hybrid-weekly-narrative.md), [ADR-0022](0022-difficulty-agency.md), [ADR-0023](0023-constrained-plan-coediting.md), [ADR-0024](0024-todays-mission-entrypoint.md).

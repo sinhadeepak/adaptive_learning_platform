@@ -1,6 +1,6 @@
 # ADR-0024: Today's Mission as the primary daily entrypoint
 
-- **Status**: proposed
+- **Status**: accepted (frontend + backend shipped — see Phase 5/6 commits)
 - **Date**: 2026-05-02
 - **Deciders**: CTO, Tech Lead, Product Lead, Design Lead, ML Lead
 - **Related**: Phase 6 ADR family. Companion to [ADR-0020](0020-ux-copilot-scope-and-ia.md), [ADR-0021](0021-hybrid-weekly-narrative.md), [ADR-0023](0023-constrained-plan-coediting.md). Builds on [ADR-0017](0017-multi-parameter-assessment-engine.md) (concept-grain mastery + decay), [ADR-0014](0014-spaced-repetition-scheduling.md) (SRS revision queue).

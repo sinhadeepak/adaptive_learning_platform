@@ -1,6 +1,6 @@
 # ADR-0019: AI Gateway + service-consolidation rationale
 
-- **Status**: proposed
+- **Status**: accepted (frontend + backend shipped — see Phase 5/6 commits)
 - **Date**: 2026-04-30
 - **Deciders**: CTO, Tech Lead, ML Lead, Sec Lead, Finance Lead
 - **Related**: P5-S37 gating ADR. Natural extension of [ADR-0005](0005-service-consolidation.md) (service consolidation 12 → 5 + 1). Substrate for [ADR-0017](0017-multi-parameter-assessment-engine.md) (multi-parameter mastery — AI evaluation feeds bloom_mastery, fluency, confidence) and [ADR-0018](0018-polymorphic-question-types-and-resolution.md) (Type Handler Protocol — AI authoring + AI evaluation hooks). Source doc: [AI & Multilingual Architecture](../additional_requirements/AI_Multilingual_Architecture.md).

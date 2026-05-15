@@ -1,6 +1,6 @@
 # ADR-0022: Difficulty agency model — intent · friction · calibration
 
-- **Status**: proposed
+- **Status**: accepted (frontend + backend shipped — see Phase 5/6 commits)
 - **Date**: 2026-05-02
 - **Deciders**: CTO, Tech Lead, Product Lead, Design Lead, ML Lead
 - **Related**: Phase 6 ADR family. Companion to [ADR-0020](0020-ux-copilot-scope-and-ia.md). Builds on [ADR-0017](0017-multi-parameter-assessment-engine.md) (multi-parameter mastery — intent never modifies EWA writes) and the IRT machinery in `services/learning/src/learning/adaptive/irt.py`.

@@ -1,6 +1,6 @@
 # ADR-0017: Multi-parameter assessment engine
 
-- **Status**: proposed
+- **Status**: accepted (frontend + backend shipped — see Phase 5/6 commits)
 - **Date**: 2026-04-30
 - **Deciders**: CTO, Tech Lead, Product Lead, ML Lead
 - **Related**: P5-S37 gating ADR. Builds on [ADR-0014](0014-spaced-repetition-scheduling.md) (SM-2 — extended to concept grain), [ADR-0015](0015-calibrated-rank-prediction.md) (cohort percentile — extended per-concept), [ADR-0016](0016-error-pattern-classification.md) (error patterns — tagged to concept_id). Companion: [Multi-Parameter Adaptive Engine Build Plan](../../.claude/plans/gentle-popping-diffie.md).

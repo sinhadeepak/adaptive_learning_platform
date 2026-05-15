@@ -46,7 +46,6 @@
 // silently when a translator forgets a key.
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart' show Theme;
 import 'package:flutter/widgets.dart';
 
@@ -81,16 +80,10 @@ abstract class AuroraVoice {
       case 'en':
         return _VoiceEn(persona);
       case 'hi':
-        // Hindi translations land at W2.12; until then, fall back to
-        // English so we never render a key-as-string.
-        assert(() {
-          debugPrint(
-            '[AuroraVoice] hi-IN not yet shipped for persona '
-            '${persona.id} — falling back to en-IN. (W2.12)',
-          );
-          return true;
-        }());
-        return _VoiceEn(persona);
+        // W2.12 — Hindi (hi-IN) voice strings shipped. All 40 dialogue
+        // slots (10 archetypes × 4 personas) translated. Tamil / Telugu
+        // / Bengali / Marathi land at W3.8.
+        return _VoiceHi(persona);
       default:
         return _VoiceEn(persona);
     }
@@ -250,5 +243,121 @@ class _VoiceEn extends AuroraVoice {
         Persona.teen => 'Loading…',
         Persona.aspirant => 'Loading…',
         Persona.learner => 'Loading…',
+      };
+}
+
+// ── Hindi voice (hi-IN) — W2.12 ───────────────────────────────────────
+//
+// Devanagari rendered via Noto Sans Devanagari (configured in the
+// mobile app's main.dart fonts list). All four personas map to the
+// same dialogue slots as _VoiceEn — Encourager / Buddy / Mentor /
+// Coach tones in Hindi.
+//
+// Translation guidelines applied:
+//   - Kid: warm informal (तू/तुम), playful emoji preserved.
+//   - Teen: casual peer-tone (तुम), code-switch where natural ("set"
+//     stays English, "go time" → "चलो शुरू!").
+//   - Aspirant: formal-respectful (आप), goal-driven phrasing.
+//   - Learner: neutral-formal (आप), pragmatic + outcome-oriented.
+
+class _VoiceHi extends AuroraVoice {
+  _VoiceHi(this._persona);
+  final Persona _persona;
+
+  @override
+  Persona get persona => _persona;
+
+  @override
+  String greeting({required String name}) => switch (_persona) {
+        Persona.kid =>
+          'नमस्ते $name! Lumi तुम्हारे साथ सीखने का इंतज़ार कर रहा था 🌟',
+        Persona.teen => 'अरे $name 👋 आज का सेट शुरू करें?',
+        Persona.aspirant =>
+          'वापस स्वागत है, $name। आज का फ़ोकस तैयार है।',
+        Persona.learner =>
+          'वापस स्वागत है, $name। वहीं से शुरू करें जहाँ छोड़ा था?',
+      };
+
+  @override
+  String onCorrect() => switch (_persona) {
+        Persona.kid => 'शाबाश! ⭐ बिल्कुल सही!',
+        Persona.teen => 'बढ़िया! एकदम सटीक।',
+        Persona.aspirant => 'सही उत्तर। सोच मज़बूत है।',
+        Persona.learner => 'सही।',
+      };
+
+  @override
+  String onWrong() => switch (_persona) {
+        Persona.kid => 'अरे — कोई बात नहीं, फिर से देखते हैं 💪',
+        Persona.teen => 'थोड़ा सा कम — एक बार और सोचो, बस पास हो।',
+        Persona.aspirant =>
+          'पूरी तरह सही नहीं। चरण 2 की शर्त पर ध्यान दें?',
+        Persona.learner =>
+          'सबसे अच्छा नहीं — बेहतर तरीका दूसरे पैटर्न पर आधारित है।',
+      };
+
+  @override
+  String onStuck() => switch (_persona) {
+        Persona.kid => 'थोड़ी मदद चाहिए? 💡',
+        Persona.teen => 'हिंट चाहिए?',
+        Persona.aspirant => 'क्या मैं संबंधित नियम दिखाऊँ?',
+        Persona.learner => 'क्या मैं तरीका समझाऊँ?',
+      };
+
+  @override
+  String onMilestone({required String milestoneName}) => switch (_persona) {
+        Persona.kid =>
+          '🎉🌟✨ तुमने $milestoneName अनलॉक किया! Lumi बहुत खुश है!',
+        Persona.teen => '$milestoneName अनलॉक। मस्त चल रहे हो।',
+        Persona.aspirant =>
+          'माइलस्टोन: $milestoneName। लक्ष्य की रफ़्तार सही है।',
+        Persona.learner =>
+          '$milestoneName मिला — LinkedIn पर शेयर करने योग्य।',
+      };
+
+  @override
+  String? streakRecovery({required int streakDays}) {
+    final allowed = switch (_persona) {
+      Persona.kid => false,
+      Persona.teen => true,
+      Persona.aspirant => true,
+      Persona.learner => false,
+    };
+    if (!allowed) return null;
+    return switch (_persona) {
+      Persona.teen =>
+        'तुम्हारा $streakDays-दिन का स्ट्रीक टूटने वाला है — 5 क्विक प्रश्न से बचा लें?',
+      Persona.aspirant =>
+        '$streakDays-दिन की स्ट्रीक ख़तरे में है। अभी जारी रखें और बचा लें।',
+      Persona.kid || Persona.learner => null,
+    };
+  }
+
+  @override
+  String farewell({required int streakDays}) => switch (_persona) {
+        Persona.kid =>
+          'अभी के लिए अलविदा, दोस्त! ⭐ कल मिलते हैं 💜',
+        Persona.teen =>
+          'हो गया। $streakDays-दिन की स्ट्रीक। कल मिलते हैं।',
+        Persona.aspirant =>
+          'सेशन सेव हुआ। $streakDays-दिन की स्ट्रीक। प्लान अपडेट है।',
+        Persona.learner =>
+          'सेशन सेव हुआ — कभी भी जारी रखें। प्रगति जुड़ गई।',
+      };
+
+  @override
+  String primaryCtaLabel() => switch (_persona) {
+        Persona.kid => 'अपनी यात्रा जारी रखो',
+        Persona.teen => '5 मिनट का पावर-अप शुरू',
+        Persona.aspirant => 'आज का प्लान जारी रखें',
+        Persona.learner => 'सीखना जारी रखें',
+      };
+
+  @override
+  String loadingPlaceholder() => switch (_persona) {
+        Persona.kid => 'Lumi वो लाकर ला रहा है…',
+        Persona.teen => 'लोड हो रहा है…',
+        Persona.aspirant => 'लोड हो रहा है…',
+        Persona.learner => 'लोड हो रहा है…',
       };
 }

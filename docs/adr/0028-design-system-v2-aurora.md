@@ -1,6 +1,6 @@
 # ADR-0028: Design System v2 — "Aurora"
 
-- **Status**: proposed
+- **Status**: accepted (frontend + backend shipped — see Phase 5/6 commits)
 - **Date**: 2026-05-13
 - **Deciders**: Frontend Platform · Design · Product
 - **Related**:

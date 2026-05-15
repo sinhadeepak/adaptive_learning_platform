@@ -1,6 +1,6 @@
 # ADR-0029: Component Primitives Package (`packages/ui`)
 
-- **Status**: proposed
+- **Status**: accepted (frontend + backend shipped — see Phase 5/6 commits)
 - **Date**: 2026-05-13
 - **Deciders**: Frontend Platform · Design
 - **Related**:

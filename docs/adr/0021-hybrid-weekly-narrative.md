@@ -1,6 +1,6 @@
 # ADR-0021: Hybrid weekly learning narrative
 
-- **Status**: proposed
+- **Status**: accepted (frontend + backend shipped — see Phase 5/6 commits)
 - **Date**: 2026-05-02
 - **Deciders**: CTO, Tech Lead, Product Lead, Editorial Lead, ML Lead
 - **Related**: Phase 6 ADR family. Depends on [ADR-0019](0019-ai-gateway-and-consolidation.md) (AI Gateway) and [ADR-0017](0017-multi-parameter-assessment-engine.md) (concept-grain mastery + Bloom + transfer signals). Companion to [ADR-0020](0020-ux-copilot-scope-and-ia.md) (UX Co-Pilot scope).

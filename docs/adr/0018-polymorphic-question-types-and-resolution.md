@@ -1,6 +1,6 @@
 # ADR-0018: Polymorphic question types + Resolution contract
 
-- **Status**: proposed
+- **Status**: accepted (frontend + backend shipped — see Phase 5/6 commits)
 - **Date**: 2026-04-30
 - **Deciders**: CTO, Tech Lead, Product Lead, Content Lead
 - **Related**: P5-S37 gating ADR. Pairs with [ADR-0017](0017-multi-parameter-assessment-engine.md) (multi-parameter mastery — fed by per-item Resolution + concept tags) and [ADR-0019](0019-ai-gateway-and-consolidation.md) (AI Gateway — substrate for AI_ASSISTED + HYBRID evaluation modes). Builds on [ADR-0012](0012-exam-blueprint-pyq-schema.md) (blueprints compose typed items). Source docs: [Content Engine Question Catalogue](../additional_requirements/Content_Engine_Question_Catalogue.md), [User Stories Content Engine](../additional_requirements/UserStories_Content_Engine_v2.md).

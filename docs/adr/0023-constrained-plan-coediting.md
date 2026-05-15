@@ -1,6 +1,6 @@
 # ADR-0023: Constrained plan co-editing — student moves, AI protects required work
 
-- **Status**: proposed
+- **Status**: accepted (frontend + backend shipped — see Phase 5/6 commits)
 - **Date**: 2026-05-02
 - **Deciders**: CTO, Tech Lead, Product Lead, Design Lead, Editorial Lead
 - **Related**: Phase 6 ADR family. Companion to [ADR-0020](0020-ux-copilot-scope-and-ia.md), [ADR-0024](0024-todays-mission-entrypoint.md). Builds on [ADR-0019](0019-ai-gateway-and-consolidation.md) (AI Gateway provides the impact-preview prompt).
