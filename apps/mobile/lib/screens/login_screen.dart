@@ -41,6 +41,10 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _remember = false;
   bool _submitting = false;
   String? _error;
+  // AuroraTextField doesn't plug into Form.validate(), so empty-field
+  // validation lives here as explicit per-field error state.
+  String? _emailError;
+  String? _passwordError;
 
   @override
   void dispose() {
@@ -50,9 +54,20 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final emailEmpty = _email.text.trim().isEmpty;
+    final passwordEmpty = _password.text.isEmpty;
+    if (emailEmpty || passwordEmpty) {
+      setState(() {
+        _emailError = emailEmpty ? 'Enter your email' : null;
+        _passwordError = passwordEmpty ? 'Enter your password' : null;
+      });
+      return;
+    }
+    if (!(_formKey.currentState?.validate() ?? true)) return;
     setState(() {
       _error = null;
+      _emailError = null;
+      _passwordError = null;
       _submitting = true;
     });
     try {
@@ -201,6 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.email],
+                        errorText: _emailError,
                       ),
                       const SizedBox(height: 16),
                       AuroraTextField(
@@ -211,6 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         textInputAction: TextInputAction.done,
                         autofillHints: const [AutofillHints.password],
                         onSubmitted: (_) => _submit(),
+                        errorText: _passwordError,
                       ),
                       const SizedBox(height: 12),
                       Row(

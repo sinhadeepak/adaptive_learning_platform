@@ -45,8 +45,7 @@ void main() {
     final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
 
     Session? captured;
-    await tester.pumpWidget(MaterialApp(
-      home: LoginScreen(auth: auth, onLoggedIn: (s) => captured = s),
+    await tester.pumpWidget(MaterialApp(theme: AuroraTheme.light(), home: LoginScreen(auth: auth, onLoggedIn: (s) => captured = s),
     ),);
 
     // 'Log in' appears twice — page heading + submit button label.
@@ -61,8 +60,7 @@ void main() {
     final mockHttp = MockClient((request) async => http.Response('{}', 200));
     final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
 
-    await tester.pumpWidget(MaterialApp(
-      home: LoginScreen(auth: auth, onLoggedIn: (_) {}),
+    await tester.pumpWidget(MaterialApp(theme: AuroraTheme.light(), home: LoginScreen(auth: auth, onLoggedIn: (_) {}),
     ),);
 
     await tester.tap(find.byKey(const Key('login.submit')));
@@ -87,8 +85,7 @@ void main() {
     final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
 
     Session? captured;
-    await tester.pumpWidget(MaterialApp(
-      home: LoginScreen(auth: auth, onLoggedIn: (s) => captured = s),
+    await tester.pumpWidget(MaterialApp(theme: AuroraTheme.light(), home: LoginScreen(auth: auth, onLoggedIn: (s) => captured = s),
     ),);
 
     await tester.enterText(find.byKey(const Key('login.email')), 'a@b.com');
@@ -106,8 +103,7 @@ void main() {
     final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: RegisterScreen(
+      MaterialApp(theme: AuroraTheme.light(), home: RegisterScreen(
           auth: auth,
           onRegistered: (_, __) {},
           onBackToLogin: () {},
@@ -139,8 +135,7 @@ void main() {
     RegisterResult? captured;
     String? capturedEmail;
     await tester.pumpWidget(
-      MaterialApp(
-        home: RegisterScreen(
+      MaterialApp(theme: AuroraTheme.light(), home: RegisterScreen(
           auth: auth,
           onRegistered: (r, e) {
             captured = r;
@@ -178,8 +173,7 @@ void main() {
     final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: RegisterScreen(
+      MaterialApp(theme: AuroraTheme.light(), home: RegisterScreen(
           auth: auth,
           onRegistered: (_, __) {},
           onBackToLogin: () {},
@@ -204,8 +198,7 @@ void main() {
     final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: VerifyScreen(
+      MaterialApp(theme: AuroraTheme.light(), home: VerifyScreen(
           auth: auth,
           userId: 'u-9',
           email: 'r@example.com',
@@ -238,8 +231,7 @@ void main() {
 
     Session? captured;
     await tester.pumpWidget(
-      MaterialApp(
-        home: VerifyScreen(
+      MaterialApp(theme: AuroraTheme.light(), home: VerifyScreen(
           auth: auth,
           userId: 'u-9',
           email: 'r@example.com',
@@ -276,7 +268,7 @@ void main() {
     final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
 
     await tester.pumpWidget(
-      MaterialApp(home: ExamSelectScreen(auth: auth, onContinue: () {})),
+      MaterialApp(theme: AuroraTheme.light(), home: ExamSelectScreen(auth: auth, onContinue: () {})),
     );
     await tester.pumpAndSettle();
 
@@ -305,8 +297,7 @@ void main() {
 
     var continued = false;
     await tester.pumpWidget(
-      MaterialApp(
-        home: ExamSelectScreen(auth: auth, onContinue: () => continued = true),
+      MaterialApp(theme: AuroraTheme.light(), home: ExamSelectScreen(auth: auth, onContinue: () => continued = true),
       ),
     );
     await tester.pumpAndSettle();
@@ -326,7 +317,7 @@ void main() {
       httpClient: MockClient((req) async => http.Response('{}', 200)),
     );
     await tester.pumpWidget(
-      MaterialApp(home: LanguageScreen(auth: auth, onContinue: () {}, onBack: () {})),
+      MaterialApp(theme: AuroraTheme.light(), home: LanguageScreen(auth: auth, onContinue: () {}, onBack: () {})),
     );
 
     expect(find.byKey(const Key('onboarding.language.en')), findsOneWidget);
@@ -348,8 +339,7 @@ void main() {
 
     var done = false;
     await tester.pumpWidget(
-      MaterialApp(
-        home: DailyGoalScreen(auth: auth, onCompleted: () => done = true, onBack: () {}),
+      MaterialApp(theme: AuroraTheme.light(), home: DailyGoalScreen(auth: auth, onCompleted: () => done = true, onBack: () {}),
       ),
     );
 
@@ -370,8 +360,7 @@ void main() {
         ),);
     final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
 
-    await tester.pumpWidget(MaterialApp(
-      home: LoginScreen(auth: auth, onLoggedIn: (_) {}),
+    await tester.pumpWidget(MaterialApp(theme: AuroraTheme.light(), home: LoginScreen(auth: auth, onLoggedIn: (_) {}),
     ),);
 
     await tester.enterText(find.byKey(const Key('login.email')), 'a@b.com');
@@ -447,8 +436,7 @@ testWidgets('login forgot button calls onForgotPassword', (tester) async {
 
   var forgotTapped = false;
   await tester.pumpWidget(
-    MaterialApp(
-      home: LoginScreen(
+    MaterialApp(theme: AuroraTheme.light(), home: LoginScreen(
         auth: auth,
         onLoggedIn: (_) {},
         onForgotPassword: () => forgotTapped = true,
@@ -471,8 +459,7 @@ testWidgets('forgot screen submits email and shows confirmation', (tester) async
   });
   final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
 
-  await tester.pumpWidget(MaterialApp(
-    home: ForgotPasswordScreen(auth: auth, onBackToLogin: () {}),
+  await tester.pumpWidget(MaterialApp(theme: AuroraTheme.light(), home: ForgotPasswordScreen(auth: auth, onBackToLogin: () {}),
   ));
 
   await tester.enterText(find.byKey(const Key('forgot.email')), 'a@b.com');
@@ -490,8 +477,7 @@ testWidgets('forgot screen shows enumeration-safe confirmation even on 204', (te
   final mockHttp = MockClient((_) async => http.Response('', 204));
   final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
 
-  await tester.pumpWidget(MaterialApp(
-    home: ForgotPasswordScreen(auth: auth, onBackToLogin: () {}),
+  await tester.pumpWidget(MaterialApp(theme: AuroraTheme.light(), home: ForgotPasswordScreen(auth: auth, onBackToLogin: () {}),
   ));
 
   await tester.enterText(find.byKey(const Key('forgot.email')), 'unknown@nowhere.com');
@@ -507,8 +493,7 @@ testWidgets('reset screen rejects mismatched confirm', (tester) async {
     httpClient: MockClient((_) async => http.Response('', 204)),
   );
 
-  await tester.pumpWidget(MaterialApp(
-    home: ResetPasswordScreen(
+  await tester.pumpWidget(MaterialApp(theme: AuroraTheme.light(), home: ResetPasswordScreen(
       auth: auth,
       token: 'tok-123',
       onResetCompleted: () {},
@@ -533,8 +518,7 @@ testWidgets('reset screen surfaces 410 expired-token error', (tester) async {
   });
   final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
 
-  await tester.pumpWidget(MaterialApp(
-    home: ResetPasswordScreen(
+  await tester.pumpWidget(MaterialApp(theme: AuroraTheme.light(), home: ResetPasswordScreen(
       auth: auth,
       token: 'expired-token',
       onResetCompleted: () {},
@@ -560,8 +544,7 @@ testWidgets('reset success calls onResetCompleted', (tester) async {
   final auth = AuthClient(baseUrl: 'http://test', httpClient: mockHttp);
 
   var done = false;
-  await tester.pumpWidget(MaterialApp(
-    home: ResetPasswordScreen(
+  await tester.pumpWidget(MaterialApp(theme: AuroraTheme.light(), home: ResetPasswordScreen(
       auth: auth,
       token: 'tok-OK',
       onResetCompleted: () => done = true,
@@ -588,8 +571,7 @@ testWidgets('home screen shows quick-start quiz CTA', (tester) async {
     httpClient: mockHttp,
   );
 
-  await tester.pumpWidget(MaterialApp(
-    home: HomeScreen(auth: auth, onSignOut: () {}),
+  await tester.pumpWidget(MaterialApp(theme: AuroraTheme.light(), home: HomeScreen(auth: auth, onSignOut: () {}),
   ));
   await tester.pump();
 
@@ -625,8 +607,7 @@ testWidgets('quiz screen renders 4 lettered choices for the current item', (test
   );
   final client = QuizClient(auth: auth);
 
-  await tester.pumpWidget(MaterialApp(
-    home: QuizScreen(client: client, sessionId: 'sid-1'),
+  await tester.pumpWidget(MaterialApp(theme: AuroraTheme.light(), home: QuizScreen(client: client, sessionId: 'sid-1'),
   ));
   await tester.pumpAndSettle();
 
@@ -663,8 +644,7 @@ testWidgets('quiz result screen renders score + per-item review', (tester) async
   );
   final client = QuizClient(auth: auth);
 
-  await tester.pumpWidget(MaterialApp(
-    home: QuizResultScreen(client: client, sessionId: 'sid-9'),
+  await tester.pumpWidget(MaterialApp(theme: AuroraTheme.light(), home: QuizResultScreen(client: client, sessionId: 'sid-9'),
   ));
   await tester.pumpAndSettle();
 
