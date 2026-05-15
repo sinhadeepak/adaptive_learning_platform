@@ -43,6 +43,7 @@ import {
 } from "../components/WeeklyNarrativeCard";
 import { AdaptsExplainerCard } from "../components/AdaptsExplainerCard";
 import { ReadinessBandCard } from "../components/ReadinessBandCard";
+import { RecoveryBanner } from "../components/RecoveryBanner";
 import {
   fetchCurrentWeeklyNarrative,
   generateWeeklyNarrative,
@@ -467,6 +468,11 @@ export function Home() {
 
       {/* ── Today's plan (Phase B3 — IGS, legacy component preserved) ── */}
       {firstExam?.examId ? <DailyPlanCard examId={firstExam.examId} /> : null}
+
+      {/* ── Recovery proposal (P6 S57 UX-29) ──────────────────────
+          Renders a banner when the recovery FSM has a pending catch-
+          up after 2+ missed planned sessions. Self-hides when none. */}
+      <RecoveryBanner />
 
       {/* ── Readiness band (P6 S56) ──────────────────────────────
           Renders the user's current band + recovery actions. Hidden

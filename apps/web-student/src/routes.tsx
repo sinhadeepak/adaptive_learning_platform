@@ -8,6 +8,7 @@ import { DiagnosticDeepDive } from "./pages/DiagnosticDeepDive";
 import { Insights } from "./pages/Insights";
 import { StudyPlanPage } from "./pages/StudyPlan";
 import { RevisionRitual } from "./pages/RevisionRitual";
+import { BandwidthSettings } from "./pages/BandwidthSettings";
 import { AssignmentDetail } from "./pages/AssignmentDetail";
 import { Assignments } from "./pages/Assignments";
 import { Billing } from "./pages/Billing";
@@ -657,6 +658,16 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <CourseRead />
+      </ProtectedRoute>
+    ),
+  },
+
+  // Phase 6 S57 — Low-bandwidth preferences (UX-32).
+  {
+    path: "/settings/bandwidth",
+    element: (
+      <ProtectedRoute>
+        <BandwidthSettings />
       </ProtectedRoute>
     ),
   },

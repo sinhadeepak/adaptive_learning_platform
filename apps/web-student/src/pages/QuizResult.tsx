@@ -9,6 +9,8 @@ import {
   PostQuizCalibration,
   type CalibrationFeedback,
 } from "../components/PostQuizCalibration";
+import { ReflectionSheet } from "../components/ReflectionSheet";
+import { postReflection } from "../lib/reflection";
 
 // Practice Results — React port of
 // docs/ui/01_StudentPortal_Web/09_practice-results.html.
@@ -107,6 +109,22 @@ export function QuizResult() {
       /* ignore */
     }
   }, [sessionId, calibrationKey]);
+
+  // S57 UX-27 — reflection sheet. Open once per session result on load;
+  // localStorage flag prevents re-firing after the student dismisses.
+  const reflectionKey = `quiz.reflection.v1.${sessionId ?? ""}`;
+  const [reflectionOpen, setReflectionOpen] = useState(false);
+  useEffect(() => {
+    if (!sessionId) return;
+    try {
+      if (window.localStorage.getItem(reflectionKey) === "1") return;
+    } catch {
+      /* swallow */
+    }
+    // Defer one tick so the score band paints first.
+    const t = setTimeout(() => setReflectionOpen(true), 250);
+    return () => clearTimeout(t);
+  }, [sessionId, reflectionKey]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -1124,6 +1142,33 @@ export function QuizResult() {
           onSubmit={(kind, note) => submitReport(reportFor, kind, note)}
         />
       ) : null}
+
+      {/* S57 UX-27 — post-session reflection + commitment. */}
+      {user && sessionId && (
+        <ReflectionSheet
+          open={reflectionOpen}
+          trigger="session"
+          triggerArtifactId={sessionId}
+          onClose={() => {
+            setReflectionOpen(false);
+            try {
+              window.localStorage.setItem(reflectionKey, "1");
+            } catch {
+              /* swallow */
+            }
+          }}
+          onSubmit={async ({ response, commitment, commitmentDueAt }) => {
+            await postReflection({
+              userId: user.id,
+              trigger: "session",
+              triggerArtifactId: sessionId,
+              response,
+              commitment: commitment ?? undefined,
+              commitmentDueAt: commitmentDueAt ?? undefined,
+            });
+          }}
+        />
+      )}
     </AppShell>
   );
 }
