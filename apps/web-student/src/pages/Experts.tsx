@@ -21,6 +21,7 @@
 // real doubts yet.
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { auth } from "../lib/api";
 import { VidyaShell } from "../components/vidya/VidyaShell";
 
@@ -42,10 +43,17 @@ interface Thread {
 type Filter = "all" | "open" | "resolved";
 
 export function Experts() {
+  const [params] = useSearchParams();
+  const examId = params.get("examId");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [reply, setReply] = useState("");
+  // When the page is exam-scoped (clicked from the exam dashboard's
+  // QuickActions), we fetch that exam's topic set + filter threads
+  // to topics inside it. Without an examId the filter is a no-op.
+  const [examTopicIds, setExamTopicIds] = useState<Set<string> | null>(null);
+  const [examCode, setExamCode] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -73,16 +81,69 @@ export function Experts() {
     return () => { alive = false; };
   }, []);
 
+  // Build the exam's topic-id set so we can filter the doubt list.
+  useEffect(() => {
+    if (!examId) {
+      setExamTopicIds(null);
+      setExamCode(null);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      try {
+        const [examRes, subRes] = await Promise.all([
+          auth.fetch(`/api/v1/catalog/exams/${examId}`),
+          auth.fetch(`/api/v1/catalog/exams/${examId}/subjects`),
+        ]);
+        if (!alive) return;
+        if (examRes.ok) {
+          const ex = (await examRes.json()) as { code?: string; name?: string };
+          setExamCode(ex.code ?? ex.name ?? null);
+        }
+        if (!subRes.ok) return;
+        const sb = (await subRes.json()) as {
+          subjects?: Array<{ id: string }> | null;
+        };
+        const subs = Array.isArray(sb.subjects) ? sb.subjects : [];
+        const ids = new Set<string>();
+        await Promise.all(
+          subs.map(async (s) => {
+            try {
+              const tr = await auth.fetch(
+                `/api/v1/catalog/subjects/${s.id}/topics`,
+              );
+              if (!tr.ok) return;
+              const td = (await tr.json()) as {
+                topics?: Array<{ id: string }> | null;
+              };
+              const ts = Array.isArray(td.topics) ? td.topics : [];
+              for (const t of ts) ids.add(t.id);
+            } catch { /* per-subject failure non-fatal */ }
+          }),
+        );
+        if (alive) setExamTopicIds(ids);
+      } catch { /* offline */ }
+    })();
+    return () => { alive = false; };
+  }, [examId]);
+
+  const examScoped = useMemo(() => {
+    if (!examTopicIds) return threads;
+    return threads.filter((t) => examTopicIds.has(t.topicId));
+  }, [threads, examTopicIds]);
+
   const filtered = useMemo(() => {
-    return threads.filter((t) => {
+    return examScoped.filter((t) => {
       if (filter === "open") return t.status === "OPEN" || t.status === "AI_DRAFTED";
       if (filter === "resolved") return t.status === "ANSWERED";
       return true;
     });
-  }, [threads, filter]);
+  }, [examScoped, filter]);
 
-  const active = threads.find((t) => t.id === activeId) ?? null;
-  const openCount = threads.filter((t) => t.status !== "ANSWERED").length;
+  const active = examScoped.find((t) => t.id === activeId)
+    ?? threads.find((t) => t.id === activeId)
+    ?? null;
+  const openCount = examScoped.filter((t) => t.status !== "ANSWERED").length;
 
   async function sendReply(e: FormEvent) {
     e.preventDefault();
@@ -104,7 +165,7 @@ export function Experts() {
     <VidyaShell
       crumbs="Support · Expert help"
       title="Expert help"
-      subtitle={`${openCount} open thread${openCount === 1 ? "" : "s"} · average expert response 14 minutes`}
+      subtitle={`${openCount} open thread${openCount === 1 ? "" : "s"}${examCode ? ` · scoped to ${examCode}` : ""} · average expert response 14 minutes`}
       actions={<button className="vidya-shell__primary">+ New doubt</button>}
     >
       <div className="vidya-experts">

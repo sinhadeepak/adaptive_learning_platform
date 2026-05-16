@@ -1,20 +1,31 @@
-// Sprint 25 (P4-S25) — Mocks series view.
+// Mocks — Vidya v1 redesign of the mock-test catalog.
 //
-// Two tabs: Available (every blueprint for the focus exam) and Taken (the
-// user's MOCK_BLUEPRINT sessions joined with blueprint metadata client-side).
-// Available cards link to /mock-exam?blueprintId=...; Taken rows link to
-// the existing /quiz/:sessionId/result page from S5/S20.
+// Spec: docs/02-design/design-system/04_components.md
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
+//
+// Layout:
+//   ┌─ topbar: MOCK TESTS · {exam}  · exam chips · Take random ─┐
+//   │  ┌─ Available (default) or Taken tab ────────────────────┐
+//   │  │  available: grid of mock cards (name + minutes + Qs   │
+//   │  │             + marking + Start primary)                │
+//   │  │  taken:     list of past attempts (score, accuracy,   │
+//   │  │             time taken, weakest section, View)        │
+//   │  └────────────────────────────────────────────────────────┘
+//
+// examId comes from ?examId=… (set by the QuickActions card on
+// the exam dashboard). Defaults to the first catalog exam so a
+// direct visit to /mocks still works.
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import {
   formatPct,
   summariseAttempt,
   type SectionBreakdown,
-  type SessionRow,
 } from "../lib/mock_series";
 
 interface BlueprintListItem {
@@ -28,7 +39,7 @@ interface BlueprintListItem {
 
 interface BlueprintListResp {
   examId: string;
-  items: BlueprintListItem[];
+  items?: BlueprintListItem[] | null;
 }
 
 interface SessionListItem {
@@ -45,12 +56,12 @@ interface SessionListItem {
 
 interface SessionListResp {
   userId: string;
-  items: SessionListItem[];
+  items?: SessionListItem[] | null;
 }
 
 interface BreakdownResp {
   sessionId: string;
-  sections: SectionBreakdown[];
+  sections?: SectionBreakdown[] | null;
 }
 
 interface Exam {
@@ -60,15 +71,15 @@ interface Exam {
   subtitle?: string;
 }
 
-const JEE_MAIN_ID = "11111111-0000-0000-0000-000000000001";
-
 export function Mocks() {
   const [params, setParams] = useSearchParams();
-  const examId = params.get("examId") ?? JEE_MAIN_ID;
-  const { user } = useAuth();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [exams, setExams] = useState<Exam[]>([]);
+  const [examId, setExamId] = useState<string | null>(
+    params.get("examId") ?? null,
+  );
   const [tab, setTab] = useState<"available" | "taken">("available");
   const [blueprints, setBlueprints] = useState<BlueprintListItem[]>([]);
   const [taken, setTaken] = useState<SessionListItem[]>([]);
@@ -76,53 +87,69 @@ export function Mocks() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Exam catalogue — drives the exam selector.
+  // Catalog
   useEffect(() => {
+    let alive = true;
     (async () => {
       try {
-        const r = await auth.fetch(`/api/v1/catalog/exams`);
-        if (!r.ok) return;
-        setExams((await r.json()) as Exam[]);
-      } catch {
-        /* exam selector hides if the catalogue is unreachable */
-      }
+        const r = await auth.fetch("/api/v1/catalog/exams");
+        if (!r.ok || !alive) return;
+        const body = (await r.json()) as Exam[] | { exams?: Exam[] | null };
+        const list = Array.isArray(body)
+          ? body
+          : Array.isArray(body.exams)
+            ? body.exams
+            : [];
+        if (alive) {
+          setExams(list);
+          if (!examId && list[0]) setExamId(list[0].id);
+        }
+      } catch { /* offline */ }
     })();
+    return () => { alive = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Available blueprints for the chosen exam.
+  // Available blueprints for the chosen exam
   useEffect(() => {
+    if (!examId) return;
+    let alive = true;
     setLoading(true);
     setError(null);
     (async () => {
       try {
         const r = await auth.fetch(`/api/v1/catalog/exam-blueprints?examId=${examId}`);
+        if (!alive) return;
         if (!r.ok) {
           setError("Could not load blueprints.");
           setBlueprints([]);
           return;
         }
         const body = (await r.json()) as BlueprintListResp;
-        setBlueprints(body.items);
+        setBlueprints(Array.isArray(body.items) ? body.items : []);
       } catch (e) {
-        setError((e as Error).message);
+        if (alive) setError((e as Error).message);
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
+    return () => { alive = false; };
   }, [examId]);
 
-  // Taken sessions (mock-mode).
+  // Taken sessions
   useEffect(() => {
     if (!user) return;
+    let alive = true;
     (async () => {
       try {
         const r = await auth.fetch(
           `/api/v1/quiz/sessions?userId=${user.id}&mode=MOCK_BLUEPRINT&limit=50`,
         );
-        if (!r.ok) return;
+        if (!r.ok || !alive) return;
         const body = (await r.json()) as SessionListResp;
-        setTaken(body.items);
-        const submitted = body.items.filter((it) => it.status === "SUBMITTED");
+        const items = Array.isArray(body.items) ? body.items : [];
+        if (alive) setTaken(items);
+        const submitted = items.filter((it) => it.status === "SUBMITTED");
         await Promise.all(
           submitted.map(async (it) => {
             try {
@@ -131,298 +158,291 @@ export function Mocks() {
               );
               if (!br.ok) return;
               const bbody = (await br.json()) as BreakdownResp;
-              setBreakdowns((prev) => ({
-                ...prev,
-                [it.sessionId]: bbody.sections,
-              }));
-            } catch {
-              /* per-row failure is non-fatal */
-            }
+              const sec = Array.isArray(bbody.sections) ? bbody.sections : [];
+              if (alive) {
+                setBreakdowns((prev) => ({ ...prev, [it.sessionId]: sec }));
+              }
+            } catch { /* per-row failure non-fatal */ }
           }),
         );
-      } catch {
-        /* taken-tab failure shouldn't block the available tab */
-      }
+      } catch { /* offline */ }
     })();
+    return () => { alive = false; };
   }, [user]);
 
   const blueprintById = useMemo(() => {
     const map: Record<string, BlueprintListItem> = {};
-    for (const bp of blueprints) map[bp.id] = bp;
+    for (const b of blueprints) map[b.id] = b;
     return map;
   }, [blueprints]);
 
   const activeExam = exams.find((e) => e.id === examId);
 
-  function changeExam(nextExamId: string): void {
+  function changeExam(nextExamId: string) {
+    setExamId(nextExamId);
     const next = new URLSearchParams(params);
     next.set("examId", nextExamId);
     setParams(next, { replace: true });
   }
 
-  return (
-    <main
-      className="page"
-      style={{
-        padding: 24,
-        maxWidth: 1080,
-        color: "var(--ink)",
-      }}
-    >
-      <h1 style={{ color: "var(--ink)", margin: "0 0 6px" }}>Mock Tests</h1>
-      <p style={{ color: "var(--ink-3)", margin: "0 0 16px" }}>
-        Take a real-pattern timed exam. Each mock follows a blueprint with
-        section-wise time budgets, marking scheme, and an OMR-style answer
-        sheet matching the actual exam.
-      </p>
+  async function startMock(blueprintId: string) {
+    if (!user) return;
+    try {
+      const r = await auth.fetch(`/api/v1/quiz/sessions/mock-from-blueprint`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blueprintId, userId: user.id }),
+      });
+      if (!r.ok) {
+        setError(`Could not start mock (HTTP ${r.status}).`);
+        return;
+      }
+      const body = (await r.json()) as { sessionId: string };
+      navigate(`/quiz/${body.sessionId}`);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
-      {exams.length > 0 && (
-        <section style={{ marginBottom: 16 }}>
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--ink-3)",
-              textTransform: "uppercase",
-              letterSpacing: 0.04,
-              marginBottom: 6,
+  return (
+    <VidyaShell
+      crumbs={`Mock tests · ${activeExam?.code ?? "—"}`}
+      title="Mock tests"
+      subtitle="Real-pattern timed exams. Each blueprint follows the actual paper's section budgets, marking scheme, and OMR-style answer sheet."
+      chips={
+        <>
+          {exams.map((e) => (
+            <button
+              key={e.id}
+              className={`vidya-shell__chip${e.id === examId ? " vidya-shell__chip--on" : ""}`}
+              onClick={() => changeExam(e.id)}
+            >
+              {e.code}
+            </button>
+          ))}
+        </>
+      }
+      actions={
+        blueprints.length > 0 ? (
+          <button
+            className="vidya-shell__primary"
+            onClick={() => {
+              const first = blueprints[0];
+              if (first) void startMock(first.id);
             }}
           >
-            Exam
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {exams.map((e) => {
-              const on = e.id === examId;
-              return (
-                <button
-                  key={e.id}
-                  type="button"
-                  onClick={() => changeExam(e.id)}
-                  style={{
-                    padding: "6px 14px",
-                    background: on ? "var(--info, #4F87F6)" : "var(--card)",
-                    color: on ? "#fff" : "var(--ink)",
-                    border: "1px solid var(--rule)",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    fontSize: 13,
-                    fontWeight: 600,
-                  }}
-                >
-                  {e.name}
-                </button>
-              );
-            })}
-          </div>
-          {activeExam?.subtitle && (
-            <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6 }}>
-              {activeExam.subtitle}
-            </div>
-          )}
-        </section>
-      )}
-
-      <nav style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {(["available", "taken"] as const).map((t) => {
-          const on = tab === t;
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 6,
-                border: `1px solid ${on ? "var(--info, #4F87F6)" : "var(--rule)"}`,
-                background: on ? "var(--info, #4F87F6)" : "var(--card)",
-                color: on ? "#fff" : "var(--ink)",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              {t === "available"
-                ? `Available (${blueprints.length})`
-                : `Taken (${taken.length})`}
-            </button>
-          );
-        })}
-      </nav>
-
-      {error && (
-        <p
-          style={{
-            padding: 12,
-            background: "rgba(244,63,94,0.1)",
-            border: "1px solid var(--bad, #f43f5e)",
-            color: "var(--bad, #f43f5e)",
-            borderRadius: 6,
-          }}
+            ▶ Start latest mock
+          </button>
+        ) : undefined
+      }
+    >
+      <div className="vidya-mocks-tabs">
+        <button
+          className={`vidya-mocks-tabs__tab${tab === "available" ? " vidya-mocks-tabs__tab--on" : ""}`}
+          onClick={() => setTab("available")}
         >
-          {error}
-        </p>
-      )}
+          Available
+          {blueprints.length > 0 ? (
+            <span className="vidya-mocks-tabs__count">{blueprints.length}</span>
+          ) : null}
+        </button>
+        <button
+          className={`vidya-mocks-tabs__tab${tab === "taken" ? " vidya-mocks-tabs__tab--on" : ""}`}
+          onClick={() => setTab("taken")}
+        >
+          Taken
+          {taken.length > 0 ? (
+            <span className="vidya-mocks-tabs__count">{taken.length}</span>
+          ) : null}
+        </button>
+      </div>
 
-      {tab === "available" && (
-        <section>
-          {loading && (
-            <p style={{ color: "var(--ink-3)" }}>Loading blueprints…</p>
-          )}
-          {!loading && blueprints.length === 0 && !error && (
-            <p style={{ color: "var(--ink-3)" }}>
-              No mock blueprints have been published for this exam yet.
-            </p>
-          )}
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {blueprints.map((bp) => (
-              <li
-                key={bp.id}
-                style={{
-                  background: "var(--card)",
-                  border: "1px solid var(--rule)",
-                  padding: 16,
-                  borderRadius: 8,
-                  marginBottom: 12,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  color: "var(--ink)",
-                  gap: 16,
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 600 }}>{bp.name}</div>
-                  <p
-                    style={{
-                      margin: "6px 0 0",
-                      color: "var(--ink-2, #B8C5E0)",
-                      fontSize: 13,
-                    }}
-                  >
-                    {bp.totalQuestions} questions · {bp.totalMinutes} min · +
-                    {bp.marksCorrect} / {bp.marksNegative} marks
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/mock-exam?blueprintId=${bp.id}`)}
-                  style={{
-                    padding: "8px 18px",
-                    background: "var(--info, #4F87F6)",
-                    color: "#fff",
-                    border: "1px solid var(--rule)",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    fontWeight: 600,
-                    fontSize: 13,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Start mock →
-                </button>
-              </li>
+      {error ? (
+        <div className="vidya-auth__error" role="alert">
+          <span>{error}</span>
+        </div>
+      ) : null}
+
+      {tab === "available" ? (
+        loading ? (
+          <p style={{ color: "var(--ink-3)", padding: "var(--sp-6) 0" }}>
+            Loading blueprints…
+          </p>
+        ) : blueprints.length === 0 ? (
+          <EmptyState
+            title="No mocks available yet"
+            body={`Blueprints for ${activeExam?.name ?? "this exam"} haven't been published. Pick another exam from the chips above.`}
+          />
+        ) : (
+          <div className="vidya-mock-grid">
+            {blueprints.map((b) => (
+              <BlueprintCard
+                key={b.id}
+                bp={b}
+                onStart={() => void startMock(b.id)}
+              />
             ))}
-          </ul>
+          </div>
+        )
+      ) : taken.length === 0 ? (
+        <EmptyState
+          title="No mocks taken yet"
+          body="Once you finish a mock its scorecard lands here with the weakest section + per-blueprint history."
+        />
+      ) : (
+        <section className="vidya-attempts">
+          <div className="vidya-attempts__head">
+            <span className="vidya-attempts__title">Recent attempts</span>
+          </div>
+          <table className="vidya-attempts__table">
+            <thead>
+              <tr>
+                <th>Mock</th>
+                <th style={{ textAlign: "right" }}>Score</th>
+                <th style={{ textAlign: "right" }}>Accuracy</th>
+                <th>Weakest section</th>
+                <th style={{ textAlign: "right" }}>Status</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {taken.map((it) => {
+                const summary = summariseAttempt(
+                  {
+                    sessionId: it.sessionId,
+                    blueprintId: it.blueprintId ?? "",
+                    status: it.status,
+                    startedAt: it.startedAt,
+                    submittedAt: it.submittedAt,
+                    servedCount: it.servedCount,
+                    correctCount: it.correctCount,
+                  },
+                  breakdowns[it.sessionId],
+                );
+                const bp = it.blueprintId
+                  ? blueprintById[it.blueprintId]
+                  : null;
+                return (
+                  <tr key={it.sessionId}>
+                    <td>
+                      <div className="vidya-attempts__name">
+                        {bp?.name ?? "Mock"}
+                      </div>
+                      <div className="vidya-attempts__meta">
+                        Started {new Date(it.startedAt).toLocaleString()}
+                      </div>
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <span className="vidya-attempts__score">
+                        {summary.correctCount}
+                      </span>
+                      <span className="vidya-attempts__score-sep">/</span>
+                      <span>{summary.servedCount || "—"}</span>
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <span
+                        className={`vidya-attempts__pct vidya-attempts__pct--${pctTone(summary.accuracy)}`}
+                      >
+                        {formatPct(summary.accuracy)}
+                      </span>
+                    </td>
+                    <td>
+                      {summary.weakestSection ? (
+                        <span className="vidya-attempts__weak">
+                          {summary.weakestSection.sectionId} ·{" "}
+                          {formatPct(summary.weakestSection.accuracy)}
+                        </span>
+                      ) : (
+                        <span style={{ color: "var(--ink-4)" }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <span
+                        className={`vidya-attempts__status vidya-attempts__status--${it.status === "SUBMITTED" ? "done" : "open"}`}
+                      >
+                        {it.status === "SUBMITTED" ? "Submitted" : "In progress"}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <Link
+                        to={
+                          it.status === "SUBMITTED"
+                            ? `/quiz/${it.sessionId}/result`
+                            : `/quiz/${it.sessionId}`
+                        }
+                        className="vidya-attempts__view"
+                      >
+                        {it.status === "SUBMITTED" ? "View →" : "Resume →"}
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </section>
       )}
-
-      {tab === "taken" && (
-        <section>
-          {taken.length === 0 && (
-            <p style={{ color: "var(--ink-3)" }}>
-              No mock attempts yet — take one from the Available tab to see it
-              here.
-            </p>
-          )}
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {taken.map((s) => {
-              const bp = s.blueprintId ? blueprintById[s.blueprintId] : null;
-              const session: SessionRow = {
-                sessionId: s.sessionId,
-                blueprintId: s.blueprintId ?? null,
-                status: s.status,
-                startedAt: s.startedAt,
-                submittedAt: s.submittedAt,
-                servedCount: s.servedCount,
-                correctCount: s.correctCount,
-              };
-              const summary = summariseAttempt(session, breakdowns[s.sessionId]);
-              return (
-                <li
-                  key={s.sessionId}
-                  style={{
-                    background: "var(--card)",
-                    border: "1px solid var(--rule)",
-                    padding: 16,
-                    borderRadius: 8,
-                    marginBottom: 12,
-                    color: "var(--ink)",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      alignItems: "center",
-                    }}
-                  >
-                    <div style={{ fontSize: 15, fontWeight: 600 }}>
-                      {bp?.name ?? "Mock attempt"}
-                    </div>
-                    <span
-                      style={{
-                        padding: "2px 10px",
-                        borderRadius: 12,
-                        background:
-                          s.status === "SUBMITTED"
-                            ? "rgba(16,196,122,0.18)"
-                            : "rgba(245,166,35,0.18)",
-                        color:
-                          s.status === "SUBMITTED"
-                            ? "var(--good, #10C47A)"
-                            : "var(--warn, #F5A623)",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        letterSpacing: 0.04,
-                      }}
-                    >
-                      {s.status}
-                    </span>
-                  </div>
-                  <p
-                    style={{
-                      margin: "6px 0",
-                      color: "var(--ink-2, #B8C5E0)",
-                      fontSize: 13,
-                    }}
-                  >
-                    {new Date(s.startedAt).toLocaleString()} ·{" "}
-                    {summary.servedCount} answered · accuracy{" "}
-                    <strong>{formatPct(summary.accuracy)}</strong>
-                    {summary.weakestSection && (
-                      <>
-                        {" "}
-                        · weakest:{" "}
-                        <strong>{summary.weakestSection.sectionId}</strong> (
-                        {formatPct(summary.weakestSection.accuracy)})
-                      </>
-                    )}
-                  </p>
-                  <Link
-                    to={`/quiz/${s.sessionId}/result`}
-                    style={{
-                      color: "var(--info, #4F87F6)",
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                  >
-                    View result →
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-    </main>
+    </VidyaShell>
   );
+}
+
+/* ── Blueprint card ──────────────────────────────────────── */
+
+function BlueprintCard({
+  bp,
+  onStart,
+}: {
+  bp: BlueprintListItem;
+  onStart: () => void;
+}) {
+  return (
+    <section className="vidya-mock-bp">
+      <header className="vidya-mock-bp__head">
+        <span className="vidya-mock-bp__eyebrow">Blueprint</span>
+        <h3 className="vidya-mock-bp__name">{bp.name}</h3>
+      </header>
+
+      <dl className="vidya-mock-bp__stats">
+        <div>
+          <dt>Questions</dt>
+          <dd>{bp.totalQuestions}</dd>
+        </div>
+        <div>
+          <dt>Duration</dt>
+          <dd>
+            {bp.totalMinutes}
+            <span className="vidya-mock-bp__unit">min</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Marking</dt>
+          <dd>
+            +{bp.marksCorrect}
+            <span className="vidya-mock-bp__unit"> / </span>
+            {bp.marksNegative ? `-${bp.marksNegative}` : "0"}
+          </dd>
+        </div>
+      </dl>
+
+      <button className="vidya-shell__primary vidya-mock-bp__cta" onClick={onStart}>
+        ▶ Start mock
+      </button>
+    </section>
+  );
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="vidya-mock-empty">
+      <h3>{title}</h3>
+      <p>{body}</p>
+    </div>
+  );
+}
+
+function pctTone(acc: number): "good" | "warn" | "bad" | "mute" {
+  if (!Number.isFinite(acc) || acc <= 0) return "mute";
+  if (acc >= 0.7) return "good";
+  if (acc >= 0.45) return "warn";
+  return "bad";
 }

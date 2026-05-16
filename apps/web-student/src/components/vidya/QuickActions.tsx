@@ -16,10 +16,23 @@ export interface QuickActionsProps {
 }
 
 export function QuickActions({ firstExamId, nextBestTopicId }: QuickActionsProps) {
-  const practiceHref = nextBestTopicId
-    ? `/practice?topic=${nextBestTopicId}`
-    : "/practice";
+  // When the host page is exam-scoped (any non-null firstExamId) we
+  // append ?examId=… so the destination filters to the same exam.
+  // The dashboard's home variant doesn't pass an examId, so the
+  // destinations stay un-scoped there.
+  const examParam = firstExamId ? `examId=${encodeURIComponent(firstExamId)}` : "";
+  const withExam = (path: string, extra = ""): string => {
+    const parts = [extra, examParam].filter(Boolean).join("&");
+    return parts ? `${path}?${parts}` : path;
+  };
+
+  const practiceHref = withExam(
+    "/practice",
+    nextBestTopicId ? `topic=${encodeURIComponent(nextBestTopicId)}` : "",
+  );
+  const mockHref = withExam("/mocks");
   const studyHref = firstExamId ? `/study/${firstExamId}` : "/study-map";
+  const expertsHref = withExam("/experts");
 
   const items: Array<{
     href: string;
@@ -38,7 +51,7 @@ export function QuickActions({ firstExamId, nextBestTopicId }: QuickActionsProps
       cta: "Start session →",
     },
     {
-      href: "/mocks",
+      href: mockHref,
       icon: "◎",
       iconTone: "info",
       title: "Mock tests",
@@ -54,7 +67,7 @@ export function QuickActions({ firstExamId, nextBestTopicId }: QuickActionsProps
       cta: "Open map →",
     },
     {
-      href: "/experts",
+      href: expertsHref,
       icon: "✦",
       iconTone: "warn",
       title: "Ask Vidya",
