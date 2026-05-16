@@ -1,10 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 
-// Shared design system + admin-portal accent (red) per
-// docs/ui/03_AdminPortal/00_admin-tokens.css.
-import "@alp/design-system/tokens.css";
-import "@alp/design-system/portals/admin.css";
+// Vidya v1 design tokens — supersedes Aurora v2 + per-portal accent files.
+// Admin persona/density set on <html> in apps/web-admin/index.html.
+import "@alp/design-system/vidya/tokens.css";
+import "@alp/design-system/vidya/fonts.css";
 
 import { App } from "./App";
 

@@ -1,14 +1,14 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 
-// Shared design system tokens — defines :root (dark) and [data-theme=light]
-// palettes. The active theme is selected by the boot script in
-// index.html before React mounts (avoids dark→light flash).
-import "@alp/design-system/tokens.css";
+// Vidya v1 design tokens + self-hosted fonts. Theme/persona/density are
+// applied to <html> by the boot script in index.html before paint (avoids
+// dark→light flash and density jump on hydrate).
+import "@alp/design-system/vidya/tokens.css";
+import "@alp/design-system/vidya/fonts.css";
 
-// Aurora primitives (Button, Tag, Card, Avatar, EmptyState, Skeleton, …).
 // Component CSS must load AFTER the token sheet so its custom-property
-// references resolve to the active theme + density.
+// references resolve to the active theme + density + persona.
 import "@alp/ui/ui.css";
 
 import { App } from "./App";

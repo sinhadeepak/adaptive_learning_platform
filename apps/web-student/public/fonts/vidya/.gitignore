@@ -1,0 +1,5 @@
+# Vidya font binaries — installed by scripts/vidya/install-fonts.sh, not committed.
+*.woff2
+*.ttf
+*.otf
+*.woff
