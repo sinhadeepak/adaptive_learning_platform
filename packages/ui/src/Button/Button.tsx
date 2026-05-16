@@ -1,18 +1,22 @@
-// Button — Aurora primitive
+// Button — Vidya v1 primitive
 //
-// Spec: docs/02-design/design-system-v2-aurora.md §7.1
+// Spec: docs/02-design/design-system/04_components.md §1
 //
-// Variants:
-//   primary   — brand-600 fill, white text (default)
-//   secondary — neutral fill, dark text
-//   tertiary  — outline, brand text
+// Variants (canonical 3 + 3 legacy aliases kept for API stability):
+//   primary   — --accent fill, white text (default)
+//   secondary — --card fill, --ink text, --rule-2 border
 //   ghost     — transparent until hover
-//   aurora    — gradient AI CTA (cyan→violet); reserved for AI/celebration
-//   danger    — destructive action
+//   tertiary  — outline, --accent text (legacy alias; renders as outlined accent)
+//   aurora    — was the cyan→violet AI gradient; now solid --gold to keep
+//               the API working (Vidya signals AI via <AiTag>, not on CTAs)
+//   danger    — destructive action; renders --bad
 //
-// Sizes:  sm 32 / md 40 / lg 48 / xl 56 px min-height (Aspirant; scales w/ density)
+// Sizes:  sm 32 / md 40 / lg 48 / xl 56 px min-height. Touch-target
+//         floor honored via min-height: max(N, var(--touch-target)).
 // State:  idle / loading / disabled
-// Density: padding & font-size scale by --space-scale and --type-scale.
+// Density: padding + font-size scale via --space-scale / --type-scale
+//          (Vidya's vidya/density-scalars.css compat layer keeps these
+//          alive under [data-density="compact|regular|comfy"]).
 
 import React, { forwardRef } from "react";
 import { cn } from "../utils/cn";

@@ -237,7 +237,7 @@ function passwordStrength(pw: string): StrengthResult {
 function StrengthMeter({ score, label }: StrengthResult) {
   const segmentColor = (i: number): string => {
     if (i >= score) return "var(--rule-2)";
-    if (score <= 1) return "var(--danger-500)";
+    if (score <= 1) return "var(--bad)";
     if (score === 2) return "var(--developing-500)";
     return "var(--success-500)";
   };

@@ -1,11 +1,12 @@
-// @alp/ui — Aurora primitives package
+// @alp/ui — Vidya v1 primitives package (formerly Aurora v2).
 //
 // Public surface. Tree-shake-friendly named exports per primitive.
 // CSS is shipped separately as `@alp/ui/ui.css` — consumers must import
 // it once (typically in their app entry) for primitives to render.
 //
-// Spec: docs/02-design/design-system-v2-aurora.md §7
-// ADR:  docs/adr/0029-component-primitives-package.md
+// Spec: docs/02-design/design-system/04_components.md (Vidya · 14 components)
+// ADR:  docs/adr/0029-component-primitives-package.md (superseded by
+//       ADR-0034 Vidya design-system v3)
 
 // ── Atoms ──
 export { Button } from "./Button";
@@ -70,6 +71,21 @@ export type { AIInsightCardProps } from "./AIInsightCard";
 
 export { StreakChip } from "./StreakChip";
 export type { StreakChipProps } from "./StreakChip";
+
+// ── Vidya v1 additions (gold AI signal, mastery bars, sparkline) ──
+export { AiTag } from "./AiTag";
+export type { AiTagProps } from "./AiTag";
+
+export { MasteryBar, MasteryStack } from "./MasteryBar";
+export type {
+  MasteryBarProps,
+  MasteryBarSize,
+  MasteryStackProps,
+  MasteryStackCounts,
+} from "./MasteryBar";
+
+export { Sparkline } from "./Sparkline";
+export type { SparklineProps } from "./Sparkline";
 
 // ── Utilities ──
 export { cn } from "./utils/cn";

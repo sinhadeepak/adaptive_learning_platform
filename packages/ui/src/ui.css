@@ -121,7 +121,7 @@
 }
 
 .alp-btn--aurora {
-  background-image: var(--gold);
+  background: var(--gold);
   color: #FFFFFF;
   border-color: transparent;
   position: relative;
@@ -207,8 +207,8 @@
 .alp-tag--reward.alp-tag--solid   { background-color: var(--reward-600); color: var(--paper); }
 .alp-tag--reward.alp-tag--outline { background-color: transparent; color: var(--reward-600); border-color: var(--reward-500); }
 
-.alp-tag--aurora.alp-tag--soft    { background-image: var(--gold-soft); color: var(--gold); }
-.alp-tag--aurora.alp-tag--solid   { background-image: var(--gold); color: var(--paper); border-color: transparent; }
+.alp-tag--aurora.alp-tag--soft    { background: var(--gold-soft); color: var(--gold); }
+.alp-tag--aurora.alp-tag--solid   { background: var(--gold); color: var(--paper); border-color: transparent; }
 .alp-tag--aurora.alp-tag--outline { background-color: transparent; color: var(--gold); border-color: var(--gold); }
 
 /* ─────────────────────────────────────────────────────────
@@ -239,11 +239,11 @@
 }
 
 .alp-card--tone-aurora-ai {
-  background-image: var(--gold-soft);
+  background: var(--gold-soft);
   border-color: transparent;
 }
 .alp-card--tone-aurora-celebration {
-  background-image: var(--gold-soft);
+  background: var(--gold-soft);
   border-color: transparent;
 }
 .alp-card--tone-aurora-progress {
@@ -349,7 +349,7 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--r-pill);
-  background-image: var(--gold-soft);
+  background: var(--gold-soft);
   font-size: 40px;
 }
 .alp-empty__title {
@@ -947,7 +947,7 @@
   color: var(--paper);
 }
 .alp-mobiletabbar__item--primary .alp-mobiletabbar__icon {
-  background-image: var(--gold);
+  background: var(--gold);
   border-radius: var(--r-pill);
   width: 44px;
   height: 44px;
@@ -1231,7 +1231,7 @@
   display: none;
   position: relative;
   overflow: hidden;
-  background-image: var(--gold);
+  background: var(--gold);
   color: #FFFFFF;
   padding:
     calc(var(--sp-8) * var(--space-scale))
@@ -1319,6 +1319,78 @@
   .alp-authpage__mobile-brand { display: none; }
 }
 .alp-authpage__mobile-brand .alp-authpage__brand-mark {
-  background-image: var(--gold);
+  background: var(--gold);
   color: #FFFFFF;
+}
+/* =============================================================
+   VIDYA v1 — additions (AiTag, MasteryBar, MasteryStack, Sparkline)
+   May 2026 · paired with packages/ui/src/{AiTag,MasteryBar,Sparkline}/
+   ============================================================= */
+
+/* ── AiTag — gold ◈ marker for AI-touched surfaces (§12) ─────── */
+.ai-tag {
+  --ai-tag-dot: var(--gold);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--gold-2);
+}
+.ai-tag::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--ai-tag-dot);
+}
+
+/* ── MasteryBar — single bar, bucket fill (§6) ───────────────── */
+.mastery-bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background: var(--rule);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.mastery-bar--sm {
+  height: 5px;
+}
+.mastery-bar__fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  transition: width var(--m-base) var(--m-ease);
+}
+
+/* ── MasteryStack — segmented 5-bucket distribution (§6) ─────── */
+.mastery-stack {
+  display: flex;
+  width: 100%;
+  height: 10px;
+  border: 1px solid var(--rule);
+  overflow: hidden;
+  background: var(--paper-2);
+}
+.mastery-stack--rounded {
+  border-radius: var(--r-sm);
+}
+.mastery-stack__segment {
+  display: block;
+  height: 100%;
+}
+
+/* ── Sparkline — inline SVG trend, no chrome (§13) ───────────── */
+.sparkline {
+  display: inline-block;
+  vertical-align: middle;
+  overflow: visible;
+}
+.sparkline--empty {
+  opacity: 0;
 }

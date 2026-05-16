@@ -3,8 +3,12 @@ import ReactDOM from "react-dom/client";
 
 // Vidya v1 design tokens + self-hosted fonts. Theme/persona/density are
 // applied to <html> by the boot script in index.html before paint (avoids
-// dark→light flash and density jump on hydrate).
+// dark→light flash and density jump on hydrate). The density-scalars
+// compat sheet re-emits the Aurora-era multipliers (--space-scale etc.)
+// under Vidya's compact/regular/comfy attribute so components built
+// against the multipliers keep their density sizing.
 import "@alp/design-system/vidya/tokens.css";
+import "@alp/design-system/vidya/density-scalars.css";
 import "@alp/design-system/vidya/fonts.css";
 
 // Component CSS must load AFTER the token sheet so its custom-property

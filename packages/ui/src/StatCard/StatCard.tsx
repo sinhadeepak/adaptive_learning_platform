@@ -42,7 +42,7 @@ function toneColor(tone: StatCardTone): string {
     case "brand":   return "var(--accent)";
     case "success": return "var(--success-600)";
     case "warning": return "var(--developing-600)";
-    case "danger":  return "var(--danger-600)";
+    case "danger":  return "var(--bad)";
     case "reward":  return "var(--reward-500)";
     case "aurora":  return "var(--gold)";
     default:        return "var(--ink)";

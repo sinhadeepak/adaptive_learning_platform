@@ -6,6 +6,7 @@ import ReactDOM from "react-dom/client";
 // Author routes (also served by this app) can switch persona at the route
 // level by setting data-persona on a wrapping element.
 import "@alp/design-system/vidya/tokens.css";
+import "@alp/design-system/vidya/density-scalars.css";
 import "@alp/design-system/vidya/fonts.css";
 
 import { App } from "./App";

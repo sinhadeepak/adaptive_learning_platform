@@ -37,7 +37,7 @@ export interface ProgressRingProps extends Omit<React.SVGAttributes<SVGSVGElemen
 
 function strokeFor(tone: ProgressRingTone): string {
   switch (tone) {
-    case "weak":       return "var(--danger-600)";
+    case "weak":       return "var(--bad)";
     case "developing": return "var(--developing-600)";
     case "strong":     return "var(--success-600)";
     case "mastered":   return "var(--success-500)";
