@@ -3582,3 +3582,166 @@
   align-self: flex-start;
 }
 .vidya-hint__btn:hover { background: color-mix(in oklch, var(--gold) 8%, var(--paper)); }
+
+/* ─────────────────────────────────────────────────────────────
+   VIDYA QUIZ RESULT — breakdown + what-changed + next session
+   ───────────────────────────────────────────────────────────── */
+
+.vidya-breakdown {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+}
+.vidya-breakdown__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+.vidya-breakdown__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.vidya-breakdown__title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  margin-top: 4px;
+}
+.vidya-breakdown__pills { display: inline-flex; gap: var(--sp-2); align-items: center; }
+.vidya-breakdown__pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+}
+.vidya-breakdown__pill--good { background: var(--good-soft); color: var(--good); }
+.vidya-breakdown__pill--bad  { background: var(--bad-soft);  color: var(--bad); }
+.vidya-breakdown__pill--mute { background: var(--paper-2);   color: var(--ink-3); }
+
+.vidya-breakdown__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.vidya-breakdown__table tbody td {
+  padding: var(--sp-3) var(--sp-2);
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+  color: var(--ink);
+  vertical-align: middle;
+}
+.vidya-breakdown__table tbody tr:last-child td { border-bottom: 0; }
+.vidya-breakdown__idx {
+  font-family: var(--font-mono);
+  color: var(--ink-3);
+  width: 32px;
+}
+.vidya-breakdown__icon {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+.vidya-breakdown__icon--good { background: var(--good-soft); color: var(--good); }
+.vidya-breakdown__icon--bad  { background: var(--bad-soft);  color: var(--bad); }
+.vidya-breakdown__icon--mute { background: var(--paper-2);   color: var(--ink-4); }
+.vidya-breakdown__stem { color: var(--ink-2); }
+.vidya-breakdown__time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  text-align: right;
+  width: 50px;
+}
+.vidya-breakdown__b {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  width: 70px;
+}
+.vidya-breakdown__answer {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+.vidya-breakdown__letter {
+  display: inline-block;
+  min-width: 16px;
+  text-align: center;
+}
+.vidya-breakdown__letter--good { color: var(--good); }
+.vidya-breakdown__letter--bad  { color: var(--bad); }
+.vidya-breakdown__letter--mute { color: var(--ink-4); }
+.vidya-breakdown__letter-sep { margin: 0 4px; color: var(--ink-4); }
+
+/* What changed card (accent-tinted) */
+.vidya-changed {
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in oklch, var(--accent) 18%, var(--paper));
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+}
+.vidya-changed__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.vidya-changed__eyebrow::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--gold);
+}
+.vidya-changed__list {
+  list-style: disc;
+  padding-left: var(--sp-5);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.55;
+}
+
+/* Next session card */
+.vidya-next {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.vidya-next__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.vidya-next__title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.vidya-next__meta { font-size: 13px; color: var(--ink-3); }
