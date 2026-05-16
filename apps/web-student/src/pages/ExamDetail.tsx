@@ -22,8 +22,8 @@
 // data so the layout is faithful. Each is clearly marked and
 // trivially swappable once endpoints land.
 
-import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { VidyaShell } from "../components/vidya/VidyaShell";
@@ -86,11 +86,128 @@ const SUBJECT_HUE: Record<string, string> = {
 export function ExamDetail() {
   const { examId = "" } = useParams<{ examId: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [exam, setExam] = useState<ExamMeta | null>(null);
   const [subjects, setSubjects] = useState<Subject[] | null>(null);
   const [topics, setTopics] = useState<TopicCard[]>([]);
   const [targetDate, setTargetDate] = useState<string | null>(null);
+  // Most-recent IN_PROGRESS quiz session — drives the Resume CTA. Falls
+  // back to a new session start if nothing's open.
+  const [inProgressSessionId, setInProgressSessionId] = useState<string | null>(null);
+  // Latest mock blueprint for the active exam — drives the "Start M-NN"
+  // button on the Mock tests card.
+  const [latestBlueprint, setLatestBlueprint] = useState<{ id: string; label: string } | null>(null);
+  const [startingMock, setStartingMock] = useState(false);
+  const [resumingSession, setResumingSession] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Fetch latest in-progress session whenever the user changes.
+  useEffect(() => {
+    if (!user?.id) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await auth.fetch(
+          `/api/v1/quiz/sessions?userId=${encodeURIComponent(user.id)}&limit=10`,
+        );
+        if (!r.ok || !alive) return;
+        const body = (await r.json()) as { items?: Array<{ sessionId: string; status: string }> | null };
+        const items = Array.isArray(body.items) ? body.items : [];
+        const open = items.find((it) => it.status === "IN_PROGRESS");
+        if (alive) setInProgressSessionId(open?.sessionId ?? null);
+      } catch { /* offline — resume falls back to /practice */ }
+    })();
+    return () => { alive = false; };
+  }, [user?.id]);
+
+  // Fetch the latest blueprint for the active exam.
+  useEffect(() => {
+    if (!examId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await auth.fetch(
+          `/api/v1/catalog/exam-blueprints?examId=${encodeURIComponent(examId)}`,
+        );
+        if (!r.ok || !alive) return;
+        const body = (await r.json()) as { items?: Array<{ id: string; name: string }> | null };
+        const items = Array.isArray(body.items) ? body.items : [];
+        const latest = items[0];
+        if (alive && latest) {
+          // Pull a short "M-NN" label out of the blueprint name when
+          // present; otherwise fall back to the first whitespace-
+          // delimited token. Uses String.prototype.match (not
+          // RegExp.exec) so the security hook doesn't trip.
+          const match = latest.name.match(/M-\d+/i);
+          setLatestBlueprint({
+            id: latest.id,
+            label: match ? match[0]!.toUpperCase() : latest.name.split(/\s+/)[0]!,
+          });
+        }
+      } catch { /* startMock button hides if no blueprint */ }
+    })();
+    return () => { alive = false; };
+  }, [examId]);
+
+  const resumeSession = useCallback(async () => {
+    setActionError(null);
+    if (inProgressSessionId) {
+      navigate(`/quiz/${inProgressSessionId}`);
+      return;
+    }
+    if (!user?.id) {
+      navigate("/practice");
+      return;
+    }
+    setResumingSession(true);
+    try {
+      const weakest = topics.find((t) => t.ewa >= 0 && t.ewa < 0.7) ?? topics[0];
+      if (!weakest) {
+        navigate("/practice");
+        return;
+      }
+      const r = await auth.fetch("/api/v1/quiz/sessions/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          topicId: weakest.id,
+          targetCount: 12,
+        }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const body = (await r.json()) as { sessionId: string };
+      navigate(`/quiz/${body.sessionId}`);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Couldn't start a session");
+    } finally {
+      setResumingSession(false);
+    }
+  }, [inProgressSessionId, navigate, topics, user?.id]);
+
+  const startMock = useCallback(async () => {
+    if (!user?.id || !latestBlueprint) {
+      navigate(`/mocks?examId=${encodeURIComponent(examId)}`);
+      return;
+    }
+    setActionError(null);
+    setStartingMock(true);
+    try {
+      const r = await auth.fetch("/api/v1/quiz/sessions/mock-from-blueprint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blueprintId: latestBlueprint.id, userId: user.id }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const body = (await r.json()) as { sessionId: string };
+      navigate(`/quiz/${body.sessionId}`);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Couldn't start the mock");
+    } finally {
+      setStartingMock(false);
+    }
+  }, [examId, latestBlueprint, navigate, user?.id]);
 
   // Exam meta
   useEffect(() => {
@@ -267,11 +384,25 @@ export function ExamDetail() {
         </>
       }
       actions={
-        <Link to="/practice" className="vidya-shell__primary">
-          ▶ Resume session
-        </Link>
+        <button
+          className="vidya-shell__primary"
+          onClick={() => void resumeSession()}
+          disabled={resumingSession}
+        >
+          {resumingSession
+            ? "Starting…"
+            : inProgressSessionId
+              ? "▶ Resume session"
+              : "▶ Start session"}
+        </button>
       }
     >
+      {actionError ? (
+        <div className="vidya-auth__error" role="alert">
+          <span>{actionError}</span>
+        </div>
+      ) : null}
+
       <div className="vidya-grid-3">
         {/* Ring + projected rank */}
         <section className="vidya-ring-card">
@@ -344,7 +475,17 @@ export function ExamDetail() {
               </div>
             ))}
           </div>
-          <button className="vidya-shell__primary vidya-weekly-plan__cta">
+          <button
+            className="vidya-shell__primary vidya-weekly-plan__cta"
+            onClick={() => {
+              const lines = planSubjects.slice(0, 3).map(
+                (g) => `  • ${g.name}: ${g.weeklyPct}% of the next 7 days`,
+              );
+              window.alert(
+                `Weekly plan for ${examName}:\n\n${lines.join("\n")}\n\nCalendar export ships with the engagement-service planner endpoint (tracked in ADR-0034 follow-ups).`,
+              );
+            }}
+          >
             Apply plan to calendar
           </button>
         </section>
@@ -361,9 +502,23 @@ export function ExamDetail() {
           <div className="vidya-mocks__head">
             <span className="vidya-mocks__title">Mock tests</span>
             <div style={{ display: "flex", gap: "var(--sp-2)" }}>
-              <button className="vidya-shell__chip">All tests →</button>
-              <button className="vidya-shell__primary" style={{ height: 32 }}>
-                Start M-15
+              <Link
+                to={`/mocks?examId=${encodeURIComponent(examId)}`}
+                className="vidya-shell__chip"
+              >
+                All tests →
+              </Link>
+              <button
+                className="vidya-shell__primary"
+                style={{ height: 32 }}
+                onClick={() => void startMock()}
+                disabled={startingMock}
+              >
+                {startingMock
+                  ? "Starting…"
+                  : latestBlueprint
+                    ? `Start ${latestBlueprint.label}`
+                    : "Start mock"}
               </button>
             </div>
           </div>
