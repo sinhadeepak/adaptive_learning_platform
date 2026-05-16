@@ -11,7 +11,7 @@
 
 import { useEffect, useState } from "react";
 
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { Banner, Pill, SkeletonRows } from "../components/primitives";
 import {
   platformAnalytics,
@@ -37,26 +37,22 @@ type Tab =
 export function PlatformAnalytics() {
   const [tab, setTab] = useState<Tab>("funnels");
   return (
-    <AppShell title="Platform Analytics">
-      <main className="page" style={{ padding: 24 }}>
-        <h1 style={{ marginTop: 0 }}>Platform analytics</h1>
-        <p style={{ color: "var(--ink-3)", marginTop: -8, marginBottom: 16 }}>
-          Business + outcome metrics across the whole platform. All data
-          aggregated over your access scope; identifiable info gated behind
-          existing audit log.
-        </p>
-        <TabBar tab={tab} setTab={setTab} />
-        {tab === "funnels" && <FunnelsTab />}
-        {tab === "dau-mau" && <DauMauTab />}
-        {tab === "retention" && <RetentionTab />}
-        {tab === "question-quality" && <QuestionQualityTab />}
-        {tab === "mocks" && <MockDistributionsTab />}
-        {tab === "subscriptions" && <SubscriptionsTab />}
-        {tab === "marketplace" && <MarketplaceTab />}
-        {tab === "cost" && <CostTab />}
-        {tab === "outcomes" && <OutcomesTab />}
-      </main>
-    </AppShell>
+    <AdminShell
+      crumbs="Platform Analytics"
+      title="Platform analytics"
+      subtitle="Business + outcome metrics across the whole platform. All data aggregated over your access scope; identifiable info gated behind existing audit log."
+    >
+      <TabBar tab={tab} setTab={setTab} />
+      {tab === "funnels" && <FunnelsTab />}
+      {tab === "dau-mau" && <DauMauTab />}
+      {tab === "retention" && <RetentionTab />}
+      {tab === "question-quality" && <QuestionQualityTab />}
+      {tab === "mocks" && <MockDistributionsTab />}
+      {tab === "subscriptions" && <SubscriptionsTab />}
+      {tab === "marketplace" && <MarketplaceTab />}
+      {tab === "cost" && <CostTab />}
+      {tab === "outcomes" && <OutcomesTab />}
+    </AdminShell>
   );
 }
 
@@ -73,21 +69,12 @@ function TabBar({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
     { key: "outcomes", label: "Outcomes" },
   ];
   return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+    <div className="pa-tabbar">
       {tabs.map((t) => (
         <button
           key={t.key}
           onClick={() => setTab(t.key)}
-          style={{
-            background: tab === t.key ? "var(--gold)" : "var(--card-1)",
-            color: tab === t.key ? "#fff" : "var(--ink-2)",
-            border: "1px solid var(--rule)",
-            padding: "6px 12px",
-            borderRadius: 6,
-            cursor: "pointer",
-            fontSize: 13,
-            fontWeight: tab === t.key ? 700 : 500,
-          }}
+          className={`pa-tab${tab === t.key ? " pa-tab--on" : ""}`}
         >
           {t.label}
         </button>

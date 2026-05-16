@@ -5,7 +5,7 @@
 // with the AWS staging cluster — see HLD §16.1.
 
 import { useEffect, useState } from "react";
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { Banner, Pill } from "../components/primitives";
 import { opsAdmin, type OpsInfraComponent, type OpsInfraResponse } from "../lib/api";
 
@@ -115,7 +115,11 @@ export function Ops() {
   const degradedCount = data?.components.filter((c) => c.status === "degraded").length ?? 0;
 
   return (
-    <AppShell title="Ops dashboard" chips={[{ label: "Local stack" }]}>
+    <AdminShell
+      crumbs="Ops dashboard · local stack"
+      title="Ops dashboard"
+      chips={<span className="vidya-shell__chip">Local stack</span>}
+    >
       <div style={{ padding: "16px 24px 32px" }}>
         <p style={{ color: "var(--ink-3)", marginTop: 0 }}>
           Live health of every container in the dev stack. Auto-refreshes every{" "}
@@ -198,7 +202,7 @@ export function Ops() {
           </>
         )}
       </div>
-    </AppShell>
+    </AdminShell>
   );
 }
 

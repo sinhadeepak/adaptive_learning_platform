@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { Banner } from "../components/primitives";
 import {
   BloomMatrix,
@@ -166,7 +166,11 @@ export function AnalyticsDrill() {
     breadcrumb.push({ label: "Students", icon: "👥" });
 
   return (
-    <AppShell title="Analytics drill" chips={[{ label: "Phase 7" }]}>
+    <AdminShell
+      crumbs="Analytics drill · tenants"
+      title="Analytics drill"
+      chips={<span className="vidya-shell__chip">Phase 7</span>}
+    >
       <div style={{ padding: "16px 24px 32px" }}>
         <HierarchyBreadcrumb levels={breadcrumb} />
 
@@ -445,6 +449,6 @@ export function AnalyticsDrill() {
           )}
         </div>
       </div>
-    </AppShell>
+    </AdminShell>
   );
 }

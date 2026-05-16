@@ -6,7 +6,7 @@ import {
   type AdminEducatorAssignment,
   type AdminUserSummary,
 } from "../lib/api";
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { Banner, Pill, SkeletonRows } from "../components/primitives";
 
 // ─────────────────────────────────────────────────────────────────────
@@ -107,15 +107,16 @@ export function EducatorScope() {
   }
 
   return (
-    <AppShell
+    <AdminShell
+      crumbs="Educator scope · exam matrix"
       title="Educator scope"
       chips={
-        educators && exams
-          ? [
-              { label: `${educators.length} educators` },
-              { label: `${exams.length} exams` },
-            ]
-          : []
+        educators && exams ? (
+          <>
+            <span className="vidya-shell__chip">{educators.length} educators</span>
+            <span className="vidya-shell__chip">{exams.length} exams</span>
+          </>
+        ) : null
       }
     >
       <p className="page-subhead">
@@ -255,6 +256,6 @@ export function EducatorScope() {
         audit row (created_by = the admin acting). The audit surface
         for these actions ships with the Audit page in the next sprint.
       </p>
-    </AppShell>
+    </AdminShell>
   );
 }

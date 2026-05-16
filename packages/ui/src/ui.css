@@ -5301,3 +5301,18 @@ a.admin-kpi__delta:hover { color: var(--accent-2); }
   justify-content: flex-end;
   margin-top: var(--sp-2);
 }
+
+/* Platform Analytics tab bar — gold pill on ink active (mockup pattern) */
+.pa-tabbar { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--rule); margin-bottom: var(--sp-5); }
+.pa-tab {
+  padding: 6px 14px;
+  background: var(--paper-2);
+  border: 0;
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.pa-tab:hover { background: var(--rule); color: var(--ink); }
+.pa-tab--on { background: var(--gold-2); color: var(--paper); }
