@@ -23,6 +23,7 @@ import { Experts } from "./pages/Experts";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { History } from "./pages/History";
 import { Home } from "./pages/Home";
+import { MultiTrack } from "./pages/MultiTrack";
 import { Inbox } from "./pages/Inbox";
 import { StudyMap } from "./pages/StudyMap";
 import { Login } from "./pages/Login";
@@ -182,6 +183,14 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <Home />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/tracks",
+    element: (
+      <ProtectedRoute>
+        <MultiTrack />
       </ProtectedRoute>
     ),
   },

@@ -2532,3 +2532,286 @@
 .vidya-coverage__legend-label { color: var(--ink); }
 .vidya-coverage__legend-range { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
 .vidya-coverage__legend-count { font-family: var(--font-display); font-size: 16px; color: var(--ink); }
+
+/* ─────────────────────────────────────────────────────────────
+   VIDYA MULTI-TRACK — "Three pursuits in motion."
+   ───────────────────────────────────────────────────────────── */
+
+.vidya-multi-hero {
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--r-lg);
+  padding: var(--sp-6) var(--sp-6) var(--sp-5);
+}
+.vidya-multi-hero__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-3);
+}
+.vidya-multi-hero__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.vidya-multi-hero__eyebrow::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--gold);
+}
+.vidya-multi-hero__chips {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.vidya-multi-hero__chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--gold-soft);
+  color: var(--gold-2);
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+}
+.vidya-multi-hero__why {
+  background: var(--gold);
+  color: var(--ink);
+  border: 0;
+  border-radius: var(--r-pill);
+  padding: 4px 12px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.vidya-multi-hero__headline {
+  margin: 0 0 var(--sp-5);
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1.18;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+  color: var(--paper);
+  max-width: 60ch;
+}
+.vidya-multi-hero__headline em {
+  color: var(--gold);
+  font-style: normal;
+}
+.vidya-multi-hero__bar {
+  display: flex;
+  height: 14px;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  background: rgba(255,255,255,0.06);
+  margin-bottom: var(--sp-3);
+}
+.vidya-multi-hero__seg { display: block; height: 100%; }
+.vidya-multi-hero__legend {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--paper);
+  opacity: 0.85;
+  flex-wrap: wrap;
+}
+.vidya-multi-hero__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.vidya-multi-hero__swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+/* Track card */
+.vidya-track-card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.vidya-track-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.vidya-track-card__title-row { display: flex; gap: var(--sp-3); align-items: center; }
+.vidya-track-card__hue {
+  width: 14px; height: 14px;
+  border-radius: 3px;
+}
+.vidya-track-card__title {
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.vidya-track-card__sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+.vidya-track-card__hours {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.vidya-track-card__readiness {
+  border-top: 1px solid var(--rule);
+  padding-top: var(--sp-3);
+}
+.vidya-track-card__readiness-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.vidya-track-card__readiness-value {
+  font-family: var(--font-display);
+  font-size: 48px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin-top: 4px;
+}
+.vidya-track-card__readiness-max {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.vidya-track-card__delta {
+  display: inline-block;
+  margin-top: var(--sp-2);
+  background: var(--good-soft);
+  color: var(--good);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+}
+.vidya-track-card__threshold {
+  margin-top: var(--sp-2);
+  color: var(--good);
+  font-size: 12px;
+}
+.vidya-track-card__weak,
+.vidya-track-card__next {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.vidya-track-card__weak-label,
+.vidya-track-card__next-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.vidya-track-card__weak-name { font-size: 13px; color: var(--ink); }
+.vidya-track-card__next-name {
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--paper-2);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+}
+.vidya-track-card__cta { width: 100%; justify-content: center; margin-top: var(--sp-2); }
+
+/* Card-block (used for the time allocation + cross-track lists) */
+.vidya-card-block {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.vidya-card-block__head { display: flex; justify-content: space-between; align-items: baseline; }
+.vidya-card-block__title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.vidya-card-block__sub {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.vidya-card-block__more {
+  align-self: flex-start;
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: none;
+  margin-top: var(--sp-2);
+}
+.vidya-card-block__more:hover { text-decoration: underline; }
+
+/* Stacked weekday bars (past 7 days) */
+.vidya-multi-stack {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--sp-3);
+  align-items: end;
+  height: 140px;
+  padding: var(--sp-3) 0;
+}
+.vidya-multi-stack__col {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 2px;
+}
+.vidya-multi-stack__seg { width: 18px; border-radius: 2px; }
+.vidya-multi-stack__day {
+  position: relative;
+  top: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+/* Cross-track insight list */
+.vidya-cross-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.vidya-cross-list li {
+  display: grid;
+  grid-template-columns: 3px 1fr;
+  gap: var(--sp-3);
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.vidya-cross-list__bar { width: 3px; border-radius: 2px; }
+.vidya-cross-list strong { color: var(--ink); font-weight: 500; }
