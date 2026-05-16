@@ -280,7 +280,7 @@ export function Settings() {
         >
           <h2
             className="topic-section-title"
-            style={{ color: "var(--color-red)" }}
+            style={{ color: "var(--bad)" }}
           >
             Sign out
           </h2>
@@ -300,7 +300,7 @@ export function Settings() {
             disabled={signingOut}
             style={{
               borderColor: "rgba(244,63,94,0.32)",
-              color: "var(--color-red)",
+              color: "var(--bad)",
             }}
           >
             {signingOut ? "Signing out…" : "Sign out of this device"}

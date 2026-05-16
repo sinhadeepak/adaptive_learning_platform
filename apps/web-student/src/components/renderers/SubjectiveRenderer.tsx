@@ -91,8 +91,8 @@ export const EssayRenderer: Renderer<EssayPayload, EssayResponse> = ({
         <details
           style={{
             marginBottom: 14,
-            background: "var(--bg-surface3)",
-            border: "1px solid var(--border)",
+            background: "var(--paper-2)",
+            border: "1px solid var(--rule)",
             borderRadius: 8,
           }}
         >
@@ -102,7 +102,7 @@ export const EssayRenderer: Renderer<EssayPayload, EssayResponse> = ({
               padding: "10px 14px",
               fontSize: 12,
               fontWeight: 600,
-              color: "var(--text-primary)",
+              color: "var(--ink)",
               listStyle: "none",
               display: "flex",
               alignItems: "center",
@@ -110,8 +110,8 @@ export const EssayRenderer: Renderer<EssayPayload, EssayResponse> = ({
               userSelect: "none",
             }}
           >
-            <span aria-hidden style={{ color: "var(--text-faint)" }}>▸</span>
-            <span style={{ color: "var(--color-ai)" }}>◈</span>
+            <span aria-hidden style={{ color: "var(--ink-4)" }}>▸</span>
+            <span style={{ color: "var(--gold)" }}>◈</span>
             Marking rubric ({rubric.criteria.length} criteria)
           </summary>
           <ul
@@ -120,15 +120,15 @@ export const EssayRenderer: Renderer<EssayPayload, EssayResponse> = ({
               padding: "8px 14px 12px 36px",
               fontSize: 12,
               lineHeight: 1.6,
-              borderTop: "1px solid var(--border)",
-              color: "var(--text-secondary)",
+              borderTop: "1px solid var(--rule)",
+              color: "var(--ink-2)",
             }}
           >
             {rubric.criteria.map((c) => (
               <li key={c.id}>
-                <strong style={{ color: "var(--text-primary)" }}>{c.id}</strong>{" "}
-                <span style={{ color: "var(--color-ai)" }}>({c.weight}%)</span>
-                <span style={{ color: "var(--text-muted)" }}> — {c.text}</span>
+                <strong style={{ color: "var(--ink)" }}>{c.id}</strong>{" "}
+                <span style={{ color: "var(--gold)" }}>({c.weight}%)</span>
+                <span style={{ color: "var(--ink-3)" }}> — {c.text}</span>
               </li>
             ))}
           </ul>
@@ -153,9 +153,9 @@ export const EssayRenderer: Renderer<EssayPayload, EssayResponse> = ({
         style={{
           width: "100%",
           padding: 12,
-          background: "var(--bg-surface3)",
-          color: "var(--text-primary)",
-          border: "1px solid var(--border-strong)",
+          background: "var(--paper-2)",
+          color: "var(--ink)",
+          border: "1px solid var(--rule-2)",
           borderRadius: 6,
           fontSize: 14,
           fontFamily: "Georgia, serif",
@@ -168,7 +168,7 @@ export const EssayRenderer: Renderer<EssayPayload, EssayResponse> = ({
         style={{
           marginTop: 6,
           fontSize: 11,
-          color: onTarget ? "var(--text-muted)" : "var(--color-amber)",
+          color: onTarget ? "var(--ink-3)" : "var(--warn)",
         }}
       >
         {wordCount} word{wordCount === 1 ? "" : "s"}
@@ -310,10 +310,10 @@ export const CaseStudyRenderer: Renderer<CaseStudyPayload, CaseStudyResponse> = 
         <details
           style={{
             marginBottom: 14,
-            background: "var(--bg-surface3)",
-            border: "1px solid var(--border)",
+            background: "var(--paper-2)",
+            border: "1px solid var(--rule)",
             borderRadius: 8,
-            color: "var(--text-secondary)",
+            color: "var(--ink-2)",
           }}
         >
           <summary
@@ -322,7 +322,7 @@ export const CaseStudyRenderer: Renderer<CaseStudyPayload, CaseStudyResponse> = 
               padding: "10px 14px",
               fontSize: 12,
               fontWeight: 600,
-              color: "var(--text-primary)",
+              color: "var(--ink)",
               listStyle: "none",
               display: "flex",
               alignItems: "center",
@@ -330,8 +330,8 @@ export const CaseStudyRenderer: Renderer<CaseStudyPayload, CaseStudyResponse> = 
               userSelect: "none",
             }}
           >
-            <span aria-hidden style={{ color: "var(--text-faint)" }}>▸</span>
-            <span style={{ color: "var(--color-ai)" }}>◈</span>
+            <span aria-hidden style={{ color: "var(--ink-4)" }}>▸</span>
+            <span style={{ color: "var(--gold)" }}>◈</span>
             Marking rubric — {payload.rubric.length} criteria · weights total{" "}
             {totalWeight}%
           </summary>
@@ -341,17 +341,17 @@ export const CaseStudyRenderer: Renderer<CaseStudyPayload, CaseStudyResponse> = 
               padding: "8px 14px 12px 36px",
               fontSize: 12,
               lineHeight: 1.6,
-              borderTop: "1px solid var(--border)",
+              borderTop: "1px solid var(--rule)",
             }}
           >
             {payload.rubric.map((c, i) => (
               <li key={`${c.criterion}-${i}`} style={{ marginBottom: 4 }}>
-                <strong style={{ color: "var(--text-primary)" }}>
+                <strong style={{ color: "var(--ink)" }}>
                   {c.criterion}
                 </strong>{" "}
-                <span style={{ color: "var(--color-ai)" }}>({c.weight}%)</span>
+                <span style={{ color: "var(--gold)" }}>({c.weight}%)</span>
                 {c.description ? (
-                  <span style={{ color: "var(--text-muted)" }}>
+                  <span style={{ color: "var(--ink-3)" }}>
                     {" "}
                     — {c.description}
                   </span>
@@ -376,8 +376,8 @@ export const CaseStudyRenderer: Renderer<CaseStudyPayload, CaseStudyResponse> = 
                 key={sq.id}
                 style={{
                   padding: 14,
-                  background: "var(--bg-surface2)",
-                  border: "1px solid var(--border)",
+                  background: "var(--card)",
+                  border: "1px solid var(--rule)",
                   borderRadius: 8,
                 }}
               >
@@ -385,14 +385,14 @@ export const CaseStudyRenderer: Renderer<CaseStudyPayload, CaseStudyResponse> = 
                   style={{
                     fontSize: 11,
                     fontWeight: 700,
-                    color: "var(--text-muted)",
+                    color: "var(--ink-3)",
                     marginBottom: 6,
                     textTransform: "uppercase",
                     letterSpacing: 0.6,
                   }}
                 >
                   Part {String.fromCharCode(97 + idx)}
-                  <span style={{ color: "var(--text-faint)", marginLeft: 6 }}>
+                  <span style={{ color: "var(--ink-4)", marginLeft: 6 }}>
                     · {sq.id}
                   </span>
                 </div>
@@ -400,7 +400,7 @@ export const CaseStudyRenderer: Renderer<CaseStudyPayload, CaseStudyResponse> = 
                   style={{
                     fontSize: 14,
                     marginBottom: 10,
-                    color: "var(--text-primary)",
+                    color: "var(--ink)",
                   }}
                 >
                   {sq.prompt}
@@ -413,9 +413,9 @@ export const CaseStudyRenderer: Renderer<CaseStudyPayload, CaseStudyResponse> = 
                   style={{
                     width: "100%",
                     padding: 10,
-                    background: "var(--bg-surface3)",
-                    color: "var(--text-primary)",
-                    border: "1px solid var(--border-strong)",
+                    background: "var(--paper-2)",
+                    color: "var(--ink)",
+                    border: "1px solid var(--rule-2)",
                     borderRadius: 6,
                     fontSize: 14,
                     fontFamily: "inherit",
@@ -433,8 +433,8 @@ export const CaseStudyRenderer: Renderer<CaseStudyPayload, CaseStudyResponse> = 
                     marginTop: 6,
                     fontSize: 11,
                     color: onTarget
-                      ? "var(--text-muted)"
-                      : "var(--color-amber)",
+                      ? "var(--ink-3)"
+                      : "var(--warn)",
                   }}
                 >
                   {wordCount} word{wordCount === 1 ? "" : "s"}
@@ -484,9 +484,9 @@ export const CaseStudyRenderer: Renderer<CaseStudyPayload, CaseStudyResponse> = 
           style={{
             width: "100%",
             padding: 12,
-            background: "var(--bg-surface3)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border-strong)",
+            background: "var(--paper-2)",
+            color: "var(--ink)",
+            border: "1px solid var(--rule-2)",
             borderRadius: 6,
             fontSize: 14,
             fontFamily: "inherit",
@@ -529,7 +529,7 @@ export const ComprehensionLongRenderer: Renderer<
       <div
         style={{
           padding: 16,
-          background: "var(--bg-subtle, #f8f9fc)",
+          background: "var(--paper-2, #f8f9fc)",
           borderRadius: 6,
           marginBottom: 16,
           fontSize: 14,
@@ -566,7 +566,7 @@ export const ComprehensionLongRenderer: Renderer<
                   padding: 8,
                   fontSize: 13,
                   fontFamily: "inherit",
-                  border: "1px solid var(--border-subtle, #e1e5ee)",
+                  border: "1px solid var(--rule, #e1e5ee)",
                   borderRadius: 6,
                   resize: "vertical",
                 }}

@@ -92,11 +92,11 @@ export function SessionDeepDive() {
   return (
     <AppShell title="Session deep-dive">
       <main className="page" style={{ padding: 24, maxWidth: 1100 }}>
-        <Link to="/history" style={{ color: "var(--text-muted)", fontSize: 12 }}>
+        <Link to="/history" style={{ color: "var(--ink-3)", fontSize: 12 }}>
           ← Back to history
         </Link>
         <h1 style={{ marginTop: 8 }}>Session deep-dive</h1>
-        <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
+        <p style={{ color: "var(--ink-3)", fontSize: 13 }}>
           <code>{resp.sessionId.slice(0, 8)}</code> · {items.length} items ·{" "}
           {answered.length} answered
         </p>
@@ -120,7 +120,7 @@ export function SessionDeepDive() {
         {/* Time-per-question heatmap (one cell per item, coloured by correctness, sized by time) */}
         <section style={{ marginBottom: 32 }}>
           <h3 style={subhead}>Time per question</h3>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
+          <p style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>
             Cell colour = correctness · cell width = relative time.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -129,10 +129,10 @@ export function SessionDeepDive() {
               const w = Math.max(20, (t / maxTime) * 80);
               const bg =
                 i.isCorrect === true
-                  ? "var(--color-green, #10C47A)"
+                  ? "var(--good, #10C47A)"
                   : i.isCorrect === false
-                    ? "var(--color-red, #f43f5e)"
-                    : "var(--bg-surface1, #2a2a2a)";
+                    ? "var(--bad, #f43f5e)"
+                    : "var(--paper-2, #2a2a2a)";
               return (
                 <div
                   key={i.itemIdx}
@@ -160,7 +160,7 @@ export function SessionDeepDive() {
         {/* Time-vs-correctness scatter */}
         <section style={{ marginBottom: 32 }}>
           <h3 style={subhead}>Time-vs-correctness</h3>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
+          <p style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>
             Avg time on correct: <strong>{avgCorrect.toFixed(1)}s</strong> ·{" "}
             on wrong: <strong>{avgWrong.toFixed(1)}s</strong>
             {avgWrong > avgCorrect * 1.3
@@ -173,10 +173,10 @@ export function SessionDeepDive() {
             style={{
               position: "relative",
               height: 160,
-              border: "1px solid var(--border-default, #333)",
+              border: "1px solid var(--rule, #333)",
               borderRadius: 8,
               padding: 8,
-              background: "var(--bg-surface1, #1a1a1a)",
+              background: "var(--paper-2, #1a1a1a)",
             }}
           >
             {answered.map((i) => {
@@ -194,19 +194,19 @@ export function SessionDeepDive() {
                     width: 10,
                     height: 10,
                     borderRadius: "50%",
-                    background: i.isCorrect ? "var(--color-green)" : "var(--color-red)",
+                    background: i.isCorrect ? "var(--good)" : "var(--bad)",
                     opacity: 0.7,
                   }}
                 />
               );
             })}
-            <div style={{ position: "absolute", left: 8, top: 8, fontSize: 10, color: "var(--text-muted)" }}>
+            <div style={{ position: "absolute", left: 8, top: 8, fontSize: 10, color: "var(--ink-3)" }}>
               Correct
             </div>
-            <div style={{ position: "absolute", left: 8, bottom: 8, fontSize: 10, color: "var(--text-muted)" }}>
+            <div style={{ position: "absolute", left: 8, bottom: 8, fontSize: 10, color: "var(--ink-3)" }}>
               Wrong
             </div>
-            <div style={{ position: "absolute", right: 8, bottom: 8, fontSize: 10, color: "var(--text-muted)" }}>
+            <div style={{ position: "absolute", right: 8, bottom: 8, fontSize: 10, color: "var(--ink-3)" }}>
               Time →
             </div>
           </div>
@@ -218,7 +218,7 @@ export function SessionDeepDive() {
             <h3 style={subhead}>By section</h3>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid var(--border-default, #333)" }}>
+                <tr style={{ borderBottom: "1px solid var(--rule, #333)" }}>
                   <th style={th}>Section</th>
                   <th style={th}>N</th>
                   <th style={th}>Correct</th>
@@ -228,7 +228,7 @@ export function SessionDeepDive() {
               </thead>
               <tbody>
                 {sectionRows.map(([sec, agg]) => (
-                  <tr key={sec} style={{ borderBottom: "1px solid var(--border-default, #333)" }}>
+                  <tr key={sec} style={{ borderBottom: "1px solid var(--rule, #333)" }}>
                     <td style={td}>{sec}</td>
                     <td style={td}>{agg.n}</td>
                     <td style={td}>{agg.correct}</td>
@@ -255,20 +255,20 @@ function Tile({
   tone: "info" | "neutral" | "warn";
 }) {
   const color = tone === "info"
-    ? "var(--color-blue, #4F87F6)"
+    ? "var(--info, #4F87F6)"
     : tone === "warn"
-      ? "var(--color-amber, #fbbf24)"
-      : "var(--text-primary)";
+      ? "var(--warn, #fbbf24)"
+      : "var(--ink)";
   return (
     <div
       style={{
         padding: "12px 14px",
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border-default)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
       }}
     >
-      <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase" }}>
+      <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase" }}>
         {label}
       </div>
       <div style={{ fontSize: 22, fontWeight: 700, color, fontVariantNumeric: "tabular-nums" }}>
@@ -281,14 +281,14 @@ function Tile({
 const subhead: React.CSSProperties = {
   fontSize: 14,
   fontWeight: 600,
-  color: "var(--text-secondary, #ccc)",
+  color: "var(--ink-2, #ccc)",
   marginBottom: 8,
 };
 const th: React.CSSProperties = {
   textAlign: "left",
   padding: "6px 10px",
   fontSize: 11,
-  color: "var(--text-muted)",
+  color: "var(--ink-3)",
   textTransform: "uppercase",
 };
 const td: React.CSSProperties = { padding: "8px 10px", fontSize: 13 };

@@ -60,7 +60,7 @@ export function TutorChatHistory() {
     <AppShell title="Tutor history">
       <main className="page" style={{ padding: 24, maxWidth: 900 }}>
         <h1 style={{ marginTop: 0 }}>AI tutor history</h1>
-        <p style={{ color: "var(--text-muted)" }}>
+        <p style={{ color: "var(--ink-3)" }}>
           Search past conversations with your AI tutor.
         </p>
         <input
@@ -72,9 +72,9 @@ export function TutorChatHistory() {
             padding: "10px 14px",
             width: "100%",
             maxWidth: 480,
-            background: "var(--bg-surface1)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border-default)",
+            background: "var(--paper-2)",
+            color: "var(--ink)",
+            border: "1px solid var(--rule)",
             borderRadius: 8,
             fontSize: 14,
             marginBottom: 16,
@@ -82,7 +82,7 @@ export function TutorChatHistory() {
         />
         {!loaded && <p>Loading…</p>}
         {loaded && sessions.length === 0 && (
-          <p style={{ color: "var(--text-muted)" }}>
+          <p style={{ color: "var(--ink-3)" }}>
             No past chats. Start one from any topic page.
           </p>
         )}
@@ -93,19 +93,19 @@ export function TutorChatHistory() {
               style={{
                 padding: "12px 14px",
                 marginBottom: 8,
-                background: "var(--bg-surface1)",
-                border: "1px solid var(--border-default)",
+                background: "var(--paper-2)",
+                border: "1px solid var(--rule)",
                 borderRadius: 8,
               }}
             >
               <Link
                 to={`/tutor-history/${s.id}`}
-                style={{ color: "var(--text-primary)", textDecoration: "none" }}
+                style={{ color: "var(--ink)", textDecoration: "none" }}
               >
                 <div style={{ fontSize: 14, fontWeight: 600 }}>
                   {s.title ?? "(untitled chat)"}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>
                   {s.msgCount} message{s.msgCount === 1 ? "" : "s"} · last{" "}
                   {new Date(s.lastMsgAt).toLocaleString()}
                 </div>
@@ -153,11 +153,11 @@ export function TutorChatTranscript() {
   return (
     <AppShell title={transcript.title ?? "Tutor chat"}>
       <main className="page" style={{ padding: 24, maxWidth: 800 }}>
-        <Link to="/tutor-history" style={{ color: "var(--text-muted)", fontSize: 12 }}>
+        <Link to="/tutor-history" style={{ color: "var(--ink-3)", fontSize: 12 }}>
           ← Back to history
         </Link>
         <h1 style={{ marginTop: 8 }}>{transcript.title ?? "Untitled chat"}</h1>
-        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+        <p style={{ fontSize: 12, color: "var(--ink-3)" }}>
           Started {new Date(transcript.startedAt).toLocaleString()} ·{" "}
           {transcript.msgCount} messages
         </p>
@@ -169,17 +169,17 @@ export function TutorChatTranscript() {
                 padding: 12,
                 background:
                   m.role === "user"
-                    ? "var(--bg-surface, #1f1f1f)"
-                    : "var(--bg-surface1, #262626)",
-                border: "1px solid var(--border-default)",
-                borderLeft: `3px solid ${m.role === "user" ? "var(--color-blue, #4F87F6)" : "var(--color-ai, #A78BFA)"}`,
+                    ? "var(--card, #1f1f1f)"
+                    : "var(--paper-2, #262626)",
+                border: "1px solid var(--rule)",
+                borderLeft: `3px solid ${m.role === "user" ? "var(--info, #4F87F6)" : "var(--gold, #A78BFA)"}`,
                 borderRadius: 6,
               }}
             >
               <div
                 style={{
                   fontSize: 11,
-                  color: "var(--text-muted)",
+                  color: "var(--ink-3)",
                   textTransform: "uppercase",
                   marginBottom: 6,
                 }}

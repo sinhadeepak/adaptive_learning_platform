@@ -345,7 +345,7 @@ export function ExamDetail() {
           <ExamRing pct={examReadinessPct} />
           <div className="eh-stats">
             <div className="eh-stat">
-              <div className="eh-stat-num" style={{ color: "var(--color-green)" }}>
+              <div className="eh-stat-num" style={{ color: "var(--good)" }}>
                 {trackedTopics > 0
                   ? Math.min(100, Math.round(examReadinessPct + (1 - examReadinessPct / 100) * 30))
                   : "—"}
@@ -353,13 +353,13 @@ export function ExamDetail() {
               <div className="eh-stat-lbl">AI PREDICTION</div>
             </div>
             <div className="eh-stat">
-              <div className="eh-stat-num" style={{ color: "var(--color-amber)" }}>
+              <div className="eh-stat-num" style={{ color: "var(--warn)" }}>
                 {days ?? "—"}
               </div>
               <div className="eh-stat-lbl">DAYS LEFT</div>
             </div>
             <div className="eh-stat">
-              <div className="eh-stat-num" style={{ color: "var(--color-blue)" }}>
+              <div className="eh-stat-num" style={{ color: "var(--info)" }}>
                 {trackedTopics > 0 ? `+${(examReadinessPct * 0.05).toFixed(1)}` : "—"}
               </div>
               <div className="eh-stat-lbl">THIS WEEK</div>
@@ -406,7 +406,7 @@ export function ExamDetail() {
           <div className="sec-row">
             <div>
               <h2 className="section-heading">Subject mastery</h2>
-              <div style={{ fontSize: 9.5, color: "var(--text-faint)", marginTop: 1 }}>
+              <div style={{ fontSize: 9.5, color: "var(--ink-4)", marginTop: 1 }}>
                 EWA model · recency-weighted · updates after every session
               </div>
             </div>
@@ -416,7 +416,7 @@ export function ExamDetail() {
           </div>
 
           {subjectReadiness.length === 0 ? (
-            <p style={{ color: "var(--text-muted)", fontSize: 12 }}>
+            <p style={{ color: "var(--ink-3)", fontSize: 12 }}>
               This exam doesn't have subjects in the catalog yet.
             </p>
           ) : (
@@ -433,18 +433,18 @@ export function ExamDetail() {
                         : "weak";
                 const barColor =
                   bucket === "strong"
-                    ? "var(--color-green)"
+                    ? "var(--good)"
                     : bucket === "developing"
-                      ? "var(--color-blue)"
+                      ? "var(--info)"
                       : bucket === "weak"
-                        ? "var(--color-red)"
-                        : "var(--text-faint)";
+                        ? "var(--bad)"
+                        : "var(--ink-4)";
                 const pctColor =
                   bucket === "strong"
-                    ? "var(--color-green)"
+                    ? "var(--good)"
                     : bucket === "developing"
-                      ? "var(--color-blue)"
-                      : "var(--color-red)";
+                      ? "var(--info)"
+                      : "var(--bad)";
                 return (
                   <Link
                     key={s.subjectId}
@@ -472,7 +472,7 @@ export function ExamDetail() {
                             aria-hidden
                             style={{
                               fontSize: 14,
-                              color: "var(--text-faint)",
+                              color: "var(--ink-4)",
                               marginLeft: 4,
                             }}
                           >
@@ -499,7 +499,7 @@ export function ExamDetail() {
                         <div
                           style={{
                             fontSize: 10.5,
-                            color: "var(--color-red)",
+                            color: "var(--bad)",
                             marginTop: 3,
                           }}
                         >
@@ -510,7 +510,7 @@ export function ExamDetail() {
                         <div
                           style={{
                             fontSize: 10.5,
-                            color: "var(--text-muted)",
+                            color: "var(--ink-3)",
                             marginTop: 3,
                           }}
                         >
@@ -543,7 +543,7 @@ export function ExamDetail() {
           <div className="sec-row">
             <div>
               <h2 className="section-heading">Readiness trajectory</h2>
-              <div style={{ fontSize: 9.5, color: "var(--text-faint)", marginTop: 1 }}>
+              <div style={{ fontSize: 9.5, color: "var(--ink-4)", marginTop: 1 }}>
                 AI exam-day prediction · backed by historical session data once telemetry lands
               </div>
             </div>
@@ -557,7 +557,7 @@ export function ExamDetail() {
                 style={{
                   width: 10,
                   height: 2,
-                  background: "var(--color-green)",
+                  background: "var(--good)",
                   borderRadius: 1,
                 }}
               />
@@ -568,7 +568,7 @@ export function ExamDetail() {
                 style={{
                   width: 10,
                   height: 0,
-                  borderTop: "1px dashed var(--color-blue)",
+                  borderTop: "1px dashed var(--info)",
                 }}
               />
               <span>AI prediction</span>
@@ -589,14 +589,14 @@ export function ExamDetail() {
             style={{
               marginTop: 12,
               paddingTop: 10,
-              borderTop: "1px solid var(--border)",
+              borderTop: "1px solid var(--rule)",
             }}
           >
             <div
               style={{
                 fontSize: 10,
                 fontWeight: 600,
-                color: "var(--text-secondary)",
+                color: "var(--ink-2)",
                 marginBottom: 7,
               }}
             >
@@ -605,7 +605,7 @@ export function ExamDetail() {
             <p
               style={{
                 fontSize: 11,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 margin: 0,
                 padding: "var(--sp-1) 0",
               }}
@@ -694,7 +694,7 @@ export function ExamDetail() {
               <p
                 style={{
                   fontSize: 11,
-                  color: "var(--text-muted)",
+                  color: "var(--ink-3)",
                   margin: 0,
                   padding: "var(--sp-1) 0",
                 }}
@@ -708,9 +708,9 @@ export function ExamDetail() {
               style={{
                 marginTop: 10,
                 paddingTop: 8,
-                borderTop: "1px solid var(--border-default)",
+                borderTop: "1px solid var(--rule)",
                 fontSize: 10,
-                color: "var(--text-faint)",
+                color: "var(--ink-4)",
               }}
             >
               Real assignments + mock tests appear here once your institution
@@ -747,7 +747,7 @@ function ExamRing({ pct }: { pct: number }) {
           cy="45"
           r={r}
           fill="none"
-          stroke="var(--border)"
+          stroke="var(--rule)"
           strokeWidth="7"
         />
         <circle
@@ -798,29 +798,29 @@ function TrajectoryChart({ current, target }: TrajectoryProps) {
             <stop offset="100%" stopColor="#4F87F6" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <line x1="0" y1="20" x2="320" y2="20" stroke="var(--surface-elev1)" strokeWidth="1" />
-        <line x1="0" y1="50" x2="320" y2="50" stroke="var(--surface-elev1)" strokeWidth="1" />
-        <line x1="0" y1="80" x2="320" y2="80" stroke="var(--surface-elev1)" strokeWidth="1" />
-        <text x="3" y="18" fill="var(--text-faint)" fontSize="8">85</text>
-        <text x="3" y="48" fill="var(--text-faint)" fontSize="8">68</text>
-        <text x="3" y="78" fill="var(--text-faint)" fontSize="8">50</text>
+        <line x1="0" y1="20" x2="320" y2="20" stroke="var(--card)" strokeWidth="1" />
+        <line x1="0" y1="50" x2="320" y2="50" stroke="var(--card)" strokeWidth="1" />
+        <line x1="0" y1="80" x2="320" y2="80" stroke="var(--card)" strokeWidth="1" />
+        <text x="3" y="18" fill="var(--ink-4)" fontSize="8">85</text>
+        <text x="3" y="48" fill="var(--ink-4)" fontSize="8">68</text>
+        <text x="3" y="78" fill="var(--ink-4)" fontSize="8">50</text>
         <line
           x1="18"
           y1={cy(target)}
           x2="320"
           y2={cy(target)}
-          stroke="var(--color-amber)"
+          stroke="var(--warn)"
           strokeWidth="1"
           strokeDasharray="3,3"
           opacity="0.45"
         />
-        <text x="285" y={cy(target) - 4} fill="var(--color-amber)" fontSize="8" opacity="0.7">
+        <text x="285" y={cy(target) - 4} fill="var(--warn)" fontSize="8" opacity="0.7">
           Target {target}
         </text>
         <path
           d={`M${start.x},${start.y} Q${(start.x + today.x) / 2},${(start.y + today.y) / 2 - 8} ${today.x},${today.y}`}
           fill="none"
-          stroke="var(--color-green)"
+          stroke="var(--good)"
           strokeWidth="2"
           strokeLinecap="round"
         />
@@ -828,35 +828,35 @@ function TrajectoryChart({ current, target }: TrajectoryProps) {
           d={`M${start.x},${start.y} Q${(start.x + today.x) / 2},${(start.y + today.y) / 2 - 8} ${today.x},${today.y} L${today.x},108 L${start.x},108Z`}
           fill="url(#ga)"
         />
-        <circle cx={today.x} cy={today.y} r="4.5" fill="var(--color-green)" stroke="var(--bg-base)" strokeWidth="2" />
-        <text x={today.x - 8} y={today.y - 6} fill="var(--color-green)" fontSize="8" textAnchor="middle">
+        <circle cx={today.x} cy={today.y} r="4.5" fill="var(--good)" stroke="var(--paper)" strokeWidth="2" />
+        <text x={today.x - 8} y={today.y - 6} fill="var(--good)" fontSize="8" textAnchor="middle">
           {current}
         </text>
         <path
           d={`M${today.x},${today.y} Q${(today.x + predict.x) / 2},${(today.y + predict.y) / 2 - 6} ${predict.x},${predict.y}`}
           fill="none"
-          stroke="var(--color-blue)"
+          stroke="var(--info)"
           strokeWidth="1.8"
           strokeDasharray="4,3"
           strokeLinecap="round"
         />
-        <circle cx={predict.x} cy={predict.y} r="4" fill="var(--color-blue)" stroke="var(--bg-base)" strokeWidth="2" />
+        <circle cx={predict.x} cy={predict.y} r="4" fill="var(--info)" stroke="var(--paper)" strokeWidth="2" />
         <line
           x1={today.x}
           y1="20"
           x2={today.x}
           y2="108"
-          stroke="var(--border-strong)"
+          stroke="var(--rule-2)"
           strokeWidth="1"
           strokeDasharray="2,3"
         />
-        <text x={today.x} y="115" fill="var(--text-faint)" fontSize="7.5" textAnchor="middle">
+        <text x={today.x} y="115" fill="var(--ink-4)" fontSize="7.5" textAnchor="middle">
           Today
         </text>
-        <text x="18" y="115" fill="var(--text-faint)" fontSize="7.5">
+        <text x="18" y="115" fill="var(--ink-4)" fontSize="7.5">
           Baseline
         </text>
-        <text x="314" y="115" fill="var(--color-blue)" fontSize="7.5" textAnchor="end">
+        <text x="314" y="115" fill="var(--info)" fontSize="7.5" textAnchor="end">
           Exam day
         </text>
       </svg>
@@ -950,10 +950,10 @@ function StudyPlanGroup({
   return (
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ink)" }}>
           {title}
         </span>
-        <span style={{ fontSize: 9.5, color: "var(--text-faint)" }}>{hint}</span>
+        <span style={{ fontSize: 9.5, color: "var(--ink-4)" }}>{hint}</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {topics.map((t) => (
@@ -965,24 +965,24 @@ function StudyPlanGroup({
               alignItems: "center",
               justifyContent: "space-between",
               padding: "6px 8px",
-              background: "var(--bg-surface-2)",
+              background: "var(--card-2)",
               borderRadius: 6,
               textDecoration: "none",
-              color: "var(--text-primary)",
+              color: "var(--ink)",
               fontSize: 11,
-              border: "1px solid var(--border-default)",
+              border: "1px solid var(--rule)",
             }}
           >
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {t.title}
-              <span style={{ color: "var(--text-faint)", marginLeft: 6, fontSize: 10 }}>
+              <span style={{ color: "var(--ink-4)", marginLeft: 6, fontSize: 10 }}>
                 · {t.subjectName}
               </span>
             </span>
             <span
               style={{
                 fontSize: 10,
-                color: t.ewa < 0 ? "var(--text-muted)" : t.ewa < 0.4 ? "var(--color-red)" : t.ewa < 0.7 ? "var(--color-blue)" : "var(--color-green)",
+                color: t.ewa < 0 ? "var(--ink-3)" : t.ewa < 0.4 ? "var(--bad)" : t.ewa < 0.7 ? "var(--info)" : "var(--good)",
                 fontVariantNumeric: "tabular-nums",
                 marginLeft: 8,
               }}
@@ -1051,7 +1051,7 @@ function DecayBanner({ userId, examCode }: { userId: string; examCode: string })
       style={{
         marginTop: "var(--sp-3)",
         padding: "10px 14px",
-        borderLeft: "3px solid var(--color-red)",
+        borderLeft: "3px solid var(--bad)",
         display: "flex",
         alignItems: "center",
         gap: 12,
@@ -1062,11 +1062,11 @@ function DecayBanner({ userId, examCode }: { userId: string; examCode: string })
         📉
       </div>
       <div style={{ flex: 1, minWidth: 220 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>
           {decaying.length} concept{decaying.length === 1 ? "" : "s"} need
           {decaying.length === 1 ? "s" : ""} revision
         </div>
-        <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 2 }}>
+        <div style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 }}>
           {critical > 0 && `${critical} critical`}
           {critical > 0 && stale > 0 && " · "}
           {stale > 0 && `${stale} stale`}
@@ -1133,8 +1133,8 @@ function NextSessionCard({ userId, examCode }: { userId: string; examCode: strin
       style={{
         padding: "12px 14px",
         textDecoration: "none",
-        color: "var(--text-primary)",
-        borderLeft: "3px solid var(--color-ai, #4F87F6)",
+        color: "var(--ink)",
+        borderLeft: "3px solid var(--gold, #4F87F6)",
         display: "block",
       }}
     >
@@ -1142,17 +1142,17 @@ function NextSessionCard({ userId, examCode }: { userId: string; examCode: strin
         <span className="ai-pill" style={{ fontSize: 9 }}>
           ◈ NEXT SESSION
         </span>
-        <span style={{ fontSize: 10, color: "var(--text-faint)" }}>
+        <span style={{ fontSize: 10, color: "var(--ink-4)" }}>
           {step.estMinutes} min · {step.action.toLowerCase()}
         </span>
       </div>
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
         {step.topicTitle}
       </div>
-      <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }}>
+      <div style={{ fontSize: 11, color: "var(--ink-3)", lineHeight: 1.4 }}>
         {step.why || headline || "Recommended next based on your weakest topics."}
       </div>
-      <div style={{ fontSize: 11, color: "var(--color-ai, #4F87F6)", marginTop: 8 }}>
+      <div style={{ fontSize: 11, color: "var(--gold, #4F87F6)", marginTop: 8 }}>
         Start session →
       </div>
     </Link>
@@ -1204,19 +1204,19 @@ function TimeBudgetCard({
               gap: 10,
               fontSize: 11,
               padding: "5px 8px",
-              background: "var(--bg-surface-2)",
-              border: "1px solid var(--border-default)",
+              background: "var(--card-2)",
+              border: "1px solid var(--rule)",
               borderRadius: 6,
             }}
           >
-            <span style={{ minWidth: 64, color: "var(--text-muted)" }}>
+            <span style={{ minWidth: 64, color: "var(--ink-3)" }}>
               {b.minutes} min/day
             </span>
             <div
               style={{
                 flex: 1,
                 height: 6,
-                background: "var(--bg-surface-1)",
+                background: "var(--card-1)",
                 borderRadius: 3,
                 overflow: "hidden",
               }}
@@ -1225,7 +1225,7 @@ function TimeBudgetCard({
                 style={{
                   width: `${b.pct}%`,
                   height: "100%",
-                  background: b.hits ? "var(--color-green)" : "var(--color-blue)",
+                  background: b.hits ? "var(--good)" : "var(--info)",
                 }}
               />
             </div>
@@ -1234,7 +1234,7 @@ function TimeBudgetCard({
                 minWidth: 56,
                 textAlign: "right",
                 fontVariantNumeric: "tabular-nums",
-                color: b.hits ? "var(--color-green)" : "var(--text-primary)",
+                color: b.hits ? "var(--good)" : "var(--ink)",
                 fontWeight: b.hits ? 700 : 500,
               }}
             >
@@ -1243,7 +1243,7 @@ function TimeBudgetCard({
           </div>
         ))}
       </div>
-      <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 8 }}>
+      <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 8 }}>
         Projection assumes ~1.5 pp readiness gain per (30 min/day · week) on
         weak-topic drills. Heuristic — calibrates against your real session
         history once it builds up.

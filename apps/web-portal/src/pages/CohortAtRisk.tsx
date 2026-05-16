@@ -12,9 +12,9 @@ import { AppShell } from "../components/AppShell";
 import { analytics, type CohortAtRiskItem } from "../lib/api";
 
 function bandColor(band: string): string {
-  if (band === "HIGH") return "var(--color-red, #F43F5E)";
-  if (band === "MEDIUM") return "var(--color-blue, #4F87F6)";
-  return "var(--text-muted, #3E4D6A)";
+  if (band === "HIGH") return "var(--bad, #F43F5E)";
+  if (band === "MEDIUM") return "var(--info, #4F87F6)";
+  return "var(--ink-3, #3E4D6A)";
 }
 
 export function CohortAtRisk() {
@@ -42,7 +42,7 @@ export function CohortAtRisk() {
     <AppShell title="Cohort at-risk students">
       <main className="page" style={{ padding: 24, maxWidth: 900 }}>
         <h1>At-risk students</h1>
-        <p style={{ color: "var(--text-muted)" }}>
+        <p style={{ color: "var(--ink-3)" }}>
           Students flagged HIGH or MEDIUM risk by the predictive scorer.
           Click through to drill into a single student's mastery + activity.
         </p>

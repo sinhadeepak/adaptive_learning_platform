@@ -212,7 +212,7 @@ export function UploadField({
         >
           📷 Take photo
         </button>
-        <span style={{ alignSelf: "center", fontSize: 11, color: "var(--text-muted)" }}>
+        <span style={{ alignSelf: "center", fontSize: 11, color: "var(--ink-3)" }}>
           {value.length}/{maxFiles} attached · jpg/png/webp/heic/pdf · 25 MB max each
         </span>
       </div>
@@ -223,7 +223,7 @@ export function UploadField({
           style={{
             marginTop: 6,
             fontSize: 11,
-            color: "var(--color-red)",
+            color: "var(--bad)",
           }}
         >
           {error}
@@ -249,8 +249,8 @@ export function UploadField({
                 alignItems: "center",
                 gap: 8,
                 padding: "6px 8px",
-                background: "var(--bg-surface3)",
-                border: "1px solid var(--border)",
+                background: "var(--paper-2)",
+                border: "1px solid var(--rule)",
                 borderRadius: 6,
                 fontSize: 12,
               }}
@@ -264,13 +264,13 @@ export function UploadField({
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
-                  color: "var(--text-primary)",
+                  color: "var(--ink)",
                 }}
                 title={f.originalName ?? f.objectKey}
               >
                 {f.originalName ?? f.objectKey.split("/").pop()}
               </span>
-              <span style={{ color: "var(--text-muted)" }}>{formatBytes(f.size)}</span>
+              <span style={{ color: "var(--ink-3)" }}>{formatBytes(f.size)}</span>
               <button
                 type="button"
                 onClick={() => removeAt(i)}
@@ -279,7 +279,7 @@ export function UploadField({
                 style={{
                   background: "transparent",
                   border: 0,
-                  color: "var(--text-muted)",
+                  color: "var(--ink-3)",
                   cursor: "pointer",
                   fontSize: 14,
                 }}
@@ -296,9 +296,9 @@ export function UploadField({
 
 function btnStyle(disabled?: boolean): React.CSSProperties {
   return {
-    background: disabled ? "var(--bg-surface2)" : "var(--bg-surface3)",
-    color: disabled ? "var(--text-faint)" : "var(--text-primary)",
-    border: "1px solid var(--border-strong)",
+    background: disabled ? "var(--card)" : "var(--paper-2)",
+    color: disabled ? "var(--ink-4)" : "var(--ink)",
+    border: "1px solid var(--rule-2)",
     borderRadius: 6,
     padding: "6px 12px",
     fontSize: 12,

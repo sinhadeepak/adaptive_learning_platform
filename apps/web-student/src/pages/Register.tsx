@@ -157,7 +157,7 @@ export function Register() {
               alignItems: "flex-start",
               gap: 8,
               fontSize: 13,
-              color: "var(--neutral-700)",
+              color: "var(--ink-2)",
             }}
           >
             <Checkbox
@@ -169,14 +169,14 @@ export function Register() {
               I agree to the{" "}
               <a
                 href="/terms"
-                style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+                style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
               >
                 Terms
               </a>{" "}
               and{" "}
               <a
                 href="/privacy"
-                style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+                style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
               >
                 Privacy
               </a>
@@ -199,14 +199,14 @@ export function Register() {
             style={{
               textAlign: "center",
               margin: 0,
-              color: "var(--neutral-600)",
+              color: "var(--ink-3)",
               fontSize: 14,
             }}
           >
             Have an account?{" "}
             <Link
               to="/login"
-              style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+              style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
             >
               Log in
             </Link>
@@ -236,7 +236,7 @@ function passwordStrength(pw: string): StrengthResult {
 
 function StrengthMeter({ score, label }: StrengthResult) {
   const segmentColor = (i: number): string => {
-    if (i >= score) return "var(--neutral-200)";
+    if (i >= score) return "var(--rule-2)";
     if (score <= 1) return "var(--danger-500)";
     if (score === 2) return "var(--developing-500)";
     return "var(--success-500)";
@@ -258,7 +258,7 @@ function StrengthMeter({ score, label }: StrengthResult) {
           }}
         />
       ))}
-      <span style={{ color: "var(--neutral-600)", minWidth: 56, textAlign: "right" }}>
+      <span style={{ color: "var(--ink-3)", minWidth: 56, textAlign: "right" }}>
         {label}
       </span>
     </div>

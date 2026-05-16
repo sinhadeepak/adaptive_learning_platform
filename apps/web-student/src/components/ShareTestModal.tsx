@@ -121,7 +121,7 @@ export function ShareTestModal({
               background: "rgba(244,63,94,0.08)",
               border: "1px solid rgba(244,63,94,0.30)",
               borderRadius: 6,
-              color: "var(--color-red)",
+              color: "var(--bad)",
               fontSize: 12,
             }}
           >
@@ -148,9 +148,9 @@ export function ShareTestModal({
                   padding: "8px 10px",
                   fontFamily: "var(--font-mono, monospace)",
                   fontSize: 12,
-                  background: "var(--bg-surface3)",
-                  color: "var(--text-primary)",
-                  border: "1px solid var(--border-strong)",
+                  background: "var(--paper-2)",
+                  color: "var(--ink)",
+                  border: "1px solid var(--rule-2)",
                   borderRadius: 6,
                   outline: "none",
                 }}

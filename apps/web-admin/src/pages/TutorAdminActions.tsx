@@ -38,19 +38,19 @@ export function TutorAdminActions() {
               key={a.id}
               style={{
                 padding: 12,
-                border: "1px solid var(--border-faint)",
+                border: "1px solid var(--rule)",
                 borderRadius: 8,
                 marginBottom: 8,
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <strong>{a.action}</strong>
-                <small style={{ color: "var(--text-muted)" }}>
+                <small style={{ color: "var(--ink-3)" }}>
                   {new Date(a.createdAt).toLocaleString()}
                 </small>
               </div>
               {a.reason && <p style={{ marginTop: 4 }}>{a.reason}</p>}
-              <small style={{ color: "var(--text-muted)" }}>
+              <small style={{ color: "var(--ink-3)" }}>
                 by admin <code>{a.adminUserId.slice(0, 8)}…</code>
               </small>
             </li>

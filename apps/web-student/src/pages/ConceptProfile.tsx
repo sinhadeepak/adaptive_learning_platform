@@ -98,7 +98,7 @@ export function ConceptProfile() {
 
   return (
     <AppShell title="Concept profile">
-      {error && <div style={{ color: "var(--color-red)" }}>{error}</div>}
+      {error && <div style={{ color: "var(--bad)" }}>{error}</div>}
 
       {profile && profile.concepts.length === 0 && (
         <p style={{ fontSize: 14, opacity: 0.8 }}>
@@ -122,9 +122,9 @@ export function ConceptProfile() {
                     textAlign: "left",
                     background:
                       selectedConceptId === c.conceptId
-                        ? "var(--color-blue-bg, #dbeafe)"
+                        ? "var(--info-soft, #dbeafe)"
                         : "transparent",
-                    border: "1px solid var(--border, #e1e5ee)",
+                    border: "1px solid var(--rule, #e1e5ee)",
                     borderRadius: 6,
                     cursor: "pointer",
                     fontSize: 13,

@@ -137,7 +137,7 @@ export function AIProviders() {
   return (
     <AppShell title="AI providers">
       <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1100 }}>
-        <div className="card" style={{ padding: 14, fontSize: 12, color: "var(--text-secondary)" }}>
+        <div className="card" style={{ padding: 14, fontSize: 12, color: "var(--ink-2)" }}>
           Calls walk this list top-to-bottom. The first <strong>enabled</strong> provider that
           returns a usable response wins; on failure, the next in the list is tried. Priority
           arrows reorder the chain. Keys are stored encrypted server-side
@@ -149,9 +149,9 @@ export function AIProviders() {
             role="alert"
             style={{
               padding: 10,
-              border: "1px solid var(--color-red, #f43f5e)",
+              border: "1px solid var(--bad, #f43f5e)",
               borderRadius: 6,
-              color: "var(--color-red, #f43f5e)",
+              color: "var(--bad, #f43f5e)",
               fontSize: 13,
             }}
           >
@@ -164,7 +164,7 @@ export function AIProviders() {
             Loading providers…
           </div>
         ) : rows.length === 0 ? (
-          <div className="card" style={{ padding: 20, fontSize: 13, color: "var(--text-muted)" }}>
+          <div className="card" style={{ padding: 20, fontSize: 13, color: "var(--ink-3)" }}>
             No providers configured.
           </div>
         ) : (
@@ -229,7 +229,7 @@ function ProviderCard({
       style={{
         padding: 14,
         borderLeft: `3px solid ${
-          row.enabled ? "var(--color-green, #10c47a)" : "var(--text-faint, #3e4d6a)"
+          row.enabled ? "var(--good, #10c47a)" : "var(--ink-4, #3e4d6a)"
         }`,
       }}
     >
@@ -262,12 +262,12 @@ function ProviderCard({
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <strong style={{ fontSize: 14 }}>{row.display_name}</strong>
             <span style={pill(row.kind)}>{row.kind}</span>
-            <code style={{ fontSize: 11, color: "var(--color-ai)" }}>
+            <code style={{ fontSize: 11, color: "var(--gold)" }}>
               priority {row.priority}
             </code>
           </div>
           {row.has_key && (
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
               key on file: {row.key_hint ?? "(set)"}
             </div>
           )}
@@ -392,7 +392,7 @@ function ProviderCard({
           <span
             style={{
               fontSize: 12,
-              color: test.ok ? "var(--color-green)" : "var(--color-red)",
+              color: test.ok ? "var(--good)" : "var(--bad)",
             }}
           >
             {test.ok ? "✓" : "✗"} {test.message}
@@ -420,7 +420,7 @@ function Field({
           fontSize: 11,
           fontWeight: 600,
           marginBottom: 4,
-          color: "var(--text-secondary)",
+          color: "var(--ink-2)",
           textTransform: "uppercase",
           letterSpacing: 0.4,
         }}
@@ -429,7 +429,7 @@ function Field({
       </label>
       {children}
       {hint && (
-        <div style={{ fontSize: 10.5, color: "var(--text-faint)", marginTop: 4 }}>
+        <div style={{ fontSize: 10.5, color: "var(--ink-4)", marginTop: 4 }}>
           {hint}
         </div>
       )}
@@ -439,9 +439,9 @@ function Field({
 
 function arrowBtn(disabled: boolean): React.CSSProperties {
   return {
-    background: "var(--bg-surface3)",
-    color: disabled ? "var(--text-faint)" : "var(--text-primary)",
-    border: "1px solid var(--border-strong)",
+    background: "var(--paper-2)",
+    color: disabled ? "var(--ink-4)" : "var(--ink)",
+    border: "1px solid var(--rule-2)",
     borderRadius: 4,
     width: 28,
     height: 22,
@@ -463,7 +463,7 @@ function pill(kind: Kind): React.CSSProperties {
     padding: "2px 8px",
     borderRadius: 999,
     background: colors[kind],
-    color: "var(--text-primary)",
+    color: "var(--ink)",
     textTransform: "uppercase",
     letterSpacing: 0.4,
   };
@@ -472,10 +472,10 @@ function pill(kind: Kind): React.CSSProperties {
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "6px 8px",
-  background: "var(--bg-surface3)",
-  border: "1px solid var(--border-strong)",
+  background: "var(--paper-2)",
+  border: "1px solid var(--rule-2)",
   borderRadius: 4,
-  color: "var(--text-primary)",
+  color: "var(--ink)",
   fontSize: 12,
   outline: "none",
 };

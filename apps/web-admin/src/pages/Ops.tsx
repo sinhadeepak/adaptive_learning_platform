@@ -25,7 +25,7 @@ function MetricList({ metric }: { metric: OpsInfraComponent["metric"] }) {
   const entries = Object.entries(metric);
   if (entries.length === 0) return null;
   return (
-    <div style={{ marginTop: 8, fontSize: 12, color: "var(--text-muted)" }}>
+    <div style={{ marginTop: 8, fontSize: 12, color: "var(--ink-3)" }}>
       {entries.map(([k, v]) => (
         <div
           key={k}
@@ -50,8 +50,8 @@ function ComponentCard({ c }: { c: OpsInfraComponent }) {
     <div
       style={{
         padding: 16,
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
       }}
     >
@@ -62,7 +62,7 @@ function ComponentCard({ c }: { c: OpsInfraComponent }) {
           alignItems: "center",
         }}
       >
-        <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+        <div style={{ fontWeight: 600, color: "var(--ink)" }}>
           {c.name}
         </div>
         <Pill tone={statusTone(c.status)}>{c.status.toUpperCase()}</Pill>
@@ -74,8 +74,8 @@ function ComponentCard({ c }: { c: OpsInfraComponent }) {
             fontSize: 12,
             color:
               c.status === "down"
-                ? "var(--color-red, #f43f5e)"
-                : "var(--text-muted)",
+                ? "var(--bad, #f43f5e)"
+                : "var(--ink-3)",
           }}
         >
           {c.detail}
@@ -117,7 +117,7 @@ export function Ops() {
   return (
     <AppShell title="Ops dashboard" chips={[{ label: "Local stack" }]}>
       <div style={{ padding: "16px 24px 32px" }}>
-        <p style={{ color: "var(--text-muted)", marginTop: 0 }}>
+        <p style={{ color: "var(--ink-3)", marginTop: 0 }}>
           Live health of every container in the dev stack. Auto-refreshes every{" "}
           {REFRESH_MS / 1000}s. Production observability (Prometheus, Sentry,
           PagerDuty) lands with the AWS staging cluster — see HLD §16.1.
@@ -160,12 +160,12 @@ export function Ops() {
         )}
 
         {!data && loading && (
-          <p style={{ color: "var(--text-muted)" }}>Loading…</p>
+          <p style={{ color: "var(--ink-3)" }}>Loading…</p>
         )}
 
         {data && (
           <>
-            <h3 style={{ fontSize: 14, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.06, marginBottom: 8 }}>
+            <h3 style={{ fontSize: 14, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06, marginBottom: 8 }}>
               Backend services
             </h3>
             <div
@@ -181,7 +181,7 @@ export function Ops() {
               ))}
             </div>
 
-            <h3 style={{ fontSize: 14, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.06, marginBottom: 8 }}>
+            <h3 style={{ fontSize: 14, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06, marginBottom: 8 }}>
               Infrastructure
             </h3>
             <div
@@ -212,22 +212,22 @@ function SummaryStat({
   tone?: "success" | "warning" | "danger" | "muted";
 }) {
   const colors: Record<string, string> = {
-    success: "var(--color-green, #10C47A)",
-    warning: "var(--color-amber, #fbbf24)",
-    danger: "var(--color-red, #f43f5e)",
-    muted: "var(--text-secondary)",
+    success: "var(--good, #10C47A)",
+    warning: "var(--warn, #fbbf24)",
+    danger: "var(--bad, #f43f5e)",
+    muted: "var(--ink-2)",
   };
   return (
     <div
       style={{
         padding: "10px 16px",
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
         minWidth: 120,
       }}
     >
-      <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.04 }}>
+      <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.04 }}>
         {label}
       </div>
       <div

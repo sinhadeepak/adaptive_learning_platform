@@ -50,7 +50,7 @@ export function PersonalisedNextStep({ userId }: Props) {
 
   if (error) {
     return (
-      <section style={{ padding: 12, color: "var(--text-muted)" }}>
+      <section style={{ padding: 12, color: "var(--ink-3)" }}>
         Personalised suggestions unavailable.
       </section>
     );
@@ -59,7 +59,7 @@ export function PersonalisedNextStep({ userId }: Props) {
   if (!dropout || recs === null) {
     return (
       <section style={{ padding: 16 }}>
-        <p style={{ color: "var(--text-muted)" }}>Loading personalised next step…</p>
+        <p style={{ color: "var(--ink-3)" }}>Loading personalised next step…</p>
       </section>
     );
   }
@@ -75,16 +75,16 @@ export function PersonalisedNextStep({ userId }: Props) {
     <section
       style={{
         padding: 20,
-        // Per design-system tokens.css: --bg-surface2 (no hyphen) is the
-        // dark-theme card surface. The earlier `--bg-surface-1` was a
+        // Per design-system tokens.css: --card (no hyphen) is the
+        // dark-theme card surface. The earlier `--card-1` was a
         // typo that didn't resolve and fell back to white, making text
         // invisible on the dark theme.
-        background: "var(--bg-surface2, #101A30)",
-        color: "var(--text-primary)",
+        background: "var(--card, #101A30)",
+        color: "var(--ink)",
         border: `1px solid ${
           dropout.risk_band === "HIGH"
-            ? "var(--color-red, #F43F5E)"
-            : "var(--border, #1F2A3D)"
+            ? "var(--bad, #F43F5E)"
+            : "var(--rule, #1F2A3D)"
         }`,
         borderRadius: 12,
         marginBottom: 16,
@@ -93,7 +93,7 @@ export function PersonalisedNextStep({ userId }: Props) {
       <div
         style={{
           fontSize: 12,
-          color: "var(--text-muted, #94A3B8)",
+          color: "var(--ink-3, #94A3B8)",
           textTransform: "uppercase",
           letterSpacing: "0.06em",
         }}
@@ -107,19 +107,19 @@ export function PersonalisedNextStep({ userId }: Props) {
             style={{
               margin: "8px 0",
               fontSize: 22,
-              color: "var(--text-primary)",
+              color: "var(--ink)",
             }}
           >
             {intervention.title}
           </h2>
           {topRec && (
-            <p style={{ color: "var(--text-muted, #94A3B8)" }}>
+            <p style={{ color: "var(--ink-3, #94A3B8)" }}>
               {topRec.reasonString}
             </p>
           )}
           <Link
             to={intervention.ctaHref}
-            style={{ color: "var(--color-blue, #4F87F6)" }}
+            style={{ color: "var(--info, #4F87F6)" }}
           >
             {intervention.cta}
           </Link>
@@ -130,23 +130,23 @@ export function PersonalisedNextStep({ userId }: Props) {
             style={{
               margin: "8px 0",
               fontSize: 22,
-              color: "var(--text-primary)",
+              color: "var(--ink)",
             }}
           >
             Up next
           </h2>
-          <p style={{ color: "var(--text-primary)" }}>
+          <p style={{ color: "var(--ink)" }}>
             {topRec.reasonString}
           </p>
           <Link
             to="/practice"
-            style={{ color: "var(--color-blue, #4F87F6)" }}
+            style={{ color: "var(--info, #4F87F6)" }}
           >
             Open practice →
           </Link>
         </>
       ) : (
-        <p style={{ color: "var(--text-muted, #94A3B8)" }}>
+        <p style={{ color: "var(--ink-3, #94A3B8)" }}>
           No personalised next step yet — start a practice session and we'll
           learn your pattern.
         </p>

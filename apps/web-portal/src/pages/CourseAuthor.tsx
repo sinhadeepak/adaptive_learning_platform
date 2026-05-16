@@ -242,7 +242,7 @@ export function CourseAuthor() {
                 style={{ width: "100%", fontFamily: "monospace" }}
                 placeholder="Plain markdown for courses without modules."
               />
-              <small style={{ color: "var(--text-muted)" }}>
+              <small style={{ color: "var(--ink-3)" }}>
                 If this course has any modules + lessons (right pane), students see the structured
                 view instead. Use this body for short courses without modules.
               </small>
@@ -270,7 +270,7 @@ export function CourseAuthor() {
                   <li
                     key={m.id}
                     style={{
-                      border: "1px solid var(--border-faint)",
+                      border: "1px solid var(--rule)",
                       borderRadius: 8,
                       padding: 12,
                       marginBottom: 12,
@@ -297,7 +297,7 @@ export function CourseAuthor() {
                             padding: "6px 8px",
                             borderRadius: 4,
                             background:
-                              activeLesson?.lessonId === lesson.id ? "var(--bg-elevated)" : undefined,
+                              activeLesson?.lessonId === lesson.id ? "var(--card)" : undefined,
                             display: "flex",
                             justifyContent: "space-between",
                           }}
@@ -305,7 +305,7 @@ export function CourseAuthor() {
                           <button
                             type="button"
                             onClick={() => selectLesson(m.id, lesson)}
-                            style={{ background: "none", border: "none", padding: 0, color: "var(--color-blue)", cursor: "pointer" }}
+                            style={{ background: "none", border: "none", padding: 0, color: "var(--info)", cursor: "pointer" }}
                           >
                             {lesson.position}. {lesson.title}
                           </button>

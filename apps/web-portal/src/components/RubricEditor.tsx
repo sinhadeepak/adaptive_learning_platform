@@ -65,9 +65,9 @@ export function RubricEditor({
       className="author-card"
       style={{
         padding: 12,
-        border: "1px solid var(--border, #e1e5ee)",
+        border: "1px solid var(--rule, #e1e5ee)",
         borderRadius: 8,
-        background: "var(--bg-card, #fff)",
+        background: "var(--card, #fff)",
       }}
     >
       <div
@@ -87,8 +87,8 @@ export function RubricEditor({
               fontSize: 13,
               fontWeight: 600,
               color: isBalanced
-                ? "var(--color-green, #10c47a)"
-                : "var(--color-red, #f43f5e)",
+                ? "var(--good, #10c47a)"
+                : "var(--bad, #f43f5e)",
             }}
           >
             Σ weights: {totalWeight.toFixed(1)}%{!isBalanced && " (must = 100)"}
@@ -99,9 +99,9 @@ export function RubricEditor({
             style={{
               padding: "4px 10px",
               fontSize: 12,
-              border: "1px solid var(--border-strong, #e1e5ee)",
+              border: "1px solid var(--rule-2, #e1e5ee)",
               background: "transparent",
-              color: "var(--text-secondary, #B8C5E0)",
+              color: "var(--ink-2, #B8C5E0)",
               borderRadius: 4,
               cursor: "pointer",
             }}
@@ -127,7 +127,7 @@ export function RubricEditor({
             gap: 8,
             padding: 8,
             marginBottom: 8,
-            border: "1px solid var(--border-subtle, #f0f2f6)",
+            border: "1px solid var(--rule, #f0f2f6)",
             borderRadius: 4,
             alignItems: "start",
           }}
@@ -138,7 +138,7 @@ export function RubricEditor({
             placeholder="id"
             style={{
               padding: 4,
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 3,
               fontSize: 12,
               fontFamily: "monospace",
@@ -150,7 +150,7 @@ export function RubricEditor({
             placeholder='Criterion text — e.g. "Defines federalism correctly"'
             style={{
               padding: 4,
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 3,
               fontSize: 13,
             }}
@@ -166,7 +166,7 @@ export function RubricEditor({
             }
             style={{
               padding: 4,
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 3,
               fontSize: 13,
               textAlign: "right",
@@ -187,7 +187,7 @@ export function RubricEditor({
             placeholder="keywords (comma-separated)"
             style={{
               padding: 4,
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 3,
               fontSize: 13,
             }}
@@ -198,8 +198,8 @@ export function RubricEditor({
             style={{
               padding: 4,
               background: "transparent",
-              border: "1px solid var(--color-red, #f43f5e)",
-              color: "var(--color-red, #f43f5e)",
+              border: "1px solid var(--bad, #f43f5e)",
+              color: "var(--bad, #f43f5e)",
               borderRadius: 3,
               cursor: "pointer",
             }}
@@ -215,7 +215,7 @@ export function RubricEditor({
         style={{
           marginTop: 8,
           padding: "6px 12px",
-          background: "var(--color-blue, #4f87f6)",
+          background: "var(--info, #4f87f6)",
           color: "white",
           border: "none",
           borderRadius: 4,

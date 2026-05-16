@@ -211,7 +211,7 @@ export function AppShell({
           width: 28,
           height: 28,
           borderRadius: 8,
-          backgroundImage: "var(--aurora-ai)",
+          backgroundImage: "var(--gold)",
           color: "white",
           fontWeight: 800,
           display: "inline-flex",
@@ -223,7 +223,7 @@ export function AppShell({
       </span>
       <span
         className="alp-navsidebar__label"
-        style={{ fontWeight: 700, color: "var(--neutral-900)" }}
+        style={{ fontWeight: 700, color: "var(--ink)" }}
       >
         AdaptiveLearn
       </span>
@@ -238,7 +238,7 @@ export function AppShell({
         alignItems: "center",
         gap: 10,
         textDecoration: "none",
-        color: "var(--neutral-700)",
+        color: "var(--ink-2)",
         width: "100%",
       }}
       aria-label="Open profile"
@@ -250,8 +250,8 @@ export function AppShell({
           borderRadius: "9999px",
           background: avatarUrl
             ? `center/cover url(${avatarUrl})`
-            : "var(--brand-100)",
-          color: "var(--brand-700)",
+            : "var(--accent-soft)",
+          color: "var(--accent-2)",
           fontWeight: 700,
           display: "inline-flex",
           alignItems: "center",
@@ -276,7 +276,7 @@ export function AppShell({
         style={{
           background: "transparent",
           border: 0,
-          color: "var(--neutral-500)",
+          color: "var(--ink-3)",
           cursor: "pointer",
           padding: 4,
         }}
@@ -291,7 +291,7 @@ export function AppShell({
 
   const topbar = (
     <TopBar
-      breadcrumb={<strong style={{ color: "var(--neutral-900)" }}>{title}</strong>}
+      breadcrumb={<strong style={{ color: "var(--ink)" }}>{title}</strong>}
       trailing={
         <>
           {chips && chips.length > 0

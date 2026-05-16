@@ -82,10 +82,10 @@ export function AIDraftPanel({ onDraftGenerated, typeId: typeIdProp }: AIDraftPa
       className="ai-draft-card"
       style={{
         padding: 16,
-        border: "1px solid var(--border, #e1e5ee)",
+        border: "1px solid var(--rule, #e1e5ee)",
         borderRadius: 8,
         background:
-          "linear-gradient(180deg, var(--bg-subtle, #f8f9fc), white)",
+          "linear-gradient(180deg, var(--paper-2, #f8f9fc), white)",
       }}
     >
       <div
@@ -110,7 +110,7 @@ export function AIDraftPanel({ onDraftGenerated, typeId: typeIdProp }: AIDraftPa
               style={{
                 width: "100%",
                 padding: "6px 8px",
-                border: "1px solid var(--border, #e1e5ee)",
+                border: "1px solid var(--rule, #e1e5ee)",
                 borderRadius: 4,
                 fontSize: 13,
               }}
@@ -131,7 +131,7 @@ export function AIDraftPanel({ onDraftGenerated, typeId: typeIdProp }: AIDraftPa
             style={{
               width: "100%",
               padding: "6px 8px",
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 4,
               fontSize: 13,
             }}
@@ -146,7 +146,7 @@ export function AIDraftPanel({ onDraftGenerated, typeId: typeIdProp }: AIDraftPa
             style={{
               width: "100%",
               padding: "6px 8px",
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 4,
               fontSize: 13,
             }}
@@ -166,7 +166,7 @@ export function AIDraftPanel({ onDraftGenerated, typeId: typeIdProp }: AIDraftPa
             style={{
               width: "100%",
               padding: "6px 8px",
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 4,
               fontSize: 13,
             }}
@@ -182,7 +182,7 @@ export function AIDraftPanel({ onDraftGenerated, typeId: typeIdProp }: AIDraftPa
             style={{
               width: "100%",
               padding: "6px 8px",
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 4,
               fontSize: 13,
             }}
@@ -199,7 +199,7 @@ export function AIDraftPanel({ onDraftGenerated, typeId: typeIdProp }: AIDraftPa
             style={{
               width: "100%",
               padding: "6px 8px",
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 4,
               fontSize: 13,
               fontFamily: "inherit",
@@ -214,8 +214,8 @@ export function AIDraftPanel({ onDraftGenerated, typeId: typeIdProp }: AIDraftPa
           style={{
             marginTop: 8,
             padding: 8,
-            background: "var(--color-red-bg, #fee)",
-            color: "var(--color-red, #f43f5e)",
+            background: "var(--bad-soft, #fee)",
+            color: "var(--bad, #f43f5e)",
             borderRadius: 4,
             fontSize: 13,
           }}
@@ -233,8 +233,8 @@ export function AIDraftPanel({ onDraftGenerated, typeId: typeIdProp }: AIDraftPa
             padding: "8px 16px",
             background:
               busy || !topic.trim()
-                ? "var(--text-faint, #cbd5e0)"
-                : "var(--color-blue, #4f87f6)",
+                ? "var(--ink-4, #cbd5e0)"
+                : "var(--info, #4f87f6)",
             color: "white",
             border: "none",
             borderRadius: 4,

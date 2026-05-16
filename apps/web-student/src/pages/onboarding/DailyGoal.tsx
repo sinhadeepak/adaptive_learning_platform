@@ -80,7 +80,7 @@ export function DailyGoal() {
       <p
         style={{
           fontSize: 12,
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
           margin: "var(--sp-3) 0 0",
           textAlign: "center",
         }}

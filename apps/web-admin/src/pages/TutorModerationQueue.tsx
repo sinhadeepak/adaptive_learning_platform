@@ -59,7 +59,7 @@ export function TutorModerationQueue() {
   return (
     <main className="page" style={{ padding: 24, maxWidth: 960 }}>
       <h1>Tutor moderation queue</h1>
-      <p style={{ color: "var(--text-muted)" }}>
+      <p style={{ color: "var(--ink-3)" }}>
         Tutors who have completed KYC and are awaiting platform-admin
         approval. Decisions are logged to the audit table per ADR-0007.
       </p>
@@ -82,11 +82,11 @@ export function TutorModerationQueue() {
           </thead>
           <tbody>
             {items.map((t) => (
-              <tr key={t.userId} style={{ borderTop: "1px solid var(--border-faint)" }}>
+              <tr key={t.userId} style={{ borderTop: "1px solid var(--rule)" }}>
                 <td style={{ padding: "8px 4px" }}>
                   <strong>{t.displayName}</strong>
                   <br />
-                  <small style={{ color: "var(--text-muted)" }}>{t.headline}</small>
+                  <small style={{ color: "var(--ink-3)" }}>{t.headline}</small>
                   <br />
                   <Link to={`/tutors-admin/${t.userId}`}>View audit</Link>
                 </td>

@@ -504,7 +504,7 @@ export function Analysis() {
           role="group"
           aria-label="Exam scope"
         >
-          <span style={{ fontSize: 11, color: "var(--neutral-500)", marginRight: 4 }}>
+          <span style={{ fontSize: 11, color: "var(--ink-3)", marginRight: 4 }}>
             Scope:
           </span>
           {enrolledExamIds.map((examId) => {
@@ -520,10 +520,10 @@ export function Analysis() {
                 style={{
                   cursor: "pointer",
                   appearance: "none",
-                  background: active ? "var(--brand-100)" : "var(--neutral-50)",
-                  border: `1px solid ${active ? "var(--brand-500)" : "var(--neutral-300)"}`,
+                  background: active ? "var(--accent-soft)" : "var(--paper-2)",
+                  border: `1px solid ${active ? "var(--accent-soft0)" : "var(--ink-4)"}`,
                   borderRadius: "var(--r-pill)",
-                  color: active ? "var(--brand-700)" : "var(--neutral-700)",
+                  color: active ? "var(--accent-2)" : "var(--ink-2)",
                   padding: "4px 12px",
                   fontSize: 13,
                   fontWeight: active ? 700 : 500,
@@ -575,7 +575,7 @@ export function Analysis() {
                     style={{
                       margin: "0 0 8px",
                       fontSize: 12,
-                      color: "var(--text-muted)",
+                      color: "var(--ink-3)",
                       textTransform: "uppercase",
                       letterSpacing: 0.04,
                     }}
@@ -586,7 +586,7 @@ export function Analysis() {
                     style={{
                       fontSize: 24,
                       fontWeight: 700,
-                      color: "var(--color-blue)",
+                      color: "var(--info)",
                       fontVariantNumeric: "tabular-nums",
                       marginBottom: 4,
                     }}
@@ -596,7 +596,7 @@ export function Analysis() {
                   <div
                     style={{
                       fontSize: 11,
-                      color: "var(--text-muted)",
+                      color: "var(--ink-3)",
                       marginBottom: 8,
                     }}
                   >
@@ -605,9 +605,9 @@ export function Analysis() {
                   <div
                     style={{
                       fontSize: 11,
-                      color: "var(--text-faint)",
+                      color: "var(--ink-4)",
                       paddingTop: 8,
-                      borderTop: "1px solid var(--border)",
+                      borderTop: "1px solid var(--rule)",
                     }}
                   >
                     {rank.totalCandidates
@@ -630,7 +630,7 @@ export function Analysis() {
                       style={{
                         margin: 0,
                         fontSize: 12,
-                        color: "var(--text-muted)",
+                        color: "var(--ink-3)",
                         textTransform: "uppercase",
                         letterSpacing: 0.04,
                       }}
@@ -654,7 +654,7 @@ export function Analysis() {
                   <div
                     style={{
                       fontSize: 13,
-                      color: "var(--text-secondary)",
+                      color: "var(--ink-2)",
                       marginBottom: 6,
                     }}
                   >
@@ -666,7 +666,7 @@ export function Analysis() {
                         margin: "8px 0 0",
                         paddingLeft: 18,
                         fontSize: 12,
-                        color: "var(--text-secondary)",
+                        color: "var(--ink-2)",
                       }}
                     >
                       {readinessBand.actions.slice(0, 3).map((a, i) => (
@@ -730,15 +730,15 @@ export function Analysis() {
                   flexDirection: "column",
                   justifyContent: "center",
                   padding: "16px 18px",
-                  background: "var(--bg-surface1)",
-                  border: "1px solid var(--border)",
+                  background: "var(--paper-2)",
+                  border: "1px solid var(--rule)",
                   borderRadius: 8,
                 }}
               >
                 <div
                   style={{
                     fontSize: 11,
-                    color: "var(--text-muted)",
+                    color: "var(--ink-3)",
                     textTransform: "uppercase",
                     letterSpacing: 0.04,
                     marginBottom: 10,
@@ -755,7 +755,7 @@ export function Analysis() {
                 <div
                   style={{
                     fontSize: 12,
-                    color: "var(--text-muted)",
+                    color: "var(--ink-3)",
                     marginTop: 8,
                     lineHeight: 1.5,
                   }}
@@ -850,7 +850,7 @@ export function Analysis() {
                   insights.length > 1 ? (
                     <ul style={{ margin: "8px 0 0", paddingLeft: 18, lineHeight: 1.6 }}>
                       {insights.slice(1).map((ins, i) => (
-                        <li key={i} style={{ color: "var(--neutral-700)" }}>
+                        <li key={i} style={{ color: "var(--ink-2)" }}>
                           <span
                             aria-hidden="true"
                             style={{
@@ -880,7 +880,7 @@ export function Analysis() {
               <div className="sec-row">
                 <div>
                   <h2 className="section-heading">Readiness trajectory</h2>
-                  <div style={{ fontSize: 9.5, color: "var(--text-faint)", marginTop: 1 }}>
+                  <div style={{ fontSize: 9.5, color: "var(--ink-4)", marginTop: 1 }}>
                     {activeExam?.name ?? "Global"} · EWA model
                   </div>
                 </div>
@@ -920,7 +920,7 @@ export function Analysis() {
                       display: "inline-block",
                       width: 10,
                       height: 2,
-                      background: "var(--color-green)",
+                      background: "var(--good)",
                       borderRadius: 1,
                     }}
                   />
@@ -932,12 +932,12 @@ export function Analysis() {
                       display: "inline-block",
                       width: 10,
                       height: 0,
-                      borderTop: "1.5px dashed var(--color-blue)",
+                      borderTop: "1.5px dashed var(--info)",
                     }}
                   />
                   AI projection
                 </div>
-                <div className="an-chart-legend-item" style={{ color: "var(--color-amber)" }}>
+                <div className="an-chart-legend-item" style={{ color: "var(--warn)" }}>
                   ◇ Historical series — phase 2
                 </div>
               </div>
@@ -953,7 +953,7 @@ export function Analysis() {
                   </Link>
                 </div>
                 {subjectStats.length === 0 ? (
-                  <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
+                  <div style={{ fontSize: 11, color: "var(--ink-4)" }}>
                     No subject roll-up yet — answer a few items to seed it.
                   </div>
                 ) : (
@@ -963,10 +963,10 @@ export function Analysis() {
                       const strength = strengthFor(s.ewa);
                       const color =
                         strength === "STRONG"
-                          ? "var(--color-green)"
+                          ? "var(--good)"
                           : strength === "DEVELOPING"
-                            ? "var(--color-blue)"
-                            : "var(--color-red)";
+                            ? "var(--info)"
+                            : "var(--bad)";
                       return (
                         <div key={s.subjectId} className="an-subj">
                           <div className="an-subj-head">
@@ -1005,17 +1005,17 @@ export function Analysis() {
                     style={{
                       fontSize: 26,
                       fontWeight: 800,
-                      color: "var(--color-ai)",
+                      color: "var(--gold)",
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
                     θ {theta >= 0 ? `+${theta.toFixed(2)}` : theta.toFixed(2)}
                   </div>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>
                       {abilityBand}
                     </div>
-                    <div style={{ fontSize: 10, color: "var(--text-faint)" }}>
+                    <div style={{ fontSize: 10, color: "var(--ink-4)" }}>
                       derived from mean EWA · {tested.length} topic
                       {tested.length === 1 ? "" : "s"}
                     </div>
@@ -1041,7 +1041,7 @@ export function Analysis() {
                   Topic mastery breakdown · {examTopics.length} topic
                   {examTopics.length === 1 ? "" : "s"}
                 </h2>
-                <div style={{ fontSize: 9.5, color: "var(--text-faint)", marginTop: 1 }}>
+                <div style={{ fontSize: 9.5, color: "var(--ink-4)", marginTop: 1 }}>
                   Sorted by AI priority · click any topic to practice
                 </div>
               </div>
@@ -1071,12 +1071,12 @@ export function Analysis() {
                   const strength = strengthFor(t.ewa);
                   const barColor =
                     strength === "STRONG"
-                      ? "var(--color-green)"
+                      ? "var(--good)"
                       : strength === "DEVELOPING"
-                        ? "var(--color-blue)"
+                        ? "var(--info)"
                         : strength === "WEAK"
-                          ? "var(--color-red)"
-                          : "var(--text-faint)";
+                          ? "var(--bad)"
+                          : "var(--ink-4)";
                   return (
                     <tr
                       key={t.topicId}
@@ -1091,7 +1091,7 @@ export function Analysis() {
                         ) : null}
                       </td>
                       <td>
-                        <span style={{ fontSize: 10.5, color: "var(--text-secondary)" }}>
+                        <span style={{ fontSize: 10.5, color: "var(--ink-2)" }}>
                           {t.subjectName}
                         </span>
                       </td>
@@ -1214,21 +1214,21 @@ function TrajectoryChart({
           </linearGradient>
         </defs>
         {/* gridlines */}
-        <line x1="0" y1="18" x2={W} y2="18" stroke="var(--surface-elev1)" />
-        <line x1="0" y1="55" x2={W} y2="55" stroke="var(--surface-elev1)" />
-        <line x1="0" y1="92" x2={W} y2="92" stroke="var(--surface-elev1)" />
-        <text x="2" y="16" fill="var(--text-faint)" fontSize="7.5">100</text>
-        <text x="2" y="53" fill="var(--text-faint)" fontSize="7.5">60</text>
-        <text x="2" y="90" fill="var(--text-faint)" fontSize="7.5">20</text>
+        <line x1="0" y1="18" x2={W} y2="18" stroke="var(--card)" />
+        <line x1="0" y1="55" x2={W} y2="55" stroke="var(--card)" />
+        <line x1="0" y1="92" x2={W} y2="92" stroke="var(--card)" />
+        <text x="2" y="16" fill="var(--ink-4)" fontSize="7.5">100</text>
+        <text x="2" y="53" fill="var(--ink-4)" fontSize="7.5">60</text>
+        <text x="2" y="90" fill="var(--ink-4)" fontSize="7.5">20</text>
         {/* smoothed actual */}
         <path d={fillPath} fill="url(#an-ga)" />
-        <path d={linePath} fill="none" stroke="var(--color-green)" strokeWidth="2" strokeLinecap="round" />
+        <path d={linePath} fill="none" stroke="var(--good)" strokeWidth="2" strokeLinecap="round" />
         {/* today dot */}
-        <circle cx={todayX} cy={yFor(current)} r="4" fill="var(--color-green)" stroke="var(--bg-base)" strokeWidth="2" />
+        <circle cx={todayX} cy={yFor(current)} r="4" fill="var(--good)" stroke="var(--paper)" strokeWidth="2" />
         <text
           x={todayX - 6}
           y={yFor(current) - 7}
-          fill="var(--color-green)"
+          fill="var(--good)"
           fontSize="8"
           textAnchor="middle"
         >
@@ -1240,7 +1240,7 @@ function TrajectoryChart({
             <path
               d={`M${todayX},${yFor(current)} L${W - 4},${yFor(projected)}`}
               fill="none"
-              stroke="var(--color-blue)"
+              stroke="var(--info)"
               strokeWidth="1.8"
               strokeDasharray="4,3"
               strokeLinecap="round"
@@ -1249,8 +1249,8 @@ function TrajectoryChart({
               d={`M${todayX},${yFor(current)} L${W - 4},${yFor(projected)} L${W - 4},118 L${todayX},118 Z`}
               fill="url(#an-gb)"
             />
-            <circle cx={W - 4} cy={yFor(projected)} r="3.5" fill="var(--color-blue)" stroke="var(--bg-base)" strokeWidth="1.5" />
-            <text x={W - 8} y={yFor(projected) - 5} fill="var(--color-blue)" fontSize="7.5" textAnchor="end">
+            <circle cx={W - 4} cy={yFor(projected)} r="3.5" fill="var(--info)" stroke="var(--paper)" strokeWidth="1.5" />
+            <text x={W - 8} y={yFor(projected) - 5} fill="var(--info)" fontSize="7.5" textAnchor="end">
               {Math.round(projected * 100)}
             </text>
           </>
@@ -1261,17 +1261,17 @@ function TrajectoryChart({
           y1="10"
           x2={todayX}
           y2="118"
-          stroke="var(--border)"
+          stroke="var(--rule)"
           strokeDasharray="2,3"
         />
-        <text x={todayX} y="126" fill="var(--text-faint)" fontSize="7.5" textAnchor="middle">
+        <text x={todayX} y="126" fill="var(--ink-4)" fontSize="7.5" textAnchor="middle">
           Today
         </text>
-        <text x="14" y="126" fill="var(--text-faint)" fontSize="7.5">
+        <text x="14" y="126" fill="var(--ink-4)" fontSize="7.5">
           {`-${periodDays}d`}
         </text>
         {projected !== null && daysToTarget !== null ? (
-          <text x={W - 4} y="126" fill="var(--color-blue)" fontSize="7.5" textAnchor="end">
+          <text x={W - 4} y="126" fill="var(--info)" fontSize="7.5" textAnchor="end">
             +{daysToTarget}d
           </text>
         ) : null}
@@ -1304,12 +1304,12 @@ function buildInsights(args: {
     if (pred >= cur + 5) {
       out.push({
         text: `<strong>On track.</strong> At your current pace you'll hit ${pred} readiness by ${formatShortDate(projectedReadiness.target)} — up from ${cur} today.`,
-        color: "var(--color-green)",
+        color: "var(--good)",
       });
     } else if (pred <= cur + 1) {
       out.push({
         text: `<strong>${projectedReadiness.days} days to target.</strong> Cadence has plateaued — bump session frequency to push readiness past ${cur}.`,
-        color: "var(--color-amber)",
+        color: "var(--warn)",
       });
     }
   }
@@ -1318,7 +1318,7 @@ function buildInsights(args: {
   if (rank && rank.commentary) {
     out.push({
       text: `<strong>${rank.examCode} projection:</strong> ${rank.commentary}${rank.projectedRank ? ` (rank ~${rank.projectedRank.toLocaleString()})` : ""}`,
-      color: rank.confidence === "high" ? "var(--color-green)" : "var(--color-blue)",
+      color: rank.confidence === "high" ? "var(--good)" : "var(--info)",
     });
   }
 
@@ -1327,7 +1327,7 @@ function buildInsights(args: {
   if (weakest) {
     out.push({
       text: `<strong>${weakest.title} is your biggest drag.</strong> Mastery ${Math.round(weakest.ewa * 100)}% across ${weakest.n} session${weakest.n === 1 ? "" : "s"} — fixing it alone moves readiness most.`,
-      color: "var(--color-red)",
+      color: "var(--bad)",
     });
   }
 
@@ -1336,7 +1336,7 @@ function buildInsights(args: {
     const p = weakness.patterns[0];
     out.push({
       text: `<strong>Cross-topic pattern:</strong> ${p.pattern}`,
-      color: "var(--color-amber)",
+      color: "var(--warn)",
     });
   }
 
@@ -1344,12 +1344,12 @@ function buildInsights(args: {
   if (streak && streak.currentStreak >= 3) {
     out.push({
       text: `<strong>${streak.currentStreak}-day streak.</strong> Consistency compounds — this is the single highest-ROI signal we track.`,
-      color: "var(--color-green)",
+      color: "var(--good)",
     });
   } else if (streak && streak.currentStreak === 0 && streak.longestStreak > 0) {
     out.push({
       text: `<strong>Streak broken</strong> (longest: ${streak.longestStreak}d). One short session today gets you back on the board.`,
-      color: "var(--color-amber)",
+      color: "var(--warn)",
     });
   }
 

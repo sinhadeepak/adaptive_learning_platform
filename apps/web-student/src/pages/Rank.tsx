@@ -62,17 +62,17 @@ const DEMO_PEERS: Omit<DemoStudent, "isYou">[] = [
 ];
 
 const TONE_GRADIENTS: Record<DemoStudent["avatarTone"], string> = {
-  amber: "linear-gradient(135deg, var(--color-amber), #FF8C42)",
-  cyan: "linear-gradient(135deg, var(--color-ai), #1A8F8F)",
-  blue: "linear-gradient(135deg, var(--color-blue), #3D6FE0)",
-  purple: "linear-gradient(135deg, var(--color-purple), #6B4F9A)",
-  red: "linear-gradient(135deg, var(--color-red), #C73478)",
-  green: "linear-gradient(135deg, var(--color-green), #068852)",
+  amber: "linear-gradient(135deg, var(--warn), #FF8C42)",
+  cyan: "linear-gradient(135deg, var(--gold), #1A8F8F)",
+  blue: "linear-gradient(135deg, var(--info), #3D6FE0)",
+  purple: "linear-gradient(135deg, var(--accent), #6B4F9A)",
+  red: "linear-gradient(135deg, var(--bad), #C73478)",
+  green: "linear-gradient(135deg, var(--good), #068852)",
   muted: "linear-gradient(135deg, #4A5580, #2E3A5A)",
 };
 
 const POD_TONES = {
-  gold: { bg: "rgba(245,166,35,0.16)", text: "var(--color-amber)", grad: "linear-gradient(135deg, var(--color-amber), #FF8C42)" },
+  gold: { bg: "rgba(245,166,35,0.16)", text: "var(--warn)", grad: "linear-gradient(135deg, var(--warn), #FF8C42)" },
   silver: { bg: "rgba(160,168,184,0.14)", text: "#A0A8B8", grad: "linear-gradient(135deg, #A0A8B8, #8898C0)" },
   bronze: { bg: "rgba(201,123,62,0.12)", text: "#C97B3E", grad: "linear-gradient(135deg, #C97B3E, #A05A28)" },
 };
@@ -276,7 +276,7 @@ export function Rank() {
                 <div className="rank-yc-name">{youName}</div>
                 <div className="rank-yc-meta">
                   {streak && streak.currentStreak >= 1 ? (
-                    <span style={{ color: "var(--color-green)", fontWeight: 700 }}>
+                    <span style={{ color: "var(--good)", fontWeight: 700 }}>
                       ↑ Top {Math.max(1, Math.round((youRank / cohort.length) * 100))}% of cohort
                     </span>
                   ) : (
@@ -287,7 +287,7 @@ export function Rank() {
                     style={{
                       fontSize: 10,
                       fontWeight: 700,
-                      color: "var(--color-ai)",
+                      color: "var(--gold)",
                       background: "rgba(34,212,238,0.10)",
                       border: "1px solid rgba(34,212,238,0.22)",
                       borderRadius: 20,
@@ -301,7 +301,7 @@ export function Rank() {
                       style={{
                         fontSize: 10,
                         fontWeight: 700,
-                        color: "var(--color-amber)",
+                        color: "var(--warn)",
                         background: "rgba(245,166,35,0.12)",
                         border: "1px solid rgba(245,166,35,0.22)",
                         borderRadius: 20,
@@ -336,16 +336,16 @@ export function Rank() {
             const place = i + 4;
             const deltaColor =
               s.delta > 0
-                ? "var(--color-green)"
+                ? "var(--good)"
                 : s.delta < 0
-                  ? "var(--color-red)"
-                  : "var(--text-faint)";
+                  ? "var(--bad)"
+                  : "var(--ink-4)";
             const moveColor =
               s.movement > 0
-                ? "var(--color-green)"
+                ? "var(--good)"
                 : s.movement < 0
-                  ? "var(--color-red)"
-                  : "var(--text-faint)";
+                  ? "var(--bad)"
+                  : "var(--ink-4)";
             const moveSym =
               s.movement > 0
                 ? `↑${s.movement}`
@@ -354,10 +354,10 @@ export function Rank() {
                   : "→";
             const scoreColor =
               s.readiness >= 80
-                ? "var(--color-green)"
+                ? "var(--good)"
                 : s.readiness >= 60
-                  ? "var(--color-blue)"
-                  : "var(--text-secondary)";
+                  ? "var(--info)"
+                  : "var(--ink-2)";
             return (
               <div key={s.id} className={`rank-row${s.isYou ? " is-you" : ""}`}>
                 <div className="rank-row-pos">{place}</div>
@@ -378,7 +378,7 @@ export function Rank() {
                           padding: "1px 6px",
                           borderRadius: 20,
                           background: "rgba(79,135,246,0.12)",
-                          color: "var(--color-blue)",
+                          color: "var(--info)",
                         }}
                       >
                         {s.topSubject} {s.topPct}%
@@ -397,15 +397,15 @@ export function Rank() {
                               : "rgba(245,166,35,0.12)",
                           color:
                             s.streakDays >= 7
-                              ? "var(--color-green)"
-                              : "var(--color-amber)",
+                              ? "var(--good)"
+                              : "var(--warn)",
                         }}
                       >
                         🔥 {s.streakDays}d
                       </span>
                     ) : null}
                     {s.isYou && s.movement > 0 ? (
-                      <span style={{ color: "var(--color-green)", fontWeight: 600 }}>
+                      <span style={{ color: "var(--good)", fontWeight: 600 }}>
                         ↑ {s.movement} this week
                       </span>
                     ) : null}
@@ -457,25 +457,25 @@ export function Rank() {
             <div className="rank-rp-label">Your performance</div>
             <div className="rank-stats-grid">
               <div className="rank-stat">
-                <div className="rank-stat-num" style={{ color: "var(--color-blue)" }}>
+                <div className="rank-stat-num" style={{ color: "var(--info)" }}>
                   {youRank > 0 ? `#${youRank}` : "—"}
                 </div>
                 <div className="rank-stat-lbl">Cohort rank</div>
               </div>
               <div className="rank-stat">
-                <div className="rank-stat-num" style={{ color: "var(--color-purple)" }}>
+                <div className="rank-stat-num" style={{ color: "var(--accent)" }}>
                   Top {Math.max(1, Math.round((youRank / cohort.length) * 100))}%
                 </div>
                 <div className="rank-stat-lbl">Of {cohort.length}</div>
               </div>
               <div className="rank-stat">
-                <div className="rank-stat-num" style={{ color: "var(--color-green)" }}>
+                <div className="rank-stat-num" style={{ color: "var(--good)" }}>
                   {tested.length > 0 ? `+${(meanEwa * 4).toFixed(1)}` : "—"}
                 </div>
                 <div className="rank-stat-lbl">Score velocity</div>
               </div>
               <div className="rank-stat">
-                <div className="rank-stat-num" style={{ color: "var(--color-amber)" }}>
+                <div className="rank-stat-num" style={{ color: "var(--warn)" }}>
                   {youReadinessPct.toFixed(1)}
                 </div>
                 <div className="rank-stat-lbl">Readiness</div>
@@ -487,16 +487,16 @@ export function Rank() {
               <span className="rank-hist-rank">
                 #{youRank} · {scope === "institute" ? "Institute" : "Global"}
               </span>
-              <span className="rank-hist-delta" style={{ color: "var(--color-faint)" }}>
+              <span className="rank-hist-delta" style={{ color: "var(--ink-4)" }}>
                 —
               </span>
             </div>
             <div className="rank-hist-row">
               <span className="rank-hist-period">Older</span>
-              <span className="rank-hist-rank" style={{ color: "var(--text-faint)" }}>
+              <span className="rank-hist-rank" style={{ color: "var(--ink-4)" }}>
                 Snapshots Phase 2
               </span>
-              <span className="rank-hist-delta" style={{ color: "var(--text-faint)" }}>
+              <span className="rank-hist-delta" style={{ color: "var(--ink-4)" }}>
                 —
               </span>
             </div>
@@ -527,10 +527,10 @@ export function Rank() {
                     className="rank-nb-gap"
                     style={{
                       color: s.isYou
-                        ? "var(--text-faint)"
+                        ? "var(--ink-4)"
                         : gap > 0
-                          ? "var(--color-green)"
-                          : "var(--color-red)",
+                          ? "var(--good)"
+                          : "var(--bad)",
                     }}
                   >
                     {s.isYou ? "—" : gap > 0 ? `+${gap}` : `${gap}`}
@@ -544,7 +544,7 @@ export function Rank() {
             <div className="rank-ai-ey">◈ AI · ranking analysis</div>
             {tested.length === 0 ? (
               <div className="rank-ai-ins">
-                <div className="rank-ai-dot" style={{ background: "var(--color-amber)" }} />
+                <div className="rank-ai-dot" style={{ background: "var(--warn)" }} />
                 <div className="rank-ai-text">
                   Run your first practice round to start tracking your rank.
                 </div>
@@ -553,7 +553,7 @@ export function Rank() {
               <>
                 {streak && streak.currentStreak >= 3 ? (
                   <div className="rank-ai-ins">
-                    <div className="rank-ai-dot" style={{ background: "var(--color-green)" }} />
+                    <div className="rank-ai-dot" style={{ background: "var(--good)" }} />
                     <div className="rank-ai-text">
                       <strong>{streak.currentStreak}-day streak</strong> — consistency is
                       the strongest signal that climbs the leaderboard.
@@ -562,7 +562,7 @@ export function Rank() {
                 ) : null}
                 {climbInsight ? (
                   <div className="rank-ai-ins">
-                    <div className="rank-ai-dot" style={{ background: "var(--color-amber)" }} />
+                    <div className="rank-ai-dot" style={{ background: "var(--warn)" }} />
                     <div className="rank-ai-text">
                       Gap to <strong>{climbInsight.peer.name}</strong> is{" "}
                       <strong>{climbInsight.gap} pts</strong> — closeable in
@@ -573,7 +573,7 @@ export function Rank() {
                 ) : null}
                 {belowYou ? (
                   <div className="rank-ai-ins">
-                    <div className="rank-ai-dot" style={{ background: "var(--color-blue)" }} />
+                    <div className="rank-ai-dot" style={{ background: "var(--info)" }} />
                     <div className="rank-ai-text">
                       <strong>{belowYou.name}</strong> is{" "}
                       {(youReadinessPct - belowYou.readiness).toFixed(1)} pts behind —
@@ -627,7 +627,7 @@ function Podium({
       <div className="rank-pod-score" style={{ color: tone.text }}>
         {student.readiness.toFixed(1)}
       </div>
-      <div className="rank-pod-delta" style={{ color: student.delta > 0 ? "var(--color-green)" : student.delta < 0 ? "var(--color-red)" : "var(--text-faint)" }}>
+      <div className="rank-pod-delta" style={{ color: student.delta > 0 ? "var(--good)" : student.delta < 0 ? "var(--bad)" : "var(--ink-4)" }}>
         {student.delta > 0 ? `▲ +${student.delta.toFixed(1)}` : student.delta < 0 ? `▼ ${student.delta.toFixed(1)}` : "→ 0"}
       </div>
       <div

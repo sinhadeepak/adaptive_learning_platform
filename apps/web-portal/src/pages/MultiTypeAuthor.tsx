@@ -584,7 +584,7 @@ export function MultiTypeAuthor() {
               display: "block",
               marginTop: 4,
               padding: "6px 8px",
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 4,
               fontSize: 13,
               minWidth: 280,
@@ -669,7 +669,7 @@ export function MultiTypeAuthor() {
               width: "100%",
               marginTop: 4,
               padding: 8,
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 4,
               fontSize: 14,
               fontFamily: "inherit",
@@ -700,7 +700,7 @@ export function MultiTypeAuthor() {
                   onChange={(e) => setOptionField(idx, { id: e.target.value })}
                   style={{
                     padding: 6,
-                    border: "1px solid var(--border, #e1e5ee)",
+                    border: "1px solid var(--rule, #e1e5ee)",
                     borderRadius: 4,
                     fontFamily: "monospace",
                     textAlign: "center",
@@ -712,7 +712,7 @@ export function MultiTypeAuthor() {
                   placeholder={`Option ${o.id} text`}
                   style={{
                     padding: 6,
-                    border: "1px solid var(--border, #e1e5ee)",
+                    border: "1px solid var(--rule, #e1e5ee)",
                     borderRadius: 4,
                     fontSize: 13,
                   }}
@@ -864,7 +864,7 @@ export function MultiTypeAuthor() {
                       type="button"
                       onClick={() => setPairs(pairs.filter((_, i) => i !== idx))}
                       disabled={pairs.length <= 2}
-                      style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                      style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid var(--rule-2)", background: "transparent" }}
                     >
                       Remove
                     </button>
@@ -873,7 +873,7 @@ export function MultiTypeAuthor() {
                 <button
                   type="button"
                   onClick={() => setPairs([...pairs, { left: "", right: "" }])}
-                  style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                  style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--rule-2)", background: "transparent" }}
                 >
                   + Add pair
                 </button>
@@ -898,7 +898,7 @@ export function MultiTypeAuthor() {
                       type="button"
                       onClick={() => setSequenceItems(sequenceItems.filter((_, i) => i !== idx))}
                       disabled={sequenceItems.length <= 2}
-                      style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                      style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid var(--rule-2)", background: "transparent" }}
                     >
                       Remove
                     </button>
@@ -907,7 +907,7 @@ export function MultiTypeAuthor() {
                 <button
                   type="button"
                   onClick={() => setSequenceItems([...sequenceItems, ""])}
-                  style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                  style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--rule-2)", background: "transparent" }}
                 >
                   + Add item
                 </button>
@@ -933,7 +933,7 @@ export function MultiTypeAuthor() {
                   <button
                     type="button"
                     onClick={() => setClassifyCategories([...classifyCategories, ""])}
-                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                    style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--rule-2)", background: "transparent" }}
                   >
                     + Category
                   </button>
@@ -966,7 +966,7 @@ export function MultiTypeAuthor() {
                     <button
                       type="button"
                       onClick={() => setClassifyItems(classifyItems.filter((_, i) => i !== idx))}
-                      style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                      style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid var(--rule-2)", background: "transparent" }}
                     >
                       Remove
                     </button>
@@ -975,7 +975,7 @@ export function MultiTypeAuthor() {
                 <button
                   type="button"
                   onClick={() => setClassifyItems([...classifyItems, { text: "", category: "" }])}
-                  style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                  style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--rule-2)", background: "transparent" }}
                 >
                   + Add item
                 </button>
@@ -1018,7 +1018,7 @@ export function MultiTypeAuthor() {
                   type="button"
                   onClick={() => setFillAccepted(fillAccepted.filter((_, i) => i !== idx))}
                   disabled={fillAccepted.length <= 1}
-                  style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+                  style={{ padding: "6px 10px", borderRadius: 4, border: "1px solid var(--rule-2)", background: "transparent" }}
                 >
                   Remove
                 </button>
@@ -1027,7 +1027,7 @@ export function MultiTypeAuthor() {
             <button
               type="button"
               onClick={() => setFillAccepted([...fillAccepted, ""])}
-              style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--border-strong)", background: "transparent" }}
+              style={{ padding: "6px 12px", borderRadius: 4, border: "1px solid var(--rule-2)", background: "transparent" }}
             >
               + Add blank
             </button>
@@ -1049,7 +1049,7 @@ export function MultiTypeAuthor() {
                   display: "block",
                   width: "100%",
                   padding: 8,
-                  border: "1px solid var(--border, #e1e5ee)",
+                  border: "1px solid var(--rule, #e1e5ee)",
                   borderRadius: 4,
                   fontSize: 14,
                   fontFamily: "inherit",
@@ -1067,9 +1067,9 @@ export function MultiTypeAuthor() {
                   style={{
                     padding: 12,
                     marginBottom: 8,
-                    border: "1px solid var(--border, #e1e5ee)",
+                    border: "1px solid var(--rule, #e1e5ee)",
                     borderRadius: 6,
-                    background: "var(--bg-surface2, #fafbfd)",
+                    background: "var(--card, #fafbfd)",
                   }}
                 >
                   <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
@@ -1081,7 +1081,7 @@ export function MultiTypeAuthor() {
                         setSubQuestions(next);
                       }}
                       placeholder="id (e.g. a)"
-                      style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                      style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)" }}
                     />
                     <input
                       type="number"
@@ -1091,7 +1091,7 @@ export function MultiTypeAuthor() {
                         next[idx] = { ...sq, min_words: Number(e.target.value) };
                         setSubQuestions(next);
                       }}
-                      style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                      style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)" }}
                     />
                     <span style={{ alignSelf: "center", fontSize: 12 }}>to</span>
                     <input
@@ -1102,7 +1102,7 @@ export function MultiTypeAuthor() {
                         next[idx] = { ...sq, max_words: Number(e.target.value) };
                         setSubQuestions(next);
                       }}
-                      style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                      style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)" }}
                     />
                     <span style={{ alignSelf: "center", fontSize: 12 }}>words</span>
                     <button
@@ -1111,7 +1111,7 @@ export function MultiTypeAuthor() {
                       style={{
                         marginLeft: "auto",
                         padding: "4px 10px",
-                        border: "1px solid var(--border, #e1e5ee)",
+                        border: "1px solid var(--rule, #e1e5ee)",
                         borderRadius: 4,
                         background: "white",
                         cursor: "pointer",
@@ -1134,7 +1134,7 @@ export function MultiTypeAuthor() {
                       width: "100%",
                       padding: 6,
                       borderRadius: 4,
-                      border: "1px solid var(--border, #e1e5ee)",
+                      border: "1px solid var(--rule, #e1e5ee)",
                       fontFamily: "inherit",
                       fontSize: 13,
                     }}
@@ -1156,7 +1156,7 @@ export function MultiTypeAuthor() {
                 }
                 style={{
                   padding: "6px 12px",
-                  border: "1px dashed var(--border, #e1e5ee)",
+                  border: "1px dashed var(--rule, #e1e5ee)",
                   borderRadius: 4,
                   background: "transparent",
                   cursor: "pointer",
@@ -1194,7 +1194,7 @@ export function MultiTypeAuthor() {
                     setAvChildren(next);
                   }}
                   placeholder="child_question_uuid"
-                  style={{ flex: 1, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                  style={{ flex: 1, padding: 6, borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)" }}
                 />
                 <input
                   type="number"
@@ -1204,12 +1204,12 @@ export function MultiTypeAuthor() {
                     next[idx] = { ...c, ordinal: Number(e.target.value) };
                     setAvChildren(next);
                   }}
-                  style={{ width: 70, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                  style={{ width: 70, padding: 6, borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)" }}
                 />
                 <button
                   type="button"
                   onClick={() => setAvChildren(avChildren.filter((_, i) => i !== idx))}
-                  style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid var(--border, #e1e5ee)", background: "white", cursor: "pointer", fontSize: 12 }}
+                  style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)", background: "white", cursor: "pointer", fontSize: 12 }}
                 >
                   ✕
                 </button>
@@ -1225,7 +1225,7 @@ export function MultiTypeAuthor() {
               }
               style={{
                 padding: "6px 12px",
-                border: "1px dashed var(--border, #e1e5ee)",
+                border: "1px dashed var(--rule, #e1e5ee)",
                 borderRadius: 4,
                 background: "transparent",
                 cursor: "pointer",
@@ -1277,7 +1277,7 @@ export function MultiTypeAuthor() {
                   width: "100%",
                   marginTop: 4,
                   padding: 8,
-                  border: "1px solid var(--border, #e1e5ee)",
+                  border: "1px solid var(--rule, #e1e5ee)",
                   borderRadius: 4,
                   fontSize: 14,
                   fontFamily: "inherit",
@@ -1323,7 +1323,7 @@ export function MultiTypeAuthor() {
                 placeholder="content_media UUID (uploaded separately)"
                 style={{
                   width: "100%", padding: 8, borderRadius: 4,
-                  border: "1px solid var(--border, #e1e5ee)",
+                  border: "1px solid var(--rule, #e1e5ee)",
                   fontFamily: "monospace", fontSize: 13,
                 }}
               />
@@ -1349,7 +1349,7 @@ export function MultiTypeAuthor() {
                 }
                 style={{
                   width: "100%", padding: 8, borderRadius: 4,
-                  border: "1px solid var(--border, #e1e5ee)",
+                  border: "1px solid var(--rule, #e1e5ee)",
                   fontFamily: "inherit", fontSize: 14,
                 }}
               />
@@ -1382,7 +1382,7 @@ export function MultiTypeAuthor() {
                       setAvChildren(next);
                     }}
                     placeholder="child question UUID"
-                    style={{ flex: 1, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)", fontFamily: "monospace", fontSize: 12 }}
+                    style={{ flex: 1, padding: 6, borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)", fontFamily: "monospace", fontSize: 12 }}
                   />
                   <input
                     type="number"
@@ -1392,7 +1392,7 @@ export function MultiTypeAuthor() {
                       next[idx] = { ...c, ordinal: Number(e.target.value) };
                       setAvChildren(next);
                     }}
-                    style={{ width: 60, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                    style={{ width: 60, padding: 6, borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)" }}
                   />
                   <input
                     type="number"
@@ -1407,12 +1407,12 @@ export function MultiTypeAuthor() {
                       setAvChildren(next);
                     }}
                     placeholder="t (s)"
-                    style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                    style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)" }}
                   />
                   <button
                     type="button"
                     onClick={() => setAvChildren(avChildren.filter((_, i) => i !== idx))}
-                    style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid var(--border, #e1e5ee)", background: "white", cursor: "pointer", fontSize: 12 }}
+                    style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)", background: "white", cursor: "pointer", fontSize: 12 }}
                   >
                     ✕
                   </button>
@@ -1428,7 +1428,7 @@ export function MultiTypeAuthor() {
                 }
                 style={{
                   padding: "6px 12px",
-                  border: "1px dashed var(--border, #e1e5ee)",
+                  border: "1px dashed var(--rule, #e1e5ee)",
                   borderRadius: 4,
                   background: "transparent",
                   cursor: "pointer",
@@ -1453,7 +1453,7 @@ export function MultiTypeAuthor() {
                 placeholder="UUID of the underlying MCQ_SINGLE"
                 style={{
                   width: "100%", padding: 8, borderRadius: 4,
-                  border: "1px solid var(--border, #e1e5ee)",
+                  border: "1px solid var(--rule, #e1e5ee)",
                   fontFamily: "monospace", fontSize: 13,
                 }}
               />
@@ -1495,7 +1495,7 @@ export function MultiTypeAuthor() {
                             [opt]: Number(e.target.value),
                           })
                         }
-                        style={{ width: 70, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                        style={{ width: 70, padding: 6, borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)" }}
                       />
                     </div>
                   ))}
@@ -1517,7 +1517,7 @@ export function MultiTypeAuthor() {
                 placeholder="UUID of inner question"
                 style={{
                   width: "100%", padding: 8, borderRadius: 4,
-                  border: "1px solid var(--border, #e1e5ee)",
+                  border: "1px solid var(--rule, #e1e5ee)",
                   fontFamily: "monospace", fontSize: 13,
                 }}
               />
@@ -1533,7 +1533,7 @@ export function MultiTypeAuthor() {
                 rows={3}
                 style={{
                   width: "100%", padding: 8, borderRadius: 4,
-                  border: "1px solid var(--border, #e1e5ee)", fontFamily: "inherit", fontSize: 14,
+                  border: "1px solid var(--rule, #e1e5ee)", fontFamily: "inherit", fontSize: 14,
                 }}
               />
             </section>
@@ -1554,7 +1554,7 @@ export function MultiTypeAuthor() {
                       next[idx] = { ...s, at_seconds: Number(e.target.value) };
                       setRevealSteps(next);
                     }}
-                    style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                    style={{ width: 80, padding: 6, borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)" }}
                   />
                   <span style={{ alignSelf: "center", fontSize: 12 }}>s</span>
                   <input
@@ -1565,12 +1565,12 @@ export function MultiTypeAuthor() {
                       setRevealSteps(next);
                     }}
                     placeholder="info revealed at this mark"
-                    style={{ flex: 1, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)" }}
+                    style={{ flex: 1, padding: 6, borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)" }}
                   />
                   <button
                     type="button"
                     onClick={() => setRevealSteps(revealSteps.filter((_, i) => i !== idx))}
-                    style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid var(--border, #e1e5ee)", background: "white", cursor: "pointer", fontSize: 12 }}
+                    style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)", background: "white", cursor: "pointer", fontSize: 12 }}
                   >
                     ✕
                   </button>
@@ -1584,7 +1584,7 @@ export function MultiTypeAuthor() {
                     { at_seconds: revealSteps.length * 10 + 10, additional_info: "" },
                   ])
                 }
-                style={{ padding: "6px 12px", border: "1px dashed var(--border, #e1e5ee)", borderRadius: 4, background: "transparent", cursor: "pointer", fontSize: 13 }}
+                style={{ padding: "6px 12px", border: "1px dashed var(--rule, #e1e5ee)", borderRadius: 4, background: "transparent", cursor: "pointer", fontSize: 13 }}
               >
                 + Add reveal step
               </button>
@@ -1620,7 +1620,7 @@ export function MultiTypeAuthor() {
                       setDifficultyVariants(next);
                     }}
                     placeholder="variant question UUID"
-                    style={{ flex: 1, padding: 6, borderRadius: 4, border: "1px solid var(--border, #e1e5ee)", fontFamily: "monospace", fontSize: 12 }}
+                    style={{ flex: 1, padding: 6, borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)", fontFamily: "monospace", fontSize: 12 }}
                   />
                   <select
                     value={v.difficulty_level}
@@ -1638,7 +1638,7 @@ export function MultiTypeAuthor() {
                   <button
                     type="button"
                     onClick={() => setDifficultyVariants(difficultyVariants.filter((_, i) => i !== idx))}
-                    style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid var(--border, #e1e5ee)", background: "white", cursor: "pointer", fontSize: 12 }}
+                    style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid var(--rule, #e1e5ee)", background: "white", cursor: "pointer", fontSize: 12 }}
                   >
                     ✕
                   </button>
@@ -1656,7 +1656,7 @@ export function MultiTypeAuthor() {
                     },
                   ])
                 }
-                style={{ padding: "6px 12px", border: "1px dashed var(--border, #e1e5ee)", borderRadius: 4, background: "transparent", cursor: difficultyVariants.length >= 5 ? "not-allowed" : "pointer", fontSize: 13 }}
+                style={{ padding: "6px 12px", border: "1px dashed var(--rule, #e1e5ee)", borderRadius: 4, background: "transparent", cursor: difficultyVariants.length >= 5 ? "not-allowed" : "pointer", fontSize: 13 }}
               >
                 + Add variant
               </button>
@@ -1696,7 +1696,7 @@ export function MultiTypeAuthor() {
               width: "100%",
               marginTop: 4,
               padding: 8,
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 4,
               fontSize: 14,
               fontFamily: "inherit",
@@ -1715,7 +1715,7 @@ export function MultiTypeAuthor() {
             style={{
               padding: "6px 8px",
               borderRadius: 4,
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
             }}
           >
             <option value="en">English</option>
@@ -1730,8 +1730,8 @@ export function MultiTypeAuthor() {
             onClick={() => void runQualityCheck()}
             style={{
               padding: "6px 12px",
-              background: "var(--bg-subtle, #f8f9fc)",
-              border: "1px solid var(--border, #e1e5ee)",
+              background: "var(--paper-2, #f8f9fc)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 4,
               cursor: "pointer",
               fontSize: 13,
@@ -1765,8 +1765,8 @@ export function MultiTypeAuthor() {
               padding: "8px 16px",
               background:
                 submitting || !stem.trim()
-                  ? "var(--text-faint, #cbd5e0)"
-                  : "var(--color-blue, #4f87f6)",
+                  ? "var(--ink-4, #cbd5e0)"
+                  : "var(--info, #4f87f6)",
               color: "white",
               border: "none",
               borderRadius: 4,
@@ -1783,7 +1783,7 @@ export function MultiTypeAuthor() {
             style={{
               padding: "8px 16px",
               background: "transparent",
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 4,
               cursor: "pointer",
               fontSize: 13,

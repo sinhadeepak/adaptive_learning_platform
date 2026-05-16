@@ -387,17 +387,17 @@ export function TopicDetail() {
                 fontSize: "var(--t-h1-size)",
                 lineHeight: "var(--t-h1-line)",
                 fontWeight: 700,
-                color: "var(--neutral-900)",
+                color: "var(--ink)",
               }}
             >
               {topic.title}
             </h1>
             {topic.description ? (
-              <p style={{ margin: "8px 0 0", color: "var(--neutral-600)" }}>
+              <p style={{ margin: "8px 0 0", color: "var(--ink-3)" }}>
                 {topic.description}
               </p>
             ) : (
-              <p style={{ margin: "8px 0 0", color: "var(--neutral-600)" }}>
+              <p style={{ margin: "8px 0 0", color: "var(--ink-3)" }}>
                 Practice this topic with the IRT engine. Each session adapts
                 to your current ability so the next item is always within
                 reach.
@@ -546,7 +546,7 @@ export function TopicDetail() {
           <h3
             style={{
               fontSize: 13,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               textTransform: "uppercase",
               letterSpacing: 0.04,
               marginBottom: 8,
@@ -639,7 +639,7 @@ export function TopicDetail() {
                   style={{
                     marginLeft: 6,
                     padding: "1px 6px",
-                    background: "var(--color-ai)",
+                    background: "var(--gold)",
                     color: "#fff",
                     borderRadius: 999,
                     fontSize: 10,
@@ -659,7 +659,7 @@ export function TopicDetail() {
           ) : (
             <p
               className="topic-section-body"
-              style={{ marginTop: 8, color: "var(--text-muted)" }}
+              style={{ marginTop: 8, color: "var(--ink-3)" }}
             >
               No syllabus blurb supplied yet. Use the AI tutor below or your
               own notes to capture what this chapter is about.
@@ -775,8 +775,8 @@ export function TopicDetail() {
                 <li
                   key={b.questionId}
                   style={{
-                    background: "var(--bg-surface-1)",
-                    border: "1px solid var(--border-default)",
+                    background: "var(--card-1)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 10,
                     padding: "10px 12px",
                     display: "flex",
@@ -784,11 +784,11 @@ export function TopicDetail() {
                     gap: 10,
                   }}
                 >
-                  <span style={{ color: "var(--color-amber)", fontSize: 16, lineHeight: "20px" }}>★</span>
+                  <span style={{ color: "var(--warn)", fontSize: 16, lineHeight: "20px" }}>★</span>
                   <span
                     style={{
                       flex: 1,
-                      color: "var(--text-primary)",
+                      color: "var(--ink)",
                       fontSize: 13,
                       lineHeight: 1.45,
                       display: "-webkit-box",
@@ -808,7 +808,7 @@ export function TopicDetail() {
                       background: "transparent",
                       border: 0,
                       cursor: "pointer",
-                      color: "var(--text-muted)",
+                      color: "var(--ink-3)",
                       fontSize: 14,
                       padding: 0,
                       lineHeight: "20px",
@@ -851,7 +851,7 @@ export function TopicDetail() {
           ) : (
             <p
               style={{
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 fontSize: 13,
                 margin: 0,
               }}
@@ -911,8 +911,8 @@ function AboutFact({
     <div
       style={{
         padding: "10px 12px",
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
       }}
     >
@@ -922,7 +922,7 @@ function AboutFact({
           fontWeight: 700,
           letterSpacing: 0.5,
           textTransform: "uppercase",
-          color: "var(--text-faint)",
+          color: "var(--ink-4)",
           margin: 0,
         }}
       >
@@ -932,7 +932,7 @@ function AboutFact({
         style={{
           fontSize: 18,
           fontWeight: 700,
-          color: "var(--text-primary)",
+          color: "var(--ink)",
           lineHeight: 1.15,
           margin: "4px 0 0",
           fontVariantNumeric: "tabular-nums",
@@ -941,7 +941,7 @@ function AboutFact({
         {value}
       </dd>
       {sub && (
-        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+        <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
           {sub}
         </div>
       )}
@@ -1044,8 +1044,8 @@ function DifficultyModal({
         style={{
           width: "100%",
           maxWidth: 560,
-          background: "var(--bg-surface2)",
-          border: "1px solid var(--border)",
+          background: "var(--card)",
+          border: "1px solid var(--rule)",
           borderRadius: 12,
           boxShadow: "0 30px 60px rgba(0,0,0,0.25)",
           display: "flex",
@@ -1058,7 +1058,7 @@ function DifficultyModal({
             justifyContent: "space-between",
             alignItems: "flex-start",
             padding: "14px 18px",
-            borderBottom: "1px solid var(--border)",
+            borderBottom: "1px solid var(--rule)",
             gap: 12,
           }}
         >
@@ -1067,7 +1067,7 @@ function DifficultyModal({
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: "var(--color-ai)",
+                color: "var(--gold)",
                 letterSpacing: 0.6,
                 textTransform: "uppercase",
               }}
@@ -1079,7 +1079,7 @@ function DifficultyModal({
                 margin: "2px 0 0",
                 fontSize: 16,
                 fontWeight: 700,
-                color: "var(--text-primary)",
+                color: "var(--ink)",
               }}
             >
               {topicTitle}
@@ -1088,7 +1088,7 @@ function DifficultyModal({
               style={{
                 margin: "4px 0 0",
                 fontSize: 12,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 lineHeight: 1.45,
               }}
             >
@@ -1118,8 +1118,8 @@ function DifficultyModal({
                 onClick={() => onPick(opt.band)}
                 style={{
                   textAlign: "left",
-                  background: "var(--bg-surface1)",
-                  border: "1px solid var(--border)",
+                  background: "var(--paper-2)",
+                  border: "1px solid var(--rule)",
                   borderRadius: 10,
                   padding: "12px 14px",
                   cursor: starting ? "default" : "pointer",
@@ -1130,11 +1130,11 @@ function DifficultyModal({
                 }}
                 onMouseEnter={(e) => {
                   if (!starting) {
-                    e.currentTarget.style.borderColor = "var(--color-ai)";
+                    e.currentTarget.style.borderColor = "var(--gold)";
                   }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "var(--border)";
+                  e.currentTarget.style.borderColor = "var(--rule)";
                 }}
               >
                 <span
@@ -1143,7 +1143,7 @@ function DifficultyModal({
                     fontSize: 18,
                     width: 24,
                     textAlign: "center",
-                    color: "var(--color-ai)",
+                    color: "var(--gold)",
                     marginTop: 1,
                   }}
                 >
@@ -1157,7 +1157,7 @@ function DifficultyModal({
                       gap: 6,
                       fontSize: 14,
                       fontWeight: 700,
-                      color: "var(--text-primary)",
+                      color: "var(--ink)",
                     }}
                   >
                     {opt.label}
@@ -1166,7 +1166,7 @@ function DifficultyModal({
                         style={{
                           padding: "1px 6px",
                           borderRadius: 999,
-                          background: "var(--color-ai)",
+                          background: "var(--gold)",
                           color: "#fff",
                           fontSize: 10,
                           fontWeight: 700,
@@ -1182,7 +1182,7 @@ function DifficultyModal({
                       display: "block",
                       marginTop: 2,
                       fontSize: 12,
-                      color: "var(--text-muted)",
+                      color: "var(--ink-3)",
                       lineHeight: 1.45,
                     }}
                   >
@@ -1194,7 +1194,7 @@ function DifficultyModal({
                   style={{
                     alignSelf: "center",
                     fontSize: 14,
-                    color: "var(--text-faint)",
+                    color: "var(--ink-4)",
                   }}
                 >
                   →
@@ -1276,8 +1276,8 @@ function NotesModal({
         style={{
           width: "100%",
           maxWidth: 640,
-          background: "var(--bg-surface2)",
-          border: "1px solid var(--border)",
+          background: "var(--card)",
+          border: "1px solid var(--rule)",
           borderRadius: 12,
           boxShadow: "0 30px 60px rgba(0,0,0,0.25)",
           display: "flex",
@@ -1291,7 +1291,7 @@ function NotesModal({
             justifyContent: "space-between",
             alignItems: "center",
             padding: "14px 18px",
-            borderBottom: "1px solid var(--border)",
+            borderBottom: "1px solid var(--rule)",
             gap: 12,
           }}
         >
@@ -1300,7 +1300,7 @@ function NotesModal({
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: "var(--text-faint)",
+                color: "var(--ink-4)",
                 letterSpacing: 0.6,
                 textTransform: "uppercase",
               }}
@@ -1312,7 +1312,7 @@ function NotesModal({
                 margin: "2px 0 0",
                 fontSize: 16,
                 fontWeight: 700,
-                color: "var(--text-primary)",
+                color: "var(--ink)",
               }}
             >
               {topicTitle}
@@ -1341,10 +1341,10 @@ function NotesModal({
             minHeight: 280,
             padding: 16,
             margin: 0,
-            background: "var(--bg-surface1)",
+            background: "var(--paper-2)",
             border: 0,
             outline: 0,
-            color: "var(--text-primary)",
+            color: "var(--ink)",
             fontFamily:
               "'JetBrains Mono', 'Fira Code', ui-monospace, monospace",
             fontSize: 13,
@@ -1360,16 +1360,16 @@ function NotesModal({
             justifyContent: "space-between",
             alignItems: "center",
             padding: "10px 18px",
-            borderTop: "1px solid var(--border)",
-            background: "var(--bg-surface1)",
+            borderTop: "1px solid var(--rule)",
+            background: "var(--paper-2)",
             gap: 12,
           }}
         >
-          <span style={{ fontSize: 11, color: noteError ? "var(--color-red)" : "var(--text-muted)" }}>
+          <span style={{ fontSize: 11, color: noteError ? "var(--bad)" : "var(--ink-3)" }}>
             {status}
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span style={{ fontSize: 10, color: "var(--text-faint)" }}>
+            <span style={{ fontSize: 10, color: "var(--ink-4)" }}>
               {noteDraft.length} / 4096
             </span>
             <button

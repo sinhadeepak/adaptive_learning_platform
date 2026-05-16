@@ -125,7 +125,7 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
         onClick={() => setOpen(true)}
         style={{
           marginTop: 12,
-          background: "linear-gradient(90deg, var(--color-blue), var(--color-purple))",
+          background: "linear-gradient(90deg, var(--info), var(--accent))",
           color: "white",
           border: "none",
           padding: "10px 18px",
@@ -154,12 +154,12 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
           padding: "10px 14px",
           background:
             "linear-gradient(90deg, rgba(79,135,246,0.10), rgba(102,67,255,0.10))",
-          borderBottom: "1px solid var(--border)",
+          borderBottom: "1px solid var(--rule)",
         }}
       >
         <div style={{ display: "flex", flexDirection: "column" }}>
           <strong style={{ fontSize: 13 }}>◈ AI Tutor — {topicTitle}</strong>
-          <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
+          <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
             Ask anything; replies stream in.
           </span>
         </div>
@@ -168,10 +168,10 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
             to="/tutor-history"
             style={{
               fontSize: 11,
-              color: "var(--text-faint)",
+              color: "var(--ink-4)",
               textDecoration: "none",
               padding: "4px 8px",
-              border: "1px solid var(--border-strong)",
+              border: "1px solid var(--rule-2)",
               borderRadius: 4,
             }}
           >
@@ -182,8 +182,8 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
             onClick={() => setOpen(false)}
             style={{
               background: "transparent",
-              color: "var(--text-faint)",
-              border: "1px solid var(--border-strong)",
+              color: "var(--ink-4)",
+              border: "1px solid var(--rule-2)",
               padding: "4px 8px",
               borderRadius: 4,
               fontSize: 11,
@@ -210,7 +210,7 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
         }}
       >
         {messages.length === 0 ? (
-          <div style={{ color: "var(--text-faint)", fontStyle: "italic" }}>
+          <div style={{ color: "var(--ink-4)", fontStyle: "italic" }}>
             e.g. "Walk me through the third Newton's law with a real example", "Why
             does entropy always increase in an isolated system?"
           </div>
@@ -236,10 +236,10 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
                     borderRadius: isUser ? "10px 10px 2px 10px" : "10px 10px 10px 2px",
                     background: isUser
                       ? "rgba(79,135,246,0.15)"
-                      : "var(--surface-elev1)",
+                      : "var(--card)",
                     border: isUser
                       ? "1px solid rgba(79,135,246,0.22)"
-                      : "1px solid var(--border)",
+                      : "1px solid var(--rule)",
                     whiteSpace: isUser ? "pre-wrap" : "normal",
                     wordWrap: "break-word",
                   }}
@@ -276,7 +276,7 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
           display: "flex",
           gap: 8,
           padding: 10,
-          borderTop: "1px solid var(--border)",
+          borderTop: "1px solid var(--rule)",
         }}
       >
         <input
@@ -287,8 +287,8 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
           disabled={streaming}
           style={{
             flex: 1,
-            background: "var(--surface-elev1)",
-            border: "1px solid var(--border-strong)",
+            background: "var(--card)",
+            border: "1px solid var(--rule-2)",
             color: "inherit",
             padding: "8px 10px",
             borderRadius: 4,
@@ -299,7 +299,7 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
           type="submit"
           disabled={streaming || !input.trim()}
           style={{
-            background: "var(--color-blue)",
+            background: "var(--info)",
             color: "white",
             border: "none",
             padding: "8px 16px",

@@ -88,17 +88,17 @@ export function CreatorDashboard() {
     <AppShell title="Creator dashboard">
       <main className="page" style={{ padding: 24, maxWidth: 760 }}>
         <h1>{profile.displayName}</h1>
-        <p style={{ color: "var(--text-muted)" }}>{profile.headline}</p>
+        <p style={{ color: "var(--ink-3)" }}>{profile.headline}</p>
 
         <section
           style={{
             padding: 16,
-            border: "1px solid var(--border-faint)",
+            border: "1px solid var(--rule)",
             borderRadius: 8,
             margin: "16px 0",
           }}
         >
-          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
             Application status
           </div>
           <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>

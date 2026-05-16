@@ -54,7 +54,7 @@ export function CourseDetail() {
   return (
     <AppShell title={course?.title ?? "Course"}>
       <div style={{ padding: "16px 24px 32px", maxWidth: 880 }}>
-        <Link to="/courses" style={{ color: "var(--color-blue)", fontSize: 13 }}>
+        <Link to="/courses" style={{ color: "var(--info)", fontSize: 13 }}>
           ← Back to courses
         </Link>
 
@@ -64,7 +64,7 @@ export function CourseDetail() {
           </p>
         )}
         {!course && !error && (
-          <p style={{ color: "var(--text-muted)", marginTop: 12 }}>Loading…</p>
+          <p style={{ color: "var(--ink-3)", marginTop: 12 }}>Loading…</p>
         )}
 
         {course && (
@@ -90,11 +90,11 @@ export function CourseDetail() {
             <div style={{ display: "flex", justifyContent: "space-between", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 280 }}>
                 <h1 style={{ margin: 0, fontSize: 28 }}>{course.title}</h1>
-                <p style={{ color: "var(--text-secondary)", margin: "8px 0 0", lineHeight: 1.5 }}>
+                <p style={{ color: "var(--ink-2)", margin: "8px 0 0", lineHeight: 1.5 }}>
                   {course.description}
                 </p>
                 {ratings && ratings.count > 0 && (
-                  <p style={{ marginTop: 12, color: "var(--text-muted)" }}>
+                  <p style={{ marginTop: 12, color: "var(--ink-3)" }}>
                     ⭐ {ratings.averageStars.toFixed(1)} from {ratings.count}{" "}
                     review{ratings.count === 1 ? "" : "s"}
                   </p>
@@ -103,8 +103,8 @@ export function CourseDetail() {
 
               <aside
                 style={{
-                  background: "var(--bg-surface1)",
-                  border: "1px solid var(--border)",
+                  background: "var(--paper-2)",
+                  border: "1px solid var(--rule)",
                   borderRadius: 10,
                   padding: 20,
                   minWidth: 220,
@@ -114,10 +114,10 @@ export function CourseDetail() {
                 }}
               >
                 <div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.04 }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.04 }}>
                     Price
                   </div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: "var(--text-primary)" }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: "var(--ink)" }}>
                     {paiseToRupees(course.pricePaise)}
                   </div>
                 </div>
@@ -127,7 +127,7 @@ export function CourseDetail() {
                   disabled={busy}
                   style={{
                     padding: "10px 16px",
-                    background: "var(--color-blue)",
+                    background: "var(--info)",
                     color: "white",
                     border: "none",
                     borderRadius: 6,
@@ -138,7 +138,7 @@ export function CourseDetail() {
                 >
                   {busy ? "Processing…" : "Buy course"}
                 </button>
-                <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
+                <p style={{ fontSize: 11, color: "var(--ink-3)", margin: 0 }}>
                   Lifetime access · Refund within 7 days
                 </p>
               </aside>
@@ -155,18 +155,18 @@ export function CourseDetail() {
                 <h2 style={{ fontSize: 18, marginBottom: 8 }}>About this course</h2>
                 <article
                   style={{
-                    background: "var(--bg-surface1)",
-                    border: "1px solid var(--border)",
+                    background: "var(--paper-2)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 8,
                     padding: 16,
                     whiteSpace: "pre-wrap",
-                    color: "var(--text-secondary)",
+                    color: "var(--ink-2)",
                     lineHeight: 1.6,
                   }}
                 >
                   {course.contentMd}
                   {course.contentMd.length >= 500 && (
-                    <p style={{ marginTop: 12, color: "var(--text-muted)", fontStyle: "italic" }}>
+                    <p style={{ marginTop: 12, color: "var(--ink-3)", fontStyle: "italic" }}>
                       [Purchase to read the full course]
                     </p>
                   )}
@@ -183,21 +183,21 @@ export function CourseDetail() {
                       key={r.id}
                       style={{
                         padding: 16,
-                        background: "var(--bg-surface1)",
-                        border: "1px solid var(--border)",
+                        background: "var(--paper-2)",
+                        border: "1px solid var(--rule)",
                         borderRadius: 8,
                         marginBottom: 8,
                       }}
                     >
-                      <div style={{ color: "var(--color-amber, #fbbf24)" }}>
+                      <div style={{ color: "var(--warn, #fbbf24)" }}>
                         {"⭐".repeat(r.stars)}
                       </div>
                       {r.comment && (
-                        <p style={{ margin: "6px 0", color: "var(--text-secondary)" }}>
+                        <p style={{ margin: "6px 0", color: "var(--ink-2)" }}>
                           {r.comment}
                         </p>
                       )}
-                      <small style={{ color: "var(--text-muted)" }}>
+                      <small style={{ color: "var(--ink-3)" }}>
                         {new Date(r.createdAt).toLocaleDateString()}
                       </small>
                     </li>

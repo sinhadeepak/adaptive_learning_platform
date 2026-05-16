@@ -171,7 +171,7 @@ export function StudentDeepDive() {
   return (
     <AppShell title={`Student ${userId.slice(0, 8)}`}>
       <main className="page" style={{ padding: 24 }}>
-        <Link to={`/teacher/cohorts/${cohortId}`} style={{ color: "var(--text-muted)", fontSize: 12 }}>
+        <Link to={`/teacher/cohorts/${cohortId}`} style={{ color: "var(--ink-3)", fontSize: 12 }}>
           ← Back to cohort
         </Link>
         <h1 style={{ marginTop: 12 }}>
@@ -182,7 +182,7 @@ export function StudentDeepDive() {
           <SkeletonRows count={6} />
         ) : (
           <>
-            <p style={{ color: "var(--text-muted)", fontSize: 12 }}>
+            <p style={{ color: "var(--ink-3)", fontSize: 12 }}>
               Per-topic mastery for this student. Click <em>Flag for revision</em> on
               any row to send a nudge that appears in their Guided Next Steps with a
               "from {viewer?.firstName ?? "you"}" badge.
@@ -213,8 +213,8 @@ export function StudentDeepDive() {
                           onClick={() => diagnose(t)}
                           style={{
                             background: isOpen
-                              ? "var(--color-red, #f43f5e)"
-                              : "var(--color-blue, #4F87F6)",
+                              ? "var(--bad, #f43f5e)"
+                              : "var(--info, #4F87F6)",
                             color: "#fff",
                             border: 0,
                             padding: "4px 10px",
@@ -233,7 +233,7 @@ export function StudentDeepDive() {
                             setFlagOpen(true);
                           }}
                           style={{
-                            background: "var(--color-amber)",
+                            background: "var(--warn)",
                             color: "#fff",
                             border: 0,
                             padding: "4px 10px",
@@ -252,11 +252,11 @@ export function StudentDeepDive() {
                     rows.push(
                       <tr
                         key={`${t.topicId}-diag`}
-                        style={{ background: "var(--bg-surface2, rgba(0,0,0,0.05))" }}
+                        style={{ background: "var(--card, rgba(0,0,0,0.05))" }}
                       >
                         <td colSpan={4} style={{ padding: 12 }}>
                           {diagnoseLoading ? (
-                            <span style={{ color: "var(--text-muted)" }}>
+                            <span style={{ color: "var(--ink-3)" }}>
                               Walking prereq chain…
                             </span>
                           ) : diagnoseResult ? (
@@ -265,7 +265,7 @@ export function StudentDeepDive() {
                               titles={conceptTitles}
                             />
                           ) : (
-                            <span style={{ color: "var(--text-muted)" }}>
+                            <span style={{ color: "var(--ink-3)" }}>
                               No diagnostic data — student needs more attempts
                               on prerequisites for this topic.
                             </span>
@@ -351,8 +351,8 @@ function FlagModal({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--bg-surface-1)",
-          border: "1px solid var(--border-default)",
+          background: "var(--card-1)",
+          border: "1px solid var(--rule)",
           borderRadius: 12,
           padding: 24,
           maxWidth: 420,
@@ -364,7 +364,7 @@ function FlagModal({
           <Pill tone="success">Sent. The student will see it in their next dashboard load.</Pill>
         ) : (
           <>
-            <p style={{ color: "var(--text-muted)", fontSize: 12 }}>
+            <p style={{ color: "var(--ink-3)", fontSize: 12 }}>
               Pick the action you want the student to take. The nudge appears in their Guided
               Next Steps until they fulfil it.
             </p>
@@ -374,9 +374,9 @@ function FlagModal({
                   key={a}
                   onClick={() => setAction(a)}
                   style={{
-                    background: action === a ? "var(--color-ai)" : "var(--bg-surface-2)",
-                    color: action === a ? "#fff" : "var(--text-secondary)",
-                    border: "1px solid var(--border-default)",
+                    background: action === a ? "var(--gold)" : "var(--card-2)",
+                    color: action === a ? "#fff" : "var(--ink-2)",
+                    border: "1px solid var(--rule)",
                     padding: "6px 12px",
                     borderRadius: 6,
                     cursor: "pointer",
@@ -396,16 +396,16 @@ function FlagModal({
               maxLength={500}
               style={{
                 width: "100%",
-                background: "var(--bg-surface-2)",
-                color: "var(--text-primary)",
-                border: "1px solid var(--border-default)",
+                background: "var(--card-2)",
+                color: "var(--ink)",
+                border: "1px solid var(--rule)",
                 borderRadius: 6,
                 padding: 8,
                 fontSize: 13,
               }}
             />
             {error && (
-              <p style={{ color: "var(--color-red)", fontSize: 12, marginTop: 8 }}>
+              <p style={{ color: "var(--bad)", fontSize: 12, marginTop: 8 }}>
                 {error}
               </p>
             )}
@@ -415,8 +415,8 @@ function FlagModal({
                 disabled={busy}
                 style={{
                   background: "transparent",
-                  color: "var(--text-muted)",
-                  border: "1px solid var(--border-default)",
+                  color: "var(--ink-3)",
+                  border: "1px solid var(--rule)",
                   padding: "6px 12px",
                   borderRadius: 6,
                   cursor: "pointer",
@@ -428,7 +428,7 @@ function FlagModal({
                 onClick={submit}
                 disabled={busy}
                 style={{
-                  background: "var(--color-ai)",
+                  background: "var(--gold)",
                   color: "#fff",
                   border: 0,
                   padding: "6px 16px",
@@ -465,7 +465,7 @@ function RootCausePanel({
   return (
     <div style={{ fontSize: 13, lineHeight: 1.5 }}>
       <div style={{ marginBottom: 8 }}>
-        <strong style={{ color: "var(--text-primary)" }}>
+        <strong style={{ color: "var(--ink)" }}>
           Why is the student stuck on {primaryName}?
         </strong>
       </div>
@@ -479,32 +479,32 @@ function RootCausePanel({
             marginBottom: 10,
           }}
         >
-          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+          <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
             ROOT CAUSE
           </div>
           <div
             style={{
               fontWeight: 700,
-              color: "var(--color-red, #f43f5e)",
+              color: "var(--bad, #f43f5e)",
               fontSize: 14,
             }}
           >
             {rootName}
           </div>
-          <div style={{ marginTop: 4, color: "var(--text-secondary)" }}>
+          <div style={{ marginTop: 4, color: "var(--ink-2)" }}>
             Mastery on this prerequisite is below the weak threshold (0.4).
             Fixing this concept first is likely to unblock {primaryName}.
           </div>
         </div>
       ) : (
-        <div style={{ color: "var(--text-muted)", marginBottom: 8 }}>
+        <div style={{ color: "var(--ink-3)", marginBottom: 8 }}>
           No deeper-prerequisite gap found — the student understands the
           prereqs but is missing something specific to {primaryName}. This
           could be a procedural slip rather than a conceptual gap.
         </div>
       )}
       {result.path && result.path.length > 1 ? (
-        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+        <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
           <strong>Path:</strong>{" "}
           {result.path.map((id, i) => (
             <span key={id}>
@@ -515,7 +515,7 @@ function RootCausePanel({
         </div>
       ) : null}
       {result.weakConcepts && result.weakConcepts.length > 0 ? (
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+        <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6 }}>
           <strong>{result.weakConcepts.length}</strong> weak concept
           {result.weakConcepts.length === 1 ? "" : "s"} along this chain:{" "}
           {result.weakConcepts

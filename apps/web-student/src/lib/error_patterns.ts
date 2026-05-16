@@ -47,17 +47,17 @@ export function tagLabel(tag: ErrorTag): string {
 export function tagColour(tag: ErrorTag): string {
   switch (tag) {
     case "silly_mistake":
-      return "var(--color-amber, #F5A623)";
+      return "var(--warn, #F5A623)";
     case "conceptual_gap":
-      return "var(--color-red, #F43F5E)";
+      return "var(--bad, #F43F5E)";
     case "time_pressure":
-      return "var(--color-blue, #4F87F6)";
+      return "var(--info, #4F87F6)";
     case "formula_error":
-      return "var(--text-muted, #7A8BAD)";
+      return "var(--ink-3, #7A8BAD)";
     case "sign_or_unit_error":
-      return "var(--color-purple, #A78BFA)";
+      return "var(--accent, #A78BFA)";
     case "unattempted":
-      return "var(--text-faint, #3E4D6A)";
+      return "var(--ink-4, #3E4D6A)";
   }
 }
 

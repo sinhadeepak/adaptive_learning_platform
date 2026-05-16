@@ -42,7 +42,7 @@ export function AppShell({
                 marginBottom: "var(--sp-4)",
                 padding: "var(--sp-4)",
                 fontSize: 13,
-                color: "var(--text-secondary)",
+                color: "var(--ink-2)",
               }}
             >
               Your role <strong>{user?.role ?? "—"}</strong> is read-only on

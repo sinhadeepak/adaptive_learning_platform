@@ -78,8 +78,8 @@ export function TutorDetail() {
     return (
       <AppShell title="Tutor">
         <div style={{ padding: "16px 24px" }}>
-          {error ? <p className="banner banner-error">{error}</p> : <p style={{ color: "var(--text-muted)" }}>Loading…</p>}
-          <Link to="/tutors" style={{ color: "var(--color-blue)" }}>← Back to tutors</Link>
+          {error ? <p className="banner banner-error">{error}</p> : <p style={{ color: "var(--ink-3)" }}>Loading…</p>}
+          <Link to="/tutors" style={{ color: "var(--info)" }}>← Back to tutors</Link>
         </div>
       </AppShell>
     );
@@ -88,9 +88,9 @@ export function TutorDetail() {
   return (
     <AppShell title={profile.displayName}>
     <div style={{ padding: "16px 24px 32px", maxWidth: 880 }}>
-      <Link to="/tutors" style={{ color: "var(--color-blue)", fontSize: 13 }}>← Back to tutors</Link>
+      <Link to="/tutors" style={{ color: "var(--info)", fontSize: 13 }}>← Back to tutors</Link>
       <h1>{profile.displayName}</h1>
-      <p style={{ color: "var(--text-muted)" }}>{profile.headline}</p>
+      <p style={{ color: "var(--ink-3)" }}>{profile.headline}</p>
       <p style={{ fontSize: 18 }}>
         <strong>{paiseToRupees(profile.hourlyRatePaise)}</strong>/hr
       </p>
@@ -111,7 +111,7 @@ export function TutorDetail() {
                 <strong>{q.title}</strong>
                 {q.institution && <> — {q.institution}</>}
                 {q.yearCompleted && <> ({q.yearCompleted})</>}
-                <span style={{ color: "var(--text-muted)", marginLeft: 8 }}>
+                <span style={{ color: "var(--ink-3)", marginLeft: 8 }}>
                   [{q.kind}]
                 </span>
               </li>

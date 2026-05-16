@@ -243,7 +243,7 @@ export function Battle() {
             <div style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>
               ⚡ Match starting…
             </div>
-            <div style={{ color: "var(--text-muted)" }}>
+            <div style={{ color: "var(--ink-3)" }}>
               {matchId && `Match ${matchId.slice(0, 8)}…`}
             </div>
           </div>
@@ -290,12 +290,12 @@ function IdlePhase({ connected, onQueue }: { connected: boolean; onQueue: () => 
             fontSize: "var(--t-h1-size)",
             lineHeight: "var(--t-h1-line)",
             fontWeight: 700,
-            color: "var(--neutral-900)",
+            color: "var(--ink)",
           }}
         >
           Battle other students live
         </h1>
-        <p style={{ margin: "4px 0 0", color: "var(--neutral-600)" }}>
+        <p style={{ margin: "4px 0 0", color: "var(--ink-3)" }}>
           10 questions. 30 seconds each. Server-authoritative scoring with
           Glicko-2 ratings. Find an opponent near your skill level.
         </p>
@@ -312,7 +312,7 @@ function IdlePhase({ connected, onQueue }: { connected: boolean; onQueue: () => 
           }}
         >
           <div style={{ fontSize: 56, lineHeight: 1 }} aria-hidden>⚔</div>
-          <div style={{ color: "var(--neutral-600)", fontSize: 13 }}>
+          <div style={{ color: "var(--ink-3)", fontSize: 13 }}>
             {connected
               ? "✓ Connected to battle server"
               : "Connecting to battle server…"}
@@ -339,7 +339,7 @@ function QueuingPhase({ eloBand, onCancel }: { eloBand: number | null; onCancel:
       <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
         Searching for opponent…
       </div>
-      <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 24 }}>
+      <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 24 }}>
         {eloBand !== null
           ? `ELO band ${eloBand} — widening search after 30 s`
           : ""}
@@ -375,14 +375,14 @@ function PlayingPhase({
           marginBottom: 16,
         }}
       >
-        <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+        <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
           Question {question.idx + 1}
         </div>
         <div
           style={{
             fontSize: 28,
             fontWeight: 800,
-            color: dangerLow ? "var(--color-danger)" : "var(--text-primary)",
+            color: dangerLow ? "var(--bad)" : "var(--ink)",
             transition: "color 200ms",
           }}
         >
@@ -408,11 +408,11 @@ function PlayingPhase({
                 padding: "14px 18px",
                 borderRadius: 8,
                 border: isPicked
-                  ? "2px solid var(--color-blue)"
-                  : "1px solid var(--border-subtle)",
+                  ? "2px solid var(--info)"
+                  : "1px solid var(--rule)",
                 background: isPicked
                   ? "rgba(47,93,203,0.10)"
-                  : "var(--bg-elevated)",
+                  : "var(--card)",
                 cursor: pickedIdx === null ? "pointer" : "not-allowed",
                 opacity: pickedIdx !== null && !isPicked ? 0.5 : 1,
                 fontSize: 14,
@@ -427,7 +427,7 @@ function PlayingPhase({
         })}
       </div>
 
-      <div style={{ marginTop: 18, fontSize: 12, color: "var(--text-muted)" }}>
+      <div style={{ marginTop: 18, fontSize: 12, color: "var(--ink-3)" }}>
         {pickedIdx !== null
           ? "✓ Locked in — waiting for opponent…"
           : "Tap to lock in your answer. Faster = more points."}
@@ -498,7 +498,7 @@ function ResultPhase({
                     {row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : "🥉"}{" "}
                     {player?.displayName ?? row.userId.slice(0, 8)}
                     {isMe && (
-                      <span style={{ marginLeft: 8, color: "var(--color-blue)", fontSize: 12 }}>
+                      <span style={{ marginLeft: 8, color: "var(--info)", fontSize: 12 }}>
                         you
                       </span>
                     )}
@@ -514,7 +514,7 @@ function ResultPhase({
                       </>
                     )}
                     <span className="pg-row-meta-dot">·</span>
-                    <span style={{ color: result.eloDelta[row.userId] >= 0 ? "var(--color-success)" : "var(--color-danger)" }}>
+                    <span style={{ color: result.eloDelta[row.userId] >= 0 ? "var(--good)" : "var(--bad)" }}>
                       ELO {result.eloDelta[row.userId] >= 0 ? "+" : ""}
                       {result.eloDelta[row.userId]}
                     </span>
@@ -533,14 +533,14 @@ function ResultPhase({
             maxHeight: 200,
             overflowY: "auto",
             padding: 12,
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-subtle)",
+            background: "var(--card)",
+            border: "1px solid var(--rule)",
             borderRadius: 8,
             marginBottom: 8,
           }}
         >
           {chat.length === 0 ? (
-            <div style={{ color: "var(--text-muted)", fontSize: 12 }}>
+            <div style={{ color: "var(--ink-3)", fontSize: 12 }}>
               No messages yet. Say "gg" 👋
             </div>
           ) : (

@@ -351,13 +351,13 @@ export function Home() {
             fontSize: "var(--t-h1-size)",
             lineHeight: "var(--t-h1-line)",
             fontWeight: 700,
-            color: "var(--neutral-900)",
+            color: "var(--ink)",
           }}
         >
           {greeting},{" "}
-          <span style={{ color: "var(--brand-600)" }}>{firstName}</span> 👋
+          <span style={{ color: "var(--accent)" }}>{firstName}</span> 👋
         </h1>
-        <p style={{ margin: "4px 0 0", color: "var(--neutral-600)" }}>
+        <p style={{ margin: "4px 0 0", color: "var(--ink-3)" }}>
           {firstExamMeta ? (
             <>
               <strong>{firstExamMeta.name}</strong>
@@ -599,7 +599,7 @@ function SectionHeading({
           fontSize: "var(--t-h3-size)",
           lineHeight: "var(--t-h3-line)",
           fontWeight: 600,
-          color: "var(--neutral-800)",
+          color: "var(--ink-2)",
         }}
       >
         {title}
@@ -610,7 +610,7 @@ function SectionHeading({
         <Link
           to={link.to}
           style={{
-            color: "var(--brand-600)",
+            color: "var(--accent)",
             textDecoration: "none",
             fontSize: 13,
             fontWeight: 600,
@@ -656,10 +656,10 @@ function ResumeCard({
           {`${session.servedCount}/${session.targetCount}`}
         </ProgressRing>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, color: "var(--neutral-900)" }}>
+          <div style={{ fontWeight: 600, color: "var(--ink)" }}>
             {topicTitle}
           </div>
-          <div style={{ color: "var(--neutral-600)", fontSize: 13 }}>
+          <div style={{ color: "var(--ink-3)", fontSize: 13 }}>
             {remaining} questions left · {accPct}% accuracy so far
           </div>
         </div>
@@ -690,7 +690,7 @@ function WeakTopicCard({ topic }: { topic: TopicCard }) {
             <div
               style={{
                 fontWeight: 600,
-                color: "var(--neutral-900)",
+                color: "var(--ink)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -698,7 +698,7 @@ function WeakTopicCard({ topic }: { topic: TopicCard }) {
             >
               {topic.title}
             </div>
-            <div style={{ color: "var(--neutral-600)", fontSize: 13 }}>
+            <div style={{ color: "var(--ink-3)", fontSize: 13 }}>
               {topic.n} session{topic.n === 1 ? "" : "s"} ·{" "}
               <Tag size="sm" tone={tagTone} variant="soft">
                 {tone === "weak" ? "weak" : tone === "developing" ? "developing" : "strong"}
@@ -761,8 +761,8 @@ function WeekActivityCard({
             goalMinutes > 0 && v.minutes >= goalMinutes
               ? "var(--success-500)"
               : v.minutes > 0
-                ? "var(--brand-500)"
-                : "var(--neutral-300)";
+                ? "var(--accent-soft0)"
+                : "var(--ink-4)";
           return (
             <div
               key={i}
@@ -789,7 +789,7 @@ function WeekActivityCard({
               <div
                 style={{
                   fontSize: 11,
-                  color: isToday ? "var(--brand-600)" : "var(--neutral-500)",
+                  color: isToday ? "var(--accent)" : "var(--ink-3)",
                   fontWeight: isToday ? 700 : 500,
                 }}
               >
@@ -803,12 +803,12 @@ function WeekActivityCard({
         style={{
           display: "flex",
           gap: 12,
-          color: "var(--neutral-600)",
+          color: "var(--ink-3)",
           fontSize: 13,
         }}
       >
         <span>
-          <strong style={{ color: "var(--neutral-900)" }}>{totalMin}m</strong> this week
+          <strong style={{ color: "var(--ink)" }}>{totalMin}m</strong> this week
         </span>
         {goalMinutes > 0 ? (
           <span>

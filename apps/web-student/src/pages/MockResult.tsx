@@ -127,7 +127,7 @@ export function MockResult() {
   if (result.error) {
     return (
       <AppShell title="Mock Result">
-        <div className="card" style={{ padding: 20, color: "var(--color-red)" }}>
+        <div className="card" style={{ padding: 20, color: "var(--bad)" }}>
           {result.message ?? "Could not score the mock."}
         </div>
       </AppShell>
@@ -137,16 +137,16 @@ export function MockResult() {
   const scorePct = result.maxMarks > 0 ? Math.round((result.rawScore / result.maxMarks) * 100) : 0;
   const scoreTone =
     result.percentile >= 90
-      ? "var(--color-green)"
+      ? "var(--good)"
       : result.percentile >= 60
-        ? "var(--color-blue)"
-        : "var(--color-amber)";
+        ? "var(--info)"
+        : "var(--warn)";
   const confTone =
     result.confidence === "high"
-      ? "var(--color-green)"
+      ? "var(--good)"
       : result.confidence === "medium"
-        ? "var(--color-blue)"
-        : "var(--color-amber)";
+        ? "var(--info)"
+        : "var(--warn)";
 
   return (
     <AppShell title="Mock Result">
@@ -177,7 +177,7 @@ export function MockResult() {
         >
           {result.rawScore} / {result.maxMarks}
         </div>
-        <div style={{ marginTop: 6, color: "var(--text-primary)", fontSize: 14 }}>
+        <div style={{ marginTop: 6, color: "var(--ink)", fontSize: 14 }}>
           {result.examName} · {scorePct}% raw · {result.percentile.toFixed(1)} pctl
         </div>
       </div>
@@ -187,23 +187,23 @@ export function MockResult() {
         className="card"
         style={{
           background: "linear-gradient(135deg, rgba(102,67,255,0.08), rgba(79,135,246,0.04))",
-          borderLeft: "3px solid var(--color-purple)",
+          borderLeft: "3px solid var(--accent)",
           padding: 20,
           marginBottom: 16,
         }}
       >
-        <div style={{ fontSize: 11, letterSpacing: 0.8, color: "var(--text-muted)", fontWeight: 700 }}>
+        <div style={{ fontSize: 11, letterSpacing: 0.8, color: "var(--ink-3)", fontWeight: 700 }}>
           PROJECTED ALL-INDIA RANK
         </div>
-        <div style={{ fontSize: 38, fontWeight: 700, color: "var(--color-purple)", lineHeight: 1, marginTop: 6 }}>
+        <div style={{ fontSize: 38, fontWeight: 700, color: "var(--accent)", lineHeight: 1, marginTop: 6 }}>
           ~{fmt(result.projectedRank)}
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
+        <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 4 }}>
           range {fmt(result.rankLow)} – {fmt(result.rankHigh)}
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 6, alignItems: "center" }}>
           <span style={{ color: confTone, fontWeight: 600, fontSize: 12 }}>● {result.confidence} confidence</span>
-          <span style={{ color: "var(--text-muted)", fontSize: 11 }}>· based on this paper</span>
+          <span style={{ color: "var(--ink-3)", fontSize: 11 }}>· based on this paper</span>
         </div>
       </section>
 
@@ -216,15 +216,15 @@ export function MockResult() {
           marginBottom: 20,
         }}
       >
-        <div className="card" style={statTile("var(--color-green)")}>
+        <div className="card" style={statTile("var(--good)")}>
           <div style={statValue}>{result.nCorrect}</div>
           <div style={statLabel}>Correct</div>
         </div>
-        <div className="card" style={statTile("var(--color-red)")}>
+        <div className="card" style={statTile("var(--bad)")}>
           <div style={statValue}>{result.nWrong}</div>
           <div style={statLabel}>Wrong</div>
         </div>
-        <div className="card" style={statTile("var(--text-muted)")}>
+        <div className="card" style={statTile("var(--ink-3)")}>
           <div style={statValue}>{result.nUnanswered}</div>
           <div style={statLabel}>Skipped</div>
         </div>
@@ -236,19 +236,19 @@ export function MockResult() {
           const accuracy = s.total === 0 ? 0 : s.correct / s.total;
           const tone =
             accuracy >= 0.7
-              ? "var(--color-green)"
+              ? "var(--good)"
               : accuracy >= 0.4
-                ? "var(--color-blue)"
-                : "var(--color-red)";
+                ? "var(--info)"
+                : "var(--bad)";
           return (
             <div key={s.name} className="card" style={{ padding: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <strong style={{ color: "var(--text-primary)", fontSize: 14 }}>{s.name}</strong>
+                <strong style={{ color: "var(--ink)", fontSize: 14 }}>{s.name}</strong>
                 <strong style={{ color: tone, fontSize: 14 }}>
                   {s.correct} / {s.total}
                 </strong>
               </div>
-              <div style={{ background: "var(--bg-surface3)", borderRadius: 2, height: 5, overflow: "hidden" }}>
+              <div style={{ background: "var(--paper-2)", borderRadius: 2, height: 5, overflow: "hidden" }}>
                 <div
                   style={{
                     width: `${Math.round(accuracy * 100)}%`,
@@ -257,7 +257,7 @@ export function MockResult() {
                   }}
                 />
               </div>
-              <div style={{ marginTop: 6, fontSize: 11, color: "var(--text-muted)" }}>
+              <div style={{ marginTop: 6, fontSize: 11, color: "var(--ink-3)" }}>
                 {s.wrong} wrong · {s.unanswered} skipped
               </div>
             </div>
@@ -292,10 +292,10 @@ const statTile = (tone: string): React.CSSProperties => ({
 const statValue: React.CSSProperties = {
   fontSize: 22,
   fontWeight: 700,
-  color: "var(--text-primary)",
+  color: "var(--ink)",
 };
 const statLabel: React.CSSProperties = {
   fontSize: 11,
-  color: "var(--text-muted)",
+  color: "var(--ink-3)",
   marginTop: 2,
 };

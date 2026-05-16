@@ -109,9 +109,9 @@ export function Doubts() {
             style={{
               padding: "6px 12px",
               borderRadius: 999,
-              border: `1px solid ${filter === f ? "var(--color-blue)" : "var(--border-default)"}`,
-              background: filter === f ? "var(--color-blue)" : "transparent",
-              color: filter === f ? "#fff" : "var(--text-primary)",
+              border: `1px solid ${filter === f ? "var(--info)" : "var(--rule)"}`,
+              background: filter === f ? "var(--info)" : "transparent",
+              color: filter === f ? "#fff" : "var(--ink)",
               fontSize: 12,
               fontWeight: 600,
               cursor: "pointer",
@@ -135,8 +135,8 @@ export function Doubts() {
       {composing ? (
         <div
           style={{
-            background: "var(--bg-surface-1)",
-            border: "1px solid var(--border-default)",
+            background: "var(--card-1)",
+            border: "1px solid var(--rule)",
             borderRadius: 12,
             padding: "var(--sp-4)",
             marginBottom: "var(--sp-3)",
@@ -149,10 +149,10 @@ export function Doubts() {
             placeholder="What's the question? Add context — formula, attempt, where you got stuck."
             style={{
               width: "100%",
-              background: "var(--bg-surface-2)",
-              border: "1px solid var(--border-default)",
+              background: "var(--card-2)",
+              border: "1px solid var(--rule)",
               borderRadius: 8,
-              color: "var(--text-primary)",
+              color: "var(--ink)",
               padding: 10,
               fontSize: 14,
               fontFamily: "inherit",
@@ -167,7 +167,7 @@ export function Doubts() {
               marginTop: 8,
             }}
           >
-            <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
+            <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
               {draft.length}/4000 · 4 char minimum
             </span>
             <button
@@ -189,16 +189,16 @@ export function Doubts() {
           style={{
             padding: "var(--sp-5)",
             textAlign: "center",
-            color: "var(--text-muted)",
-            border: "1px dashed var(--border-default)",
+            color: "var(--ink-3)",
+            border: "1px dashed var(--rule)",
             borderRadius: 12,
-            background: "var(--bg-surface-1)",
+            background: "var(--card-1)",
           }}
         >
           {items && items.length === 0 ? (
             <>
               <div style={{ fontSize: 36, marginBottom: 8 }}>💬</div>
-              <div style={{ color: "var(--text-primary)", fontWeight: 600, marginBottom: 6 }}>
+              <div style={{ color: "var(--ink)", fontWeight: 600, marginBottom: 6 }}>
                 No doubts yet
               </div>
               <div style={{ fontSize: 13, lineHeight: 1.5 }}>
@@ -227,8 +227,8 @@ export function Doubts() {
                 to={`/doubts/${d.id}`}
                 style={{
                   display: "block",
-                  background: "var(--bg-surface-1)",
-                  border: "1px solid var(--border-default)",
+                  background: "var(--card-1)",
+                  border: "1px solid var(--rule)",
                   borderRadius: 12,
                   padding: "var(--sp-3)",
                   textDecoration: "none",
@@ -246,13 +246,13 @@ export function Doubts() {
                   <Pill tone={statusTone(d.status)}>{d.status}</Pill>
                   {d.topicTitle ? <Pill tone="info">◈ {d.topicTitle}</Pill> : null}
                   <span style={{ flex: 1 }} />
-                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                  <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
                     {relative(d.lastActivityAt)}
                   </span>
                 </div>
                 <div
                   style={{
-                    color: "var(--text-primary)",
+                    color: "var(--ink)",
                     fontSize: 14,
                     lineHeight: 1.45,
                     display: "-webkit-box",
@@ -267,7 +267,7 @@ export function Doubts() {
                   style={{
                     marginTop: 6,
                     fontSize: 12,
-                    color: "var(--text-muted)",
+                    color: "var(--ink-3)",
                   }}
                 >
                   {d.answerCount} answer{d.answerCount === 1 ? "" : "s"}

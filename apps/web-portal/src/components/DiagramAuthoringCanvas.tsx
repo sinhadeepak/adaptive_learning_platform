@@ -229,7 +229,7 @@ export function DiagramAuthoringCanvas({
             display: "flex",
             gap: 8,
             padding: 8,
-            background: "var(--bg-subtle, #f8f9fc)",
+            background: "var(--paper-2, #f8f9fc)",
             borderRadius: 6,
             alignItems: "center",
             flexWrap: "wrap",
@@ -250,7 +250,7 @@ export function DiagramAuthoringCanvas({
             onClick={() => fileInputRef.current?.click()}
             style={{
               padding: "6px 12px",
-              background: "var(--color-blue, #4f87f6)",
+              background: "var(--info, #4f87f6)",
               color: "white",
               border: "none",
               borderRadius: 4,
@@ -272,9 +272,9 @@ export function DiagramAuthoringCanvas({
               }}
               style={{
                 padding: "6px 12px",
-                background: tool === t ? "var(--color-blue, #4f87f6)" : "white",
+                background: tool === t ? "var(--info, #4f87f6)" : "white",
                 color: tool === t ? "white" : "inherit",
-                border: "1px solid var(--border, #e1e5ee)",
+                border: "1px solid var(--rule, #e1e5ee)",
                 borderRadius: 4,
                 cursor: "pointer",
                 fontSize: 13,
@@ -292,7 +292,7 @@ export function DiagramAuthoringCanvas({
                 onClick={closePolygon}
                 style={{
                   padding: "6px 12px",
-                  background: "var(--color-green, #10c47a)",
+                  background: "var(--good, #10c47a)",
                   color: "white",
                   border: "none",
                   borderRadius: 4,
@@ -309,7 +309,7 @@ export function DiagramAuthoringCanvas({
               onClick={deleteSelected}
               style={{
                 padding: "6px 12px",
-                background: "var(--color-red, #f43f5e)",
+                background: "var(--bad, #f43f5e)",
                 color: "white",
                 border: "none",
                 borderRadius: 4,
@@ -326,8 +326,8 @@ export function DiagramAuthoringCanvas({
         <div
           style={{
             padding: 8,
-            background: "var(--color-red-bg, #fee)",
-            color: "var(--color-red, #f43f5e)",
+            background: "var(--bad-soft, #fee)",
+            color: "var(--bad, #f43f5e)",
             borderRadius: 4,
             fontSize: 13,
           }}
@@ -347,7 +347,7 @@ export function DiagramAuthoringCanvas({
           height,
           position: "relative",
           background: imageUrl ? "transparent" : "#f0f2f6",
-          border: "1px solid var(--border, #e1e5ee)",
+          border: "1px solid var(--rule, #e1e5ee)",
           borderRadius: 6,
           overflow: "hidden",
           cursor: preview ? "default" : tool === "select" ? "default" : "crosshair",
@@ -400,7 +400,7 @@ export function DiagramAuthoringCanvas({
                   ? "rgba(79, 135, 246, 0.3)"
                   : "rgba(79, 135, 246, 0.18)";
               const stroke =
-                s.id === selectedShapeId ? "var(--color-blue, #4f87f6)" : "#4f87f6";
+                s.id === selectedShapeId ? "var(--info, #4f87f6)" : "#4f87f6";
               const strokeWidth = Math.max(1, naturalSize!.w / 250);
               if (s.kind === "circle") {
                 return (
@@ -512,7 +512,7 @@ export function DiagramAuthoringCanvas({
                   cx={m.x}
                   cy={m.y}
                   r={Math.max(6, naturalSize!.w / 120)}
-                  fill="var(--color-amber, #f59e0b)"
+                  fill="var(--warn, #f59e0b)"
                   stroke="white"
                   strokeWidth={Math.max(1, naturalSize!.w / 200)}
                 />

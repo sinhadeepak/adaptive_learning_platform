@@ -75,7 +75,7 @@ export function DailyPlanCard({ examId }: Props) {
     return (
       <section style={{ ...cardStyle, opacity: 0.6 }}>
         <div style={eyebrow}>◈ TODAY'S PLAN</div>
-        <p style={{ marginTop: 8, color: "var(--text-secondary, #B8C5E0)", fontSize: 13 }}>
+        <p style={{ marginTop: 8, color: "var(--ink-2, #B8C5E0)", fontSize: 13 }}>
           {error}. Try refreshing.
         </p>
       </section>
@@ -86,8 +86,8 @@ export function DailyPlanCard({ examId }: Props) {
     return (
       <section style={cardStyle}>
         <div style={eyebrow}>◈ TODAY'S PLAN</div>
-        <div style={{ marginTop: 12, height: 16, width: "60%", background: "var(--surface-elev1)", borderRadius: 4 }} />
-        <div style={{ marginTop: 8, height: 12, width: "40%", background: "var(--surface-elev1)", borderRadius: 4 }} />
+        <div style={{ marginTop: 12, height: 16, width: "60%", background: "var(--card)", borderRadius: 4 }} />
+        <div style={{ marginTop: 8, height: 12, width: "40%", background: "var(--card)", borderRadius: 4 }} />
       </section>
     );
   }
@@ -154,7 +154,7 @@ export function DailyPlanCard({ examId }: Props) {
                 <div style={whyPanelStyle}>
                   <ul style={{ margin: 0, paddingLeft: 16 }}>
                     {ax.rationale.map((r, j) => (
-                      <li key={j} style={{ fontSize: 12, color: "var(--text-secondary, #B8C5E0)" }}>{r}</li>
+                      <li key={j} style={{ fontSize: 12, color: "var(--ink-2, #B8C5E0)" }}>{r}</li>
                     ))}
                   </ul>
                   <button
@@ -229,11 +229,11 @@ const cardStyle: React.CSSProperties = {
 
 const eyebrow: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase",
-  color: "var(--color-ai, #22D4EE)",
+  color: "var(--gold, #22D4EE)",
 };
 
 const budgetStyle: React.CSSProperties = {
-  fontSize: 11, color: "var(--text-faint, #7A8BAD)",
+  fontSize: 11, color: "var(--ink-4, #7A8BAD)",
   fontFamily: "var(--font-mono, monospace)",
 };
 
@@ -241,51 +241,51 @@ const bannerStyle: React.CSSProperties = {
   marginTop: 10, padding: "8px 12px",
   background: "rgba(34,212,238,0.10)",
   borderRadius: 6, fontSize: 12,
-  color: "var(--text-secondary, #B8C5E0)",
+  color: "var(--ink-2, #B8C5E0)",
   display: "flex", justifyContent: "space-between", alignItems: "center",
 };
 
 const bannerBtnStyle: React.CSSProperties = {
   border: 0, background: "transparent", cursor: "pointer",
-  color: "var(--color-ai, #22D4EE)", fontSize: 12, fontWeight: 600,
+  color: "var(--gold, #22D4EE)", fontSize: 12, fontWeight: 600,
 };
 
 const itemStyle: React.CSSProperties = {
   padding: 12,
-  borderTop: "1px solid var(--surface-elev1, rgba(255,255,255,0.04))",
+  borderTop: "1px solid var(--card, rgba(255,255,255,0.04))",
 };
 
 const topItemStyle: React.CSSProperties = {
   ...itemStyle,
   borderTop: "none",
-  background: "var(--surface-elev2, rgba(255,255,255,0.02))",
+  background: "var(--card, rgba(255,255,255,0.02))",
   borderRadius: 6,
 };
 
 const titleStyle: React.CSSProperties = {
   fontSize: 14, fontWeight: 600,
-  color: "var(--text-primary, #EEF2FF)",
+  color: "var(--ink, #EEF2FF)",
 };
 
 const metaStyle: React.CSSProperties = {
   fontSize: 11, marginTop: 2,
-  color: "var(--text-faint, #7A8BAD)",
+  color: "var(--ink-4, #7A8BAD)",
   fontFamily: "var(--font-mono, monospace)",
 };
 
 const whyBtnStyle: React.CSSProperties = {
   border: 0, background: "transparent", cursor: "pointer",
-  color: "var(--color-ai, #22D4EE)", fontSize: 11, padding: 0,
+  color: "var(--gold, #22D4EE)", fontSize: 11, padding: 0,
 };
 
 const whyPanelStyle: React.CSSProperties = {
   marginTop: 10, padding: 10,
-  background: "var(--surface-elev2, rgba(255,255,255,0.02))",
-  borderLeft: "2px solid var(--color-ai, #22D4EE)",
+  background: "var(--card, rgba(255,255,255,0.02))",
+  borderLeft: "2px solid var(--gold, #22D4EE)",
   borderRadius: 4,
 };
 
 const skipBtnStyle: React.CSSProperties = {
   marginTop: 8, border: 0, background: "transparent", cursor: "pointer",
-  color: "var(--text-faint, #7A8BAD)", fontSize: 11, padding: 0, textDecoration: "underline",
+  color: "var(--ink-4, #7A8BAD)", fontSize: 11, padding: 0, textDecoration: "underline",
 };

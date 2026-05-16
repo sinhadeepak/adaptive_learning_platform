@@ -51,14 +51,14 @@ export function LeaderboardOptIn() {
       className="card"
       style={{
         padding: 16,
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border-default)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 12,
         marginTop: 16,
       }}
     >
       <h3 style={{ marginTop: 0, fontSize: 14 }}>National mock leaderboard</h3>
-      <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+      <p style={{ fontSize: 12, color: "var(--ink-3)" }}>
         Opt in to be ranked against students across India on submitted mocks.
         Your name shows as a redacted handle unless you set a public display name.
       </p>
@@ -81,9 +81,9 @@ export function LeaderboardOptIn() {
             flex: 1,
             minWidth: 200,
             padding: 8,
-            background: "var(--bg-surface)",
-            border: "1px solid var(--border-default)",
-            color: "var(--text-primary)",
+            background: "var(--card)",
+            border: "1px solid var(--rule)",
+            color: "var(--ink)",
             borderRadius: 6,
             opacity: optIn ? 1 : 0.5,
           }}
@@ -91,7 +91,7 @@ export function LeaderboardOptIn() {
         <button type="button" className="btn btn-primary" onClick={save}>
           Save
         </button>
-        {saved && <span style={{ color: "var(--color-green)", fontSize: 12 }}>✓ saved</span>}
+        {saved && <span style={{ color: "var(--good)", fontSize: 12 }}>✓ saved</span>}
       </div>
     </section>
   );

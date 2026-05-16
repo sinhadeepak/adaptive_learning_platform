@@ -95,7 +95,7 @@ const COLS: Record<ColKey, ColDef> = {
         style={{
           background: "transparent",
           border: 0,
-          color: "var(--text-primary)",
+          color: "var(--ink)",
           cursor: "pointer",
           fontSize: 13,
           padding: 0,
@@ -117,7 +117,7 @@ const COLS: Record<ColKey, ColDef> = {
     sortable: true,
     sortBy: (q) => q.questionType ?? "MCQ_SINGLE",
     render: (q) => (
-      <code style={{ fontSize: 11, color: "var(--color-ai)" }}>
+      <code style={{ fontSize: 11, color: "var(--gold)" }}>
         {q.questionType ?? "MCQ_SINGLE"}
       </code>
     ),
@@ -130,7 +130,7 @@ const COLS: Record<ColKey, ColDef> = {
     sortable: true,
     sortBy: (q) => q.language,
     render: (q) => (
-      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+      <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
         {q.language.toUpperCase()}
       </span>
     ),
@@ -147,7 +147,7 @@ const COLS: Record<ColKey, ColDef> = {
         style={{
           fontSize: 11,
           fontVariantNumeric: "tabular-nums",
-          color: "var(--text-secondary)",
+          color: "var(--ink-2)",
         }}
       >
         {q.difficultyB.toFixed(2)}
@@ -162,7 +162,7 @@ const COLS: Record<ColKey, ColDef> = {
     sortable: true,
     sortBy: (q) => q.createdBy,
     render: (q) => (
-      <code style={{ fontSize: 11, color: "var(--text-muted)" }}>
+      <code style={{ fontSize: 11, color: "var(--ink-3)" }}>
         {q.createdBy.slice(0, 8)}…
       </code>
     ),
@@ -530,11 +530,11 @@ export function ReviewQueue() {
               gap: 12,
               padding: "8px 14px",
               background: "rgba(16,196,122,0.10)",
-              border: "1px solid var(--color-green)",
+              border: "1px solid var(--good)",
               borderRadius: 8,
             }}
           >
-            <strong style={{ fontSize: 13, color: "var(--color-green)" }}>
+            <strong style={{ fontSize: 13, color: "var(--good)" }}>
               {selected.size} selected
             </strong>
             <button
@@ -556,7 +556,7 @@ export function ReviewQueue() {
             >
               Clear selection
             </button>
-            <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-muted)" }}>
+            <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-3)" }}>
               Bulk approve runs 5 at a time. Per-row failures are silent — the row
               stays in the list.
             </span>
@@ -667,13 +667,13 @@ function Toolbar({
         gap: 10,
         flexWrap: "wrap",
         padding: "10px 14px",
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 10,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 220px" }}>
-        <span aria-hidden style={{ fontSize: 14, color: "var(--text-muted)" }}>⌕</span>
+        <span aria-hidden style={{ fontSize: 14, color: "var(--ink-3)" }}>⌕</span>
         <input
           type="search"
           value={searchInput}
@@ -684,7 +684,7 @@ function Toolbar({
             background: "transparent",
             border: 0,
             outline: 0,
-            color: "var(--text-primary)",
+            color: "var(--ink)",
             fontSize: 13,
             padding: "4px 0",
           }}
@@ -750,7 +750,7 @@ function Toolbar({
         </button>
       )}
 
-      <span style={{ color: "var(--text-muted)", fontSize: 11 }}>
+      <span style={{ color: "var(--ink-3)", fontSize: 11 }}>
         {shown} of {total} on this page
       </span>
 
@@ -760,8 +760,8 @@ function Toolbar({
         title="Reset column order, widths, and sort"
         style={{
           background: "transparent",
-          color: "var(--text-muted)",
-          border: "1px solid var(--border)",
+          color: "var(--ink-3)",
+          border: "1px solid var(--rule)",
           padding: "4px 10px",
           borderRadius: 6,
           cursor: "pointer",
@@ -850,15 +850,15 @@ function DataTable({
   return (
     <div
       style={{
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 10,
         overflow: "auto",
       }}
     >
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
         <thead>
-          <tr style={{ background: "var(--bg-surface2)" }}>
+          <tr style={{ background: "var(--card)" }}>
             {order.map((k) => {
               const def = COLS[k];
               const w = widths[k] ?? def.defaultWidth;
@@ -877,7 +877,7 @@ function DataTable({
                     textAlign: "left",
                     fontSize: 11,
                     fontWeight: 600,
-                    color: "var(--text-muted)",
+                    color: "var(--ink-3)",
                     textTransform: "uppercase",
                     letterSpacing: 0.4,
                     cursor: def.sortable ? "pointer" : "default",
@@ -902,7 +902,7 @@ function DataTable({
                     <>
                       {def.label}
                       {isSort && (
-                        <span style={{ marginLeft: 4, color: "var(--text-primary)" }}>
+                        <span style={{ marginLeft: 4, color: "var(--ink)" }}>
                           {sortDir === "asc" ? "↑" : "↓"}
                         </span>
                       )}
@@ -939,7 +939,7 @@ function DataTable({
               <tr
                 key={q.id}
                 style={{
-                  borderTop: "1px solid var(--border)",
+                  borderTop: "1px solid var(--rule)",
                   background: isSelected ? "rgba(79,135,246,0.08)" : "transparent",
                 }}
               >
@@ -996,13 +996,13 @@ function Pagination({
         flexWrap: "wrap",
         marginTop: 4,
         fontSize: 12,
-        color: "var(--text-muted)",
+        color: "var(--ink-3)",
       }}
     >
       <span>
-        Page <strong style={{ color: "var(--text-primary)" }}>{page + 1}</strong> of{" "}
-        <strong style={{ color: "var(--text-primary)" }}>{totalPages}</strong>
-        <span style={{ marginLeft: 8, color: "var(--text-faint)" }}>
+        Page <strong style={{ color: "var(--ink)" }}>{page + 1}</strong> of{" "}
+        <strong style={{ color: "var(--ink)" }}>{totalPages}</strong>
+        <span style={{ marginLeft: 8, color: "var(--ink-4)" }}>
           · {page * pageSize + 1}–{Math.min(total, (page + 1) * pageSize)} of {total}
         </span>
       </span>
@@ -1058,9 +1058,9 @@ function PageBtn({
       onClick={onClick}
       disabled={disabled}
       style={{
-        background: "var(--bg-surface2)",
-        color: disabled ? "var(--text-faint)" : "var(--text-primary)",
-        border: "1px solid var(--border)",
+        background: "var(--card)",
+        color: disabled ? "var(--ink-4)" : "var(--ink)",
+        border: "1px solid var(--rule)",
         padding: "4px 10px",
         borderRadius: 4,
         cursor: disabled ? "not-allowed" : "pointer",
@@ -1120,8 +1120,8 @@ function DetailModal({
           width: "min(900px, 100%)",
           maxHeight: "90vh",
           overflow: "auto",
-          background: "var(--bg-surface1)",
-          border: "1px solid var(--border-strong)",
+          background: "var(--paper-2)",
+          border: "1px solid var(--rule-2)",
           borderRadius: 12,
           padding: 20,
         }}
@@ -1141,7 +1141,7 @@ function DetailModal({
             style={{
               background: "transparent",
               border: 0,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               cursor: "pointer",
               fontSize: 18,
             }}
@@ -1151,7 +1151,7 @@ function DetailModal({
           </button>
         </div>
 
-        <h2 style={{ fontSize: 16, marginBottom: 14, color: "var(--text-primary)" }}>
+        <h2 style={{ fontSize: 16, marginBottom: 14, color: "var(--ink)" }}>
           {question.stem}
         </h2>
 
@@ -1165,11 +1165,11 @@ function DetailModal({
                 background:
                   i === question.correctIdx
                     ? "rgba(16,196,122,0.12)"
-                    : "var(--bg-surface2)",
+                    : "var(--card)",
                 border: `1px solid ${
                   i === question.correctIdx
-                    ? "var(--color-green)"
-                    : "var(--border)"
+                    ? "var(--good)"
+                    : "var(--rule)"
                 }`,
                 borderRadius: 6,
                 display: "flex",
@@ -1181,7 +1181,7 @@ function DetailModal({
               <strong style={{ minWidth: 24 }}>{String.fromCharCode(65 + i)}.</strong>
               <span style={{ flex: 1 }}>{c}</span>
               {i === question.correctIdx && (
-                <span style={{ color: "var(--color-green)", fontSize: 11, fontWeight: 600 }}>
+                <span style={{ color: "var(--good)", fontSize: 11, fontWeight: 600 }}>
                   ✓ correct
                 </span>
               )}
@@ -1193,15 +1193,15 @@ function DetailModal({
           <div
             style={{
               padding: 10,
-              background: "var(--bg-surface3)",
+              background: "var(--paper-2)",
               borderRadius: 6,
               fontSize: 12,
-              color: "var(--text-secondary)",
+              color: "var(--ink-2)",
               lineHeight: 1.5,
               marginBottom: 14,
             }}
           >
-            <strong style={{ color: "var(--text-primary)" }}>Explanation:</strong>{" "}
+            <strong style={{ color: "var(--ink)" }}>Explanation:</strong>{" "}
             {question.explanation}
           </div>
         )}
@@ -1209,7 +1209,7 @@ function DetailModal({
         <div
           style={{
             fontSize: 11,
-            color: "var(--text-muted)",
+            color: "var(--ink-3)",
             marginBottom: 12,
             display: "flex",
             gap: 12,
@@ -1233,9 +1233,9 @@ function DetailModal({
           style={{
             width: "100%",
             padding: 10,
-            background: "var(--bg-surface3)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border-strong)",
+            background: "var(--paper-2)",
+            color: "var(--ink)",
+            border: "1px solid var(--rule-2)",
             borderRadius: 6,
             fontSize: 13,
             fontFamily: "inherit",
@@ -1280,9 +1280,9 @@ function DetailModal({
 
 const selectStyle: CSSProperties = {
   padding: "4px 10px",
-  background: "var(--bg-surface3)",
-  color: "var(--text-primary)",
-  border: "1px solid var(--border-strong)",
+  background: "var(--paper-2)",
+  color: "var(--ink)",
+  border: "1px solid var(--rule-2)",
   borderRadius: 6,
   fontSize: 12,
   cursor: "pointer",

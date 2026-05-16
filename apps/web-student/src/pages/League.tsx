@@ -69,8 +69,8 @@ export function League() {
           <section
             style={{
               padding: 24,
-              background: "var(--bg-surface1)",
-              border: "1px solid var(--border-default)",
+              background: "var(--paper-2)",
+              border: "1px solid var(--rule)",
               borderRadius: 12,
               marginBottom: 24,
             }}
@@ -93,13 +93,13 @@ export function League() {
                 {status.current_level}
               </div>
               <div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "uppercase" }}>
+                <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase" }}>
                   {status.current_league} League
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 700 }}>
                   Level {status.current_level}
                 </div>
-                <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
                   {status.total_xp} XP total · {status.weekly_xp} this week
                 </div>
               </div>
@@ -107,7 +107,7 @@ export function League() {
             <div
               style={{
                 height: 8,
-                background: "var(--bg-surface)",
+                background: "var(--card)",
                 borderRadius: 4,
                 overflow: "hidden",
               }}
@@ -116,11 +116,11 @@ export function League() {
                 style={{
                   width: `${Math.min(100, (status.total_xp / Math.max(1, status.next_level_xp)) * 100)}%`,
                   height: "100%",
-                  background: "var(--color-ai)",
+                  background: "var(--gold)",
                 }}
               />
             </div>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>
               {status.total_xp} / {status.next_level_xp} XP to next level
             </div>
           </section>
@@ -128,7 +128,7 @@ export function League() {
 
         <h2 style={{ marginTop: 0 }}>League standings — this week</h2>
         {standings.length === 0 ? (
-          <p style={{ color: "var(--text-muted)" }}>
+          <p style={{ color: "var(--ink-3)" }}>
             No standings yet — earn XP from quizzes, flashcards, and streaks to enter the leaderboard.
           </p>
         ) : (
@@ -142,8 +142,8 @@ export function League() {
                   gap: 12,
                   padding: 12,
                   background:
-                    user?.id === s.userId ? "var(--color-ai-soft, rgba(167,139,250,0.15))" : "var(--bg-surface1)",
-                  border: "1px solid var(--border-default)",
+                    user?.id === s.userId ? "var(--gold-soft, rgba(167,139,250,0.15))" : "var(--paper-2)",
+                  border: "1px solid var(--rule)",
                   borderRadius: 8,
                   marginBottom: 6,
                 }}
@@ -153,12 +153,12 @@ export function League() {
                     width: 32,
                     height: 32,
                     borderRadius: "50%",
-                    background: s.rank <= 3 ? COLORS[status?.current_league ?? "BRONZE"] : "var(--bg-surface)",
+                    background: s.rank <= 3 ? COLORS[status?.current_league ?? "BRONZE"] : "var(--card)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontWeight: 700,
-                    color: s.rank <= 3 ? "#000" : "var(--text-primary)",
+                    color: s.rank <= 3 ? "#000" : "var(--ink)",
                   }}
                 >
                   {s.rank}
@@ -166,12 +166,12 @@ export function League() {
                 <div style={{ flex: 1 }}>
                   <code style={{ fontSize: 13 }}>{s.userId.slice(0, 8)}</code>
                   {user?.id === s.userId && (
-                    <span style={{ marginLeft: 8, color: "var(--color-ai)", fontSize: 11 }}>
+                    <span style={{ marginLeft: 8, color: "var(--gold)", fontSize: 11 }}>
                       (you)
                     </span>
                   )}
                 </div>
-                <div style={{ fontWeight: 700, color: "var(--color-ai)" }}>
+                <div style={{ fontWeight: 700, color: "var(--gold)" }}>
                   {s.weeklyXp} XP
                 </div>
               </li>
@@ -179,7 +179,7 @@ export function League() {
           </ul>
         )}
 
-        <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 16 }}>
+        <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 16 }}>
           Top 10% promote to {LEAGUES[Math.min(4, LEAGUES.indexOf(status?.current_league ?? "BRONZE") + 1)]} ·
           bottom 20% drop to {LEAGUES[Math.max(0, LEAGUES.indexOf(status?.current_league ?? "BRONZE") - 1)]}.
         </p>
@@ -218,11 +218,11 @@ export function XPHeader() {
         alignItems: "center",
         gap: 8,
         padding: "6px 12px",
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border-default)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 999,
         textDecoration: "none",
-        color: "var(--text-primary)",
+        color: "var(--ink)",
         fontSize: 12,
       }}
       title={`${status.total_xp} XP total · ${status.weekly_xp} this week`}
@@ -243,7 +243,7 @@ export function XPHeader() {
         {status.current_level}
       </span>
       <span style={{ fontWeight: 700 }}>{status.weekly_xp} XP</span>
-      <span style={{ color: "var(--text-muted)" }}>{status.current_league}</span>
+      <span style={{ color: "var(--ink-3)" }}>{status.current_league}</span>
     </a>
   );
 }

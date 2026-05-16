@@ -129,7 +129,7 @@ export function Profile() {
               height: 90,
               borderRadius: "50%",
               background:
-                "linear-gradient(135deg, var(--color-red), var(--color-amber))",
+                "linear-gradient(135deg, var(--bad), var(--warn))",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -154,10 +154,10 @@ export function Profile() {
             className="topic-stat-num"
             style={{
               color: isPlatform
-                ? "var(--color-red)"
+                ? "var(--bad)"
                 : user.adminAccessLevel === "INSTITUTION"
-                  ? "var(--color-amber)"
-                  : "var(--text-muted)",
+                  ? "var(--warn)"
+                  : "var(--ink-3)",
             }}
           >
             {user.adminAccessLevel ?? "NONE"}
@@ -168,14 +168,14 @@ export function Profile() {
           </div>
         </div>
         <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-blue)" }}>
+          <div className="topic-stat-num" style={{ color: "var(--info)" }}>
             {user.role ?? "—"}
           </div>
           <div className="topic-stat-lbl">Role</div>
           <div className="topic-stat-foot">access tier</div>
         </div>
         <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-green)" }}>
+          <div className="topic-stat-num" style={{ color: "var(--good)" }}>
             {user.emailVerifiedAt ? "✓" : "—"}
           </div>
           <div className="topic-stat-lbl">Email verified</div>
@@ -186,7 +186,7 @@ export function Profile() {
           </div>
         </div>
         <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-ai)" }}>
+          <div className="topic-stat-num" style={{ color: "var(--gold)" }}>
             {user.createdAt
               ? Math.max(
                   0,
@@ -265,7 +265,7 @@ export function Profile() {
           <p
             style={{
               fontSize: 11,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               marginTop: "var(--sp-3)",
             }}
           >

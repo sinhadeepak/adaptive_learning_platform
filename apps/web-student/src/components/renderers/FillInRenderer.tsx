@@ -95,7 +95,7 @@ export const FillBlankSingleRenderer: Renderer<FillBlankSinglePayload, FillBlank
                   borderTop: "none",
                   borderLeft: "none",
                   borderRight: "none",
-                  borderBottom: "2px solid var(--color-blue, #4f87f6)",
+                  borderBottom: "2px solid var(--info, #4f87f6)",
                   background: "transparent",
                   fontSize: "inherit",
                   fontFamily: "inherit",
@@ -117,7 +117,7 @@ export const FillBlankSingleRenderer: Renderer<FillBlankSinglePayload, FillBlank
               display: "block",
               fontSize: 12,
               fontWeight: 600,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               marginBottom: 6,
             }}
             htmlFor="fb-single-fallback"
@@ -139,11 +139,11 @@ export const FillBlankSingleRenderer: Renderer<FillBlankSinglePayload, FillBlank
               width: "100%",
               maxWidth: 480,
               padding: "8px 12px",
-              border: "1px solid var(--border)",
+              border: "1px solid var(--rule)",
               borderRadius: 6,
-              background: "var(--bg-surface3)",
+              background: "var(--paper-2)",
               fontSize: 14,
-              color: "var(--text-primary)",
+              color: "var(--ink)",
             }}
           />
         </div>
@@ -232,7 +232,7 @@ export const FillBlankMultiRenderer: Renderer<FillBlankMultiPayload, FillBlankMu
                   borderTop: "none",
                   borderLeft: "none",
                   borderRight: "none",
-                  borderBottom: "2px solid var(--color-blue, #4f87f6)",
+                  borderBottom: "2px solid var(--info, #4f87f6)",
                   background: "transparent",
                   fontSize: "inherit",
                   fontFamily: "inherit",
@@ -246,7 +246,7 @@ export const FillBlankMultiRenderer: Renderer<FillBlankMultiPayload, FillBlankMu
       </p>
       {!finalHasBlank && (
         <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-3)" }}>
             Your answers
           </span>
           {(payload.accepted ?? [["b0"]]).map((_, i) => {
@@ -262,11 +262,11 @@ export const FillBlankMultiRenderer: Renderer<FillBlankMultiPayload, FillBlankMu
                 style={{
                   maxWidth: 360,
                   padding: "6px 10px",
-                  border: "1px solid var(--border)",
+                  border: "1px solid var(--rule)",
                   borderRadius: 6,
-                  background: "var(--bg-surface3)",
+                  background: "var(--paper-2)",
                   fontSize: 13,
-                  color: "var(--text-primary)",
+                  color: "var(--ink)",
                 }}
               />
             );
@@ -303,7 +303,7 @@ export const ClozePassageRenderer: Renderer<ClozePassagePayload, FillBlankMultiR
           style={{
             padding: 12,
             marginBottom: 16,
-            background: "var(--bg-subtle, #f8f9fc)",
+            background: "var(--paper-2, #f8f9fc)",
             borderRadius: 6,
           }}
         >
@@ -368,7 +368,7 @@ export const ShortTextRenderer: Renderer<ShortTextPayload, ShortTextResponse> = 
         style={{
           width: "100%",
           padding: 12,
-          border: "1px solid var(--border, #e1e5ee)",
+          border: "1px solid var(--rule, #e1e5ee)",
           borderRadius: 4,
           fontSize: 14,
           fontFamily: "inherit",

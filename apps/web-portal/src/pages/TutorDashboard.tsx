@@ -150,14 +150,14 @@ export function TutorDashboard() {
         <div className="pg-stat-strip">
           <div className="pg-stat">
             <div className="pg-stat-label">Hourly rate</div>
-            <div className="pg-stat-value" style={{ color: "var(--color-green)" }}>
+            <div className="pg-stat-value" style={{ color: "var(--good)" }}>
               ₹{(profile.hourlyRatePaise / 100).toLocaleString("en-IN")}
             </div>
             <div className="pg-stat-delta">per session hour</div>
           </div>
           <div className="pg-stat">
             <div className="pg-stat-label">Topics taught</div>
-            <div className="pg-stat-value" style={{ color: "var(--color-blue)" }}>
+            <div className="pg-stat-value" style={{ color: "var(--info)" }}>
               {profile.topicIds.length}
             </div>
             <div className="pg-stat-delta">
@@ -166,14 +166,14 @@ export function TutorDashboard() {
           </div>
           <div className="pg-stat">
             <div className="pg-stat-label">Availability windows</div>
-            <div className="pg-stat-value" style={{ color: "var(--color-purple)" }}>
+            <div className="pg-stat-value" style={{ color: "var(--accent)" }}>
               {profile.availability.length}
             </div>
             <div className="pg-stat-delta">weekly slots</div>
           </div>
           <div className="pg-stat">
             <div className="pg-stat-label">Qualifications</div>
-            <div className="pg-stat-value" style={{ color: "var(--color-ai)" }}>
+            <div className="pg-stat-value" style={{ color: "var(--gold)" }}>
               {profile.qualifications.length}
             </div>
             <div className="pg-stat-delta">verified credentials</div>
@@ -189,7 +189,7 @@ export function TutorDashboard() {
           <p
             style={{
               fontSize: 13,
-              color: "var(--text-secondary)",
+              color: "var(--ink-2)",
               lineHeight: 1.6,
               margin: "0 0 14px",
             }}
@@ -235,7 +235,7 @@ export function TutorDashboard() {
             )}
           </div>
           {status === "KYC_PENDING" && (
-            <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 10 }}>
+            <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 10 }}>
               P3-S2 replaces these stub buttons with the real Stripe Identity iframe.
             </p>
           )}

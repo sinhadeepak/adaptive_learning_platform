@@ -111,9 +111,9 @@ export function TranslationsList() {
             flex: "1 1 320px",
             minWidth: 240,
             padding: "6px 10px",
-            background: "var(--bg-surface3)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
+            background: "var(--paper-2)",
+            color: "var(--ink)",
+            border: "1px solid var(--rule)",
             borderRadius: 4,
             fontSize: 13,
           }}
@@ -126,9 +126,9 @@ export function TranslationsList() {
           }}
           style={{
             padding: "6px 10px",
-            background: "var(--bg-surface3)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
+            background: "var(--paper-2)",
+            color: "var(--ink)",
+            border: "1px solid var(--rule)",
             borderRadius: 4,
             fontSize: 13,
           }}
@@ -150,9 +150,9 @@ export function TranslationsList() {
           onClick={applySearch}
           style={{
             padding: "6px 16px",
-            background: "var(--color-blue)",
+            background: "var(--info)",
             color: "white",
-            border: "1px solid var(--border)",
+            border: "1px solid var(--rule)",
             borderRadius: 4,
             cursor: "pointer",
             fontWeight: 600,
@@ -166,8 +166,8 @@ export function TranslationsList() {
 
       <div
         style={{
-          background: "var(--bg-surface1)",
-          border: "1px solid var(--border)",
+          background: "var(--paper-2)",
+          border: "1px solid var(--rule)",
           borderRadius: 8,
           overflow: "hidden",
         }}
@@ -176,9 +176,9 @@ export function TranslationsList() {
           <thead>
             <tr
               style={{
-                background: "var(--bg-surface2)",
-                color: "var(--text-muted)",
-                borderBottom: "1px solid var(--border)",
+                background: "var(--card)",
+                color: "var(--ink-3)",
+                borderBottom: "1px solid var(--rule)",
                 textAlign: "left",
               }}
             >
@@ -218,7 +218,7 @@ export function TranslationsList() {
                   style={{
                     padding: 24,
                     textAlign: "center",
-                    color: "var(--text-muted)",
+                    color: "var(--ink-3)",
                   }}
                 >
                   Loading…
@@ -232,7 +232,7 @@ export function TranslationsList() {
                   style={{
                     padding: 24,
                     textAlign: "center",
-                    color: "var(--text-muted)",
+                    color: "var(--ink-3)",
                   }}
                 >
                   No questions match this filter.
@@ -243,8 +243,8 @@ export function TranslationsList() {
               <tr
                 key={q.id}
                 style={{
-                  borderBottom: "1px solid var(--border)",
-                  color: "var(--text-primary)",
+                  borderBottom: "1px solid var(--rule)",
+                  color: "var(--ink)",
                 }}
               >
                 <td style={{ padding: "10px 12px", maxWidth: 600 }}>
@@ -261,7 +261,7 @@ export function TranslationsList() {
                   <div
                     style={{
                       fontSize: 11,
-                      color: "var(--text-muted)",
+                      color: "var(--ink-3)",
                       fontFamily: "var(--font-mono, monospace)",
                       marginTop: 2,
                     }}
@@ -277,10 +277,10 @@ export function TranslationsList() {
                     {q.status}
                   </Pill>
                 </td>
-                <td style={{ padding: "10px 12px", color: "var(--text-secondary)" }}>
+                <td style={{ padding: "10px 12px", color: "var(--ink-2)" }}>
                   {q.language.toUpperCase()}
                 </td>
-                <td style={{ padding: "10px 12px", color: "var(--text-secondary)" }}>
+                <td style={{ padding: "10px 12px", color: "var(--ink-2)" }}>
                   {q.difficultyB.toFixed(1)}
                 </td>
                 <td style={{ padding: "10px 12px", textAlign: "right" }}>
@@ -289,9 +289,9 @@ export function TranslationsList() {
                     style={{
                       display: "inline-block",
                       padding: "5px 12px",
-                      background: "var(--color-blue)",
+                      background: "var(--info)",
                       color: "white",
-                      border: "1px solid var(--border)",
+                      border: "1px solid var(--rule)",
                       borderRadius: 4,
                       textDecoration: "none",
                       fontSize: 12,
@@ -314,7 +314,7 @@ export function TranslationsList() {
           alignItems: "center",
           marginTop: 12,
           fontSize: 13,
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
         }}
       >
         <span>
@@ -363,9 +363,9 @@ export function TranslationsList() {
 function pageBtnStyle(disabled: boolean): React.CSSProperties {
   return {
     padding: "4px 10px",
-    background: "var(--bg-surface2)",
-    color: disabled ? "var(--text-faint)" : "var(--text-primary)",
-    border: "1px solid var(--border)",
+    background: "var(--card)",
+    color: disabled ? "var(--ink-4)" : "var(--ink)",
+    border: "1px solid var(--rule)",
     borderRadius: 4,
     cursor: disabled ? "not-allowed" : "pointer",
     fontSize: 12,

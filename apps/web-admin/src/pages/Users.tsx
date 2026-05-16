@@ -163,9 +163,9 @@ export function Users() {
             flex: "1 1 320px",
             minWidth: 240,
             padding: "6px 10px",
-            background: "var(--bg-surface3)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
+            background: "var(--paper-2)",
+            color: "var(--ink)",
+            border: "1px solid var(--rule)",
             borderRadius: 4,
             fontSize: 13,
           }}
@@ -174,9 +174,9 @@ export function Users() {
           onClick={applySearch}
           style={{
             padding: "6px 16px",
-            background: "var(--color-blue)",
+            background: "var(--info)",
             color: "white",
-            border: "1px solid var(--border)",
+            border: "1px solid var(--rule)",
             borderRadius: 4,
             cursor: "pointer",
             fontWeight: 600,
@@ -198,7 +198,7 @@ export function Users() {
         <span
           style={{
             fontSize: 11,
-            color: "var(--text-muted)",
+            color: "var(--ink-3)",
             textTransform: "uppercase",
             letterSpacing: 0.04,
             marginRight: 4,
@@ -214,9 +214,9 @@ export function Users() {
               onClick={() => toggleRole(r.code)}
               style={{
                 padding: "4px 10px",
-                background: on ? "var(--color-blue)" : "var(--bg-surface2)",
-                color: on ? "white" : "var(--text-primary)",
-                border: "1px solid var(--border)",
+                background: on ? "var(--info)" : "var(--card)",
+                color: on ? "white" : "var(--ink)",
+                border: "1px solid var(--rule)",
                 borderRadius: 4,
                 cursor: "pointer",
                 fontSize: 12,
@@ -233,8 +233,8 @@ export function Users() {
             style={{
               padding: "4px 10px",
               background: "transparent",
-              color: "var(--text-muted)",
-              border: "1px dashed var(--border)",
+              color: "var(--ink-3)",
+              border: "1px dashed var(--rule)",
               borderRadius: 4,
               cursor: "pointer",
               fontSize: 12,
@@ -249,8 +249,8 @@ export function Users() {
 
       <div
         style={{
-          background: "var(--bg-surface1)",
-          border: "1px solid var(--border)",
+          background: "var(--paper-2)",
+          border: "1px solid var(--rule)",
           borderRadius: 8,
           overflow: "hidden",
         }}
@@ -259,9 +259,9 @@ export function Users() {
           <thead>
             <tr
               style={{
-                background: "var(--bg-surface2)",
-                color: "var(--text-muted)",
-                borderBottom: "1px solid var(--border)",
+                background: "var(--card)",
+                color: "var(--ink-3)",
+                borderBottom: "1px solid var(--rule)",
                 textAlign: "left",
               }}
             >
@@ -283,14 +283,14 @@ export function Users() {
           <tbody>
             {loading && rows.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--text-muted)" }}>
+                <td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--ink-3)" }}>
                   Loading…
                 </td>
               </tr>
             )}
             {!loading && rows.length === 0 && !error && (
               <tr>
-                <td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--text-muted)" }}>
+                <td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--ink-3)" }}>
                   No users match this filter.
                 </td>
               </tr>
@@ -299,27 +299,27 @@ export function Users() {
               <tr
                 key={u.id}
                 style={{
-                  borderBottom: "1px solid var(--border)",
-                  color: "var(--text-primary)",
+                  borderBottom: "1px solid var(--rule)",
+                  color: "var(--ink)",
                 }}
               >
                 <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono, monospace)" }}>
                   {u.email}
                 </td>
-                <td style={{ padding: "10px 12px", color: "var(--text-secondary)" }}>
-                  {u.fullName || <span style={{ color: "var(--text-faint)" }}>—</span>}
+                <td style={{ padding: "10px 12px", color: "var(--ink-2)" }}>
+                  {u.fullName || <span style={{ color: "var(--ink-4)" }}>—</span>}
                 </td>
-                <td style={{ padding: "10px 12px", color: "var(--text-secondary)" }}>
+                <td style={{ padding: "10px 12px", color: "var(--ink-2)" }}>
                   {u.institution ? (
                     u.institution.name
                   ) : (
-                    <span style={{ color: "var(--text-faint)" }}>—</span>
+                    <span style={{ color: "var(--ink-4)" }}>—</span>
                   )}
                 </td>
                 <td style={{ padding: "10px 12px" }}>
                   <Pill tone={roleTone(u.role)}>{u.role}</Pill>
                 </td>
-                <td style={{ padding: "10px 12px", color: "var(--text-secondary)" }}>
+                <td style={{ padding: "10px 12px", color: "var(--ink-2)" }}>
                   {u.adminAccessLevel}
                 </td>
                 <td style={{ padding: "10px 12px" }}>
@@ -338,7 +338,7 @@ export function Users() {
           alignItems: "center",
           marginTop: 12,
           fontSize: 13,
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
         }}
       >
         <span>
@@ -383,9 +383,9 @@ export function Users() {
 function pageBtn(disabled: boolean): React.CSSProperties {
   return {
     padding: "4px 10px",
-    background: "var(--bg-surface2)",
-    color: disabled ? "var(--text-faint)" : "var(--text-primary)",
-    border: "1px solid var(--border)",
+    background: "var(--card)",
+    color: disabled ? "var(--ink-4)" : "var(--ink)",
+    border: "1px solid var(--rule)",
     borderRadius: 4,
     cursor: disabled ? "not-allowed" : "pointer",
     fontSize: 12,

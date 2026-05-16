@@ -146,9 +146,9 @@ export function ExplainCard({
     return (
       <div style={cardStyle}>
         <div style={eyebrowMuted}>Q{itemIdx + 1} · generating teaching note…</div>
-        <div style={{ marginTop: 8, height: 12, background: "var(--surface-elev1)", borderRadius: 4 }} />
-        <div style={{ marginTop: 6, height: 12, width: "80%", background: "var(--surface-elev1)", borderRadius: 4 }} />
-        <div style={{ marginTop: 6, height: 12, width: "60%", background: "var(--surface-elev1)", borderRadius: 4 }} />
+        <div style={{ marginTop: 8, height: 12, background: "var(--card)", borderRadius: 4 }} />
+        <div style={{ marginTop: 6, height: 12, width: "80%", background: "var(--card)", borderRadius: 4 }} />
+        <div style={{ marginTop: 6, height: 12, width: "60%", background: "var(--card)", borderRadius: 4 }} />
       </div>
     );
   }
@@ -232,8 +232,8 @@ export function ExplainCard({
                         <span
                           style={{
                             color: o.is_correct
-                              ? "var(--color-green, #10C47A)"
-                              : "var(--color-red, #F43F5E)",
+                              ? "var(--good, #10C47A)"
+                              : "var(--bad, #F43F5E)",
                             fontSize: 13,
                             fontWeight: 700,
                           }}
@@ -243,7 +243,7 @@ export function ExplainCard({
                       </span>
                       <span style={optionBody}>
                         {choiceText && (
-                          <span style={{ color: "var(--text-secondary, #B8C5E0)" }}>
+                          <span style={{ color: "var(--ink-2, #B8C5E0)" }}>
                             "{choiceText}" —{" "}
                           </span>
                         )}
@@ -280,9 +280,9 @@ export function ExplainCard({
                     ...paragraphText,
                     marginTop: 8,
                     padding: "12px 14px",
-                    background: "var(--bg-surface3)",
+                    background: "var(--paper-2)",
                     borderRadius: 6,
-                    borderLeft: "2px solid var(--color-ai, #22D4EE)",
+                    borderLeft: "2px solid var(--gold, #22D4EE)",
                   }}
                 >
                   {generated.worked_example}
@@ -312,7 +312,7 @@ export function ExplainCard({
               <ul style={nextStepsList}>
                 {generated.next_steps.map((s, i) => (
                   <li key={i} style={nextStepItem}>
-                    <span style={{ color: "var(--color-green, #10C47A)" }}>→</span>
+                    <span style={{ color: "var(--good, #10C47A)" }}>→</span>
                     <span>{s}</span>
                   </li>
                 ))}
@@ -373,7 +373,7 @@ function Section({
             fontWeight: 700,
             letterSpacing: 0.6,
             textTransform: "uppercase",
-            color: "var(--text-faint, #7A8BAD)",
+            color: "var(--ink-4, #7A8BAD)",
             marginBottom: 6,
           }}
         >
@@ -393,7 +393,7 @@ function SourceBadge({ generated }: { generated: ExplainResponse }) {
           fontSize: 10,
           fontWeight: 700,
           letterSpacing: 0.5,
-          color: "var(--color-ai, #22D4EE)",
+          color: "var(--gold, #22D4EE)",
         }}
       >
         ✨ AI
@@ -404,7 +404,7 @@ function SourceBadge({ generated }: { generated: ExplainResponse }) {
     <span
       style={{
         fontSize: 10,
-        color: "var(--text-faint, #7A8BAD)",
+        color: "var(--ink-4, #7A8BAD)",
       }}
     >
       ◈ Heuristic
@@ -422,13 +422,13 @@ const cardStyle: React.CSSProperties = {
   // Use the design-system surface tokens so dark + light themes both
   // get a readable card. The previous gradient ended at
   // rgba(12,20,34,0.6) — a fixed dark slate that became a dim stripe
-  // in light mode and made the body text (var(--text-primary), dark
+  // in light mode and made the body text (var(--ink), dark
   // on light) effectively invisible.
-  background: "var(--bg-surface2)",
-  border: "1px solid var(--border)",
-  borderLeft: "3px solid var(--color-ai, #22D4EE)",
+  background: "var(--card)",
+  border: "1px solid var(--rule)",
+  borderLeft: "3px solid var(--gold, #22D4EE)",
   borderRadius: 10,
-  color: "var(--text-primary, #EEF2FF)",
+  color: "var(--ink, #EEF2FF)",
 };
 
 const eyebrowRow: React.CSSProperties = {
@@ -441,21 +441,21 @@ const eyebrowRow: React.CSSProperties = {
 
 const eyebrowMuted: React.CSSProperties = {
   fontSize: 11,
-  color: "var(--text-faint, #7A8BAD)",
+  color: "var(--ink-4, #7A8BAD)",
 };
 
 const eyebrowKey: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
   letterSpacing: 0.5,
-  color: "var(--color-ai, #22D4EE)",
+  color: "var(--gold, #22D4EE)",
   textTransform: "uppercase",
 };
 
 const badgeAuthored: React.CSSProperties = {
   fontSize: 10,
   fontWeight: 700,
-  color: "var(--color-green, #10C47A)",
+  color: "var(--good, #10C47A)",
 };
 
 const headlineStyle: React.CSSProperties = {
@@ -463,14 +463,14 @@ const headlineStyle: React.CSSProperties = {
   fontWeight: 600,
   lineHeight: 1.4,
   margin: "4px 0 10px",
-  color: "var(--text-primary, #EEF2FF)",
+  color: "var(--ink, #EEF2FF)",
 };
 
 const bodyText: React.CSSProperties = {
   fontSize: 13,
   lineHeight: 1.55,
   margin: 0,
-  color: "var(--text-secondary, #B8C5E0)",
+  color: "var(--ink-2, #B8C5E0)",
 };
 
 // Looser line-height for longer prose — applied to why_correct,
@@ -480,7 +480,7 @@ const paragraphText: React.CSSProperties = {
   fontSize: 13.5,
   lineHeight: 1.7,
   margin: 0,
-  color: "var(--text-primary, #EEF2FF)",
+  color: "var(--ink, #EEF2FF)",
   whiteSpace: "pre-wrap",
 };
 
@@ -490,7 +490,7 @@ const authorNoteBlock: React.CSSProperties = {
   padding: "8px 12px",
   background: "rgba(16,196,122,0.05)",
   border: "1px solid rgba(16,196,122,0.18)",
-  borderLeft: "3px solid var(--color-green, #10C47A)",
+  borderLeft: "3px solid var(--good, #10C47A)",
   borderRadius: 6,
 };
 
@@ -499,7 +499,7 @@ const authorNoteEyebrow: React.CSSProperties = {
   fontWeight: 700,
   letterSpacing: 0.6,
   textTransform: "uppercase",
-  color: "var(--color-green, #10C47A)",
+  color: "var(--good, #10C47A)",
   marginBottom: 4,
 };
 
@@ -507,7 +507,7 @@ const authorNoteBody: React.CSSProperties = {
   fontSize: 12.5,
   lineHeight: 1.6,
   margin: 0,
-  color: "var(--text-secondary, #B8C5E0)",
+  color: "var(--ink-2, #B8C5E0)",
   fontStyle: "italic",
 };
 
@@ -542,12 +542,12 @@ const optionMark: React.CSSProperties = {
 const optionId: React.CSSProperties = {
   fontFamily: "var(--font-mono, monospace)",
   fontSize: 12,
-  color: "var(--text-faint, #7A8BAD)",
+  color: "var(--ink-4, #7A8BAD)",
 };
 
 const optionBody: React.CSSProperties = {
   flex: 1,
-  color: "var(--text-secondary, #B8C5E0)",
+  color: "var(--ink-2, #B8C5E0)",
 };
 
 const pitfallCallout: React.CSSProperties = {
@@ -563,7 +563,7 @@ const pitfallHeader: React.CSSProperties = {
   fontWeight: 700,
   letterSpacing: 0.4,
   textTransform: "uppercase",
-  color: "var(--color-amber, #F5A623)",
+  color: "var(--warn, #F5A623)",
   marginBottom: 4,
 };
 
@@ -572,14 +572,14 @@ const pitfallBodyLong: React.CSSProperties = {
   fontSize: 13.5,
   lineHeight: 1.7,
   margin: 0,
-  color: "var(--text-primary, #EEF2FF)",
+  color: "var(--ink, #EEF2FF)",
   whiteSpace: "pre-wrap",
 };
 
 const collapseToggle: React.CSSProperties = {
   background: "transparent",
   border: "none",
-  color: "var(--color-ai, #22D4EE)",
+  color: "var(--gold, #22D4EE)",
   fontSize: 12,
   fontWeight: 600,
   cursor: "pointer",
@@ -600,13 +600,13 @@ const nextStepItem: React.CSSProperties = {
   display: "flex",
   gap: 8,
   fontSize: 13,
-  color: "var(--text-secondary, #B8C5E0)",
+  color: "var(--ink-2, #B8C5E0)",
 };
 
 const triggerButton: React.CSSProperties = {
   background: "transparent",
-  border: "1px solid var(--color-ai, #22D4EE)",
-  color: "var(--color-ai, #22D4EE)",
+  border: "1px solid var(--gold, #22D4EE)",
+  color: "var(--gold, #22D4EE)",
   padding: "6px 14px",
   borderRadius: 6,
   fontSize: 12,
@@ -618,9 +618,9 @@ const triggerButton: React.CSSProperties = {
 const footerRow: React.CSSProperties = {
   marginTop: 14,
   paddingTop: 8,
-  borderTop: "1px solid var(--surface-elev1)",
+  borderTop: "1px solid var(--card)",
   fontSize: 10,
-  color: "var(--text-faint, #7A8BAD)",
+  color: "var(--ink-4, #7A8BAD)",
   fontFamily: "var(--font-mono, monospace)",
   display: "flex",
   flexWrap: "wrap",

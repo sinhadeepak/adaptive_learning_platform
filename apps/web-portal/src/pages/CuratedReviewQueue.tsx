@@ -75,7 +75,7 @@ export function CuratedReviewQueue() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 22 }}>Curated tests — review queue</h1>
-          <p style={{ marginTop: 4, color: "var(--text-muted)", fontSize: 13 }}>
+          <p style={{ marginTop: 4, color: "var(--ink-3)", fontSize: 13 }}>
             Approve to publish to the student Library, or reject to send
             back to the author.
           </p>
@@ -86,21 +86,21 @@ export function CuratedReviewQueue() {
       </div>
 
       {error && (
-        <div style={{ padding: 12, marginBottom: 12, background: "var(--bg-danger-soft)", color: "var(--text-danger)", borderRadius: 8 }}>
+        <div style={{ padding: 12, marginBottom: 12, background: "var(--bad-soft-soft)", color: "var(--bad)", borderRadius: 8 }}>
           {error}
         </div>
       )}
 
       {items === null && <div>Loading…</div>}
       {items !== null && items.length === 0 && (
-        <div style={{ padding: 24, textAlign: "center", border: "1px dashed var(--border-subtle)", borderRadius: 8, color: "var(--text-muted)" }}>
+        <div style={{ padding: 24, textAlign: "center", border: "1px dashed var(--rule)", borderRadius: 8, color: "var(--ink-3)" }}>
           No tests pending review. 🎉
         </div>
       )}
       {items !== null && items.length > 0 && (
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-subtle)" }}>
+            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--rule)" }}>
               <th style={{ padding: 8 }}>Name</th>
               <th style={{ padding: 8 }}>Shape</th>
               <th style={{ padding: 8 }}>Marking</th>
@@ -110,10 +110,10 @@ export function CuratedReviewQueue() {
           </thead>
           <tbody>
             {items.map((it) => (
-              <tr key={it.id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+              <tr key={it.id} style={{ borderBottom: "1px solid var(--rule)" }}>
                 <td style={{ padding: 8 }}>
                   <div style={{ fontWeight: 600 }}>{it.name}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                  <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
                     {it.sections.length} section{it.sections.length === 1 ? "" : "s"} —{" "}
                     {it.sections.map((s) => `${s.n_questions}Q ${s.difficulty_band}`).join(" · ")}
                   </div>
@@ -124,7 +124,7 @@ export function CuratedReviewQueue() {
                 <td style={{ padding: 8, fontSize: 13 }}>
                   +{it.marksCorrect} / −{it.marksNegative}
                 </td>
-                <td style={{ padding: 8, fontSize: 12, color: "var(--text-muted)" }}>
+                <td style={{ padding: 8, fontSize: 12, color: "var(--ink-3)" }}>
                   {it.createdAt ? new Date(it.createdAt).toLocaleString() : "?"}
                 </td>
                 <td style={{ padding: 8 }}>
@@ -132,7 +132,7 @@ export function CuratedReviewQueue() {
                     type="button"
                     onClick={() => act(it.id, "approve")}
                     disabled={busy === it.id + ":approve"}
-                    style={{ padding: "4px 10px", background: "var(--color-success)", color: "#fff", borderRadius: 6, marginRight: 6 }}
+                    style={{ padding: "4px 10px", background: "var(--good)", color: "#fff", borderRadius: 6, marginRight: 6 }}
                   >
                     Approve
                   </button>
@@ -140,7 +140,7 @@ export function CuratedReviewQueue() {
                     type="button"
                     onClick={() => act(it.id, "reject")}
                     disabled={busy === it.id + ":reject"}
-                    style={{ padding: "4px 10px", background: "var(--color-danger)", color: "#fff", borderRadius: 6 }}
+                    style={{ padding: "4px 10px", background: "var(--bad)", color: "#fff", borderRadius: 6 }}
                   >
                     Reject
                   </button>

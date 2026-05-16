@@ -74,9 +74,9 @@ function TabBtn({
       onClick={onClick}
       style={{
         padding: "8px 14px",
-        background: active ? "var(--color-ai)" : "var(--bg-surface1)",
-        color: active ? "#fff" : "var(--text-primary)",
-        border: "1px solid var(--border-default)",
+        background: active ? "var(--gold)" : "var(--paper-2)",
+        color: active ? "#fff" : "var(--ink)",
+        border: "1px solid var(--rule)",
         borderRadius: 6,
         cursor: "pointer",
         fontWeight: active ? 700 : 500,
@@ -126,7 +126,7 @@ function DueTab() {
   if (!loaded) return <p>Loading…</p>;
   if (cards.length === 0) {
     return (
-      <p style={{ color: "var(--text-muted)" }}>
+      <p style={{ color: "var(--ink-3)" }}>
         Nothing due! Subscribe to a community deck or create your own.
       </p>
     );
@@ -134,14 +134,14 @@ function DueTab() {
   const c = cards[idx];
   return (
     <div>
-      <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+      <p style={{ fontSize: 12, color: "var(--ink-3)" }}>
         {idx + 1} / {cards.length} · {c.deckTitle}
       </p>
       <div
         style={{
           padding: 24,
-          background: "var(--bg-surface1)",
-          border: "1px solid var(--border-default)",
+          background: "var(--paper-2)",
+          border: "1px solid var(--rule)",
           borderRadius: 12,
           minHeight: 200,
           fontSize: 18,
@@ -154,8 +154,8 @@ function DueTab() {
             style={{
               marginTop: 16,
               paddingTop: 16,
-              borderTop: "1px solid var(--border-default)",
-              color: "var(--color-ai)",
+              borderTop: "1px solid var(--rule)",
+              color: "var(--gold)",
               whiteSpace: "pre-wrap",
             }}
           >
@@ -175,10 +175,10 @@ function DueTab() {
       ) : (
         <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
           {[
-            { q: 0, label: "Again", color: "var(--color-red)" },
-            { q: 2, label: "Hard", color: "var(--color-amber)" },
-            { q: 4, label: "Good", color: "var(--color-blue)" },
-            { q: 5, label: "Easy", color: "var(--color-green)" },
+            { q: 0, label: "Again", color: "var(--bad)" },
+            { q: 2, label: "Hard", color: "var(--warn)" },
+            { q: 4, label: "Good", color: "var(--info)" },
+            { q: 5, label: "Easy", color: "var(--good)" },
           ].map((b) => (
             <button
               key={b.q}
@@ -282,8 +282,8 @@ function MyDecksTab() {
         <div
           style={{
             padding: 16,
-            background: "var(--bg-surface1)",
-            border: "1px solid var(--border-default)",
+            background: "var(--paper-2)",
+            border: "1px solid var(--rule)",
             borderRadius: 8,
             marginBottom: 16,
             display: "flex",
@@ -296,12 +296,12 @@ function MyDecksTab() {
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="Deck title"
-            style={{ flex: 1, minWidth: 200, padding: 8, background: "var(--bg-surface)", border: "1px solid var(--border-default)", color: "var(--text-primary)", borderRadius: 6 }}
+            style={{ flex: 1, minWidth: 200, padding: 8, background: "var(--card)", border: "1px solid var(--rule)", color: "var(--ink)", borderRadius: 6 }}
           />
           <select
             value={newVis}
             onChange={(e) => setNewVis(e.target.value as "PRIVATE" | "PUBLIC")}
-            style={{ padding: 8, background: "var(--bg-surface)", border: "1px solid var(--border-default)", color: "var(--text-primary)", borderRadius: 6 }}
+            style={{ padding: 8, background: "var(--card)", border: "1px solid var(--rule)", color: "var(--ink)", borderRadius: 6 }}
           >
             <option value="PRIVATE">Private</option>
             <option value="PUBLIC">Public</option>
@@ -317,7 +317,7 @@ function MyDecksTab() {
         </div>
       )}
       {decks.length === 0 ? (
-        <p style={{ color: "var(--text-muted)" }}>You haven't created any decks yet.</p>
+        <p style={{ color: "var(--ink-3)" }}>You haven't created any decks yet.</p>
       ) : (
         <ul style={{ listStyle: "none", padding: 0 }}>
           {decks.map((d) => (
@@ -325,7 +325,7 @@ function MyDecksTab() {
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600 }}>{d.title}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
                     {d.nCards} cards · {d.visibility} · {d.status}
                   </div>
                 </div>
@@ -354,8 +354,8 @@ function MyDecksTab() {
                   style={{
                     marginTop: 8,
                     padding: 8,
-                    background: "var(--bg-surface)",
-                    border: "1px solid var(--border-default)",
+                    background: "var(--card)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 6,
                     display: "flex",
                     gap: 6,
@@ -370,9 +370,9 @@ function MyDecksTab() {
                     style={{
                       flex: 1,
                       padding: 6,
-                      background: "var(--bg-surface1)",
-                      border: "1px solid var(--border-default)",
-                      color: "var(--text-primary)",
+                      background: "var(--paper-2)",
+                      border: "1px solid var(--rule)",
+                      color: "var(--ink)",
                       borderRadius: 4,
                       fontSize: 12,
                     }}
@@ -431,15 +431,15 @@ function CommunityTab() {
           width: "100%",
           maxWidth: 400,
           padding: 8,
-          background: "var(--bg-surface)",
-          border: "1px solid var(--border-default)",
-          color: "var(--text-primary)",
+          background: "var(--card)",
+          border: "1px solid var(--rule)",
+          color: "var(--ink)",
           borderRadius: 6,
           marginBottom: 12,
         }}
       />
       {decks.length === 0 ? (
-        <p style={{ color: "var(--text-muted)" }}>No published decks yet.</p>
+        <p style={{ color: "var(--ink-3)" }}>No published decks yet.</p>
       ) : (
         <ul style={{ listStyle: "none", padding: 0 }}>
           {decks.map((d) => (
@@ -447,7 +447,7 @@ function CommunityTab() {
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600 }}>{d.title}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
                     {d.nCards} cards · {d.nSubscribers ?? 0} subscriber{d.nSubscribers === 1 ? "" : "s"}
                   </div>
                 </div>
@@ -470,7 +470,7 @@ function CommunityTab() {
 const deckRowStyle: React.CSSProperties = {
   padding: 12,
   marginBottom: 8,
-  background: "var(--bg-surface1)",
-  border: "1px solid var(--border-default)",
+  background: "var(--paper-2)",
+  border: "1px solid var(--rule)",
   borderRadius: 8,
 };

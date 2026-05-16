@@ -77,30 +77,30 @@ export function CareerOutcomeCard({
             style={{
               flex: "1 1 100px",
               padding: 10,
-              background: "var(--bg-surface, #1a1a1a)",
-              border: "1px solid var(--border-default, #333)",
+              background: "var(--card, #1a1a1a)",
+              border: "1px solid var(--rule, #333)",
               borderRadius: 6,
             }}
           >
-            <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>
+            <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase" }}>
               {RANK_LABELS[b.label] ?? b.label}
             </div>
             <div style={{ fontSize: 18, fontWeight: 700 }}>
               {Math.round(b.pct * 100)}%
             </div>
-            <div style={{ fontSize: 10, color: "var(--text-muted)" }}>n={b.n}</div>
+            <div style={{ fontSize: 10, color: "var(--ink-3)" }}>n={b.n}</div>
           </div>
         ))}
       </div>
       {data.top_admits.length > 0 && (
         <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase" }}>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase" }}>
             Top admits
           </div>
           <ul style={{ margin: "4px 0 0 16px", padding: 0, fontSize: 12 }}>
             {data.top_admits.slice(0, 5).map(([name, n]) => (
               <li key={name}>
-                {name} <span style={{ color: "var(--text-muted)" }}>· {n}</span>
+                {name} <span style={{ color: "var(--ink-3)" }}>· {n}</span>
               </li>
             ))}
           </ul>
@@ -185,31 +185,31 @@ export function RankTrajectoryChart({
             x2={w - pad}
             y1={yScale(g)}
             y2={yScale(g)}
-            stroke="var(--border-default, #333)"
+            stroke="var(--rule, #333)"
             strokeWidth={0.5}
             opacity={0.4}
           />
         ))}
         {data.p25_reference !== null && (
-          <line x1={pad} x2={w - pad} y1={yScale(data.p25_reference)} y2={yScale(data.p25_reference)} stroke="var(--color-red, #f43f5e)" strokeDasharray="4 4" strokeWidth={1} opacity={0.6} />
+          <line x1={pad} x2={w - pad} y1={yScale(data.p25_reference)} y2={yScale(data.p25_reference)} stroke="var(--bad, #f43f5e)" strokeDasharray="4 4" strokeWidth={1} opacity={0.6} />
         )}
         {data.p50_reference !== null && (
-          <line x1={pad} x2={w - pad} y1={yScale(data.p50_reference)} y2={yScale(data.p50_reference)} stroke="var(--color-amber, #fbbf24)" strokeDasharray="4 4" strokeWidth={1} opacity={0.6} />
+          <line x1={pad} x2={w - pad} y1={yScale(data.p50_reference)} y2={yScale(data.p50_reference)} stroke="var(--warn, #fbbf24)" strokeDasharray="4 4" strokeWidth={1} opacity={0.6} />
         )}
         {data.p75_reference !== null && (
-          <line x1={pad} x2={w - pad} y1={yScale(data.p75_reference)} y2={yScale(data.p75_reference)} stroke="var(--color-green, #10C47A)" strokeDasharray="4 4" strokeWidth={1} opacity={0.6} />
+          <line x1={pad} x2={w - pad} y1={yScale(data.p75_reference)} y2={yScale(data.p75_reference)} stroke="var(--good, #10C47A)" strokeDasharray="4 4" strokeWidth={1} opacity={0.6} />
         )}
-        <path d={path} stroke="var(--color-ai, #4F87F6)" strokeWidth={2} fill="none" />
+        <path d={path} stroke="var(--gold, #4F87F6)" strokeWidth={2} fill="none" />
         {data.points.map((p, i) => (
-          <circle key={i} cx={xs[i]} cy={yScale(p.user_score_pct)} r={4} fill="var(--color-ai, #4F87F6)">
+          <circle key={i} cx={xs[i]} cy={yScale(p.user_score_pct)} r={4} fill="var(--gold, #4F87F6)">
             <title>{`${p.mock_date}: ${p.user_score_pct}%`}</title>
           </circle>
         ))}
       </svg>
       <div style={{ ...subStyle, display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <span><span style={{ color: "var(--color-red)" }}>──</span> AIR &gt; 50K band</span>
-        <span><span style={{ color: "var(--color-amber)" }}>──</span> median band</span>
-        <span><span style={{ color: "var(--color-green)" }}>──</span> AIR &lt; 5K band</span>
+        <span><span style={{ color: "var(--bad)" }}>──</span> AIR &gt; 50K band</span>
+        <span><span style={{ color: "var(--warn)" }}>──</span> median band</span>
+        <span><span style={{ color: "var(--good)" }}>──</span> AIR &lt; 5K band</span>
       </div>
       {data.rolling_projection !== null && (
         <p style={{ ...subStyle, marginTop: 8 }}>
@@ -265,7 +265,7 @@ export function NationalRankCard({
           style={{
             display: "inline-block",
             marginTop: 6,
-            color: "var(--color-ai)",
+            color: "var(--gold)",
             fontSize: 12,
           }}
         >
@@ -331,7 +331,7 @@ export function VideoEngagementCard({ topicId }: { topicId?: string }) {
     <div style={cardStyle}>
       <div style={titleStyle}>Watch history</div>
       <div style={bigStyle}>
-        {completed} <span style={{ fontSize: 13, color: "var(--text-muted)" }}>completed</span>
+        {completed} <span style={{ fontSize: 13, color: "var(--ink-3)" }}>completed</span>
       </div>
       <div style={subStyle}>
         of {items.length} watched · click counts contribute to mastery deltas.
@@ -342,7 +342,7 @@ export function VideoEngagementCard({ topicId }: { topicId?: string }) {
             key={v.resourceId}
             style={{
               padding: "4px 0",
-              color: v.completed ? "var(--color-green)" : "var(--text-muted)",
+              color: v.completed ? "var(--good)" : "var(--ink-3)",
             }}
           >
             {v.completed ? "✓" : "▶"} {v.title}
@@ -355,8 +355,8 @@ export function VideoEngagementCard({ topicId }: { topicId?: string }) {
 
 const cardStyle: React.CSSProperties = {
   padding: "14px 16px",
-  background: "var(--bg-surface1)",
-  border: "1px solid var(--border-default)",
+  background: "var(--paper-2)",
+  border: "1px solid var(--rule)",
   borderRadius: 8,
   minWidth: 0,
   width: "100%",
@@ -365,7 +365,7 @@ const cardStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   fontSize: 11,
-  color: "var(--text-muted)",
+  color: "var(--ink-3)",
   textTransform: "uppercase",
   letterSpacing: 0.04,
   marginBottom: 4,
@@ -374,12 +374,12 @@ const titleStyle: React.CSSProperties = {
 const bigStyle: React.CSSProperties = {
   fontSize: 22,
   fontWeight: 700,
-  color: "var(--text-primary)",
+  color: "var(--ink)",
   fontVariantNumeric: "tabular-nums",
 };
 
 const subStyle: React.CSSProperties = {
   fontSize: 12,
-  color: "var(--text-muted)",
+  color: "var(--ink-3)",
   marginTop: 2,
 };

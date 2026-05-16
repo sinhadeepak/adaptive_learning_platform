@@ -88,8 +88,8 @@ export function DiagnosticDeepDive() {
         <div
           style={{
             padding: 8,
-            background: "var(--color-red-bg, #fee)",
-            color: "var(--color-red, #f43f5e)",
+            background: "var(--bad-soft, #fee)",
+            color: "var(--bad, #f43f5e)",
             borderRadius: 4,
             marginBottom: 12,
           }}
@@ -101,7 +101,7 @@ export function DiagnosticDeepDive() {
       <section
         style={{
           padding: 16,
-          background: "var(--bg-subtle, #f8f9fc)",
+          background: "var(--paper-2, #f8f9fc)",
           borderRadius: 8,
           marginBottom: 16,
         }}
@@ -123,7 +123,7 @@ export function DiagnosticDeepDive() {
               style={{
                 width: "100%",
                 padding: "6px 8px",
-                border: "1px solid var(--border, #e1e5ee)",
+                border: "1px solid var(--rule, #e1e5ee)",
                 borderRadius: 4,
                 fontSize: 13,
                 fontFamily: "monospace",
@@ -140,7 +140,7 @@ export function DiagnosticDeepDive() {
               style={{
                 width: "100%",
                 padding: "6px 8px",
-                border: "1px solid var(--border, #e1e5ee)",
+                border: "1px solid var(--rule, #e1e5ee)",
                 borderRadius: 4,
                 fontSize: 13,
                 fontFamily: "monospace",
@@ -154,8 +154,8 @@ export function DiagnosticDeepDive() {
               padding: "8px 16px",
               background:
                 busy || !primaryConceptId.trim()
-                  ? "var(--text-faint, #cbd5e0)"
-                  : "var(--color-blue, #4f87f6)",
+                  ? "var(--ink-4, #cbd5e0)"
+                  : "var(--info, #4f87f6)",
               color: "white",
               border: "none",
               borderRadius: 4,
@@ -178,8 +178,8 @@ export function DiagnosticDeepDive() {
               padding: 12,
               borderRadius: 8,
               background: result.rootCauseConceptId
-                ? "var(--color-amber-bg, #fef3c7)"
-                : "var(--color-green-bg, #d1fae5)",
+                ? "var(--warn-soft, #fef3c7)"
+                : "var(--good-soft, #d1fae5)",
               marginBottom: 12,
             }}
           >
@@ -221,11 +221,11 @@ export function DiagnosticDeepDive() {
                     <div
                       style={{
                         padding: "6px 12px",
-                        background: "var(--bg-surface3)",
+                        background: "var(--paper-2)",
                         border:
                           idx === result.path.length - 1
-                            ? "2px solid var(--color-amber, #f59e0b)"
-                            : "1px solid var(--border, #e1e5ee)",
+                            ? "2px solid var(--warn, #f59e0b)"
+                            : "1px solid var(--rule, #e1e5ee)",
                         borderRadius: 6,
                         fontFamily: "monospace",
                         fontSize: 13,

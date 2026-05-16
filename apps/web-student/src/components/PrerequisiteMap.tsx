@@ -60,7 +60,7 @@ export function PrerequisiteMap({
   if (!loaded) return <div style={{ padding: 12 }}>Loading prerequisite map…</div>;
   if (!data || data.nodes.length <= 1) {
     return (
-      <div style={{ padding: 16, color: "var(--text-muted)", fontSize: 13 }}>
+      <div style={{ padding: 16, color: "var(--ink-3)", fontSize: 13 }}>
         No prerequisite relationships defined for this topic yet.
       </div>
     );
@@ -130,9 +130,9 @@ export function PrerequisiteMap({
 
   function color(mastery: number | null): string {
     if (mastery === null) return "#444";
-    if (mastery >= 0.7) return "var(--color-green, #10C47A)";
-    if (mastery >= 0.4) return "var(--color-amber, #fbbf24)";
-    return "var(--color-red, #f43f5e)";
+    if (mastery >= 0.7) return "var(--good, #10C47A)";
+    if (mastery >= 0.4) return "var(--warn, #fbbf24)";
+    return "var(--bad, #f43f5e)";
   }
 
   return (
@@ -140,8 +140,8 @@ export function PrerequisiteMap({
       style={{
         overflowX: "auto",
         padding: 8,
-        background: "var(--bg-surface1, #ffffff)",
-        border: "1px solid var(--border, rgba(15,23,42,0.08))",
+        background: "var(--paper-2, #ffffff)",
+        border: "1px solid var(--rule, rgba(15,23,42,0.08))",
         borderRadius: 8,
       }}
     >
@@ -161,7 +161,7 @@ export function PrerequisiteMap({
             <path
               key={i}
               d={`M${x1} ${y1} C${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
-              stroke="var(--text-faint, #666)"
+              stroke="var(--ink-4, #666)"
               strokeWidth={1.5}
               fill="none"
               opacity={0.55}
@@ -179,7 +179,7 @@ export function PrerequisiteMap({
             markerHeight="6"
             orient="auto-start-reverse"
           >
-            <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint, #666)" />
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-4, #666)" />
           </marker>
         </defs>
 
@@ -201,11 +201,11 @@ export function PrerequisiteMap({
                 height={nodeH}
                 rx={8}
                 // Use the design-system surface token (light → white,
-                // dark → deep slate). The previous `--bg-surface` token
+                // dark → deep slate). The previous `--card` token
                 // didn't exist, so SVG fell back to a hard-coded #222
                 // that read as dark-on-dark in light theme.
-                fill="var(--bg-surface2, #fff)"
-                stroke={node.isFocus ? "var(--color-ai, #4F87F6)" : color(node.mastery)}
+                fill="var(--card, #fff)"
+                stroke={node.isFocus ? "var(--gold, #4F87F6)" : color(node.mastery)}
                 strokeWidth={node.isFocus ? 3 : 2}
               />
               <text
@@ -214,7 +214,7 @@ export function PrerequisiteMap({
                 textAnchor="middle"
                 fontSize="12"
                 fontWeight="600"
-                fill="var(--text-primary, #fff)"
+                fill="var(--ink, #fff)"
               >
                 {(node.title || node.id.slice(0, 8)).slice(0, 22)}
               </text>
@@ -235,7 +235,7 @@ export function PrerequisiteMap({
                   y={42}
                   textAnchor="middle"
                   fontSize="10"
-                  fill="var(--text-muted, #888)"
+                  fill="var(--ink-3, #888)"
                 >
                   not started
                 </text>
@@ -248,20 +248,20 @@ export function PrerequisiteMap({
         style={{
           padding: "8px 12px",
           fontSize: 11,
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
           display: "flex",
           gap: 16,
           flexWrap: "wrap",
         }}
       >
         <span>
-          <span style={{ color: "var(--color-green)" }}>●</span> ≥70%
+          <span style={{ color: "var(--good)" }}>●</span> ≥70%
         </span>
         <span>
-          <span style={{ color: "var(--color-amber)" }}>●</span> 40-70%
+          <span style={{ color: "var(--warn)" }}>●</span> 40-70%
         </span>
         <span>
-          <span style={{ color: "var(--color-red)" }}>●</span> &lt;40%
+          <span style={{ color: "var(--bad)" }}>●</span> &lt;40%
         </span>
         <span>
           <span style={{ color: "#888" }}>●</span> not started

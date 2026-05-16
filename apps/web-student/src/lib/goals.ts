@@ -24,13 +24,13 @@ export interface TrajectoryResp {
 export function trajectoryColour(status: TrajectoryStatus): string {
   switch (status) {
     case "on_track":
-      return "var(--color-blue, #4F87F6)";
+      return "var(--info, #4F87F6)";
     case "ahead":
-      return "var(--color-green, #10C47A)";
+      return "var(--good, #10C47A)";
     case "behind":
-      return "var(--color-amber, #F5A623)";
+      return "var(--warn, #F5A623)";
     case "no_target":
-      return "var(--text-muted, #7A8BAD)";
+      return "var(--ink-3, #7A8BAD)";
   }
 }
 

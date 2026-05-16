@@ -152,7 +152,7 @@ export function ScreeningExamSelect() {
               borderRadius: 10,
               background: "rgba(244,63,94,0.08)",
               border: "1px solid rgba(244,63,94,0.22)",
-              color: "var(--color-red)",
+              color: "var(--bad)",
               fontSize: 12.5,
             }}
           >

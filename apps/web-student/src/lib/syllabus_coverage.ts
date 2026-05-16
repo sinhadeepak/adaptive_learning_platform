@@ -35,13 +35,13 @@ export interface CoverageResponse {
 export function chapterStatusColour(status: ChapterStatus): string {
   switch (status) {
     case "mastered":
-      return "var(--color-green, #10C47A)";
+      return "var(--good, #10C47A)";
     case "developing":
-      return "var(--color-blue, #4F87F6)";
+      return "var(--info, #4F87F6)";
     case "not_started":
-      return "var(--text-faint, #3E4D6A)";
+      return "var(--ink-4, #3E4D6A)";
     case "missing":
-      return "var(--color-amber, #F5A623)";
+      return "var(--warn, #F5A623)";
   }
 }
 

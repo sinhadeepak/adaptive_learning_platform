@@ -100,7 +100,7 @@ const COLS: Record<ColKey, ColDef> = {
     minWidth: 120,
     sortable: true,
     sortBy: (r) => r.subjectName.toLowerCase(),
-    render: (r) => <span style={{ color: "var(--text-secondary)" }}>{r.subjectName}</span>,
+    render: (r) => <span style={{ color: "var(--ink-2)" }}>{r.subjectName}</span>,
   },
   title: {
     key: "title",
@@ -112,7 +112,7 @@ const COLS: Record<ColKey, ColDef> = {
     render: (r) => (
       <Link
         to={`/catalog/topic/${r.id}`}
-        style={{ color: "var(--text-primary)", fontWeight: 600, textDecoration: "none" }}
+        style={{ color: "var(--ink)", fontWeight: 600, textDecoration: "none" }}
       >
         {r.title}
       </Link>
@@ -135,7 +135,7 @@ const COLS: Record<ColKey, ColDef> = {
     sortable: true,
     sortBy: (r) => r.questionCount,
     render: (r) => (
-      <span style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+      <span style={{ color: "var(--ink-2)", fontVariantNumeric: "tabular-nums" }}>
         {r.questionCount}
       </span>
     ),
@@ -186,10 +186,10 @@ const DEFAULT_ORDER: ColKey[] = ["subject", "title", "mastery", "questions", "ti
 // progress_tab.dart / dashboard.tsx so a topic that reads "Weak" here
 // reads "Weak" on the mobile dashboard too.
 function masteryBand(v: number): { label: string; color: string; track: string } {
-  if (v <= 0)    return { label: "Not started", color: "var(--text-muted)", track: "var(--bg-surface3)" };
-  if (v < 0.4)   return { label: "Weak",        color: "var(--color-red)",  track: "rgba(244,63,94,0.18)" };
-  if (v < 0.7)   return { label: "Developing",  color: "var(--color-blue)", track: "rgba(79,135,246,0.18)" };
-  return            { label: "Strong",        color: "var(--color-green)", track: "rgba(16,196,122,0.20)" };
+  if (v <= 0)    return { label: "Not started", color: "var(--ink-3)", track: "var(--paper-2)" };
+  if (v < 0.4)   return { label: "Weak",        color: "var(--bad)",  track: "rgba(244,63,94,0.18)" };
+  if (v < 0.7)   return { label: "Developing",  color: "var(--info)", track: "rgba(79,135,246,0.18)" };
+  return            { label: "Strong",        color: "var(--good)", track: "rgba(16,196,122,0.20)" };
 }
 
 function MasteryBar({ value, attempts }: { value: number; attempts: number }) {
@@ -210,7 +210,7 @@ function MasteryBar({ value, attempts }: { value: number; attempts: number }) {
           borderRadius: 4,
           // A 1px ring on the track keeps the "not started" state from
           // disappearing into the page background in light theme.
-          boxShadow: "inset 0 0 0 1px var(--border)",
+          boxShadow: "inset 0 0 0 1px var(--rule)",
           overflow: "hidden",
         }}
         role="progressbar"
@@ -275,19 +275,19 @@ function ExamHeader({
         borderRadius: 12,
         background:
           "linear-gradient(135deg, rgba(79,135,246,0.10), rgba(34,212,238,0.06))",
-        border: "1px solid var(--border)",
+        border: "1px solid var(--rule)",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, color: "var(--color-ai)", textTransform: "uppercase" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, color: "var(--gold)", textTransform: "uppercase" }}>
             ◈ EXAM SYLLABUS
           </div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, margin: "4px 0 0", lineHeight: 1.15, color: "var(--text-primary)" }}>
+          <h1 style={{ fontSize: 28, fontWeight: 700, margin: "4px 0 0", lineHeight: 1.15, color: "var(--ink)" }}>
             {meta?.name ?? "Exam"}
           </h1>
           {meta?.subtitle && (
-            <p style={{ margin: "4px 0 0", color: "var(--text-secondary)", fontSize: 13 }}>{meta.subtitle}</p>
+            <p style={{ margin: "4px 0 0", color: "var(--ink-2)", fontSize: 13 }}>{meta.subtitle}</p>
           )}
         </div>
         {days !== null && (
@@ -296,7 +296,7 @@ function ExamHeader({
               padding: "8px 14px",
               borderRadius: 999,
               background: days < 60 ? "rgba(244,63,94,0.18)" : "rgba(79,135,246,0.18)",
-              color: days < 60 ? "var(--color-red)" : "var(--color-blue)",
+              color: days < 60 ? "var(--bad)" : "var(--info)",
               fontSize: 12,
               fontWeight: 700,
               whiteSpace: "nowrap",
@@ -334,27 +334,27 @@ function StatTile({
   tone: "good" | "warn" | "info" | "muted";
 }) {
   const colors: Record<typeof tone, string> = {
-    good: "var(--color-green)",
-    warn: "var(--color-amber)",
-    info: "var(--color-blue)",
-    muted: "var(--text-secondary)",
+    good: "var(--good)",
+    warn: "var(--warn)",
+    info: "var(--info)",
+    muted: "var(--ink-2)",
   };
   return (
     <div
       style={{
         padding: "10px 12px",
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
       }}
     >
-      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: "var(--text-faint)", textTransform: "uppercase" }}>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: "var(--ink-4)", textTransform: "uppercase" }}>
         {label}
       </div>
       <div style={{ fontSize: 22, fontWeight: 700, color: colors[tone], lineHeight: 1.1, marginTop: 4, fontVariantNumeric: "tabular-nums" }}>
         {value}
       </div>
-      {sub && <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 2 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }
@@ -692,13 +692,13 @@ function Toolbar({
         flexWrap: "wrap",
         marginBottom: 12,
         padding: "10px 14px",
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 10,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 240px" }}>
-        <span aria-hidden style={{ fontSize: 14, color: "var(--text-muted)" }}>
+        <span aria-hidden style={{ fontSize: 14, color: "var(--ink-3)" }}>
           ⌕
         </span>
         <input
@@ -711,7 +711,7 @@ function Toolbar({
             background: "transparent",
             border: 0,
             outline: 0,
-            color: "var(--text-primary)",
+            color: "var(--ink)",
             fontSize: 13,
             padding: "4px 0",
           }}
@@ -727,7 +727,7 @@ function Toolbar({
       >
         <label
           htmlFor="subject-filter"
-          style={{ fontSize: 11, color: "var(--text-muted)" }}
+          style={{ fontSize: 11, color: "var(--ink-3)" }}
         >
           Subject
         </label>
@@ -737,9 +737,9 @@ function Toolbar({
           onChange={(e) => setSubjectFilter(e.target.value)}
           aria-label="Filter by subject"
           style={{
-            background: "var(--bg-surface2)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
+            background: "var(--card)",
+            color: "var(--ink)",
+            border: "1px solid var(--rule)",
             borderRadius: 6,
             padding: "4px 8px",
             fontSize: 13,
@@ -762,7 +762,7 @@ function Toolbar({
             style={{
               background: "transparent",
               border: 0,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               cursor: "pointer",
               fontSize: 14,
               padding: "0 4px",
@@ -773,7 +773,7 @@ function Toolbar({
         )}
       </div>
 
-      <span style={{ color: "var(--text-muted)", fontSize: 11 }}>
+      <span style={{ color: "var(--ink-3)", fontSize: 11 }}>
         {shown} of {total} chapter{total === 1 ? "" : "s"}
       </span>
 
@@ -791,8 +791,8 @@ function Toolbar({
         title="Reset column order, widths and sort"
         style={{
           background: "transparent",
-          color: "var(--text-muted)",
-          border: "1px solid var(--border)",
+          color: "var(--ink-3)",
+          border: "1px solid var(--rule)",
           padding: "4px 10px",
           borderRadius: 6,
           cursor: "pointer",
@@ -819,9 +819,9 @@ function ToggleButton({
       onClick={onClick}
       aria-pressed={active}
       style={{
-        background: active ? "var(--color-ai)" : "var(--bg-surface2)",
-        color: active ? "#fff" : "var(--text-secondary)",
-        border: "1px solid var(--border)",
+        background: active ? "var(--gold)" : "var(--card)",
+        color: active ? "#fff" : "var(--ink-2)",
+        border: "1px solid var(--rule)",
         padding: "5px 12px",
         borderRadius: 6,
         cursor: "pointer",
@@ -927,8 +927,8 @@ function DataTable({
     <div
       className="catalog-table-wrap"
       style={{
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 10,
         overflow: "auto",
       }}
@@ -948,7 +948,7 @@ function DataTable({
           ))}
         </colgroup>
         <thead>
-          <tr style={{ background: "var(--bg-surface2)" }}>
+          <tr style={{ background: "var(--card)" }}>
             {order.map((k) => {
               const def = COLS[k];
               const isSort = sortKey === k;
@@ -966,10 +966,10 @@ function DataTable({
                     {
                       position: "relative",
                       padding: "10px 12px",
-                      borderBottom: "1px solid var(--border)",
+                      borderBottom: "1px solid var(--rule)",
                       background:
-                        hoverKey === k ? "var(--color-ai)" : "var(--bg-surface2)",
-                      color: hoverKey === k ? "#fff" : "var(--text-secondary)",
+                        hoverKey === k ? "var(--gold)" : "var(--card)",
+                      color: hoverKey === k ? "#fff" : "var(--ink-2)",
                       textAlign: "left",
                       fontSize: 11,
                       fontWeight: 700,
@@ -1022,12 +1022,12 @@ function DataTable({
                       style={{
                         padding: "10px 12px 6px",
                         background: "transparent",
-                        borderTop: idx === 0 ? "none" : "1px solid var(--border)",
+                        borderTop: idx === 0 ? "none" : "1px solid var(--rule)",
                         fontSize: 11,
                         fontWeight: 700,
                         letterSpacing: 0.6,
                         textTransform: "uppercase",
-                        color: "var(--text-secondary)",
+                        color: "var(--ink-2)",
                       }}
                     >
                       <span
@@ -1038,7 +1038,7 @@ function DataTable({
                           height: 12,
                           marginRight: 8,
                           verticalAlign: "middle",
-                          background: "var(--color-ai)",
+                          background: "var(--gold)",
                           borderRadius: 2,
                         }}
                       />
@@ -1046,7 +1046,7 @@ function DataTable({
                       <span
                         style={{
                           marginLeft: 10,
-                          color: "var(--text-faint)",
+                          color: "var(--ink-4)",
                           fontWeight: 500,
                           letterSpacing: 0,
                           textTransform: "none",
@@ -1061,7 +1061,7 @@ function DataTable({
                 <tr
                   className="catalog-row"
                   style={{
-                    borderBottom: "1px solid var(--border)",
+                    borderBottom: "1px solid var(--rule)",
                   }}
                 >
                   {order.map((k) => (
@@ -1070,7 +1070,7 @@ function DataTable({
                       style={{
                         padding: "8px 12px",
                         fontSize: 13,
-                        color: "var(--text-primary)",
+                        color: "var(--ink)",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
@@ -1155,7 +1155,7 @@ function CardGrid({ rows }: { rows: Row[] }) {
               </div>
             </div>
             <div className="pg-card-foot">
-              <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
+              <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
                 {r.attempts > 0 ? `${r.attempts} attempt${r.attempts === 1 ? "" : "s"}` : "Not started yet"}
               </span>
               <div style={{ display: "flex", gap: 6 }}>
@@ -1205,18 +1205,18 @@ function Pagination({
         flexWrap: "wrap",
         marginTop: 12,
         padding: "10px 14px",
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 10,
       }}
     >
-      <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
-        Showing <strong style={{ color: "var(--text-primary)" }}>{start}</strong>–
-        <strong style={{ color: "var(--text-primary)" }}>{end}</strong> of{" "}
-        <strong style={{ color: "var(--text-primary)" }}>{total}</strong>
+      <span style={{ color: "var(--ink-3)", fontSize: 12 }}>
+        Showing <strong style={{ color: "var(--ink)" }}>{start}</strong>–
+        <strong style={{ color: "var(--ink)" }}>{end}</strong> of{" "}
+        <strong style={{ color: "var(--ink)" }}>{total}</strong>
       </span>
 
-      <label style={{ marginLeft: "auto", color: "var(--text-muted)", fontSize: 12 }}>
+      <label style={{ marginLeft: "auto", color: "var(--ink-3)", fontSize: 12 }}>
         Page size:&nbsp;
         <select
           value={pageSize}
@@ -1225,9 +1225,9 @@ function Pagination({
             setPage(1);
           }}
           style={{
-            background: "var(--bg-surface2)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
+            background: "var(--card)",
+            color: "var(--ink)",
+            border: "1px solid var(--rule)",
             borderRadius: 4,
             padding: "2px 6px",
             fontSize: 12,
@@ -1248,7 +1248,7 @@ function Pagination({
         <PageBtn disabled={page <= 1} onClick={() => setPage(page - 1)} title="Previous">
           ‹
         </PageBtn>
-        <span style={{ color: "var(--text-secondary)", fontSize: 12, minWidth: 80, textAlign: "center" }}>
+        <span style={{ color: "var(--ink-2)", fontSize: 12, minWidth: 80, textAlign: "center" }}>
           Page {page} / {totalPages}
         </span>
         <PageBtn
@@ -1283,9 +1283,9 @@ function PageBtn({
       disabled={disabled}
       title={title}
       style={{
-        background: "var(--bg-surface2)",
-        color: disabled ? "var(--text-faint)" : "var(--text-primary)",
-        border: "1px solid var(--border)",
+        background: "var(--card)",
+        color: disabled ? "var(--ink-4)" : "var(--ink)",
+        border: "1px solid var(--rule)",
         padding: "4px 10px",
         borderRadius: 4,
         cursor: disabled ? "not-allowed" : "pointer",

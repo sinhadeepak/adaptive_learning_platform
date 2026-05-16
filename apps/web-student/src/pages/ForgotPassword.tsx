@@ -59,7 +59,7 @@ export function ForgotPassword() {
                 password-reset link. The link is valid for 30 minutes.
               </p>
             </header>
-            <p style={{ color: "var(--neutral-500)", fontSize: 13, margin: 0 }}>
+            <p style={{ color: "var(--ink-3)", fontSize: 13, margin: 0 }}>
               Didn't get one? Check your spam folder, or{" "}
               <button
                 type="button"
@@ -68,7 +68,7 @@ export function ForgotPassword() {
                   background: "none",
                   border: 0,
                   padding: 0,
-                  color: "var(--brand-600)",
+                  color: "var(--accent)",
                   cursor: "pointer",
                   textDecoration: "underline",
                   fontWeight: 600,
@@ -81,7 +81,7 @@ export function ForgotPassword() {
             <p style={{ margin: 0, textAlign: "center" }}>
               <Link
                 to="/login"
-                style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+                style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
               >
                 ← Back to log in
               </Link>
@@ -134,7 +134,7 @@ export function ForgotPassword() {
             <p style={{ margin: 0, textAlign: "center" }}>
               <Link
                 to="/login"
-                style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+                style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
               >
                 ← Back to log in
               </Link>

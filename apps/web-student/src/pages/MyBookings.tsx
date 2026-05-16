@@ -265,7 +265,7 @@ export function MyBookings() {
                   <div className="pg-row-main">
                     <p className="pg-row-title">
                       {tutorName}
-                      <span style={{ fontWeight: 500, color: "var(--text-muted)", marginLeft: 8 }}>
+                      <span style={{ fontWeight: 500, color: "var(--ink-3)", marginLeft: 8 }}>
                         · {dur} min
                       </span>
                     </p>
@@ -278,7 +278,7 @@ export function MyBookings() {
                       {cd && (
                         <>
                           <span className="pg-row-meta-dot">·</span>
-                          <span style={{ color: "var(--color-blue)", fontWeight: 600 }}>
+                          <span style={{ color: "var(--info)", fontWeight: 600 }}>
                             ⏱ {cd}
                           </span>
                         </>

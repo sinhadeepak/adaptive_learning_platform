@@ -74,14 +74,14 @@ export function SyllabusCoverage() {
   return (
     <main className="page" style={{ padding: 24, maxWidth: 1000 }}>
       <h1>My Syllabus</h1>
-      <p style={{ color: "var(--text-muted)" }}>
+      <p style={{ color: "var(--ink-3)" }}>
         Track progress against the exam syllabus chapter by chapter.
       </p>
 
       {/* Headline tile */}
       <section
         style={{
-          background: "var(--bg-surface-1, #fff)",
+          background: "var(--card-1, #fff)",
           padding: 20,
           borderRadius: 8,
           marginTop: 16,
@@ -92,13 +92,13 @@ export function SyllabusCoverage() {
       >
         <div>
           <div style={{ fontSize: 38, fontWeight: 700 }}>{coverage.overallPct}%</div>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+          <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
             {coverage.masteredTopics} / {coverage.totalTopics} topics mastered
           </div>
         </div>
         <div>
           <div style={{ fontSize: 24, fontWeight: 600 }}>{remaining}</div>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+          <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
             chapters remaining
           </div>
         </div>
@@ -121,10 +121,10 @@ export function SyllabusCoverage() {
             style={{
               padding: "8px 14px",
               borderRadius: 6,
-              border: "1px solid var(--border-faint)",
+              border: "1px solid var(--rule)",
               background:
                 activeSubjectId === s.subjectId
-                  ? "var(--bg-elevated, #eef)"
+                  ? "var(--card, #eef)"
                   : "transparent",
               fontWeight: activeSubjectId === s.subjectId ? 600 : 400,
             }}
@@ -157,7 +157,7 @@ function ChapterCard({ chapter }: { chapter: ChapterCoverage }) {
   return (
     <li
       style={{
-        background: "var(--bg-surface-1, #fff)",
+        background: "var(--card-1, #fff)",
         padding: 16,
         borderRadius: 8,
         marginBottom: 12,
@@ -184,7 +184,7 @@ function ChapterCard({ chapter }: { chapter: ChapterCoverage }) {
         style={{
           margin: "6px 0 8px",
           fontSize: 13,
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
         }}
       >
         {chapter.totalTopics === 0
@@ -194,7 +194,7 @@ function ChapterCard({ chapter }: { chapter: ChapterCoverage }) {
       {/* Mini progress bar */}
       <div
         style={{
-          background: "var(--bg-surface-2, #e5e7eb)",
+          background: "var(--card-2, #e5e7eb)",
           borderRadius: 4,
           height: 6,
           overflow: "hidden",

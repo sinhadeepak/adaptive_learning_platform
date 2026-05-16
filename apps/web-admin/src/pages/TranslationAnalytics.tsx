@@ -81,14 +81,14 @@ export function TranslationAnalytics() {
             style={{
               padding: 12,
               marginBottom: 16,
-              background: "var(--bg-surface1)",
-              border: "1px solid var(--border)",
-              color: "var(--text-secondary)",
+              background: "var(--paper-2)",
+              border: "1px solid var(--rule)",
+              color: "var(--ink-2)",
               borderRadius: 8,
               fontSize: 13,
             }}
           >
-            <strong style={{ color: "var(--text-primary)" }}>Targets:</strong>{" "}
+            <strong style={{ color: "var(--ink)" }}>Targets:</strong>{" "}
             acceptance rate &gt; {pct(data.targets.acceptanceRateTarget)} ·
             re-translation &lt; {pct(data.targets.retranslationRateCeiling)} ·
             lead time p95 &lt; {data.targets.leadTimeP95HoursTarget}h
@@ -104,7 +104,7 @@ export function TranslationAnalytics() {
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
-                  <tr style={{ borderBottom: "2px solid var(--border, #e1e5ee)" }}>
+                  <tr style={{ borderBottom: "2px solid var(--rule, #e1e5ee)" }}>
                     <th style={{ textAlign: "left", padding: 8 }}>Language</th>
                     <th style={{ textAlign: "right", padding: 8 }}>Total</th>
                     <th style={{ textAlign: "right", padding: 8 }}>Published</th>
@@ -121,7 +121,7 @@ export function TranslationAnalytics() {
                   {data.perLanguage.map((row) => (
                     <tr
                       key={row.language}
-                      style={{ borderBottom: "1px solid var(--border)" }}
+                      style={{ borderBottom: "1px solid var(--rule)" }}
                     >
                       <td style={{ padding: 8, fontWeight: 600 }}>
                         {row.language.toUpperCase()}
@@ -196,7 +196,7 @@ export function TranslationAnalytics() {
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
-                  <tr style={{ borderBottom: "2px solid var(--border, #e1e5ee)" }}>
+                  <tr style={{ borderBottom: "2px solid var(--rule, #e1e5ee)" }}>
                     <th style={{ textAlign: "left", padding: 8 }}>Subject</th>
                     <th style={{ textAlign: "left", padding: 8 }}>Source</th>
                     <th style={{ textAlign: "left", padding: 8 }}>Target</th>

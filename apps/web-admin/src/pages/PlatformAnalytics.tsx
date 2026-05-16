@@ -40,7 +40,7 @@ export function PlatformAnalytics() {
     <AppShell title="Platform Analytics">
       <main className="page" style={{ padding: 24 }}>
         <h1 style={{ marginTop: 0 }}>Platform analytics</h1>
-        <p style={{ color: "var(--text-muted)", marginTop: -8, marginBottom: 16 }}>
+        <p style={{ color: "var(--ink-3)", marginTop: -8, marginBottom: 16 }}>
           Business + outcome metrics across the whole platform. All data
           aggregated over your access scope; identifiable info gated behind
           existing audit log.
@@ -79,9 +79,9 @@ function TabBar({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
           key={t.key}
           onClick={() => setTab(t.key)}
           style={{
-            background: tab === t.key ? "var(--color-ai)" : "var(--bg-surface-1)",
-            color: tab === t.key ? "#fff" : "var(--text-secondary)",
-            border: "1px solid var(--border-default)",
+            background: tab === t.key ? "var(--gold)" : "var(--card-1)",
+            color: tab === t.key ? "#fff" : "var(--ink-2)",
+            border: "1px solid var(--rule)",
             padding: "6px 12px",
             borderRadius: 6,
             cursor: "pointer",
@@ -118,7 +118,7 @@ function FunnelsTab() {
             <div
               style={{
                 flex: 1,
-                background: "var(--bg-surface-3)",
+                background: "var(--card-3)",
                 borderRadius: 4,
                 height: 22,
                 position: "relative",
@@ -127,7 +127,7 @@ function FunnelsTab() {
               <div
                 style={{
                   width: `${(s.userCount / max) * 100}%`,
-                  background: "var(--color-ai)",
+                  background: "var(--gold)",
                   height: "100%",
                   borderRadius: 4,
                 }}
@@ -179,7 +179,7 @@ function RetentionTab() {
   }, []);
   if (error) return <Pill tone="danger">{error}</Pill>;
   if (!cohorts) return <SkeletonRows count={5} />;
-  if (cohorts.length === 0) return <p style={{ color: "var(--text-muted)" }}>No cohorts yet.</p>;
+  if (cohorts.length === 0) return <p style={{ color: "var(--ink-3)" }}>No cohorts yet.</p>;
   return (
     <table className="leaderboard">
       <thead>
@@ -214,10 +214,10 @@ function QuestionQualityTab() {
   }, []);
   if (error) return <Pill tone="danger">{error}</Pill>;
   if (!rows) return <SkeletonRows count={8} />;
-  if (rows.length === 0) return <p style={{ color: "var(--text-muted)" }}>No item-response data yet.</p>;
+  if (rows.length === 0) return <p style={{ color: "var(--ink-3)" }}>No item-response data yet.</p>;
   return (
     <div>
-      <p style={{ color: "var(--text-muted)", fontSize: 12 }}>
+      <p style={{ color: "var(--ink-3)", fontSize: 12 }}>
         Top {rows.length} most-served questions, with average accuracy. Items below 30% or
         above 95% accuracy are likely too hard or too easy.
       </p>
@@ -271,9 +271,9 @@ function MockDistributionsTab() {
             key={code}
             onClick={() => setExamCode(code)}
             style={{
-              background: examCode === code ? "var(--color-ai)" : "var(--bg-surface-1)",
-              color: examCode === code ? "#fff" : "var(--text-secondary)",
-              border: "1px solid var(--border-default)",
+              background: examCode === code ? "var(--gold)" : "var(--card-1)",
+              color: examCode === code ? "#fff" : "var(--ink-2)",
+              border: "1px solid var(--rule)",
               padding: "4px 10px",
               borderRadius: 4,
               cursor: "pointer",
@@ -287,7 +287,7 @@ function MockDistributionsTab() {
       {!buckets ? (
         <SkeletonRows count={5} />
       ) : buckets.length === 0 ? (
-        <p style={{ color: "var(--text-muted)" }}>No mock attempts yet for {examCode}.</p>
+        <p style={{ color: "var(--ink-3)" }}>No mock attempts yet for {examCode}.</p>
       ) : (
         <Histogram buckets={buckets} />
       )}
@@ -309,11 +309,11 @@ function Histogram({ buckets }: { buckets: MockBucket[] }) {
             style={{
               width: 24,
               height: `${(b.n / max) * 200}px`,
-              background: "var(--color-ai)",
+              background: "var(--gold)",
               borderRadius: "3px 3px 0 0",
             }}
           />
-          <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{b.bucket}</div>
+          <div style={{ fontSize: 10, color: "var(--ink-3)" }}>{b.bucket}</div>
         </div>
       ))}
     </div>
@@ -406,9 +406,9 @@ function OutcomesTab() {
             key={code}
             onClick={() => setExamCode(code)}
             style={{
-              background: examCode === code ? "var(--color-ai)" : "var(--bg-surface-1)",
-              color: examCode === code ? "#fff" : "var(--text-secondary)",
-              border: "1px solid var(--border-default)",
+              background: examCode === code ? "var(--gold)" : "var(--card-1)",
+              color: examCode === code ? "#fff" : "var(--ink-2)",
+              border: "1px solid var(--rule)",
               padding: "4px 10px",
               borderRadius: 4,
               cursor: "pointer",
@@ -434,7 +434,7 @@ function OutcomesTab() {
             <Stat label="Slope" value={(data.slope ?? 0).toFixed(2)} />
             <Stat label="Intercept" value={(data.intercept ?? 0).toFixed(2)} />
           </div>
-          <p style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 12 }}>
+          <p style={{ color: "var(--ink-3)", fontSize: 12, marginTop: 12 }}>
             Each point: a student's last-30-day mastery (x) vs their self-reported real-exam
             score (y). Self-reported data — treat as best-effort.
           </p>
@@ -461,19 +461,19 @@ function Scatter({ points, slope, intercept }: { points: { mastery: number; real
   const sy = (y: number) => h - pad - ((y - yMin) / (yMax - yMin)) * (h - pad * 2);
   return (
     <svg width={w} height={h} style={{ marginTop: 12 }} role="img" aria-label="Mock vs real-exam scatter">
-      <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="var(--border-default)" />
-      <line x1={pad} y1={pad} x2={pad} y2={h - pad} stroke="var(--border-default)" />
+      <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="var(--rule)" />
+      <line x1={pad} y1={pad} x2={pad} y2={h - pad} stroke="var(--rule)" />
       {/* regression line */}
       <line
         x1={sx(xMin)} y1={sy(intercept + slope * xMin)}
         x2={sx(xMax)} y2={sy(intercept + slope * xMax)}
-        stroke="var(--color-ai)" strokeWidth={2} strokeDasharray="6 4"
+        stroke="var(--gold)" strokeWidth={2} strokeDasharray="6 4"
       />
       {points.map((p, i) => (
-        <circle key={i} cx={sx(p.mastery)} cy={sy(p.realScore)} r={3} fill="var(--color-blue)" opacity={0.6} />
+        <circle key={i} cx={sx(p.mastery)} cy={sy(p.realScore)} r={3} fill="var(--info)" opacity={0.6} />
       ))}
-      <text x={pad} y={pad - 6} fill="var(--text-muted)" fontSize={11}>real score</text>
-      <text x={w - pad} y={h - 4} fill="var(--text-muted)" fontSize={11} textAnchor="end">mastery</text>
+      <text x={pad} y={pad - 6} fill="var(--ink-3)" fontSize={11}>real score</text>
+      <text x={w - pad} y={h - 4} fill="var(--ink-3)" fontSize={11} textAnchor="end">mastery</text>
     </svg>
   );
 }
@@ -482,13 +482,13 @@ function Scatter({ points, slope, intercept }: { points: { mastery: number; real
 
 function Stat({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
   return (
-    <div className="card" style={{ padding: 16, border: "1px solid var(--border-default)", borderRadius: 8 }}>
-      <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.8 }}>
+    <div className="card" style={{ padding: 16, border: "1px solid var(--rule)", borderRadius: 8 }}>
+      <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.8 }}>
         {label}
       </div>
       <div style={{ fontSize: 24, fontWeight: 700, marginTop: 4 }}>{value}</div>
       {hint && (
-        <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>{hint}</div>
+        <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 4 }}>{hint}</div>
       )}
     </div>
   );
@@ -502,9 +502,9 @@ function RangePicker({ days, setDays, options }: { days: number; setDays: (n: nu
           key={d}
           onClick={() => setDays(d)}
           style={{
-            background: days === d ? "var(--color-ai)" : "var(--bg-surface-1)",
-            color: days === d ? "#fff" : "var(--text-secondary)",
-            border: "1px solid var(--border-default)",
+            background: days === d ? "var(--gold)" : "var(--card-1)",
+            color: days === d ? "#fff" : "var(--ink-2)",
+            border: "1px solid var(--rule)",
             padding: "4px 10px",
             borderRadius: 4,
             cursor: "pointer",

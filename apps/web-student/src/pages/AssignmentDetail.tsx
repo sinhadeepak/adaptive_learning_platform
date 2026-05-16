@@ -131,7 +131,7 @@ export function AssignmentDetail() {
                           style={{
                             marginTop: 4,
                             padding: 8,
-                            background: "var(--bg-surface-2, #fff8e1)",
+                            background: "var(--card-2, #fff8e1)",
                             borderRadius: 4,
                             fontSize: 13,
                           }}

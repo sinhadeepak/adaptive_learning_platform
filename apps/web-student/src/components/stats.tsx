@@ -25,10 +25,10 @@ export function ImportancePill({
     uniform: "Default",
   };
   const sourceTint: Record<string, string> = {
-    override: "var(--color-purple, #A78BFA)",
-    pyq: "var(--color-blue, #4F87F6)",
-    blueprint: "var(--text-muted)",
-    uniform: "var(--text-faint)",
+    override: "var(--accent, #A78BFA)",
+    pyq: "var(--info, #4F87F6)",
+    blueprint: "var(--ink-3)",
+    uniform: "var(--ink-4)",
   };
   const stars = weight > 0.20 ? 3 : weight > 0.10 ? 2 : weight > 0.04 ? 1 : 0;
   const confLabel =
@@ -41,11 +41,11 @@ export function ImportancePill({
         alignItems: "center",
         gap: 4,
         padding: "2px 7px",
-        background: hidden ? "var(--bg-surface3)" : "var(--bg-surface2)",
+        background: hidden ? "var(--paper-2)" : "var(--card)",
         border: `1px solid ${sourceTint[source]}`,
         borderRadius: 12,
         fontSize: 11,
-        color: hidden ? "var(--text-faint)" : "var(--text-secondary)",
+        color: hidden ? "var(--ink-4)" : "var(--ink-2)",
         textDecoration: hidden ? "line-through" : "none",
       }}
     >
@@ -66,19 +66,19 @@ export function MasteryBar({ ewa, n = 0 }: { ewa: number; n?: number }) {
   const pct = Math.max(0, Math.min(1, ewa));
   const tone =
     pct === 0
-      ? "var(--text-faint)"
+      ? "var(--ink-4)"
       : pct < 0.4
-      ? "var(--color-red, #f43f5e)"
+      ? "var(--bad, #f43f5e)"
       : pct < 0.7
-      ? "var(--color-blue, #4F87F6)"
-      : "var(--color-green, #10C47A)";
+      ? "var(--info, #4F87F6)"
+      : "var(--good, #10C47A)";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <div
         style={{
           flex: 1,
           height: 6,
-          background: "var(--bg-surface3)",
+          background: "var(--paper-2)",
           borderRadius: 3,
           overflow: "hidden",
           minWidth: 60,
@@ -96,7 +96,7 @@ export function MasteryBar({ ewa, n = 0 }: { ewa: number; n?: number }) {
       <span
         style={{
           fontSize: 12,
-          color: "var(--text-secondary)",
+          color: "var(--ink-2)",
           fontVariantNumeric: "tabular-nums",
           minWidth: 60,
           textAlign: "right",
@@ -120,17 +120,17 @@ export function StatTile({
   tone?: "neutral" | "good" | "warn" | "bad";
 }) {
   const toneColor: Record<string, string> = {
-    neutral: "var(--text-primary)",
-    good: "var(--color-green, #10C47A)",
-    warn: "var(--color-amber, #fbbf24)",
-    bad: "var(--color-red, #f43f5e)",
+    neutral: "var(--ink)",
+    good: "var(--good, #10C47A)",
+    warn: "var(--warn, #fbbf24)",
+    bad: "var(--bad, #f43f5e)",
   };
   return (
     <div
       style={{
         padding: "12px 16px",
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
         minWidth: 120,
       }}
@@ -138,7 +138,7 @@ export function StatTile({
       <div
         style={{
           fontSize: 11,
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
           textTransform: "uppercase",
           letterSpacing: 0.04,
         }}

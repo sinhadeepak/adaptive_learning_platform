@@ -121,7 +121,7 @@ export function Tutors() {
             ))}
           </div>
           <div className="pg-range" title={`Max hourly rate: ${paiseToRupees(maxRate * 100)}`}>
-            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+            <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
               Max ₹{maxRate.toLocaleString("en-IN")}
             </span>
             <input
@@ -232,7 +232,7 @@ export function Tutors() {
                         </span>
                       )}
                       {isPremium ? (
-                        <span className="pg-card-meta-pill" style={{ color: "var(--color-blue)" }}>
+                        <span className="pg-card-meta-pill" style={{ color: "var(--info)" }}>
                           Premium tier
                         </span>
                       ) : (
@@ -249,12 +249,12 @@ export function Tutors() {
                       <span className="pg-card-rating">
                         <span className="pg-card-rating-star">★</span>
                         {(t.ratingAvg ?? 0).toFixed(1)}
-                        <span style={{ color: "var(--text-faint)" }}>
+                        <span style={{ color: "var(--ink-4)" }}>
                           ({t.ratingCount})
                         </span>
                       </span>
                     ) : (
-                      <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
+                      <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
                         New tutor
                       </span>
                     )}

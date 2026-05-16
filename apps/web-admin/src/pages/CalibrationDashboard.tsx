@@ -28,11 +28,11 @@ function CriterionCard({ row }: { row: CalibrationCriterionStats }) {
         padding: 16,
         marginBottom: 12,
         border: row.auto_paused
-          ? "2px solid var(--color-red, #f43f5e)"
-          : "1px solid var(--border)",
+          ? "2px solid var(--bad, #f43f5e)"
+          : "1px solid var(--rule)",
         borderRadius: 8,
-        background: "var(--bg-surface1)",
-        color: "var(--text-primary)",
+        background: "var(--paper-2)",
+        color: "var(--ink)",
       }}
     >
       <div
@@ -70,10 +70,10 @@ function CriterionCard({ row }: { row: CalibrationCriterionStats }) {
                 k === null
                   ? "#cbd5e0"
                   : k < 0.5
-                    ? "var(--color-red, #f43f5e)"
+                    ? "var(--bad, #f43f5e)"
                     : k < 0.7
-                      ? "var(--color-amber, #f59e0b)"
-                      : "var(--color-green, #10c47a)";
+                      ? "var(--warn, #f59e0b)"
+                      : "var(--good, #10c47a)";
               return (
                 <div
                   key={w.week_start}
@@ -121,10 +121,10 @@ export function CalibrationDashboard() {
             style={{
               padding: 16,
               marginBottom: 24,
-              background: "var(--bg-surface1)",
-              border: "1px solid var(--border)",
+              background: "var(--paper-2)",
+              border: "1px solid var(--rule)",
               borderRadius: 8,
-              color: "var(--text-primary)",
+              color: "var(--ink)",
             }}
           >
             <div style={{ display: "flex", gap: 24 }}>

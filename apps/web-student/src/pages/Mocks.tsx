@@ -166,11 +166,11 @@ export function Mocks() {
       style={{
         padding: 24,
         maxWidth: 1080,
-        color: "var(--text-primary)",
+        color: "var(--ink)",
       }}
     >
-      <h1 style={{ color: "var(--text-primary)", margin: "0 0 6px" }}>Mock Tests</h1>
-      <p style={{ color: "var(--text-muted)", margin: "0 0 16px" }}>
+      <h1 style={{ color: "var(--ink)", margin: "0 0 6px" }}>Mock Tests</h1>
+      <p style={{ color: "var(--ink-3)", margin: "0 0 16px" }}>
         Take a real-pattern timed exam. Each mock follows a blueprint with
         section-wise time budgets, marking scheme, and an OMR-style answer
         sheet matching the actual exam.
@@ -181,7 +181,7 @@ export function Mocks() {
           <div
             style={{
               fontSize: 11,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               textTransform: "uppercase",
               letterSpacing: 0.04,
               marginBottom: 6,
@@ -199,9 +199,9 @@ export function Mocks() {
                   onClick={() => changeExam(e.id)}
                   style={{
                     padding: "6px 14px",
-                    background: on ? "var(--color-blue, #4F87F6)" : "var(--bg-surface2)",
-                    color: on ? "#fff" : "var(--text-primary)",
-                    border: "1px solid var(--border)",
+                    background: on ? "var(--info, #4F87F6)" : "var(--card)",
+                    color: on ? "#fff" : "var(--ink)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 6,
                     cursor: "pointer",
                     fontSize: 13,
@@ -214,7 +214,7 @@ export function Mocks() {
             })}
           </div>
           {activeExam?.subtitle && (
-            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6 }}>
               {activeExam.subtitle}
             </div>
           )}
@@ -232,9 +232,9 @@ export function Mocks() {
               style={{
                 padding: "8px 14px",
                 borderRadius: 6,
-                border: `1px solid ${on ? "var(--color-blue, #4F87F6)" : "var(--border)"}`,
-                background: on ? "var(--color-blue, #4F87F6)" : "var(--bg-surface2)",
-                color: on ? "#fff" : "var(--text-primary)",
+                border: `1px solid ${on ? "var(--info, #4F87F6)" : "var(--rule)"}`,
+                background: on ? "var(--info, #4F87F6)" : "var(--card)",
+                color: on ? "#fff" : "var(--ink)",
                 fontWeight: 600,
                 cursor: "pointer",
               }}
@@ -252,8 +252,8 @@ export function Mocks() {
           style={{
             padding: 12,
             background: "rgba(244,63,94,0.1)",
-            border: "1px solid var(--color-red, #f43f5e)",
-            color: "var(--color-red, #f43f5e)",
+            border: "1px solid var(--bad, #f43f5e)",
+            color: "var(--bad, #f43f5e)",
             borderRadius: 6,
           }}
         >
@@ -264,10 +264,10 @@ export function Mocks() {
       {tab === "available" && (
         <section>
           {loading && (
-            <p style={{ color: "var(--text-muted)" }}>Loading blueprints…</p>
+            <p style={{ color: "var(--ink-3)" }}>Loading blueprints…</p>
           )}
           {!loading && blueprints.length === 0 && !error && (
-            <p style={{ color: "var(--text-muted)" }}>
+            <p style={{ color: "var(--ink-3)" }}>
               No mock blueprints have been published for this exam yet.
             </p>
           )}
@@ -276,15 +276,15 @@ export function Mocks() {
               <li
                 key={bp.id}
                 style={{
-                  background: "var(--bg-surface2)",
-                  border: "1px solid var(--border)",
+                  background: "var(--card)",
+                  border: "1px solid var(--rule)",
                   padding: 16,
                   borderRadius: 8,
                   marginBottom: 12,
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  color: "var(--text-primary)",
+                  color: "var(--ink)",
                   gap: 16,
                 }}
               >
@@ -293,7 +293,7 @@ export function Mocks() {
                   <p
                     style={{
                       margin: "6px 0 0",
-                      color: "var(--text-secondary, #B8C5E0)",
+                      color: "var(--ink-2, #B8C5E0)",
                       fontSize: 13,
                     }}
                   >
@@ -306,9 +306,9 @@ export function Mocks() {
                   onClick={() => navigate(`/mock-exam?blueprintId=${bp.id}`)}
                   style={{
                     padding: "8px 18px",
-                    background: "var(--color-blue, #4F87F6)",
+                    background: "var(--info, #4F87F6)",
                     color: "#fff",
-                    border: "1px solid var(--border)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 6,
                     cursor: "pointer",
                     fontWeight: 600,
@@ -327,7 +327,7 @@ export function Mocks() {
       {tab === "taken" && (
         <section>
           {taken.length === 0 && (
-            <p style={{ color: "var(--text-muted)" }}>
+            <p style={{ color: "var(--ink-3)" }}>
               No mock attempts yet — take one from the Available tab to see it
               here.
             </p>
@@ -349,12 +349,12 @@ export function Mocks() {
                 <li
                   key={s.sessionId}
                   style={{
-                    background: "var(--bg-surface2)",
-                    border: "1px solid var(--border)",
+                    background: "var(--card)",
+                    border: "1px solid var(--rule)",
                     padding: 16,
                     borderRadius: 8,
                     marginBottom: 12,
-                    color: "var(--text-primary)",
+                    color: "var(--ink)",
                   }}
                 >
                   <div
@@ -378,8 +378,8 @@ export function Mocks() {
                             : "rgba(245,166,35,0.18)",
                         color:
                           s.status === "SUBMITTED"
-                            ? "var(--color-green, #10C47A)"
-                            : "var(--color-amber, #F5A623)",
+                            ? "var(--good, #10C47A)"
+                            : "var(--warn, #F5A623)",
                         fontSize: 11,
                         fontWeight: 700,
                         letterSpacing: 0.04,
@@ -391,7 +391,7 @@ export function Mocks() {
                   <p
                     style={{
                       margin: "6px 0",
-                      color: "var(--text-secondary, #B8C5E0)",
+                      color: "var(--ink-2, #B8C5E0)",
                       fontSize: 13,
                     }}
                   >
@@ -410,7 +410,7 @@ export function Mocks() {
                   <Link
                     to={`/quiz/${s.sessionId}/result`}
                     style={{
-                      color: "var(--color-blue, #4F87F6)",
+                      color: "var(--info, #4F87F6)",
                       fontSize: 13,
                       fontWeight: 600,
                     }}

@@ -87,7 +87,7 @@ export function LeafletMap({
       style={{
         width: "100%",
         height: 480,
-        border: "1px solid var(--border, #e1e5ee)",
+        border: "1px solid var(--rule, #e1e5ee)",
         borderRadius: 6,
         overflow: "hidden",
       }}

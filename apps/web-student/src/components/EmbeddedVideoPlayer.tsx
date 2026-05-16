@@ -179,14 +179,14 @@ export function EmbeddedVideoPlayer({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--bg-surface1, #0C1422)",
+          background: "var(--paper-2, #0C1422)",
           borderRadius: 10,
           maxWidth: 1000,
           width: "100%",
           maxHeight: "92vh",
           display: "flex",
           flexDirection: "column",
-          border: "1px solid var(--border-strong, rgba(255,255,255,0.11))",
+          border: "1px solid var(--rule-2, rgba(255,255,255,0.11))",
           overflow: "hidden",
         }}
       >
@@ -197,7 +197,7 @@ export function EmbeddedVideoPlayer({
             justifyContent: "space-between",
             alignItems: "center",
             borderBottom:
-              "1px solid var(--border, rgba(255,255,255,0.07))",
+              "1px solid var(--rule, rgba(255,255,255,0.07))",
             gap: 12,
           }}
         >
@@ -206,7 +206,7 @@ export function EmbeddedVideoPlayer({
               style={{
                 fontSize: 14,
                 fontWeight: 600,
-                color: "var(--text-primary, #EEF2FF)",
+                color: "var(--ink, #EEF2FF)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -218,7 +218,7 @@ export function EmbeddedVideoPlayer({
               <div
                 style={{
                   fontSize: 11,
-                  color: "var(--text-faint, #7A8BAD)",
+                  color: "var(--ink-4, #7A8BAD)",
                   marginTop: 2,
                 }}
               >
@@ -232,8 +232,8 @@ export function EmbeddedVideoPlayer({
             aria-label="Close player"
             style={{
               background: "transparent",
-              border: "1px solid var(--border-strong, rgba(255,255,255,0.11))",
-              color: "var(--text-secondary, #B8C5E0)",
+              border: "1px solid var(--rule-2, rgba(255,255,255,0.11))",
+              color: "var(--ink-2, #B8C5E0)",
               borderRadius: 6,
               padding: "4px 12px",
               cursor: "pointer",
@@ -259,7 +259,7 @@ export function EmbeddedVideoPlayer({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "var(--color-amber, #F5A623)",
+                color: "var(--warn, #F5A623)",
                 fontSize: 13,
                 padding: 16,
                 textAlign: "center",

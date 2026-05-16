@@ -62,7 +62,7 @@ export function CommonMistakesTab({ cohortId }: { cohortId: string }) {
     return (
       <div>
         <Pill tone="info">No classified errors yet.</Pill>
-        <p style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 8 }}>
+        <p style={{ color: "var(--ink-3)", fontSize: 13, marginTop: 8 }}>
           {data.notes[0] ?? "Errors are classified after students answer practice questions."}
         </p>
       </div>
@@ -71,7 +71,7 @@ export function CommonMistakesTab({ cohortId }: { cohortId: string }) {
 
   return (
     <div>
-      <h3 style={{ fontSize: 13, color: "var(--text-muted)", textTransform: "uppercase" }}>
+      <h3 style={{ fontSize: 13, color: "var(--ink-3)", textTransform: "uppercase" }}>
         Most common mistake types · {data.n_errors_total} errors across {data.n_students} students
       </h3>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
@@ -80,34 +80,34 @@ export function CommonMistakesTab({ cohortId }: { cohortId: string }) {
             key={c.classification}
             style={{
               padding: "10px 14px",
-              border: "1px solid var(--border-default)",
+              border: "1px solid var(--rule)",
               borderRadius: 8,
               minWidth: 140,
-              background: "var(--bg-surface-1)",
+              background: "var(--card-1)",
             }}
           >
-            <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase" }}>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase" }}>
               {CLASSIFICATION_LABEL[c.classification] ?? c.classification}
             </div>
             <div style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
               {Math.round(c.pct_of_errors * 100)}%
             </div>
-            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+            <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
               {c.count} occurrences
             </div>
           </div>
         ))}
       </div>
 
-      <h3 style={{ fontSize: 13, color: "var(--text-muted)", textTransform: "uppercase", marginTop: 24 }}>
+      <h3 style={{ fontSize: 13, color: "var(--ink-3)", textTransform: "uppercase", marginTop: 24 }}>
         Top problem topics
       </h3>
       {data.top_problem_topics.length === 0 ? (
-        <p style={{ color: "var(--text-muted)" }}>No topic-level patterns yet.</p>
+        <p style={{ color: "var(--ink-3)" }}>No topic-level patterns yet.</p>
       ) : (
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
-            <tr style={{ borderBottom: "1px solid var(--border-default)" }}>
+            <tr style={{ borderBottom: "1px solid var(--rule)" }}>
               <th style={th}>Topic</th>
               <th style={th}>Errors</th>
               <th style={th}>Students affected</th>
@@ -116,7 +116,7 @@ export function CommonMistakesTab({ cohortId }: { cohortId: string }) {
           </thead>
           <tbody>
             {data.top_problem_topics.map((t) => (
-              <tr key={t.topic_id} style={{ borderBottom: "1px solid var(--border-default)" }}>
+              <tr key={t.topic_id} style={{ borderBottom: "1px solid var(--rule)" }}>
                 <td style={td}>
                   <code>{t.topic_id.slice(0, 8)}</code>
                 </td>
@@ -180,7 +180,7 @@ export function LessonPlanTab({ cohortId }: { cohortId: string }) {
     return (
       <div>
         <h2 style={{ marginBottom: 8 }}>{data.headline}</h2>
-        <p style={{ color: "var(--text-muted)" }}>{data.diagnosis}</p>
+        <p style={{ color: "var(--ink-3)" }}>{data.diagnosis}</p>
       </div>
     );
   }
@@ -193,7 +193,7 @@ export function LessonPlanTab({ cohortId }: { cohortId: string }) {
           {data.source === "ai" ? "AI" : "heuristic"}
         </Pill>
       </div>
-      <p style={{ color: "var(--text-muted)", marginBottom: 16 }}>{data.diagnosis}</p>
+      <p style={{ color: "var(--ink-3)", marginBottom: 16 }}>{data.diagnosis}</p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {data.recommendations.map((r) => (
@@ -201,20 +201,20 @@ export function LessonPlanTab({ cohortId }: { cohortId: string }) {
             key={r.topicId}
             style={{
               padding: "12px 16px",
-              border: "1px solid var(--border-default)",
+              border: "1px solid var(--rule)",
               borderRadius: 8,
-              background: "var(--bg-surface-1)",
+              background: "var(--card-1)",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <span style={{ fontWeight: 700, color: "var(--color-ai)" }}>#{r.rank}</span>
+              <span style={{ fontWeight: 700, color: "var(--gold)" }}>#{r.rank}</span>
               <span style={{ fontWeight: 600 }}>{r.topicTitle || r.topicId.slice(0, 8)}</span>
               <Pill tone="info">{r.suggestedFormat}</Pill>
-              <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: "auto" }}>
+              <span style={{ fontSize: 12, color: "var(--ink-3)", marginLeft: "auto" }}>
                 ~{r.estMinutes} min
               </span>
             </div>
-            <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)" }}>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--ink-2)" }}>
               {r.rationale}
             </p>
           </div>
@@ -222,7 +222,7 @@ export function LessonPlanTab({ cohortId }: { cohortId: string }) {
       </div>
 
       {data.encouragement && (
-        <p style={{ marginTop: 16, fontStyle: "italic", color: "var(--text-secondary)" }}>
+        <p style={{ marginTop: 16, fontStyle: "italic", color: "var(--ink-2)" }}>
           {data.encouragement}
         </p>
       )}
@@ -313,7 +313,7 @@ export function CompareStudentsTab({ cohortId }: { cohortId: string }) {
     <div>
       <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
         <div>
-          <label style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase" }}>
+          <label style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase" }}>
             Student A
           </label>
           <select
@@ -330,7 +330,7 @@ export function CompareStudentsTab({ cohortId }: { cohortId: string }) {
           </select>
         </div>
         <div>
-          <label style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase" }}>
+          <label style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase" }}>
             Student B
           </label>
           <select
@@ -352,7 +352,7 @@ export function CompareStudentsTab({ cohortId }: { cohortId: string }) {
           disabled={loading || !studentA || !studentB}
           style={{
             padding: "8px 16px",
-            background: "var(--color-ai)",
+            background: "var(--gold)",
             color: "#fff",
             border: 0,
             borderRadius: 6,
@@ -373,18 +373,18 @@ export function CompareStudentsTab({ cohortId }: { cohortId: string }) {
             <SidePanel side={data.side_b} />
           </div>
           {data.notes.map((n, i) => (
-            <p key={i} style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0" }}>
+            <p key={i} style={{ fontSize: 12, color: "var(--ink-3)", margin: "4px 0" }}>
               {n}
             </p>
           ))}
           {data.diffs.length > 0 && (
             <div>
-              <h3 style={{ fontSize: 13, color: "var(--text-muted)", textTransform: "uppercase" }}>
+              <h3 style={{ fontSize: 13, color: "var(--ink-3)", textTransform: "uppercase" }}>
                 Top differences ({data.diffs.length})
               </h3>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border-default)" }}>
+                  <tr style={{ borderBottom: "1px solid var(--rule)" }}>
                     <th style={th}>Topic</th>
                     <th style={th}>A EWA</th>
                     <th style={th}>B EWA</th>
@@ -393,13 +393,13 @@ export function CompareStudentsTab({ cohortId }: { cohortId: string }) {
                 </thead>
                 <tbody>
                   {data.diffs.slice(0, 12).map((d) => (
-                    <tr key={d.topic_id} style={{ borderBottom: "1px solid var(--border-default)" }}>
+                    <tr key={d.topic_id} style={{ borderBottom: "1px solid var(--rule)" }}>
                       <td style={td}>
                         <code>{d.topic_id.slice(0, 8)}</code>
                       </td>
                       <td style={td}>{d.a_ewa.toFixed(2)}</td>
                       <td style={td}>{d.b_ewa.toFixed(2)}</td>
-                      <td style={{ ...td, color: d.delta > 0 ? "var(--color-green)" : "var(--color-red)" }}>
+                      <td style={{ ...td, color: d.delta > 0 ? "var(--good)" : "var(--bad)" }}>
                         {d.delta > 0 ? "+" : ""}{d.delta.toFixed(2)}
                       </td>
                     </tr>
@@ -423,24 +423,24 @@ function SidePanel({
     <div
       style={{
         padding: 12,
-        border: "1px solid var(--border-default)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
-        background: "var(--bg-surface-1)",
+        background: "var(--card-1)",
       }}
     >
-      <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase" }}>
+      <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase" }}>
         Side {side.side.toUpperCase()}
       </div>
       <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
         <code>{side.label.slice(0, 8)}</code>
       </div>
-      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+      <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
         Topics tracked: <strong>{side.n_topics}</strong>
       </div>
-      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+      <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
         Avg EWA: <strong>{side.avg_ewa.toFixed(2)}</strong>
       </div>
-      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+      <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
         % weak: <strong>{Math.round(side.weak_pct * 100)}%</strong>
       </div>
     </div>
@@ -451,7 +451,7 @@ const th: React.CSSProperties = {
   textAlign: "left",
   padding: "6px 10px",
   fontSize: 11,
-  color: "var(--text-muted)",
+  color: "var(--ink-3)",
   textTransform: "uppercase",
   fontWeight: 600,
 };
@@ -463,10 +463,10 @@ const td: React.CSSProperties = {
 
 const selectStyle: React.CSSProperties = {
   padding: "8px 10px",
-  border: "1px solid var(--border-default)",
+  border: "1px solid var(--rule)",
   borderRadius: 6,
-  background: "var(--bg-surface-1)",
-  color: "var(--text-primary)",
+  background: "var(--card-1)",
+  color: "var(--ink)",
   fontSize: 13,
   minWidth: 200,
 };

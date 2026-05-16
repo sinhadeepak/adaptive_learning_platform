@@ -207,7 +207,7 @@ export function AISuggestedTests() {
                   <span style={{ fontSize: 26 }}>{v.emoji}</span>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{v.title}</div>
                 </div>
-                <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>
+                <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 8 }}>
                   {v.pitch}
                 </div>
                 <div style={{ fontSize: 12, color: "#7e54ea", fontWeight: 600 }}>
@@ -238,7 +238,7 @@ export function AISuggestedTests() {
               <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
                 {latest.name}
               </div>
-              <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 14 }}>
                 {latest.rationale}
               </div>
               <div className="pg-stat-strip" style={{ marginBottom: 14 }}>

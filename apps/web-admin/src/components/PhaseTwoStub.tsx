@@ -73,7 +73,7 @@ export function PhaseTwoStub({
           <div key={c.title} className="topic-stat">
             <div
               className="topic-stat-num"
-              style={{ fontSize: 22, color: "var(--color-blue)" }}
+              style={{ fontSize: 22, color: "var(--info)" }}
             >
               {c.icon}
             </div>
@@ -88,10 +88,10 @@ export function PhaseTwoStub({
         style={{ marginTop: "var(--sp-4)", padding: "var(--sp-5)" }}
       >
         <div className="empty-state-title">Lands in Phase 2</div>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>
+        <p style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 6 }}>
           {serviceNote}
         </p>
-        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+        <p style={{ fontSize: 12, color: "var(--ink-3)" }}>
           See <code>docs/02_planning/19_Phase2_SprintDevelopmentPlan.md</code> for the
           rollout plan. Until then, every action on this surface is a no-op
           stub — the navigation entry is live so deep-links work once the

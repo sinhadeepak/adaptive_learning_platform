@@ -154,14 +154,14 @@ export function MockTest() {
   if (error) {
     return (
       <AppShell title="Mock Test">
-        <div className="card" style={{ padding: 20, color: "var(--color-red)" }}>{error}</div>
+        <div className="card" style={{ padding: 20, color: "var(--bad)" }}>{error}</div>
       </AppShell>
     );
   }
   if (!plan || !current) {
     return (
       <AppShell title="Mock Test">
-        <div className="card" style={{ padding: 20, color: "var(--text-muted)" }}>
+        <div className="card" style={{ padding: 20, color: "var(--ink-3)" }}>
           Building your mock paper…
         </div>
       </AppShell>
@@ -184,14 +184,14 @@ export function MockTest() {
           marginBottom: 12,
         }}
       >
-        <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+        <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
           Q{idx + 1} / {plan.totalQuestions} · {sectionForIdx}
         </div>
         <div
           style={{
             background: timerLow ? "rgba(244,63,94,0.15)" : "rgba(34,212,238,0.12)",
-            border: `1px solid ${timerLow ? "var(--color-red)" : "var(--color-ai)"}`,
-            color: timerLow ? "var(--color-red)" : "var(--color-ai)",
+            border: `1px solid ${timerLow ? "var(--bad)" : "var(--gold)"}`,
+            color: timerLow ? "var(--bad)" : "var(--gold)",
             padding: "4px 10px",
             borderRadius: 6,
             fontWeight: 700,
@@ -211,7 +211,7 @@ export function MockTest() {
           overflowX: "auto",
           paddingBottom: 12,
           marginBottom: 12,
-          borderBottom: "1px solid var(--border-default)",
+          borderBottom: "1px solid var(--rule)",
         }}
       >
         {plan.questions.map((q, i) => {
@@ -226,12 +226,12 @@ export function MockTest() {
                 width: 32,
                 height: 32,
                 background: answered
-                  ? "var(--color-green)"
+                  ? "var(--good)"
                   : isFlag
-                    ? "var(--color-amber)"
-                    : "var(--bg-surface3)",
-                color: answered || isFlag ? "white" : "var(--text-muted)",
-                border: active ? "2px solid var(--color-ai)" : "none",
+                    ? "var(--warn)"
+                    : "var(--paper-2)",
+                color: answered || isFlag ? "white" : "var(--ink-3)",
+                border: active ? "2px solid var(--gold)" : "none",
                 borderRadius: 6,
                 fontSize: 11,
                 fontWeight: 600,
@@ -254,14 +254,14 @@ export function MockTest() {
             className="btn btn-ghost"
             style={{
               fontSize: 11,
-              color: flagged.has(current.id) ? "var(--color-amber)" : "var(--text-muted)",
-              border: `1px solid ${flagged.has(current.id) ? "var(--color-amber)" : "var(--border-default)"}`,
+              color: flagged.has(current.id) ? "var(--warn)" : "var(--ink-3)",
+              border: `1px solid ${flagged.has(current.id) ? "var(--warn)" : "var(--rule)"}`,
             }}
           >
             {flagged.has(current.id) ? "🔖 Flagged" : "🔖 Flag"}
           </button>
         </div>
-        <div style={{ fontSize: 16, lineHeight: 1.5, color: "var(--text-primary)", marginBottom: 18 }}>
+        <div style={{ fontSize: 16, lineHeight: 1.5, color: "var(--ink)", marginBottom: 18 }}>
           {current.stem}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -275,7 +275,7 @@ export function MockTest() {
                 style={{
                   textAlign: "left",
                   padding: 12,
-                  border: `1px solid ${picked ? "var(--color-blue)" : "var(--border-default)"}`,
+                  border: `1px solid ${picked ? "var(--info)" : "var(--rule)"}`,
                   background: picked ? "rgba(79,135,246,0.10)" : undefined,
                   cursor: "pointer",
                   display: "flex",
@@ -288,8 +288,8 @@ export function MockTest() {
                     width: 26,
                     height: 26,
                     borderRadius: 4,
-                    background: picked ? "var(--color-blue)" : "var(--bg-surface3)",
-                    color: picked ? "white" : "var(--text-muted)",
+                    background: picked ? "var(--info)" : "var(--paper-2)",
+                    color: picked ? "white" : "var(--ink-3)",
                     fontWeight: 700,
                     fontSize: 12,
                     display: "inline-flex",
@@ -299,7 +299,7 @@ export function MockTest() {
                 >
                   {String.fromCharCode(65 + i)}
                 </span>
-                <span style={{ color: "var(--text-primary)", fontSize: 14 }}>{c}</span>
+                <span style={{ color: "var(--ink)", fontSize: 14 }}>{c}</span>
               </button>
             );
           })}
@@ -325,7 +325,7 @@ export function MockTest() {
             className="btn"
             onClick={() => submit(false)}
             disabled={submitting}
-            style={{ background: "var(--color-green)", color: "white", fontWeight: 700 }}
+            style={{ background: "var(--good)", color: "white", fontWeight: 700 }}
           >
             {submitting ? "Submitting…" : "Submit"}
           </button>

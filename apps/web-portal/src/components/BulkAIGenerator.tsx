@@ -169,9 +169,9 @@ export function BulkAIGenerator({
     <div
       style={{
         padding: 16,
-        border: "1px solid var(--border, #2a2f3a)",
+        border: "1px solid var(--rule, #2a2f3a)",
         borderRadius: 8,
-        background: "var(--bg-surface1, #161a22)",
+        background: "var(--paper-2, #161a22)",
         marginBottom: 16,
       }}
     >
@@ -188,7 +188,7 @@ export function BulkAIGenerator({
       </div>
 
       {!supported && (
-        <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "8px 0" }}>
+        <p style={{ fontSize: 12, color: "var(--ink-3)", margin: "8px 0" }}>
           AI generation isn't available yet for <code>{typeId}</code>. Supported types:
           MCQ, True/False, Assertion-Reason, Multi-statement, Numeric, Formula-input.
         </p>
@@ -248,7 +248,7 @@ export function BulkAIGenerator({
               disabled={!canGenerate || busy}
               style={{
                 padding: "8px 16px",
-                background: canGenerate ? "var(--color-blue, #4F87F6)" : "var(--bg-surface2, #2a2f3a)",
+                background: canGenerate ? "var(--info, #4F87F6)" : "var(--card, #2a2f3a)",
                 color: "white",
                 border: "none",
                 borderRadius: 4,
@@ -262,7 +262,7 @@ export function BulkAIGenerator({
           </div>
 
           {!canGenerate && (
-            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
+            <p style={{ fontSize: 12, color: "var(--ink-3)", margin: 0 }}>
               {!topicTitle.trim()
                 ? "Pick an exam, subject, and topic above to enable AI generation."
                 : "Disabled."}
@@ -273,7 +273,7 @@ export function BulkAIGenerator({
             <p
               style={{
                 fontSize: 13,
-                color: "var(--color-red, #f43f5e)",
+                color: "var(--bad, #f43f5e)",
                 margin: "8px 0",
               }}
             >
@@ -293,7 +293,7 @@ export function BulkAIGenerator({
                   flexWrap: "wrap",
                 }}
               >
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
                   {results.filter((r) => r.draft).length} of {results.length} succeeded
                   {(() => {
                     const saved = results.filter((r) => r.status === "saved").length;
@@ -303,7 +303,7 @@ export function BulkAIGenerator({
                       <span style={{ marginLeft: 8 }}>
                         · {saved} saved
                         {failed > 0 && (
-                          <span style={{ color: "var(--color-amber, #f59e0b)" }}>
+                          <span style={{ color: "var(--warn, #f59e0b)" }}>
                             {" "}· {failed} failed
                           </span>
                         )}
@@ -325,8 +325,8 @@ export function BulkAIGenerator({
                     padding: "6px 14px",
                     background:
                       savingAll || !topicId
-                        ? "var(--bg-surface2, #2a2f3a)"
-                        : "var(--color-green, #10C47A)",
+                        ? "var(--card, #2a2f3a)"
+                        : "var(--good, #10C47A)",
                     color: "white",
                     border: "none",
                     borderRadius: 4,
@@ -379,10 +379,10 @@ function DraftCard({ item, onUse }: { item: Draft; onUse: () => void }) {
       <div
         style={{
           padding: 10,
-          border: "1px solid var(--border, #2a2f3a)",
+          border: "1px solid var(--rule, #2a2f3a)",
           borderRadius: 6,
           fontSize: 13,
-          color: "var(--color-red, #f43f5e)",
+          color: "var(--bad, #f43f5e)",
         }}
       >
         #{item.index + 1} failed: {item.error}
@@ -400,10 +400,10 @@ function DraftCard({ item, onUse }: { item: Draft; onUse: () => void }) {
             ? "rgba(16,196,122,0.4)"
             : item.status === "save_failed"
               ? "rgba(244,63,94,0.4)"
-              : "var(--border, #2a2f3a)"
+              : "var(--rule, #2a2f3a)"
         }`,
         borderRadius: 6,
-        background: "var(--bg-surface2, #1c2129)",
+        background: "var(--card, #1c2129)",
         opacity: saved ? 0.85 : 1,
       }}
     >
@@ -419,7 +419,7 @@ function DraftCard({ item, onUse }: { item: Draft; onUse: () => void }) {
           <div
             style={{
               fontSize: 12,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               marginBottom: 4,
               display: "flex",
               gap: 8,
@@ -427,14 +427,14 @@ function DraftCard({ item, onUse }: { item: Draft; onUse: () => void }) {
             }}
           >
             <span>Draft #{item.index + 1}</span>
-            {saving && <span style={{ color: "var(--color-blue)" }}>· Saving…</span>}
+            {saving && <span style={{ color: "var(--info)" }}>· Saving…</span>}
             {saved && (
-              <span style={{ color: "var(--color-green)" }}>
+              <span style={{ color: "var(--good)" }}>
                 ✓ Saved as DRAFT
               </span>
             )}
             {item.status === "save_failed" && (
-              <span style={{ color: "var(--color-red)" }}>
+              <span style={{ color: "var(--bad)" }}>
                 ✗ Save failed: {item.saveError}
               </span>
             )}
@@ -443,7 +443,7 @@ function DraftCard({ item, onUse }: { item: Draft; onUse: () => void }) {
             <div
               style={{
                 fontSize: 13,
-                color: "var(--text-primary)",
+                color: "var(--ink)",
                 lineHeight: 1.4,
                 marginBottom: 6,
               }}
@@ -457,7 +457,7 @@ function DraftCard({ item, onUse }: { item: Draft; onUse: () => void }) {
                 margin: 0,
                 paddingLeft: 18,
                 fontSize: 12,
-                color: "var(--text-secondary)",
+                color: "var(--ink-2)",
                 lineHeight: 1.5,
               }}
             >
@@ -466,8 +466,8 @@ function DraftCard({ item, onUse }: { item: Draft; onUse: () => void }) {
                   key={o.id}
                   style={{
                     color: o.is_correct
-                      ? "var(--color-green, #10C47A)"
-                      : "var(--text-secondary)",
+                      ? "var(--good, #10C47A)"
+                      : "var(--ink-2)",
                   }}
                 >
                   {o.text}
@@ -483,7 +483,7 @@ function DraftCard({ item, onUse }: { item: Draft; onUse: () => void }) {
           disabled={saving}
           style={{
             padding: "6px 12px",
-            background: "var(--color-blue, #4F87F6)",
+            background: "var(--info, #4F87F6)",
             color: "white",
             border: "none",
             borderRadius: 4,
@@ -505,7 +505,7 @@ function DraftCard({ item, onUse }: { item: Draft; onUse: () => void }) {
 const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: 12,
-  color: "var(--text-muted)",
+  color: "var(--ink-3)",
   fontWeight: 500,
 };
 
@@ -513,9 +513,9 @@ const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "6px 8px",
   marginTop: 4,
-  background: "var(--bg-surface3, #1f242c)",
-  color: "var(--text-primary)",
-  border: "1px solid var(--border, #2a2f3a)",
+  background: "var(--paper-2, #1f242c)",
+  color: "var(--ink)",
+  border: "1px solid var(--rule, #2a2f3a)",
   borderRadius: 4,
   fontSize: 13,
 };
@@ -523,9 +523,9 @@ const inputStyle: React.CSSProperties = {
 const pill: React.CSSProperties = {
   fontSize: 11,
   padding: "2px 6px",
-  background: "var(--bg-surface3, #1f242c)",
-  color: "var(--text-muted)",
-  border: "1px solid var(--border, #2a2f3a)",
+  background: "var(--paper-2, #1f242c)",
+  color: "var(--ink-3)",
+  border: "1px solid var(--rule, #2a2f3a)",
   borderRadius: 3,
 };
 

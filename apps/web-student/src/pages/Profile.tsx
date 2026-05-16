@@ -226,7 +226,7 @@ export function Profile() {
             gap: 18,
             paddingBottom: 22,
             marginBottom: 22,
-            borderBottom: "1px solid var(--border)",
+            borderBottom: "1px solid var(--rule)",
           }}
         >
           <label
@@ -239,7 +239,7 @@ export function Profile() {
               borderRadius: "50%",
               background: profile.avatarUrl
                 ? `center/cover url(${profile.avatarUrl})`
-                : "linear-gradient(135deg, var(--color-blue), var(--color-purple))",
+                : "linear-gradient(135deg, var(--info), var(--accent))",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -270,7 +270,7 @@ export function Profile() {
                 position: "absolute",
                 bottom: -2,
                 right: -2,
-                background: "var(--color-blue)",
+                background: "var(--info)",
                 color: "#fff",
                 width: 26,
                 height: 26,
@@ -279,7 +279,7 @@ export function Profile() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                border: "2px solid var(--bg-base)",
+                border: "2px solid var(--paper)",
               }}
               aria-hidden
             >
@@ -292,20 +292,20 @@ export function Profile() {
                 margin: 0,
                 fontSize: 22,
                 fontWeight: 700,
-                color: "var(--text-primary)",
+                color: "var(--ink)",
                 letterSpacing: "-0.01em",
               }}
             >
               {fullName}
             </h1>
-            <p style={{ margin: "4px 0 8px", fontSize: 13, color: "var(--text-muted)" }}>
+            <p style={{ margin: "4px 0 8px", fontSize: 13, color: "var(--ink-3)" }}>
               {user.email}
               {user.phone ? ` · ${user.phone}` : ""}
               {" · "}
               {verified ? (
-                <span style={{ color: "var(--color-green)" }}>✓ Verified</span>
+                <span style={{ color: "var(--good)" }}>✓ Verified</span>
               ) : (
-                <span style={{ color: "var(--color-amber)" }}>Email pending</span>
+                <span style={{ color: "var(--warn)" }}>Email pending</span>
               )}
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -337,7 +337,7 @@ export function Profile() {
         <div className="pg-stat-strip">
           <div className="pg-stat">
             <div className="pg-stat-label">Current streak</div>
-            <div className="pg-stat-value" style={{ color: "var(--color-amber)" }}>
+            <div className="pg-stat-value" style={{ color: "var(--warn)" }}>
               {streak?.currentStreak ?? 0}🔥
             </div>
             <div className="pg-stat-delta">
@@ -346,7 +346,7 @@ export function Profile() {
           </div>
           <div className="pg-stat">
             <div className="pg-stat-label">Active exams</div>
-            <div className="pg-stat-value" style={{ color: "var(--color-blue)" }}>
+            <div className="pg-stat-value" style={{ color: "var(--info)" }}>
               {profile.exams.length}
             </div>
             <div className="pg-stat-delta">
@@ -355,14 +355,14 @@ export function Profile() {
           </div>
           <div className="pg-stat">
             <div className="pg-stat-label">Topics in motion</div>
-            <div className="pg-stat-value" style={{ color: "var(--color-green)" }}>
+            <div className="pg-stat-value" style={{ color: "var(--good)" }}>
               {topicsTracked ?? 0}
             </div>
             <div className="pg-stat-delta">analytics-tracked</div>
           </div>
           <div className="pg-stat">
             <div className="pg-stat-label">Achievements</div>
-            <div className="pg-stat-value" style={{ color: "var(--color-purple)" }}>
+            <div className="pg-stat-value" style={{ color: "var(--accent)" }}>
               {achievements.length}
             </div>
             <div className="pg-stat-delta">
@@ -433,9 +433,9 @@ export function Profile() {
                   <div className="pg-field-label">Email verified</div>
                   <div className="pg-field-value">
                     {verified ? (
-                      <span style={{ color: "var(--color-green)" }}>✓ Verified</span>
+                      <span style={{ color: "var(--good)" }}>✓ Verified</span>
                     ) : (
-                      <span style={{ color: "var(--color-amber)" }}>Pending</span>
+                      <span style={{ color: "var(--warn)" }}>Pending</span>
                     )}
                   </div>
                 </div>
@@ -475,11 +475,11 @@ export function Profile() {
                   <div className="pg-field-label">Onboarding</div>
                   <div className="pg-field-value">
                     {user.onboardingState === "ONBOARDED" ? (
-                      <span style={{ color: "var(--color-green)" }}>✓ Complete</span>
+                      <span style={{ color: "var(--good)" }}>✓ Complete</span>
                     ) : user.onboardingState === "EXAM_SELECTED" ? (
-                      <span style={{ color: "var(--color-amber)" }}>In progress</span>
+                      <span style={{ color: "var(--warn)" }}>In progress</span>
                     ) : (
-                      <span style={{ color: "var(--text-muted)" }}>New</span>
+                      <span style={{ color: "var(--ink-3)" }}>New</span>
                     )}
                   </div>
                 </div>
@@ -511,7 +511,7 @@ export function Profile() {
                   <p
                     style={{
                       fontSize: 13,
-                      color: "var(--text-muted)",
+                      color: "var(--ink-3)",
                       margin: "0 0 12px",
                       lineHeight: 1.5,
                     }}
@@ -594,7 +594,7 @@ export function Profile() {
                         }}
                       >
                         <span style={{ fontSize: 16 }}>{meta.icon}</span>
-                        <span style={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 600 }}>
+                        <span style={{ color: "var(--ink)", fontSize: 12, fontWeight: 600 }}>
                           {meta.label}
                         </span>
                       </div>
@@ -602,7 +602,7 @@ export function Profile() {
                   })}
                 </div>
               ) : (
-                <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 12px", lineHeight: 1.5 }}>
+                <p style={{ fontSize: 13, color: "var(--ink-3)", margin: "0 0 12px", lineHeight: 1.5 }}>
                   No badges yet — start practicing to unlock the first one.
                 </p>
               )}
@@ -615,7 +615,7 @@ export function Profile() {
                     <div
                       style={{
                         fontSize: 10,
-                        color: "var(--text-faint)",
+                        color: "var(--ink-4)",
                         fontWeight: 700,
                         letterSpacing: 0.6,
                         textTransform: "uppercase",
@@ -635,13 +635,13 @@ export function Profile() {
                             gap: 6,
                             padding: "6px 10px",
                             borderRadius: 999,
-                            background: "var(--bg-surface3)",
-                            border: "1px dashed var(--border)",
+                            background: "var(--paper-2)",
+                            border: "1px dashed var(--rule)",
                             opacity: 0.55,
                           }}
                         >
                           <span style={{ fontSize: 14, filter: "grayscale(0.8)" }}>{meta.icon}</span>
-                          <span style={{ color: "var(--text-muted)", fontSize: 12, fontWeight: 500 }}>
+                          <span style={{ color: "var(--ink-3)", fontSize: 12, fontWeight: 500 }}>
                             {meta.label}
                           </span>
                         </div>

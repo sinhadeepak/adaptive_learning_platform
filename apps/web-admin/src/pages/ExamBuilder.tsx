@@ -245,9 +245,9 @@ export function ExamBuilder() {
             role="alert"
             style={{
               padding: 10,
-              border: "1px solid var(--color-red, #f43f5e)",
+              border: "1px solid var(--bad, #f43f5e)",
               borderRadius: 6,
-              color: "var(--color-red, #f43f5e)",
+              color: "var(--bad, #f43f5e)",
               fontSize: 13,
             }}
           >
@@ -327,17 +327,17 @@ function Stepper({ step }: { step: Step }) {
               borderRadius: 999,
               background:
                 i === idx
-                  ? "var(--color-blue, #4F87F6)"
+                  ? "var(--info, #4F87F6)"
                   : i < idx
-                    ? "var(--color-green, #10C47A)"
-                    : "var(--bg-surface3)",
-              color: i <= idx ? "#fff" : "var(--text-muted)",
+                    ? "var(--good, #10C47A)"
+                    : "var(--paper-2)",
+              color: i <= idx ? "#fff" : "var(--ink-3)",
             }}
           >
             {s.label}
           </span>
           {i < steps.length - 1 && (
-            <span style={{ color: "var(--text-faint)" }}>→</span>
+            <span style={{ color: "var(--ink-4)" }}>→</span>
           )}
         </div>
       ))}
@@ -371,7 +371,7 @@ function BasicsStep(p: BasicsProps) {
       <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
         Tell the AI what to research
       </div>
-      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 18 }}>
+      <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 18 }}>
         OpenAI drafts the subject list, sub-topics, and any "pick N of M"
         pools (e.g. UPSC Mains optional subject). You review + edit before
         anything lands in the catalog.
@@ -488,17 +488,17 @@ function ReviewStep({ proposal, setProposal, busy, onBack, onSave }: ReviewProps
           <div>
             <div style={{ fontSize: 18, fontWeight: 700 }}>
               {proposal.name}
-              <span style={{ color: "var(--text-muted)", fontSize: 13, marginLeft: 8 }}>
+              <span style={{ color: "var(--ink-3)", fontSize: 13, marginLeft: 8 }}>
                 · {proposal.code}
               </span>
             </div>
             {proposal.subtitle && (
-              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>
                 {proposal.subtitle}
               </div>
             )}
           </div>
-          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+          <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
             {subjectCount} subjects · {mandatoryCount} mandatory ·{" "}
             {proposal.pools.length} pools · {topicCount} topics
           </div>
@@ -508,13 +508,13 @@ function ReviewStep({ proposal, setProposal, busy, onBack, onSave }: ReviewProps
             style={{
               marginTop: 10,
               padding: 10,
-              background: "var(--bg-surface3)",
+              background: "var(--paper-2)",
               borderRadius: 6,
               fontSize: 12,
-              color: "var(--text-secondary)",
+              color: "var(--ink-2)",
             }}
           >
-            <strong style={{ color: "var(--color-ai)" }}>AI notes:</strong>{" "}
+            <strong style={{ color: "var(--gold)" }}>AI notes:</strong>{" "}
             {proposal.notes}
           </div>
         )}
@@ -526,14 +526,14 @@ function ReviewStep({ proposal, setProposal, busy, onBack, onSave }: ReviewProps
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
             Optional pools — {proposal.pools.length}
           </div>
-          <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 12 }}>
             Each pool defines a "pick N of M" group. Subjects below assign to a
             pool via their dropdown. Edit pick_min/pick_max if the AI's count
             is wrong.
           </div>
           <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ textAlign: "left", color: "var(--text-muted)" }}>
+              <tr style={{ textAlign: "left", color: "var(--ink-3)" }}>
                 <th style={{ padding: "4px 6px" }}>Code</th>
                 <th style={{ padding: "4px 6px" }}>Name</th>
                 <th style={{ padding: "4px 6px", width: 80 }}>pick_min</th>
@@ -542,9 +542,9 @@ function ReviewStep({ proposal, setProposal, busy, onBack, onSave }: ReviewProps
             </thead>
             <tbody>
               {proposal.pools.map((pl, i) => (
-                <tr key={pl.code} style={{ borderTop: "1px solid var(--border)" }}>
+                <tr key={pl.code} style={{ borderTop: "1px solid var(--rule)" }}>
                   <td style={{ padding: "6px" }}>
-                    <code style={{ fontSize: 11, color: "var(--color-ai)" }}>
+                    <code style={{ fontSize: 11, color: "var(--gold)" }}>
                       {pl.code}
                     </code>
                   </td>
@@ -589,7 +589,7 @@ function ReviewStep({ proposal, setProposal, busy, onBack, onSave }: ReviewProps
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
           Subjects — {subjectCount}
         </div>
-        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 12 }}>
+        <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 12 }}>
           Toggle each subject's mandatory status. Optional subjects must
           point at a pool (define more pools above if needed).
         </div>
@@ -638,10 +638,10 @@ function SubjectRow({
   return (
     <div
       style={{
-        border: "1px solid var(--border)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
         padding: 10,
-        background: "var(--bg-surface3)",
+        background: "var(--paper-2)",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -650,7 +650,7 @@ function SubjectRow({
           style={{
             background: "transparent",
             border: 0,
-            color: "var(--text-muted)",
+            color: "var(--ink-3)",
             cursor: "pointer",
             fontSize: 11,
             padding: 0,
@@ -665,7 +665,7 @@ function SubjectRow({
           onChange={(e) => onPatch({ name: e.target.value })}
           style={{ ...inlineInput, fontWeight: 600, flex: 1 }}
         />
-        <code style={{ fontSize: 11, color: "var(--color-ai)" }}>{subject.code}</code>
+        <code style={{ fontSize: 11, color: "var(--gold)" }}>{subject.code}</code>
         <label style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
           <input
             type="checkbox"
@@ -693,7 +693,7 @@ function SubjectRow({
             ))}
           </select>
         )}
-        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
+        <span style={{ fontSize: 10, color: "var(--ink-3)" }}>
           {subject.topics.length} topics
         </span>
         <button
@@ -702,7 +702,7 @@ function SubjectRow({
           style={{
             background: "transparent",
             border: 0,
-            color: "var(--color-red)",
+            color: "var(--bad)",
             cursor: "pointer",
             fontSize: 14,
           }}
@@ -715,16 +715,16 @@ function SubjectRow({
           style={{
             margin: "10px 0 0",
             padding: "10px 0 0 30px",
-            borderTop: "1px solid var(--border)",
+            borderTop: "1px solid var(--rule)",
             fontSize: 12,
-            color: "var(--text-secondary)",
+            color: "var(--ink-2)",
             listStyle: "decimal",
           }}
         >
           {subject.topics.map((t) => (
             <li key={t.code} style={{ marginBottom: 3 }}>
-              <strong style={{ color: "var(--text-primary)" }}>{t.title}</strong>
-              <span style={{ color: "var(--text-faint)", fontSize: 11, marginLeft: 6 }}>
+              <strong style={{ color: "var(--ink)" }}>{t.title}</strong>
+              <span style={{ color: "var(--ink-4)", fontSize: 11, marginLeft: 6 }}>
                 {t.code}
               </span>
             </li>
@@ -774,11 +774,11 @@ function SavedStep({
         <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>
           Exam saved
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+        <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
           {summary.subjectsCreated} subjects · {summary.topicsCreated} topics ·{" "}
           {summary.poolsCreated} pools
           {retired > 0 && (
-            <span style={{ marginLeft: 8, color: "var(--color-amber)" }}>
+            <span style={{ marginLeft: 8, color: "var(--warn)" }}>
               · {retired} retired
             </span>
           )}
@@ -786,7 +786,7 @@ function SavedStep({
         <code
           style={{
             fontSize: 11,
-            color: "var(--text-faint)",
+            color: "var(--ink-4)",
             display: "block",
             marginTop: 6,
           }}
@@ -801,8 +801,8 @@ function SavedStep({
       <div
         style={{
           padding: 14,
-          background: "var(--bg-surface3)",
-          border: "1px solid var(--border)",
+          background: "var(--paper-2)",
+          border: "1px solid var(--rule)",
           borderRadius: 8,
           marginBottom: 18,
         }}
@@ -810,13 +810,13 @@ function SavedStep({
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
           🌱 Seed question bank with AI
         </div>
-        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10 }}>
+        <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 10 }}>
           Generates DRAFT MCQs for each published topic in this exam. Up to
           20 topics + 10 questions per topic per call. Drafts land in the
           regular question-bank for review before publish.
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+          <label style={{ fontSize: 12, color: "var(--ink-2)" }}>
             Questions per topic:
             <input
               type="number"
@@ -828,9 +828,9 @@ function SavedStep({
                 marginLeft: 8,
                 width: 64,
                 padding: "4px 8px",
-                background: "var(--bg-surface2)",
-                color: "var(--text-primary)",
-                border: "1px solid var(--border-strong)",
+                background: "var(--card)",
+                color: "var(--ink)",
+                border: "1px solid var(--rule-2)",
                 borderRadius: 4,
                 fontSize: 12,
               }}
@@ -845,10 +845,10 @@ function SavedStep({
             {seeding ? "Generating…" : "Seed questions"}
           </button>
           {seedSummary && (
-            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: 12, color: "var(--ink-2)" }}>
               ✓ {seedSummary.questions} questions across {seedSummary.topics} topics
               {seedSummary.failures > 0 && (
-                <span style={{ color: "var(--color-amber)", marginLeft: 6 }}>
+                <span style={{ color: "var(--warn)", marginLeft: 6 }}>
                   · {seedSummary.failures} failed
                 </span>
               )}
@@ -876,20 +876,20 @@ function SavedStep({
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "8px 10px",
-  background: "var(--bg-surface3)",
-  border: "1px solid var(--border-strong)",
+  background: "var(--paper-2)",
+  border: "1px solid var(--rule-2)",
   borderRadius: 6,
-  color: "var(--text-primary)",
+  color: "var(--ink)",
   fontSize: 13,
   outline: "none",
 };
 
 const inlineInput: React.CSSProperties = {
   padding: "4px 8px",
-  background: "var(--bg-surface2)",
-  border: "1px solid var(--border)",
+  background: "var(--card)",
+  border: "1px solid var(--rule)",
   borderRadius: 4,
-  color: "var(--text-primary)",
+  color: "var(--ink)",
   fontSize: 12,
   outline: "none",
 };
@@ -911,7 +911,7 @@ function Field({
           fontSize: 11,
           fontWeight: 600,
           marginBottom: 4,
-          color: "var(--text-secondary)",
+          color: "var(--ink-2)",
           textTransform: "uppercase",
           letterSpacing: 0.4,
         }}
@@ -920,7 +920,7 @@ function Field({
       </label>
       {children}
       {hint && (
-        <div style={{ fontSize: 10.5, color: "var(--text-faint)", marginTop: 4 }}>
+        <div style={{ fontSize: 10.5, color: "var(--ink-4)", marginTop: 4 }}>
           {hint}
         </div>
       )}

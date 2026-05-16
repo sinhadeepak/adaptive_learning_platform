@@ -94,14 +94,14 @@ export function Bookmarks() {
           style={{
             padding: "var(--sp-5)",
             textAlign: "center",
-            color: "var(--text-muted)",
-            border: "1px dashed var(--border-default)",
+            color: "var(--ink-3)",
+            border: "1px dashed var(--rule)",
             borderRadius: 12,
-            background: "var(--bg-surface-1)",
+            background: "var(--card-1)",
           }}
         >
           <div style={{ fontSize: 36, marginBottom: 8 }}>☆</div>
-          <div style={{ color: "var(--text-primary)", fontWeight: 600, marginBottom: 6 }}>
+          <div style={{ color: "var(--ink)", fontWeight: 600, marginBottom: 6 }}>
             No saved questions yet
           </div>
           <div style={{ fontSize: 13, lineHeight: 1.5 }}>
@@ -127,8 +127,8 @@ export function Bookmarks() {
             <li
               key={b.questionId}
               style={{
-                background: "var(--bg-surface-1)",
-                border: "1px solid var(--border-default)",
+                background: "var(--card-1)",
+                border: "1px solid var(--rule)",
                 borderRadius: 12,
                 padding: "var(--sp-3)",
               }}
@@ -140,7 +140,7 @@ export function Bookmarks() {
                   <Pill tone="muted">Saved</Pill>
                 )}
                 <span style={{ flex: 1 }} />
-                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
                   {relative(b.createdAt)}
                 </span>
                 <button
@@ -152,7 +152,7 @@ export function Bookmarks() {
                     background: "transparent",
                     border: 0,
                     cursor: "pointer",
-                    color: "var(--text-muted)",
+                    color: "var(--ink-3)",
                     fontSize: 16,
                     padding: 4,
                   }}
@@ -160,8 +160,8 @@ export function Bookmarks() {
                   ×
                 </button>
               </div>
-              <div style={{ marginTop: 8, color: "var(--text-primary)", lineHeight: 1.4 }}>
-                {b.stem ?? <span style={{ fontStyle: "italic", color: "var(--text-muted)" }}>Question (open to practice)</span>}
+              <div style={{ marginTop: 8, color: "var(--ink)", lineHeight: 1.4 }}>
+                {b.stem ?? <span style={{ fontStyle: "italic", color: "var(--ink-3)" }}>Question (open to practice)</span>}
               </div>
               {b.note ? (
                 <div
@@ -169,10 +169,10 @@ export function Bookmarks() {
                     marginTop: 8,
                     padding: "8px 10px",
                     borderRadius: 8,
-                    background: "var(--bg-surface-2)",
-                    border: "1px solid var(--border-default)",
+                    background: "var(--card-2)",
+                    border: "1px solid var(--rule)",
                     fontSize: 12,
-                    color: "var(--text-muted)",
+                    color: "var(--ink-3)",
                   }}
                 >
                   {b.note}

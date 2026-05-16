@@ -146,7 +146,7 @@ export function ResetPassword() {
             <p style={{ margin: 0, textAlign: "center" }}>
               <Link
                 to="/login"
-                style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+                style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
               >
                 ← Back to log in
               </Link>

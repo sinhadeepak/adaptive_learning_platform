@@ -138,12 +138,12 @@ export function Clans() {
             fontSize: "var(--t-h1-size)",
             lineHeight: "var(--t-h1-line)",
             fontWeight: 700,
-            color: "var(--neutral-900)",
+            color: "var(--ink)",
           }}
         >
           Clans
         </h1>
-        <p style={{ margin: "4px 0 0", color: "var(--neutral-600)" }}>
+        <p style={{ margin: "4px 0 0", color: "var(--ink-3)" }}>
           Form a study group of up to 30 members. Compete in clan-vs-clan
           battles and climb the clan leaderboard together.
         </p>
@@ -155,10 +155,10 @@ export function Clans() {
           <Card padding="md">
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 240 }}>
-                <div style={{ fontWeight: 600, color: "var(--neutral-900)" }}>
+                <div style={{ fontWeight: 600, color: "var(--ink)" }}>
                   Start your own clan
                 </div>
-                <div style={{ fontSize: 13, color: "var(--neutral-600)" }}>
+                <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
                   Invite friends to study with you — name it, ship it.
                 </div>
               </div>
@@ -223,7 +223,7 @@ export function Clans() {
               fontSize: "var(--t-h3-size)",
               lineHeight: "var(--t-h3-line)",
               fontWeight: 600,
-              color: "var(--neutral-800)",
+              color: "var(--ink-2)",
             }}
           >
             Browse public clans
@@ -270,7 +270,7 @@ export function Clans() {
                       to={`/clans/${c.id}`}
                       style={{
                         textDecoration: "none",
-                        color: "var(--neutral-900)",
+                        color: "var(--ink)",
                         fontWeight: 700,
                         fontSize: 15,
                       }}
@@ -281,7 +281,7 @@ export function Clans() {
                       <div
                         style={{
                           fontSize: 13,
-                          color: "var(--neutral-600)",
+                          color: "var(--ink-3)",
                           display: "-webkit-box",
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: "vertical",

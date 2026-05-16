@@ -56,7 +56,7 @@ export function TimeToMasteryCard({
     return (
       <div className="ttm-card" style={cardStyle}>
         <div style={titleStyle}>Time to mastery</div>
-        <div style={{ ...bigStyle, color: "var(--color-green, #10C47A)" }}>
+        <div style={{ ...bigStyle, color: "var(--good, #10C47A)" }}>
           Already at target ✓
         </div>
         <div style={subStyle}>
@@ -70,7 +70,7 @@ export function TimeToMasteryCard({
     <div className="ttm-card" style={cardStyle}>
       <div style={titleStyle}>Time to mastery</div>
       <div style={bigStyle}>
-        ~{hours_to_target}h <span style={{ fontSize: 13, color: "var(--text-muted)" }}>focused</span>
+        ~{hours_to_target}h <span style={{ fontSize: 13, color: "var(--ink-3)" }}>focused</span>
       </div>
       <div style={subStyle}>
         ~{questions_needed} questions to {Math.round(data.target_ewa * 100)}% mastery
@@ -146,9 +146,9 @@ export function ConfidenceGapCard({ userId }: { userId: string }) {
   const brier = data.overall_brier ?? 0;
   const brierTone = brier < 0.10 ? "good" : brier < 0.25 ? "warn" : "bad";
   const brierColor = {
-    good: "var(--color-green, #10C47A)",
-    warn: "var(--color-amber, #fbbf24)",
-    bad: "var(--color-red, #f43f5e)",
+    good: "var(--good, #10C47A)",
+    warn: "var(--warn, #fbbf24)",
+    bad: "var(--bad, #f43f5e)",
   }[brierTone];
 
   return (
@@ -163,7 +163,7 @@ export function ConfidenceGapCard({ userId }: { userId: string }) {
       </div>
       {data.overconfident.length > 0 && (
         <div style={{ ...subStyle, marginTop: 8 }}>
-          <strong style={{ color: "var(--color-red, #f43f5e)" }}>
+          <strong style={{ color: "var(--bad, #f43f5e)" }}>
             Overconfident ({data.overconfident.length})
           </strong>{" "}
           — concepts where you predict correct more often than you are.
@@ -171,7 +171,7 @@ export function ConfidenceGapCard({ userId }: { userId: string }) {
       )}
       {data.underconfident.length > 0 && (
         <div style={subStyle}>
-          <strong style={{ color: "var(--color-blue, #4F87F6)" }}>
+          <strong style={{ color: "var(--info, #4F87F6)" }}>
             Underconfident ({data.underconfident.length})
           </strong>{" "}
           — you know more than you think.
@@ -251,7 +251,7 @@ export function MistakeReplayButton({
         {busy ? "Starting…" : label}
       </button>
       {error && (
-        <div style={{ ...subStyle, color: "var(--color-amber, #fbbf24)", marginTop: 4 }}>
+        <div style={{ ...subStyle, color: "var(--warn, #fbbf24)", marginTop: 4 }}>
           {error}
         </div>
       )}
@@ -261,8 +261,8 @@ export function MistakeReplayButton({
 
 const cardStyle: React.CSSProperties = {
   padding: "14px 16px",
-  background: "var(--bg-surface1)",
-  border: "1px solid var(--border)",
+  background: "var(--paper-2)",
+  border: "1px solid var(--rule)",
   borderRadius: 8,
   minWidth: 0,
   width: "100%",
@@ -271,7 +271,7 @@ const cardStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   fontSize: 11,
-  color: "var(--text-muted)",
+  color: "var(--ink-3)",
   textTransform: "uppercase",
   letterSpacing: 0.04,
   marginBottom: 4,
@@ -280,12 +280,12 @@ const titleStyle: React.CSSProperties = {
 const bigStyle: React.CSSProperties = {
   fontSize: 22,
   fontWeight: 700,
-  color: "var(--text-primary)",
+  color: "var(--ink)",
   fontVariantNumeric: "tabular-nums",
 };
 
 const subStyle: React.CSSProperties = {
   fontSize: 12,
-  color: "var(--text-muted)",
+  color: "var(--ink-3)",
   marginTop: 2,
 };

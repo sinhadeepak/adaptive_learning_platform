@@ -140,7 +140,7 @@ export function TargetDate() {
           aria-live="polite"
           style={{
             fontSize: 13,
-            color: "var(--text-secondary)",
+            color: "var(--ink-2)",
             margin: "var(--sp-3) 0 0",
           }}
         >

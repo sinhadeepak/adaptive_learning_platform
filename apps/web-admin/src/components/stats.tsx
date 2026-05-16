@@ -41,17 +41,17 @@ export function StatTile({
   tone?: "neutral" | "good" | "warn" | "bad";
 }) {
   const toneColor: Record<string, string> = {
-    neutral: "var(--text-primary)",
-    good: "var(--color-green, #10C47A)",
-    warn: "var(--color-amber, #fbbf24)",
-    bad: "var(--color-red, #f43f5e)",
+    neutral: "var(--ink)",
+    good: "var(--good, #10C47A)",
+    warn: "var(--warn, #fbbf24)",
+    bad: "var(--bad, #f43f5e)",
   };
   return (
     <div
       style={{
         padding: "12px 16px",
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
         minWidth: 140,
       }}
@@ -59,7 +59,7 @@ export function StatTile({
       <div
         style={{
           fontSize: 11,
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
           textTransform: "uppercase",
           letterSpacing: 0.04,
         }}
@@ -83,10 +83,10 @@ export function StatTile({
             fontSize: 11,
             color:
               delta.value > 0
-                ? "var(--color-green, #10C47A)"
+                ? "var(--good, #10C47A)"
                 : delta.value < 0
-                ? "var(--color-red, #f43f5e)"
-                : "var(--text-muted)",
+                ? "var(--bad, #f43f5e)"
+                : "var(--ink-3)",
             marginTop: 2,
           }}
         >
@@ -125,7 +125,7 @@ export function DrillDownTable<T>({
         style={{
           padding: 24,
           textAlign: "center",
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
         }}
       >
         Loading…
@@ -138,9 +138,9 @@ export function DrillDownTable<T>({
         style={{
           padding: 24,
           textAlign: "center",
-          color: "var(--text-muted)",
-          background: "var(--bg-surface1)",
-          border: "1px dashed var(--border)",
+          color: "var(--ink-3)",
+          background: "var(--paper-2)",
+          border: "1px dashed var(--rule)",
           borderRadius: 8,
         }}
       >
@@ -151,8 +151,8 @@ export function DrillDownTable<T>({
   return (
     <div
       style={{
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
         overflow: "hidden",
       }}
@@ -163,9 +163,9 @@ export function DrillDownTable<T>({
         <thead>
           <tr
             style={{
-              background: "var(--bg-surface2)",
-              color: "var(--text-muted)",
-              borderBottom: "1px solid var(--border)",
+              background: "var(--card)",
+              color: "var(--ink-3)",
+              borderBottom: "1px solid var(--rule)",
               textAlign: "left",
             }}
           >
@@ -191,14 +191,14 @@ export function DrillDownTable<T>({
               key={((r as { id?: string }).id) ?? i}
               onClick={onRowClick ? () => onRowClick(r) : undefined}
               style={{
-                borderBottom: "1px solid var(--border)",
-                color: "var(--text-primary)",
+                borderBottom: "1px solid var(--rule)",
+                color: "var(--ink)",
                 cursor: onRowClick ? "pointer" : "default",
               }}
               onMouseEnter={(e) => {
                 if (onRowClick)
                   (e.currentTarget as HTMLElement).style.background =
-                    "var(--bg-surface2)";
+                    "var(--card)";
               }}
               onMouseLeave={(e) => {
                 if (onRowClick)
@@ -241,7 +241,7 @@ export function HierarchyBreadcrumb({
         alignItems: "center",
         flexWrap: "wrap",
         fontSize: 13,
-        color: "var(--text-muted)",
+        color: "var(--ink-3)",
         padding: "8px 0",
       }}
       aria-label="breadcrumb"
@@ -254,7 +254,7 @@ export function HierarchyBreadcrumb({
             <Link
               to={lvl.href}
               style={{
-                color: "var(--color-blue)",
+                color: "var(--info)",
                 textDecoration: "none",
               }}
             >
@@ -265,8 +265,8 @@ export function HierarchyBreadcrumb({
               style={{
                 color:
                   i === levels.length - 1
-                    ? "var(--text-primary)"
-                    : "var(--text-muted)",
+                    ? "var(--ink)"
+                    : "var(--ink-3)",
                 fontWeight: i === levels.length - 1 ? 600 : 400,
               }}
             >
@@ -294,10 +294,10 @@ export function ImportancePill({
     uniform: "Default",
   };
   const sourceTint: Record<string, string> = {
-    override: "var(--color-purple, #A78BFA)",
-    pyq: "var(--color-blue, #4F87F6)",
-    blueprint: "var(--text-muted)",
-    uniform: "var(--text-faint)",
+    override: "var(--accent, #A78BFA)",
+    pyq: "var(--info, #4F87F6)",
+    blueprint: "var(--ink-3)",
+    uniform: "var(--ink-4)",
   };
   const stars =
     weight > 0.20 ? 3 : weight > 0.10 ? 2 : weight > 0.04 ? 1 : 0;
@@ -316,12 +316,12 @@ export function ImportancePill({
         gap: 4,
         padding: "2px 7px",
         background: hidden
-          ? "var(--bg-surface3)"
-          : "var(--bg-surface2)",
+          ? "var(--paper-2)"
+          : "var(--card)",
         border: `1px solid ${sourceTint[source]}`,
         borderRadius: 12,
         fontSize: 11,
-        color: hidden ? "var(--text-faint)" : "var(--text-secondary)",
+        color: hidden ? "var(--ink-4)" : "var(--ink-2)",
         textDecoration: hidden ? "line-through" : "none",
       }}
     >
@@ -343,19 +343,19 @@ export function MasteryBar({ ewa, n = 0 }: { ewa: number; n?: number }) {
   const pct = Math.max(0, Math.min(1, ewa));
   const tone =
     pct === 0
-      ? "var(--text-faint)"
+      ? "var(--ink-4)"
       : pct < 0.4
-      ? "var(--color-red, #f43f5e)"
+      ? "var(--bad, #f43f5e)"
       : pct < 0.7
-      ? "var(--color-blue, #4F87F6)"
-      : "var(--color-green, #10C47A)";
+      ? "var(--info, #4F87F6)"
+      : "var(--good, #10C47A)";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <div
         style={{
           flex: 1,
           height: 6,
-          background: "var(--bg-surface3)",
+          background: "var(--paper-2)",
           borderRadius: 3,
           overflow: "hidden",
           minWidth: 60,
@@ -373,7 +373,7 @@ export function MasteryBar({ ewa, n = 0 }: { ewa: number; n?: number }) {
       <span
         style={{
           fontSize: 12,
-          color: "var(--text-secondary)",
+          color: "var(--ink-2)",
           fontVariantNumeric: "tabular-nums",
           minWidth: 60,
           textAlign: "right",
@@ -402,12 +402,12 @@ export function BloomMatrix({
         const n = cell?.n ?? 0;
         const tone =
           ewa === null
-            ? "var(--text-faint)"
+            ? "var(--ink-4)"
             : ewa < 0.4
-            ? "var(--color-red, #f43f5e)"
+            ? "var(--bad, #f43f5e)"
             : ewa < 0.7
-            ? "var(--color-blue, #4F87F6)"
-            : "var(--color-green, #10C47A)";
+            ? "var(--info, #4F87F6)"
+            : "var(--good, #10C47A)";
         return (
           <div
             key={lvl}
@@ -419,12 +419,12 @@ export function BloomMatrix({
             style={{
               padding: "4px 6px",
               borderRadius: 4,
-              background: "var(--bg-surface3)",
+              background: "var(--paper-2)",
               border: `1px solid ${tone}`,
               textAlign: "center",
               fontSize: 10,
               color:
-                ewa === null ? "var(--text-faint)" : "var(--text-primary)",
+                ewa === null ? "var(--ink-4)" : "var(--ink)",
             }}
           >
             <div
@@ -432,7 +432,7 @@ export function BloomMatrix({
                 textTransform: "uppercase",
                 letterSpacing: 0.04,
                 fontSize: 9,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 marginBottom: 1,
               }}
             >
@@ -488,35 +488,35 @@ export function StrongWeakSummary({
           height: 8,
           borderRadius: 4,
           overflow: "hidden",
-          background: "var(--bg-surface3)",
+          background: "var(--paper-2)",
           marginBottom: 6,
         }}
       >
-        {seg(strong, "var(--color-green, #10C47A)", "Strong")}
-        {seg(developing, "var(--color-blue, #4F87F6)", "Developing")}
-        {seg(weak, "var(--color-red, #f43f5e)", "Weak")}
-        {seg(notStarted, "var(--text-faint)", "Not started")}
+        {seg(strong, "var(--good, #10C47A)", "Strong")}
+        {seg(developing, "var(--info, #4F87F6)", "Developing")}
+        {seg(weak, "var(--bad, #f43f5e)", "Weak")}
+        {seg(notStarted, "var(--ink-4)", "Not started")}
       </div>
       <div
         style={{
           display: "flex",
           gap: 12,
           fontSize: 11,
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
           flexWrap: "wrap",
         }}
       >
         <span>
-          <Dot c="var(--color-green, #10C47A)" /> Strong {strong}
+          <Dot c="var(--good, #10C47A)" /> Strong {strong}
         </span>
         <span>
-          <Dot c="var(--color-blue, #4F87F6)" /> Developing {developing}
+          <Dot c="var(--info, #4F87F6)" /> Developing {developing}
         </span>
         <span>
-          <Dot c="var(--color-red, #f43f5e)" /> Weak {weak}
+          <Dot c="var(--bad, #f43f5e)" /> Weak {weak}
         </span>
         <span>
-          <Dot c="var(--text-faint)" /> Not started {notStarted}
+          <Dot c="var(--ink-4)" /> Not started {notStarted}
         </span>
       </div>
     </div>
@@ -551,8 +551,8 @@ export function ColdStartProjection({
     <div
       style={{
         padding: 16,
-        background: "var(--bg-surface1)",
-        border: "1px dashed var(--color-amber, #fbbf24)",
+        background: "var(--paper-2)",
+        border: "1px dashed var(--warn, #fbbf24)",
         borderRadius: 8,
       }}
     >
@@ -567,8 +567,8 @@ export function ColdStartProjection({
         <span
           style={{
             padding: "2px 6px",
-            background: "var(--color-amber, #fbbf24)",
-            color: "var(--bg-base)",
+            background: "var(--warn, #fbbf24)",
+            color: "var(--paper)",
             fontSize: 10,
             fontWeight: 700,
             borderRadius: 3,
@@ -577,7 +577,7 @@ export function ColdStartProjection({
         >
           PROJECTED
         </span>
-        <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+        <span style={{ fontSize: 13, color: "var(--ink-2)" }}>
           {projection.note ?? "No live data yet"}
         </span>
       </div>
@@ -588,7 +588,7 @@ export function ColdStartProjection({
               <span
                 style={{
                   fontSize: 12,
-                  color: "var(--text-muted)",
+                  color: "var(--ink-3)",
                   width: 100,
                 }}
               >

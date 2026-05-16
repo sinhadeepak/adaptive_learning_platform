@@ -34,7 +34,7 @@ export function CreatorApply() {
     <AppShell title="Apply as a Creator">
       <main className="page" style={{ padding: 24, maxWidth: 760 }}>
         <h1>Creator application</h1>
-        <p style={{ color: "var(--text-muted)" }}>
+        <p style={{ color: "var(--ink-3)" }}>
           Creators publish self-paced courses students buy individually. Per
           ADR-0008, courses must be priced ₹49–₹4,999. Identity verification is
           required before the first course can publish.

@@ -52,7 +52,7 @@ export function CohortDeepDive() {
   return (
     <AppShell title={`Cohort ${cohortId.slice(0, 8)}`}>
       <main className="page" style={{ padding: 24 }}>
-        <Link to="/teacher/dashboard" style={{ color: "var(--text-muted)", fontSize: 12 }}>
+        <Link to="/teacher/dashboard" style={{ color: "var(--ink-3)", fontSize: 12 }}>
           ← Back to dashboard
         </Link>
         <h1 style={{ marginTop: 12 }}>
@@ -82,7 +82,7 @@ export function CohortDeepDive() {
           </TabButton>
           <Link
             to={`/cohorts/${cohortId}/leaderboard`}
-            style={{ marginLeft: "auto", color: "var(--color-ai)", fontSize: 13 }}
+            style={{ marginLeft: "auto", color: "var(--gold)", fontSize: 13 }}
           >
             Leaderboard ↗
           </Link>
@@ -112,9 +112,9 @@ function TabButton({
     <button
       onClick={onClick}
       style={{
-        background: active ? "var(--color-ai)" : "var(--bg-surface-1)",
-        color: active ? "#fff" : "var(--text-secondary)",
-        border: "1px solid var(--border-default)",
+        background: active ? "var(--gold)" : "var(--card-1)",
+        color: active ? "#fff" : "var(--ink-2)",
+        border: "1px solid var(--rule)",
         padding: "6px 12px",
         borderRadius: 6,
         cursor: "pointer",
@@ -140,7 +140,7 @@ function HeatmapTab({ cohortId }: { cohortId: string }) {
   if (!rows) return <SkeletonRows count={8} />;
   if (rows.length === 0) {
     return (
-      <p style={{ color: "var(--text-muted)" }}>
+      <p style={{ color: "var(--ink-3)" }}>
         No mastery data yet for this cohort. Once students complete some practice,
         the heatmap will populate weakest-topic-first.
       </p>
@@ -148,7 +148,7 @@ function HeatmapTab({ cohortId }: { cohortId: string }) {
   }
   return (
     <div>
-      <p style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 0 }}>
+      <p style={{ color: "var(--ink-3)", fontSize: 12, marginTop: 0 }}>
         Per-topic class mastery, weakest first. Use this to pick what to re-teach next.
       </p>
       <table className="leaderboard">
@@ -162,7 +162,7 @@ function HeatmapTab({ cohortId }: { cohortId: string }) {
         <tbody>
           {rows.map((r) => {
             const pct = Math.round(r.avgEwa * 100);
-            const tone = pct >= 70 ? "var(--color-green)" : pct >= 40 ? "var(--color-blue)" : "var(--color-red)";
+            const tone = pct >= 70 ? "var(--good)" : pct >= 40 ? "var(--info)" : "var(--bad)";
             return (
               <tr key={r.topicId}>
                 <td>{r.topicTitle || r.topicId.slice(0, 8)}</td>
@@ -172,7 +172,7 @@ function HeatmapTab({ cohortId }: { cohortId: string }) {
                       style={{
                         flex: 1,
                         height: 6,
-                        background: "var(--bg-surface-3)",
+                        background: "var(--card-3)",
                         borderRadius: 3,
                         position: "relative",
                       }}
@@ -223,7 +223,7 @@ function TrendTab({ cohortId }: { cohortId: string }) {
         ))}
       </div>
       {points.length === 0 ? (
-        <p style={{ color: "var(--text-muted)" }}>No data yet for this window.</p>
+        <p style={{ color: "var(--ink-3)" }}>No data yet for this window.</p>
       ) : (
         <SparkLine points={points} />
       )}
@@ -245,19 +245,19 @@ function SparkLine({ points }: { points: CohortTrendPoint[] }) {
   return (
     <div style={{ width: "100%", overflow: "auto" }}>
       <svg width={w} height={h} role="img" aria-label="Cohort readiness trend">
-        <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="var(--border-default)" />
-        <path d={d} fill="none" stroke="var(--color-ai)" strokeWidth={2} />
+        <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="var(--rule)" />
+        <path d={d} fill="none" stroke="var(--gold)" strokeWidth={2} />
         {xs.map((x, i) => (
-          <circle key={i} cx={x} cy={ys[i]} r={3} fill="var(--color-ai)" />
+          <circle key={i} cx={x} cy={ys[i]} r={3} fill="var(--gold)" />
         ))}
-        <text x={pad} y={pad - 4} fill="var(--text-muted)" fontSize={11}>
+        <text x={pad} y={pad - 4} fill="var(--ink-3)" fontSize={11}>
           {Math.round(max * 100)}%
         </text>
-        <text x={pad} y={h - pad + 14} fill="var(--text-muted)" fontSize={11}>
+        <text x={pad} y={h - pad + 14} fill="var(--ink-3)" fontSize={11}>
           {Math.round(min * 100)}%
         </text>
       </svg>
-      <p style={{ color: "var(--text-muted)", fontSize: 11, marginTop: 4 }}>
+      <p style={{ color: "var(--ink-3)", fontSize: 11, marginTop: 4 }}>
         Avg readiness — {points.length} snapshots over {points.length} day(s).
       </p>
     </div>
@@ -276,7 +276,7 @@ function EngagementTab({ cohortId }: { cohortId: string }) {
   if (error) return <Pill tone="danger">{error}</Pill>;
   if (!students) return <SkeletonRows count={8} />;
   if (students.length === 0) {
-    return <p style={{ color: "var(--text-muted)" }}>No students in this cohort.</p>;
+    return <p style={{ color: "var(--ink-3)" }}>No students in this cohort.</p>;
   }
   return (
     <table className="leaderboard">
@@ -326,18 +326,18 @@ function AssignmentsTab({ cohortId }: { cohortId: string }) {
   if (data.assignments.length === 0) {
     return (
       <div>
-        <p style={{ color: "var(--text-muted)" }}>
+        <p style={{ color: "var(--ink-3)" }}>
           No assignments wired to this cohort yet.
         </p>
         {data.note && (
-          <p style={{ color: "var(--text-muted)", fontSize: 11, fontStyle: "italic" }}>
+          <p style={{ color: "var(--ink-3)", fontSize: 11, fontStyle: "italic" }}>
             {data.note}
           </p>
         )}
       </div>
     );
   }
-  return <pre style={{ color: "var(--text-secondary)" }}>{JSON.stringify(data.assignments, null, 2)}</pre>;
+  return <pre style={{ color: "var(--ink-2)" }}>{JSON.stringify(data.assignments, null, 2)}</pre>;
 }
 
 function fmtRelative(iso: string): string {

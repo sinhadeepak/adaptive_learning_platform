@@ -55,9 +55,9 @@ export function ConceptTagger({
       className="author-card"
       style={{
         padding: 12,
-        border: "1px solid var(--border, #e1e5ee)",
+        border: "1px solid var(--rule, #e1e5ee)",
         borderRadius: 8,
-        background: "var(--bg-card, #fff)",
+        background: "var(--card, #fff)",
       }}
     >
       <div
@@ -73,7 +73,7 @@ export function ConceptTagger({
           <span
             style={{
               fontSize: 12,
-              color: "var(--color-amber, #f59e0b)",
+              color: "var(--warn, #f59e0b)",
             }}
           >
             ⚠ Add at least one <strong>primary</strong> concept
@@ -130,7 +130,7 @@ export function ConceptTagger({
           onChange={(e) => setPendingRole(e.target.value as ConceptTag["role"])}
           style={{
             padding: "6px 8px",
-            border: "1px solid var(--border, #e1e5ee)",
+            border: "1px solid var(--rule, #e1e5ee)",
             borderRadius: 4,
             fontSize: 13,
           }}
@@ -148,7 +148,7 @@ export function ConceptTagger({
           style={{
             flex: 1,
             padding: "6px 8px",
-            border: "1px solid var(--border, #e1e5ee)",
+            border: "1px solid var(--rule, #e1e5ee)",
             borderRadius: 4,
             fontSize: 13,
             fontFamily: "monospace",
@@ -161,8 +161,8 @@ export function ConceptTagger({
           style={{
             padding: "6px 16px",
             background: pending.trim()
-              ? "var(--color-blue, #4f87f6)"
-              : "var(--text-faint, #cbd5e0)",
+              ? "var(--info, #4f87f6)"
+              : "var(--ink-4, #cbd5e0)",
             color: "white",
             border: "none",
             borderRadius: 4,
@@ -179,8 +179,8 @@ export function ConceptTagger({
           style={{
             marginTop: 8,
             padding: 8,
-            background: "var(--color-amber-bg, #fef3c7)",
-            color: "var(--color-amber-dark, #92400e)",
+            background: "var(--warn-soft, #fef3c7)",
+            color: "var(--gold-2, #92400e)",
             borderRadius: 4,
             fontSize: 12,
           }}
@@ -197,18 +197,18 @@ export function ConceptTagger({
 
 function roleBg(role: ConceptTag["role"]): string {
   switch (role) {
-    case "primary": return "var(--color-blue-bg, #dbeafe)";
-    case "prerequisite": return "var(--color-amber-bg, #fef3c7)";
-    case "formula_invoked": return "var(--color-purple-bg, #ede9fe)";
-    case "distractor_targets": return "var(--color-grey-bg, #f3f4f6)";
+    case "primary": return "var(--info-soft, #dbeafe)";
+    case "prerequisite": return "var(--warn-soft, #fef3c7)";
+    case "formula_invoked": return "var(--accent-soft, #ede9fe)";
+    case "distractor_targets": return "var(--paper-2, #f3f4f6)";
   }
 }
 
 function roleFg(role: ConceptTag["role"]): string {
   switch (role) {
-    case "primary": return "var(--color-blue, #4f87f6)";
-    case "prerequisite": return "var(--color-amber-dark, #92400e)";
-    case "formula_invoked": return "var(--color-purple, #7c3aed)";
-    case "distractor_targets": return "var(--text-primary)";
+    case "primary": return "var(--info, #4f87f6)";
+    case "prerequisite": return "var(--gold-2, #92400e)";
+    case "formula_invoked": return "var(--accent, #7c3aed)";
+    case "distractor_targets": return "var(--ink)";
   }
 }

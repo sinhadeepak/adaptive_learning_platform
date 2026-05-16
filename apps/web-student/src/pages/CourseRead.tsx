@@ -52,7 +52,7 @@ export function CourseRead() {
       <AppShell title="Course">
         <div style={{ padding: "16px 24px" }}>
           <p className="banner banner-error">{error}</p>
-          <Link to="/courses-mine" style={{ color: "var(--color-blue)" }}>← Back to my courses</Link>
+          <Link to="/courses-mine" style={{ color: "var(--info)" }}>← Back to my courses</Link>
         </div>
       </AppShell>
     );
@@ -60,7 +60,7 @@ export function CourseRead() {
   if (!course) {
     return (
       <AppShell title="Course">
-        <div style={{ padding: "16px 24px", color: "var(--text-muted)" }}>Loading…</div>
+        <div style={{ padding: "16px 24px", color: "var(--ink-3)" }}>Loading…</div>
       </AppShell>
     );
   }
@@ -72,18 +72,18 @@ export function CourseRead() {
     return (
       <AppShell title={course.title}>
         <div style={{ padding: "16px 24px 32px", maxWidth: 880 }}>
-          <Link to="/courses-mine" style={{ color: "var(--color-blue)", fontSize: 13 }}>← Back to my courses</Link>
+          <Link to="/courses-mine" style={{ color: "var(--info)", fontSize: 13 }}>← Back to my courses</Link>
           <h1 style={{ marginTop: 12 }}>{course.title}</h1>
-          <p style={{ color: "var(--text-muted)" }}>{course.description}</p>
+          <p style={{ color: "var(--ink-3)" }}>{course.description}</p>
           <article
             style={{
-              background: "var(--bg-surface1)",
-              border: "1px solid var(--border)",
+              background: "var(--paper-2)",
+              border: "1px solid var(--rule)",
               padding: 24,
               borderRadius: 8,
               marginTop: 16,
               whiteSpace: "pre-wrap",
-              color: "var(--text-secondary)",
+              color: "var(--ink-2)",
               lineHeight: 1.6,
             }}
           >
@@ -101,17 +101,17 @@ export function CourseRead() {
   return (
     <AppShell title={course.title}>
     <div style={{ padding: "16px 24px 32px", maxWidth: 1200 }}>
-      <Link to="/courses-mine" style={{ color: "var(--color-blue)", fontSize: 13 }}>← Back to my courses</Link>
+      <Link to="/courses-mine" style={{ color: "var(--info)", fontSize: 13 }}>← Back to my courses</Link>
       <h1 style={{ marginTop: 12 }}>{course.title}</h1>
-      <p style={{ color: "var(--text-muted)" }}>{course.description}</p>
-      <p style={{ color: "var(--text-muted)" }}>
+      <p style={{ color: "var(--ink-3)" }}>{course.description}</p>
+      <p style={{ color: "var(--ink-3)" }}>
         Lesson {activeIndex} of {allLessons.length}
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 24, marginTop: 16 }}>
         <nav
           aria-label="Course outline"
           style={{
-            background: "var(--bg-surface-1, #fff)",
+            background: "var(--card-1, #fff)",
             padding: 16,
             borderRadius: 8,
             maxHeight: "70vh",
@@ -131,14 +131,14 @@ export function CourseRead() {
                       onClick={() => setActiveLessonId(lesson.id)}
                       style={{
                         background:
-                          activeLessonId === lesson.id ? "var(--bg-elevated, #eef)" : "none",
+                          activeLessonId === lesson.id ? "var(--card, #eef)" : "none",
                         border: "none",
                         padding: "6px 8px",
                         textAlign: "left",
                         width: "100%",
                         cursor: "pointer",
                         color:
-                          activeLessonId === lesson.id ? "inherit" : "var(--color-blue, #4F87F6)",
+                          activeLessonId === lesson.id ? "inherit" : "var(--info, #4F87F6)",
                         borderRadius: 4,
                       }}
                     >
@@ -152,7 +152,7 @@ export function CourseRead() {
         </nav>
         <article
           style={{
-            background: "var(--bg-surface-1, #fff)",
+            background: "var(--card-1, #fff)",
             padding: 24,
             borderRadius: 8,
             whiteSpace: "pre-wrap",

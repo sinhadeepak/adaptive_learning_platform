@@ -11,7 +11,7 @@ export function BandwidthSettings() {
         style={{
           marginTop: 20,
           fontSize: 12,
-          color: "var(--text-faint, #7A8BAD)",
+          color: "var(--ink-4, #7A8BAD)",
           maxWidth: 540,
           lineHeight: 1.5,
         }}

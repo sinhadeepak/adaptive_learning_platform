@@ -21,8 +21,8 @@ interface RadarChartProps {
 export function RadarChart({
   points,
   size = 320,
-  primaryColor = "var(--color-blue, #4f87f6)",
-  bgColor = "var(--bg-subtle, #f8f9fc)",
+  primaryColor = "var(--info, #4f87f6)",
+  bgColor = "var(--paper-2, #f8f9fc)",
 }: RadarChartProps): ReactNode {
   const center = size / 2;
   const radius = size * 0.4;
@@ -66,7 +66,7 @@ export function RadarChart({
             key={r}
             points={ringPts.map(([x, y]) => `${x},${y}`).join(" ")}
             fill={r === 1.0 ? bgColor : "none"}
-            stroke="var(--border, #e1e5ee)"
+            stroke="var(--rule, #e1e5ee)"
             strokeWidth={r === 1.0 ? 1 : 0.5}
             strokeDasharray={r === 1.0 ? "0" : "2 2"}
           />
@@ -83,7 +83,7 @@ export function RadarChart({
             y1={center}
             x2={x}
             y2={y}
-            stroke="var(--border, #e1e5ee)"
+            stroke="var(--rule, #e1e5ee)"
             strokeWidth={0.5}
           />
         );
@@ -118,7 +118,7 @@ export function RadarChart({
               fontSize={11}
               textAnchor={isRight ? "start" : isLeft ? "end" : "middle"}
               dominantBaseline={isTop ? "auto" : isBottom ? "hanging" : "middle"}
-              fill="var(--text-primary)"
+              fill="var(--ink)"
               fontWeight={500}
             >
               {p.label}
@@ -129,7 +129,7 @@ export function RadarChart({
               fontSize={10}
               textAnchor={isRight ? "start" : isLeft ? "end" : "middle"}
               dominantBaseline={isTop ? "auto" : isBottom ? "hanging" : "middle"}
-              fill="var(--text-muted, #64748b)"
+              fill="var(--ink-3, #64748b)"
             >
               {(p.value * 100).toFixed(0)}%
             </text>

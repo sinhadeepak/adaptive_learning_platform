@@ -177,7 +177,7 @@ export function EducatorScope() {
                       <div
                         style={{
                           fontSize: 11,
-                          color: "var(--text-muted)",
+                          color: "var(--ink-3)",
                         }}
                       >
                         {u.email}
@@ -226,7 +226,7 @@ export function EducatorScope() {
                               <span
                                 style={{
                                   fontSize: 10,
-                                  color: "var(--color-amber)",
+                                  color: "var(--warn)",
                                 }}
                               >
                                 subj
@@ -247,7 +247,7 @@ export function EducatorScope() {
       <p
         style={{
           fontSize: 11,
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
           marginTop: "var(--sp-4)",
         }}
       >

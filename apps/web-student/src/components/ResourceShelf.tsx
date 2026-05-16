@@ -123,7 +123,7 @@ export function ResourceShelf({
             fontWeight: 700,
             letterSpacing: 0.6,
             textTransform: "uppercase",
-            color: "var(--color-ai, #22D4EE)",
+            color: "var(--gold, #22D4EE)",
             marginBottom: 6,
           }}
         >
@@ -132,14 +132,14 @@ export function ResourceShelf({
         <div
           style={{
             fontSize: 12,
-            color: "var(--text-secondary, #B8C5E0)",
+            color: "var(--ink-2, #B8C5E0)",
             lineHeight: 1.5,
           }}
         >
           No clips curated yet for this{" "}
           {questionId ? "question" : conceptId ? "concept" : "topic"}.
           {" "}
-          <span style={{ color: "var(--text-faint, #7A8BAD)" }}>
+          <span style={{ color: "var(--ink-4, #7A8BAD)" }}>
             Your teachers pin YouTube content here as the curation queue
             catches up — check back soon.
           </span>
@@ -182,7 +182,7 @@ export function ResourceShelf({
               fontWeight: 700,
               letterSpacing: 0.6,
               textTransform: "uppercase",
-              color: "var(--color-ai, #22D4EE)",
+              color: "var(--gold, #22D4EE)",
             }}
           >
             🎬 {title}
@@ -191,7 +191,7 @@ export function ResourceShelf({
             <div
               style={{
                 fontSize: 12,
-                color: "var(--text-secondary, #B8C5E0)",
+                color: "var(--ink-2, #B8C5E0)",
                 marginTop: 2,
               }}
             >
@@ -202,7 +202,7 @@ export function ResourceShelf({
         <div
           style={{
             fontSize: 11,
-            color: "var(--text-faint, #7A8BAD)",
+            color: "var(--ink-4, #7A8BAD)",
           }}
         >
           {resources.length} clip{resources.length === 1 ? "" : "s"} · curated by your teachers
@@ -223,8 +223,8 @@ export function ResourceShelf({
             key={r.id}
             onClick={() => setOpenResource(r)}
             style={{
-              background: "var(--bg-surface3, #162038)",
-              border: "1px solid var(--border, rgba(255,255,255,0.07))",
+              background: "var(--paper-2, #162038)",
+              border: "1px solid var(--rule, rgba(255,255,255,0.07))",
               borderRadius: 8,
               padding: 0,
               cursor: "pointer",
@@ -265,7 +265,7 @@ export function ResourceShelf({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: "var(--text-faint, #7A8BAD)",
+                    color: "var(--ink-4, #7A8BAD)",
                     fontSize: 11,
                   }}
                 >
@@ -328,7 +328,7 @@ export function ResourceShelf({
                 style={{
                   fontSize: compact ? 12 : 13,
                   fontWeight: 500,
-                  color: "var(--text-primary, #EEF2FF)",
+                  color: "var(--ink, #EEF2FF)",
                   display: "-webkit-box",
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: "vertical",
@@ -341,7 +341,7 @@ export function ResourceShelf({
               <div
                 style={{
                   fontSize: 10,
-                  color: "var(--text-faint, #7A8BAD)",
+                  color: "var(--ink-4, #7A8BAD)",
                   display: "flex",
                   gap: 6,
                   flexWrap: "wrap",
@@ -353,10 +353,10 @@ export function ResourceShelf({
                     style={{
                       color:
                         r.difficulty === "HARD"
-                          ? "var(--color-red, #F43F5E)"
+                          ? "var(--bad, #F43F5E)"
                           : r.difficulty === "MEDIUM"
-                            ? "var(--color-amber, #F5A623)"
-                            : "var(--color-blue, #4F87F6)",
+                            ? "var(--warn, #F5A623)"
+                            : "var(--info, #4F87F6)",
                       fontWeight: 600,
                     }}
                   >

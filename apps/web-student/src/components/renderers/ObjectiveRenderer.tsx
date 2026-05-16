@@ -50,11 +50,11 @@ export const MCQSingleRenderer: Renderer<MCQSinglePayload, MCQSingleResponse> = 
                 gap: 12,
                 padding: 12,
                 border: selected
-                  ? "2px solid var(--color-blue, #4f87f6)"
-                  : "1px solid var(--border, #e1e5ee)",
+                  ? "2px solid var(--info, #4f87f6)"
+                  : "1px solid var(--rule, #e1e5ee)",
                 borderRadius: 6,
                 cursor: disabled ? "not-allowed" : "pointer",
-                background: selected ? "var(--color-blue-bg, #dbeafe)" : "var(--bg-surface2)",
+                background: selected ? "var(--info-soft, #dbeafe)" : "var(--card)",
               }}
             >
               <input
@@ -126,11 +126,11 @@ export const MCQMultiRenderer: Renderer<MCQMultiPayload, MCQMultiResponse> = ({
                 gap: 12,
                 padding: 12,
                 border: isSelected
-                  ? "2px solid var(--color-blue, #4f87f6)"
-                  : "1px solid var(--border, #e1e5ee)",
+                  ? "2px solid var(--info, #4f87f6)"
+                  : "1px solid var(--rule, #e1e5ee)",
                 borderRadius: 6,
                 cursor: disabled ? "not-allowed" : "pointer",
-                background: isSelected ? "var(--color-blue-bg, #dbeafe)" : "var(--bg-surface2)",
+                background: isSelected ? "var(--info-soft, #dbeafe)" : "var(--card)",
               }}
             >
               <input
@@ -185,13 +185,13 @@ export const TrueFalseRenderer: Renderer<TrueFalsePayload, TrueFalseResponse> = 
                 fontWeight: 600,
                 background: selected
                   ? b
-                    ? "var(--color-green, #10c47a)"
-                    : "var(--color-red, #f43f5e)"
-                  : "var(--bg-surface2)",
+                    ? "var(--good, #10c47a)"
+                    : "var(--bad, #f43f5e)"
+                  : "var(--card)",
                 color: selected ? "white" : "inherit",
                 border: selected
                   ? "2px solid transparent"
-                  : "1px solid var(--border, #e1e5ee)",
+                  : "1px solid var(--rule, #e1e5ee)",
                 borderRadius: 6,
                 cursor: disabled ? "not-allowed" : "pointer",
               }}

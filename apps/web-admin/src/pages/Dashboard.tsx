@@ -112,7 +112,7 @@ export function Dashboard() {
         aria-label="Platform KPIs"
       >
         <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-blue)" }}>
+          <div className="topic-stat-num" style={{ color: "var(--info)" }}>
             {flagList === null ? "…" : totalFlags}
           </div>
           <div className="topic-stat-lbl">Active flags</div>
@@ -126,7 +126,7 @@ export function Dashboard() {
           <div
             className="topic-stat-num"
             style={{
-              color: dangerCount > 0 ? "var(--color-red)" : "var(--color-green)",
+              color: dangerCount > 0 ? "var(--bad)" : "var(--good)",
             }}
           >
             {flagList === null ? "…" : dangerCount}
@@ -137,7 +137,7 @@ export function Dashboard() {
           </div>
         </div>
         <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-amber)" }}>
+          <div className="topic-stat-num" style={{ color: "var(--warn)" }}>
             {auditList === null ? "…" : auditList.length}
           </div>
           <div className="topic-stat-lbl">Recent audit</div>
@@ -148,7 +148,7 @@ export function Dashboard() {
           </div>
         </div>
         <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-ai)" }}>
+          <div className="topic-stat-num" style={{ color: "var(--gold)" }}>
             —
           </div>
           <div className="topic-stat-lbl">Active users</div>
@@ -170,7 +170,7 @@ export function Dashboard() {
           <p
             style={{
               fontSize: 12,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               margin: "0 0 var(--sp-3)",
             }}
           >
@@ -190,8 +190,8 @@ export function Dashboard() {
                 style={{
                   padding: "10px 12px",
                   borderRadius: "var(--radius-md)",
-                  background: "var(--bg-surface3)",
-                  border: "1px solid var(--border)",
+                  background: "var(--paper-2)",
+                  border: "1px solid var(--rule)",
                 }}
               >
                 <div
@@ -200,12 +200,12 @@ export function Dashboard() {
                     fontWeight: 700,
                     color:
                       s.status === "met"
-                        ? "var(--color-green)"
+                        ? "var(--good)"
                         : s.status === "warning"
-                          ? "var(--color-amber)"
+                          ? "var(--warn)"
                           : s.status === "breach"
-                            ? "var(--color-red)"
-                            : "var(--text-muted)",
+                            ? "var(--bad)"
+                            : "var(--ink-3)",
                   }}
                 >
                   {s.value}
@@ -213,7 +213,7 @@ export function Dashboard() {
                 <div
                   style={{
                     fontSize: 11,
-                    color: "var(--text-secondary)",
+                    color: "var(--ink-2)",
                     fontWeight: 600,
                   }}
                 >
@@ -222,7 +222,7 @@ export function Dashboard() {
                 <div
                   style={{
                     fontSize: 10,
-                    color: "var(--text-faint)",
+                    color: "var(--ink-4)",
                     marginTop: 2,
                   }}
                 >
@@ -248,7 +248,7 @@ export function Dashboard() {
           ) : auditList.length === 0 ? (
             <div className="empty-state" style={{ margin: "var(--sp-4)" }}>
               <div className="empty-state-title">No audit entries</div>
-              <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              <p style={{ fontSize: 12, color: "var(--ink-3)" }}>
                 Toggle a flag default to seed the audit trail.
               </p>
             </div>
@@ -333,7 +333,7 @@ export function Dashboard() {
         <p
           style={{
             fontSize: 11,
-            color: "var(--text-muted)",
+            color: "var(--ink-3)",
             marginTop: "var(--sp-3)",
           }}
         >

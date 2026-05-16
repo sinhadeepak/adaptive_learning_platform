@@ -70,7 +70,7 @@ export function RatingModeration() {
   return (
     <main className="page" style={{ padding: 24, maxWidth: 800 }}>
       <h1>Rating moderation</h1>
-      <p style={{ color: "var(--text-muted)" }}>
+      <p style={{ color: "var(--ink-3)" }}>
         Hidden ratings are excluded from the public aggregate but kept in
         the database. The hide action is logged in the admin-actions
         audit table.
@@ -110,14 +110,14 @@ export function RatingModeration() {
                 key={r.id}
                 style={{
                   padding: 12,
-                  border: "1px solid var(--border-faint)",
+                  border: "1px solid var(--rule)",
                   borderRadius: 8,
                   marginBottom: 8,
                 }}
               >
                 <strong>{"⭐".repeat(r.stars)}</strong>
                 {r.comment && <p style={{ marginTop: 4 }}>{r.comment}</p>}
-                <small style={{ color: "var(--text-muted)" }}>
+                <small style={{ color: "var(--ink-3)" }}>
                   by <code>{r.studentUserId.slice(0, 8)}…</code> ·{" "}
                   {new Date(r.createdAt).toLocaleString()}
                 </small>

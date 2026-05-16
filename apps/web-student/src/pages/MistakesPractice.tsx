@@ -192,11 +192,11 @@ export function MistakesPractice() {
               </span>
             </h2>
             {topics === null ? (
-              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+              <p style={{ fontSize: 13, color: "var(--ink-3)" }}>
                 Loading topics…
               </p>
             ) : topics.length === 0 ? (
-              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+              <p style={{ fontSize: 13, color: "var(--ink-3)" }}>
                 No topics with attempted questions yet. Practice a few
                 topics first, then come back to drill mistakes per-topic.
               </p>
@@ -219,8 +219,8 @@ export function MistakesPractice() {
                           fontWeight: 700,
                           marginLeft: 6,
                           color: on
-                            ? "var(--color-blue)"
-                            : "var(--text-faint)",
+                            ? "var(--info)"
+                            : "var(--ink-4)",
                         }}
                       >
                         {Math.round(t.ewa * 100)}%
@@ -282,7 +282,7 @@ export function MistakesPractice() {
               style={{
                 fontSize: 13,
                 fontWeight: 700,
-                color: "var(--text-primary)",
+                color: "var(--ink)",
                 marginBottom: 2,
               }}
             >
@@ -297,7 +297,7 @@ export function MistakesPractice() {
                       }`
                     : `Pick a topic above, then start`}
             </div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
               {tab === "topic" && !topicId
                 ? "Select a topic chip to enable Start."
                 : "Items load once; you drill them all then submit."}

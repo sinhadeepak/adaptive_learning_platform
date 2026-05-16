@@ -192,7 +192,7 @@ export function TenantCohorts() {
           <Link
             to={tenantId ? `/institutions?id=${tenantId}` : "/institutions"}
             className="row-link"
-            style={{ fontSize: 12, color: "var(--text-muted)", textDecoration: "none" }}
+            style={{ fontSize: 12, color: "var(--ink-3)", textDecoration: "none" }}
           >
             ← Back to tenant
           </Link>
@@ -261,7 +261,7 @@ export function TenantCohorts() {
                     }}
                   >
                     <div style={{ fontWeight: 600 }}>{c.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                    <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
                       {c.exam ?? "no exam"}{c.year ? ` · ${c.year}` : ""}
                     </div>
                   </button>
@@ -372,7 +372,7 @@ export function TenantCohorts() {
                             </td>
                             <td className="meta">
                               {m.joinedAt.slice(0, 10)}{" "}
-                              <span style={{ color: "var(--text-faint)" }}>
+                              <span style={{ color: "var(--ink-4)" }}>
                                 {m.joinedAt.slice(11, 16)}
                               </span>
                             </td>
@@ -481,7 +481,7 @@ export function TenantCohorts() {
                             </tr>
                             {openClaimsFor === inv.id && (
                               <tr>
-                                <td colSpan={5} style={{ background: "var(--bg-surface3)", padding: 12 }}>
+                                <td colSpan={5} style={{ background: "var(--paper-2)", padding: 12 }}>
                                   {claims === null ? (
                                     <SkeletonRows count={2} />
                                   ) : claims.length === 0 ? (
@@ -642,12 +642,12 @@ function FieldLabel({
 }) {
   return (
     <label style={fieldLabel}>
-      <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.04, fontWeight: 600 }}>
+      <span style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.04, fontWeight: 600 }}>
         {label}
       </span>
       {children}
       {hint && (
-        <span style={{ fontSize: 11, color: "var(--text-faint)" }}>{hint}</span>
+        <span style={{ fontSize: 11, color: "var(--ink-4)" }}>{hint}</span>
       )}
     </label>
   );
@@ -708,15 +708,15 @@ const metaRow: React.CSSProperties = {
   gap: 8,
   alignItems: "center",
   marginBottom: 16,
-  color: "var(--text-muted)",
+  color: "var(--ink-3)",
   fontSize: 12,
 };
 
 const metaCode: React.CSSProperties = {
   fontFamily: "var(--font-mono)",
   fontSize: 11,
-  color: "var(--text-muted)",
-  background: "var(--bg-surface3)",
+  color: "var(--ink-3)",
+  background: "var(--paper-2)",
   padding: "2px 6px",
   borderRadius: 4,
 };
@@ -746,7 +746,7 @@ const sectionTitle: React.CSSProperties = {
   fontWeight: 700,
   textTransform: "uppercase",
   letterSpacing: 0.05,
-  color: "var(--text-primary)",
+  color: "var(--ink)",
 };
 
 const cardHeaderBar: React.CSSProperties = {
@@ -754,15 +754,15 @@ const cardHeaderBar: React.CSSProperties = {
   alignItems: "center",
   gap: 10,
   padding: "14px 18px",
-  borderBottom: "1px solid var(--border)",
+  borderBottom: "1px solid var(--rule)",
 };
 
 const toolbar: React.CSSProperties = {
   display: "flex",
   gap: 10,
   padding: "12px 18px",
-  borderBottom: "1px solid var(--border)",
-  background: "var(--bg-surface1)",
+  borderBottom: "1px solid var(--rule)",
+  background: "var(--paper-2)",
 };
 
 const searchIcon: React.CSSProperties = {
@@ -770,7 +770,7 @@ const searchIcon: React.CSSProperties = {
   left: 10,
   top: "50%",
   transform: "translateY(-50%)",
-  color: "var(--text-faint)",
+  color: "var(--ink-4)",
   fontSize: 12,
   pointerEvents: "none",
 };
@@ -778,9 +778,9 @@ const searchIcon: React.CSSProperties = {
 const searchInput: React.CSSProperties = {
   width: "100%",
   padding: "8px 12px 8px 30px",
-  background: "var(--bg-surface)",
-  color: "var(--text-primary)",
-  border: "1px solid var(--border)",
+  background: "var(--card)",
+  color: "var(--ink)",
+  border: "1px solid var(--rule)",
   borderRadius: 6,
   fontSize: 13,
   fontFamily: "var(--font-sans)",
@@ -788,9 +788,9 @@ const searchInput: React.CSSProperties = {
 
 const selectInput: React.CSSProperties = {
   padding: "8px 12px",
-  background: "var(--bg-surface)",
-  color: "var(--text-primary)",
-  border: "1px solid var(--border)",
+  background: "var(--card)",
+  color: "var(--ink)",
+  border: "1px solid var(--rule)",
   borderRadius: 6,
   fontSize: 13,
   cursor: "pointer",
@@ -801,9 +801,9 @@ const cohortPill: React.CSSProperties = {
   width: "100%",
   textAlign: "left",
   padding: "10px 12px",
-  background: "var(--bg-surface1)",
-  color: "var(--text-primary)",
-  border: "1px solid var(--border)",
+  background: "var(--paper-2)",
+  color: "var(--ink)",
+  border: "1px solid var(--rule)",
   borderRadius: 6,
   cursor: "pointer",
   transition: "border-color 120ms, background 120ms",
@@ -811,8 +811,8 @@ const cohortPill: React.CSSProperties = {
 
 const cohortPillActive: React.CSSProperties = {
   background: "rgba(244,63,94,0.10)",
-  borderColor: "var(--color-blue)", // admin theme aliases this to red
-  color: "var(--text-primary)",
+  borderColor: "var(--info)", // admin theme aliases this to red
+  color: "var(--ink)",
 };
 
 const fieldLabel: React.CSSProperties = {
@@ -843,5 +843,5 @@ const modalHeader: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   padding: "14px 18px",
-  borderBottom: "1px solid var(--border)",
+  borderBottom: "1px solid var(--rule)",
 };

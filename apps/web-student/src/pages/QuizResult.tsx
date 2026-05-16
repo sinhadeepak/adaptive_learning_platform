@@ -489,19 +489,19 @@ export function QuizResult() {
           <ScoreRing correct={correct} total={total} bucket={bucket} />
           <div className="eh-stats">
             <div className="eh-stat">
-              <div className="eh-stat-num" style={{ color: "var(--color-green)" }}>{correct}</div>
+              <div className="eh-stat-num" style={{ color: "var(--good)" }}>{correct}</div>
               <div className="eh-stat-lbl">CORRECT</div>
             </div>
             <div className="eh-stat">
-              <div className="eh-stat-num" style={{ color: "var(--color-red)" }}>
+              <div className="eh-stat-num" style={{ color: "var(--bad)" }}>
                 {wrong}
-                {skipped > 0 ? <span style={{ fontSize: 11, color: "var(--text-faint)" }}>+{skipped} skip</span> : null}
+                {skipped > 0 ? <span style={{ fontSize: 11, color: "var(--ink-4)" }}>+{skipped} skip</span> : null}
               </div>
               <div className="eh-stat-lbl">{skipped > 0 ? "WRONG · SKIP" : "WRONG"}</div>
             </div>
             {readinessDelta !== null && readinessDelta > 0 ? (
               <div className="eh-stat">
-                <div className="eh-stat-num" style={{ color: "var(--color-ai)" }}>+{readinessDelta}</div>
+                <div className="eh-stat-num" style={{ color: "var(--gold)" }}>+{readinessDelta}</div>
                 <div className="eh-stat-lbl">READINESS PTS</div>
               </div>
             ) : null}
@@ -685,7 +685,7 @@ export function QuizResult() {
                     <div
                       style={{
                         fontSize: 11,
-                        color: "var(--text-secondary)",
+                        color: "var(--ink-2)",
                         lineHeight: 1.5,
                       }}
                       dangerouslySetInnerHTML={{ __html: ins.text }}
@@ -750,10 +750,10 @@ export function QuizResult() {
                     style={{
                       color:
                         masteryDelta && masteryDelta > 0
-                          ? "var(--color-green)"
+                          ? "var(--good)"
                           : masteryDelta && masteryDelta < 0
-                            ? "var(--color-red)"
-                            : "var(--text-muted)",
+                            ? "var(--bad)"
+                            : "var(--ink-3)",
                     }}
                   >
                     {masteryNowPct}%
@@ -812,7 +812,7 @@ export function QuizResult() {
             "linear-gradient(135deg, rgba(34,212,238,0.08), rgba(79,135,246,0.06))",
           border: "1px solid rgba(34,212,238,0.25)",
           borderRadius: "var(--radius-lg, 13px)",
-          color: "var(--text-primary, #EEF2FF)",
+          color: "var(--ink, #EEF2FF)",
         }}
       >
         <div
@@ -830,7 +830,7 @@ export function QuizResult() {
               fontWeight: 700,
               letterSpacing: 0.6,
               textTransform: "uppercase",
-              color: "var(--color-ai, #22D4EE)",
+              color: "var(--gold, #22D4EE)",
             }}
           >
             ✨ AI insights — pattern analysis
@@ -839,7 +839,7 @@ export function QuizResult() {
             <div
               style={{
                 fontSize: 10,
-                color: "var(--text-faint, #7A8BAD)",
+                color: "var(--ink-4, #7A8BAD)",
                 fontFamily: "var(--font-mono, monospace)",
               }}
             >
@@ -851,12 +851,12 @@ export function QuizResult() {
         </div>
 
         {!aiInsights && !aiInsightsError && (
-          <div style={{ color: "var(--text-faint, #7A8BAD)", fontSize: 13 }}>
+          <div style={{ color: "var(--ink-4, #7A8BAD)", fontSize: 13 }}>
             Analysing your answer pattern…
           </div>
         )}
         {aiInsightsError && (
-          <div style={{ color: "var(--color-amber, #F5A623)", fontSize: 13 }}>
+          <div style={{ color: "var(--warn, #F5A623)", fontSize: 13 }}>
             Insights unavailable: {aiInsightsError}
           </div>
         )}
@@ -869,7 +869,7 @@ export function QuizResult() {
                   fontWeight: 600,
                   letterSpacing: 0.5,
                   textTransform: "uppercase",
-                  color: "var(--text-faint, #7A8BAD)",
+                  color: "var(--ink-4, #7A8BAD)",
                   marginBottom: 4,
                 }}
               >
@@ -887,7 +887,7 @@ export function QuizResult() {
                   fontWeight: 600,
                   letterSpacing: 0.5,
                   textTransform: "uppercase",
-                  color: "var(--text-faint, #7A8BAD)",
+                  color: "var(--ink-4, #7A8BAD)",
                   marginBottom: 6,
                 }}
               >
@@ -896,10 +896,10 @@ export function QuizResult() {
               <ul style={{ margin: 0, paddingLeft: 20 }}>
                 {aiInsights.weak_concepts.map((c, i) => (
                   <li key={i} style={{ marginBottom: 6, fontSize: 13 }}>
-                    <strong style={{ color: "var(--color-blue, #4F87F6)" }}>
+                    <strong style={{ color: "var(--info, #4F87F6)" }}>
                       {c.concept}
                     </strong>
-                    <span style={{ color: "var(--text-secondary, #B8C5E0)" }}>
+                    <span style={{ color: "var(--ink-2, #B8C5E0)" }}>
                       {" "}
                       — {c.why}
                     </span>
@@ -924,7 +924,7 @@ export function QuizResult() {
                     fontWeight: 600,
                     letterSpacing: 0.5,
                     textTransform: "uppercase",
-                    color: "var(--text-faint, #7A8BAD)",
+                    color: "var(--ink-4, #7A8BAD)",
                   }}
                 >
                   Next step
@@ -933,7 +933,7 @@ export function QuizResult() {
                   style={{
                     margin: "2px 0 0 0",
                     fontSize: 13,
-                    color: "var(--color-green, #10C47A)",
+                    color: "var(--good, #10C47A)",
                     fontWeight: 500,
                   }}
                 >
@@ -947,7 +947,7 @@ export function QuizResult() {
                     fontWeight: 600,
                     letterSpacing: 0.5,
                     textTransform: "uppercase",
-                    color: "var(--text-faint, #7A8BAD)",
+                    color: "var(--ink-4, #7A8BAD)",
                   }}
                 >
                   Confidence
@@ -956,7 +956,7 @@ export function QuizResult() {
                   style={{
                     margin: "2px 0 0 0",
                     fontSize: 12,
-                    color: "var(--text-secondary, #B8C5E0)",
+                    color: "var(--ink-2, #B8C5E0)",
                     fontStyle: "italic",
                   }}
                 >
@@ -979,7 +979,7 @@ export function QuizResult() {
             className="see"
             style={{
               fontSize: 11,
-              color: "var(--color-blue)",
+              color: "var(--info)",
               background: "transparent",
               border: 0,
               cursor: "pointer",
@@ -1063,7 +1063,7 @@ export function QuizResult() {
                       cursor: "pointer",
                       padding: 6,
                       lineHeight: 0,
-                      color: isBookmarked ? "var(--color-amber)" : "var(--text-muted)",
+                      color: isBookmarked ? "var(--warn)" : "var(--ink-3)",
                       fontSize: 18,
                     }}
                   >
@@ -1093,8 +1093,8 @@ export function QuizResult() {
                       padding: 6,
                       lineHeight: 0,
                       color: reported.has(it.questionId)
-                        ? "var(--color-green)"
-                        : "var(--text-muted)",
+                        ? "var(--good)"
+                        : "var(--ink-3)",
                       fontSize: 16,
                     }}
                   >
@@ -1116,8 +1116,8 @@ export function QuizResult() {
                       padding: 6,
                       lineHeight: 0,
                       color: askingAi === it.questionId
-                        ? "var(--color-ai)"
-                        : "var(--text-muted)",
+                        ? "var(--gold)"
+                        : "var(--ink-3)",
                       fontSize: 14,
                     }}
                   >
@@ -1221,18 +1221,18 @@ function ReportIssueModal({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--bg-surface-1)",
-          border: "1px solid var(--border-default)",
+          background: "var(--card-1)",
+          border: "1px solid var(--rule)",
           borderRadius: 14,
           padding: "var(--sp-5)",
           width: "min(480px, 100%)",
-          color: "var(--text-primary)",
+          color: "var(--ink)",
         }}
       >
         <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>
           Report an issue
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 16 }}>
           Q{item.itemIdx + 1} · {stemPreview}
           {(item.stem ?? "").length > 200 ? "…" : ""}
         </div>
@@ -1251,8 +1251,8 @@ function ReportIssueModal({
                 alignItems: "center",
                 padding: "8px 10px",
                 borderRadius: 8,
-                border: `1px solid ${kind === opt.id ? "var(--color-blue)" : "var(--border-default)"}`,
-                background: kind === opt.id ? "var(--bg-surface-2)" : "transparent",
+                border: `1px solid ${kind === opt.id ? "var(--info)" : "var(--rule)"}`,
+                background: kind === opt.id ? "var(--card-2)" : "transparent",
                 cursor: "pointer",
                 fontSize: 13,
               }}
@@ -1275,10 +1275,10 @@ function ReportIssueModal({
           placeholder="Optional — what went wrong?"
           style={{
             width: "100%",
-            background: "var(--bg-surface-2)",
-            border: "1px solid var(--border-default)",
+            background: "var(--card-2)",
+            border: "1px solid var(--rule)",
             borderRadius: 8,
-            color: "var(--text-primary)",
+            color: "var(--ink)",
             padding: 10,
             fontSize: 13,
             fontFamily: "inherit",
@@ -1286,7 +1286,7 @@ function ReportIssueModal({
             marginBottom: 8,
           }}
         />
-        <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, color: "var(--ink-4)", marginBottom: 16 }}>
           {note.length}/500
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -1340,7 +1340,7 @@ function ScoreRing({
           cy="50"
           r={r}
           fill="none"
-          stroke="var(--border)"
+          stroke="var(--rule)"
           strokeWidth="8"
         />
         <circle
@@ -1445,7 +1445,7 @@ function buildInsights(args: {
   if (isExpired) {
     out.push({
       text: `<strong>Session expired</strong> — start a fresh round to keep momentum. The IRT engine still has all your prior data.`,
-      color: "var(--color-amber)",
+      color: "var(--warn)",
     });
     return out;
   }
@@ -1453,7 +1453,7 @@ function buildInsights(args: {
   if (masteryDelta !== null && masteryDelta > 0) {
     out.push({
       text: `Mastery moved <strong>+${masteryDelta} pts</strong> — decay recovered, signal building.`,
-      color: "var(--color-green)",
+      color: "var(--good)",
     });
   }
 
@@ -1461,26 +1461,26 @@ function buildInsights(args: {
   if (wrong >= 3 || maxWrongStreak >= 3) {
     out.push({
       text: `<strong>${wrong} wrong</strong> — usually a single concept gap. One focused round on the misses below tends to clear it.`,
-      color: "var(--color-amber)",
+      color: "var(--warn)",
     });
   }
 
   if (skipped > 0) {
     out.push({
       text: `<strong>${skipped} skipped</strong> — partial sessions don't build mastery as fast. Aim to finish the next round.`,
-      color: "var(--color-amber)",
+      color: "var(--warn)",
     });
   }
 
   if (pct >= 80 && total >= 5) {
     out.push({
       text: `Next session will start at <strong>Hard difficulty</strong> based on your updated ability estimate.`,
-      color: "var(--color-blue)",
+      color: "var(--info)",
     });
   } else if (pct < 50 && total >= 5) {
     out.push({
       text: `Next session will pick <strong>easier items</strong> to rebuild a clean signal before stretching again.`,
-      color: "var(--color-blue)",
+      color: "var(--info)",
     });
   }
 

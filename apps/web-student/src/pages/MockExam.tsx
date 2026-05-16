@@ -371,8 +371,8 @@ export function MockExam() {
                   key={it.title}
                   style={{
                     padding: 16,
-                    background: "var(--bg-elevated)",
-                    border: "1px solid var(--border-subtle)",
+                    background: "var(--card)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 10,
                     display: "flex",
                     gap: 12,
@@ -383,7 +383,7 @@ export function MockExam() {
                     <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
                       {it.title}
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 12, color: "var(--ink-3)", lineHeight: 1.5 }}>
                       {it.body}
                     </div>
                   </div>
@@ -452,10 +452,10 @@ export function MockExam() {
             position: "sticky",
             top: 0,
             zIndex: 10,
-            background: "var(--bg-base)",
+            background: "var(--paper)",
             padding: "8px 4px 12px",
             marginBottom: 12,
-            borderBottom: "1px solid var(--border-subtle)",
+            borderBottom: "1px solid var(--rule)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -464,20 +464,20 @@ export function MockExam() {
           }}
         >
           <div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 2 }}>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 2 }}>
               Progress
             </div>
             <div style={{ fontWeight: 700, fontSize: 15 }}>
               {answeredCount} of {totalCount} answered
               {marked.size > 0 && (
-                <span style={{ color: "var(--color-amber, #F5A623)", marginLeft: 10 }}>
+                <span style={{ color: "var(--warn, #F5A623)", marginLeft: 10 }}>
                   · {marked.size} flagged
                 </span>
               )}
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 2 }}>
               Time remaining
             </div>
             <div
@@ -486,7 +486,7 @@ export function MockExam() {
                 fontSize: 28,
                 fontWeight: 800,
                 fontVariantNumeric: "tabular-nums",
-                color: timerDanger ? "var(--color-danger, #F43F5E)" : "var(--text-primary)",
+                color: timerDanger ? "var(--bad, #F43F5E)" : "var(--ink)",
                 transition: "color 250ms",
               }}
             >
@@ -521,7 +521,7 @@ export function MockExam() {
                   style={{
                     marginLeft: 8,
                     fontSize: 11,
-                    color: "var(--text-muted)",
+                    color: "var(--ink-3)",
                     fontWeight: 500,
                   }}
                 >
@@ -551,18 +551,18 @@ export function MockExam() {
                   alignItems: "center",
                   marginBottom: 16,
                   paddingBottom: 12,
-                  borderBottom: "1px solid var(--border-subtle)",
+                  borderBottom: "1px solid var(--rule)",
                 }}
               >
                 <div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>
+                  <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 2 }}>
                     Question {current.itemIdx + 1} of {totalCount}
                     {current.sectionId && ` · ${current.sectionId}`}
                   </div>
                   <div
                     style={{
                       fontSize: 12,
-                      color: "var(--text-muted)",
+                      color: "var(--ink-3)",
                       fontWeight: 600,
                     }}
                   >
@@ -575,7 +575,7 @@ export function MockExam() {
                   onClick={toggleMark}
                   style={{
                     color: marked.has(current.questionId)
-                      ? "var(--color-amber, #F5A623)"
+                      ? "var(--warn, #F5A623)"
                       : undefined,
                   }}
                 >
@@ -608,11 +608,11 @@ export function MockExam() {
                           padding: "14px 18px",
                           borderRadius: 10,
                           border: selected
-                            ? "2px solid var(--color-blue, #2F5DCB)"
-                            : "1px solid var(--border-subtle)",
+                            ? "2px solid var(--info, #2F5DCB)"
+                            : "1px solid var(--rule)",
                           background: selected
                             ? "rgba(47,93,203,0.08)"
-                            : "var(--bg-elevated)",
+                            : "var(--card)",
                           cursor: "pointer",
                           fontSize: 15,
                           lineHeight: 1.5,
@@ -630,9 +630,9 @@ export function MockExam() {
                             marginRight: 12,
                             borderRadius: "50%",
                             background: selected
-                              ? "var(--color-blue, #2F5DCB)"
-                              : "var(--bg-base)",
-                            color: selected ? "#fff" : "var(--text-primary)",
+                              ? "var(--info, #2F5DCB)"
+                              : "var(--paper)",
+                            color: selected ? "#fff" : "var(--ink)",
                             fontWeight: 700,
                             fontSize: 13,
                             flexShrink: 0,
@@ -649,8 +649,8 @@ export function MockExam() {
                 <div
                   style={{
                     padding: 14,
-                    background: "var(--bg-elevated)",
-                    border: "1px solid var(--border-subtle)",
+                    background: "var(--card)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 10,
                   }}
                 >
@@ -675,7 +675,7 @@ export function MockExam() {
                   gap: 10,
                   marginTop: 24,
                   paddingTop: 16,
-                  borderTop: "1px solid var(--border-subtle)",
+                  borderTop: "1px solid var(--rule)",
                   flexWrap: "wrap",
                 }}
               >
@@ -695,7 +695,7 @@ export function MockExam() {
                   className="pg-btn pg-btn-primary"
                   onClick={submit}
                   disabled={submitting}
-                  style={{ marginLeft: "auto", background: "var(--color-success, #10C47A)" }}
+                  style={{ marginLeft: "auto", background: "var(--good, #10C47A)" }}
                 >
                   {submitting ? "Submitting…" : "Submit exam"}
                 </button>
@@ -715,8 +715,8 @@ export function MockExam() {
             aria-label="Answer sheet"
             style={{
               padding: 14,
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border-subtle)",
+              background: "var(--card)",
+              border: "1px solid var(--rule)",
               borderRadius: 10,
               position: "sticky",
               top: 100,
@@ -738,14 +738,14 @@ export function MockExam() {
                 const isMarked = cell.state === "marked";
                 const isAnswered = cell.state === "answered";
                 const bg = isAnsweredMarked
-                  ? "var(--color-amber, #F5A623)"
+                  ? "var(--warn, #F5A623)"
                   : isMarked
-                    ? "var(--color-amber, #F5A623)"
+                    ? "var(--warn, #F5A623)"
                     : isAnswered
-                      ? "var(--color-success, #10C47A)"
-                      : "var(--bg-base)";
+                      ? "var(--good, #10C47A)"
+                      : "var(--paper)";
                 const fg = !isAnswered && !isMarked && !isAnsweredMarked
-                  ? "var(--text-primary)"
+                  ? "var(--ink)"
                   : "#fff";
                 return (
                   <button
@@ -756,8 +756,8 @@ export function MockExam() {
                     style={{
                       aspectRatio: "1 / 1",
                       border: isCurrent
-                        ? "2px solid var(--color-blue, #2F5DCB)"
-                        : "1px solid var(--border-subtle)",
+                        ? "2px solid var(--info, #2F5DCB)"
+                        : "1px solid var(--rule)",
                       borderRadius: 6,
                       fontSize: 12,
                       fontWeight: 700,
@@ -791,12 +791,12 @@ export function MockExam() {
                 display: "grid",
                 gap: 6,
                 fontSize: 11,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
               }}
             >
-              <LegendDot color="var(--color-success, #10C47A)" label="Answered" />
-              <LegendDot color="var(--color-amber, #F5A623)" label="Flagged" />
-              <LegendDot color="var(--bg-base)" label="Not answered" />
+              <LegendDot color="var(--good, #10C47A)" label="Answered" />
+              <LegendDot color="var(--warn, #F5A623)" label="Flagged" />
+              <LegendDot color="var(--paper)" label="Not answered" />
             </div>
           </aside>
         </div>
@@ -851,10 +851,10 @@ class RendererErrorBoundary extends Component<
         <div
           style={{
             padding: 16,
-            background: "var(--bg-danger-soft, #fff5f5)",
-            border: "1px solid var(--color-danger, #f43f5e)",
+            background: "var(--bad-soft-soft, #fff5f5)",
+            border: "1px solid var(--bad, #f43f5e)",
             borderRadius: 8,
-            color: "var(--color-danger, #f43f5e)",
+            color: "var(--bad, #f43f5e)",
             fontSize: 13,
           }}
         >
@@ -881,7 +881,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
           width: 12,
           height: 12,
           background: color,
-          border: "1px solid var(--border-subtle)",
+          border: "1px solid var(--rule)",
           borderRadius: 3,
         }}
       />

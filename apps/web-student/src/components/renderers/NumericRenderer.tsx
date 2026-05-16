@@ -48,7 +48,7 @@ export const NumericIntegerRenderer: Renderer<NumericIntegerPayload, NumericInte
           disabled={disabled}
           style={{
             padding: "8px 12px",
-            border: "1px solid var(--border, #e1e5ee)",
+            border: "1px solid var(--rule, #e1e5ee)",
             borderRadius: 4,
             fontSize: 18,
             width: 200,
@@ -102,7 +102,7 @@ export const NumericDecimalRenderer: Renderer<NumericDecimalPayload, NumericDeci
           disabled={disabled}
           style={{
             padding: "8px 12px",
-            border: "1px solid var(--border, #e1e5ee)",
+            border: "1px solid var(--rule, #e1e5ee)",
             borderRadius: 4,
             fontSize: 18,
             width: 200,
@@ -162,7 +162,7 @@ export const FormulaInputRenderer: Renderer<FormulaInputPayload, FormulaInputRes
         style={{
           width: "100%",
           padding: "8px 12px",
-          border: "1px solid var(--border, #e1e5ee)",
+          border: "1px solid var(--rule, #e1e5ee)",
           borderRadius: 4,
           fontSize: 18,
           fontFamily: "monospace",

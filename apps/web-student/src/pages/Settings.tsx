@@ -323,16 +323,16 @@ export function Settings() {
                     alignItems: "center",
                     gap: 12,
                     padding: "var(--sp-3)",
-                    border: "1px solid var(--border-default)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 10,
-                    background: "var(--bg-surface-1)",
+                    background: "var(--card-1)",
                   }}
                 >
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
                       {kind.label}
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                    <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>
                       {kind.description}
                     </div>
                   </div>
@@ -344,8 +344,8 @@ export function Settings() {
                       width: 44,
                       height: 24,
                       borderRadius: 999,
-                      background: muted ? "var(--bg-surface-3)" : "var(--color-blue)",
-                      border: "1px solid var(--border-default)",
+                      background: muted ? "var(--card-3)" : "var(--info)",
+                      border: "1px solid var(--rule)",
                       cursor: "pointer",
                       position: "relative",
                       transition: "background 0.15s",
@@ -445,7 +445,7 @@ export function Settings() {
         >
           <h2
             className="topic-section-title"
-            style={{ color: "var(--color-red)" }}
+            style={{ color: "var(--bad)" }}
           >
             Sign out
           </h2>
@@ -460,7 +460,7 @@ export function Settings() {
             disabled={signingOut}
             style={{
               borderColor: "rgba(244,63,94,0.32)",
-              color: "var(--color-red)",
+              color: "var(--bad)",
             }}
           >
             {signingOut ? "Signing out…" : "Sign out of this device"}
@@ -546,17 +546,17 @@ function ThemeDensitySection() {
               aria-checked={active}
               onClick={() => setTheme(opt.id)}
               style={{
-                borderColor: active ? "var(--brand-500)" : undefined,
-                outline: active ? "2px solid var(--brand-500)" : "none",
+                borderColor: active ? "var(--accent-soft0)" : undefined,
+                outline: active ? "2px solid var(--accent-soft0)" : "none",
                 outlineOffset: 0,
                 cursor: "pointer",
                 textAlign: "left",
               }}
             >
-              <div style={{ fontWeight: 600, color: "var(--neutral-900)" }}>
+              <div style={{ fontWeight: 600, color: "var(--ink)" }}>
                 {opt.label}
               </div>
-              <div style={{ fontSize: 13, color: "var(--neutral-600)", marginTop: 4 }}>
+              <div style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 4 }}>
                 {opt.description}
               </div>
             </Card>
@@ -565,7 +565,7 @@ function ThemeDensitySection() {
       </div>
 
       {/* Density picker */}
-      <div style={{ fontWeight: 600, color: "var(--neutral-800)", marginBottom: 8 }}>
+      <div style={{ fontWeight: 600, color: "var(--ink-2)", marginBottom: 8 }}>
         Density
       </div>
       <div
@@ -589,20 +589,20 @@ function ThemeDensitySection() {
               aria-checked={active}
               onClick={() => setDensity(opt.id)}
               style={{
-                borderColor: active ? "var(--brand-500)" : undefined,
-                outline: active ? "2px solid var(--brand-500)" : "none",
+                borderColor: active ? "var(--accent-soft0)" : undefined,
+                outline: active ? "2px solid var(--accent-soft0)" : "none",
                 outlineOffset: 0,
                 cursor: "pointer",
                 textAlign: "left",
               }}
             >
-              <div style={{ fontWeight: 600, color: "var(--neutral-900)" }}>
+              <div style={{ fontWeight: 600, color: "var(--ink)" }}>
                 {opt.label}
                 {active ? (
-                  <span style={{ color: "var(--brand-600)", marginLeft: 8 }}>✓</span>
+                  <span style={{ color: "var(--accent)", marginLeft: 8 }}>✓</span>
                 ) : null}
               </div>
-              <div style={{ fontSize: 13, color: "var(--neutral-600)", marginTop: 4 }}>
+              <div style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 4 }}>
                 {opt.description}
               </div>
             </Card>

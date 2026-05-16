@@ -37,8 +37,8 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
 ) {
   const classes = cn(
     "alp-card",
-    surface === 2 && "alp-card--surface-2",
-    surface === 3 && "alp-card--surface-3",
+    surface === 2 && "alp-card--paper-2",
+    surface === 3 && "alp-card--paper-2",
     padding === "sm" && "alp-card--padding-sm",
     padding === "lg" && "alp-card--padding-lg",
     interactive && "alp-card--interactive",

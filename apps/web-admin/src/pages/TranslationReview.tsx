@@ -74,9 +74,9 @@ function PayloadDiff({
     return (
       <pre
         style={{
-          background: "var(--bg-surface1)",
-          color: "var(--text-primary)",
-          border: "1px solid var(--border)",
+          background: "var(--paper-2)",
+          color: "var(--ink)",
+          border: "1px solid var(--rule)",
           padding: 12,
           borderRadius: 6,
           fontSize: 12,
@@ -98,22 +98,22 @@ function PayloadDiff({
             gridTemplateColumns: "1fr 1fr",
             gap: 12,
             padding: 12,
-            background: "var(--bg-surface2)",
-            border: "1px solid var(--border)",
+            background: "var(--card)",
+            border: "1px solid var(--rule)",
             borderRadius: 6,
           }}
         >
           <div>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>
               {f.path} (source)
             </div>
-            <div style={{ fontSize: 14, color: "var(--text-primary)" }}>{f.src}</div>
+            <div style={{ fontSize: 14, color: "var(--ink)" }}>{f.src}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>
               {f.path} ({tr.language})
             </div>
-            <div style={{ fontSize: 14, color: "var(--text-primary)" }}>{f.tgt}</div>
+            <div style={{ fontSize: 14, color: "var(--ink)" }}>{f.tgt}</div>
           </div>
         </div>
       ))}
@@ -234,7 +234,7 @@ export function TranslationReview() {
           to="/translation-review"
           style={{
             fontSize: 13,
-            color: "var(--text-secondary)",
+            color: "var(--ink-2)",
             textDecoration: "none",
           }}
         >
@@ -249,7 +249,7 @@ export function TranslationReview() {
           style={{
             display: "block",
             fontSize: 13,
-            color: "var(--text-secondary)",
+            color: "var(--ink-2)",
             marginBottom: 4,
           }}
         >
@@ -264,9 +264,9 @@ export function TranslationReview() {
             style={{
               flex: 1,
               padding: "6px 10px",
-              background: "var(--bg-surface3)",
-              color: "var(--text-primary)",
-              border: "1px solid var(--border)",
+              background: "var(--paper-2)",
+              color: "var(--ink)",
+              border: "1px solid var(--rule)",
               borderRadius: 4,
               fontFamily: "monospace",
               fontSize: 13,
@@ -277,9 +277,9 @@ export function TranslationReview() {
             disabled={!questionId}
             style={{
               padding: "6px 16px",
-              background: questionId ? "var(--color-blue)" : "var(--bg-surface3)",
-              color: questionId ? "white" : "var(--text-muted)",
-              border: "1px solid var(--border)",
+              background: questionId ? "var(--info)" : "var(--paper-2)",
+              color: questionId ? "white" : "var(--ink-3)",
+              border: "1px solid var(--rule)",
               borderRadius: 4,
               cursor: questionId ? "pointer" : "not-allowed",
               fontWeight: 600,
@@ -295,16 +295,16 @@ export function TranslationReview() {
           style={{
             marginBottom: 16,
             padding: 12,
-            background: "var(--bg-surface1)",
-            border: "1px solid var(--border)",
+            background: "var(--paper-2)",
+            border: "1px solid var(--rule)",
             borderRadius: 8,
-            color: "var(--text-primary)",
+            color: "var(--ink)",
           }}
         >
           <div
             style={{
               fontSize: 11,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               textTransform: "uppercase",
               letterSpacing: 0.04,
               marginBottom: 6,
@@ -321,7 +321,7 @@ export function TranslationReview() {
                 margin: 0,
                 paddingLeft: 18,
                 fontSize: 13,
-                color: "var(--text-secondary)",
+                color: "var(--ink-2)",
               }}
             >
               {((source as { choices: string[] }).choices).map((c, i) => (
@@ -338,7 +338,7 @@ export function TranslationReview() {
             style={{
               fontSize: 14,
               marginBottom: 8,
-              color: "var(--text-primary)",
+              color: "var(--ink)",
             }}
           >
             Languages
@@ -352,10 +352,10 @@ export function TranslationReview() {
                   onClick={() => void loadOne(row.language)}
                   style={{
                     padding: "6px 12px",
-                    border: "1px solid var(--border)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 4,
-                    background: isActive ? "var(--color-blue)" : "var(--bg-surface2)",
-                    color: isActive ? "white" : "var(--text-primary)",
+                    background: isActive ? "var(--info)" : "var(--card)",
+                    color: isActive ? "white" : "var(--ink)",
                     cursor: "pointer",
                     fontSize: 13,
                     fontWeight: 600,
@@ -373,7 +373,7 @@ export function TranslationReview() {
               <div
                 style={{
                   fontSize: 11,
-                  color: "var(--text-muted)",
+                  color: "var(--ink-3)",
                   marginBottom: 6,
                   textTransform: "uppercase",
                   letterSpacing: 0.04,
@@ -389,9 +389,9 @@ export function TranslationReview() {
                     disabled={busy}
                     style={{
                       padding: "6px 12px",
-                      background: "var(--bg-surface2)",
-                      color: "var(--text-primary)",
-                      border: "1px solid var(--border)",
+                      background: "var(--card)",
+                      color: "var(--ink)",
+                      border: "1px solid var(--rule)",
                       borderRadius: 4,
                       cursor: busy ? "not-allowed" : "pointer",
                       fontSize: 12,
@@ -412,9 +412,9 @@ export function TranslationReview() {
             style={{
               padding: 12,
               marginBottom: 16,
-              background: "var(--bg-surface1)",
-              border: "1px solid var(--border)",
-              color: "var(--text-primary)",
+              background: "var(--paper-2)",
+              border: "1px solid var(--rule)",
+              color: "var(--ink)",
               borderRadius: 6,
               fontSize: 13,
             }}
@@ -435,9 +435,9 @@ export function TranslationReview() {
               disabled={busy || selected.status === "PUBLISHED"}
               style={{
                 padding: "8px 16px",
-                background: "var(--color-green, #10c47a)",
+                background: "var(--good, #10c47a)",
                 color: "white",
-                border: "1px solid var(--border)",
+                border: "1px solid var(--rule)",
                 borderRadius: 4,
                 cursor: busy ? "not-allowed" : "pointer",
                 fontWeight: 600,
@@ -450,9 +450,9 @@ export function TranslationReview() {
               disabled={busy || selected.status === "REJECTED"}
               style={{
                 padding: "8px 16px",
-                background: "var(--color-red, #f43f5e)",
+                background: "var(--bad, #f43f5e)",
                 color: "white",
-                border: "1px solid var(--border)",
+                border: "1px solid var(--rule)",
                 borderRadius: 4,
                 cursor: busy ? "not-allowed" : "pointer",
                 fontWeight: 600,

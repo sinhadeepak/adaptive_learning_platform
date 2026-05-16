@@ -169,10 +169,10 @@ export function Verify() {
             ))}
           </div>
 
-          <p style={{ fontSize: 13, textAlign: "center", color: "var(--text-secondary)", margin: 0 }}>
+          <p style={{ fontSize: 13, textAlign: "center", color: "var(--ink-2)", margin: 0 }}>
             Didn't get it?{" "}
             {resendCooldown > 0 ? (
-              <span style={{ color: "var(--text-muted)" }}>Resend in {resendCooldown}s</span>
+              <span style={{ color: "var(--ink-3)" }}>Resend in {resendCooldown}s</span>
             ) : (
               <button type="button" onClick={resend} className="auth-link-button">
                 Resend

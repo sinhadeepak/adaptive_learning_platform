@@ -100,10 +100,10 @@ function CalibrationWarmUp({
     <section
       style={{
         padding: 16,
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
-        color: "var(--text-primary)",
+        color: "var(--ink)",
       }}
     >
       <div style={{ marginBottom: 8 }}>
@@ -111,11 +111,11 @@ function CalibrationWarmUp({
           Calibration {idx + 1} of {items.length}
         </Pill>
       </div>
-      <h3 style={{ fontSize: 15, marginBottom: 12, color: "var(--text-primary)" }}>
+      <h3 style={{ fontSize: 15, marginBottom: 12, color: "var(--ink)" }}>
         {item.stem}
       </h3>
 
-      <h4 style={{ fontSize: 13, marginBottom: 8, color: "var(--text-secondary)" }}>
+      <h4 style={{ fontSize: 13, marginBottom: 8, color: "var(--ink-2)" }}>
         Rubric
       </h4>
       {item.rubric.map((c) => (
@@ -128,12 +128,12 @@ function CalibrationWarmUp({
             gap: 12,
             padding: 8,
             marginBottom: 4,
-            background: "var(--bg-surface2)",
-            border: "1px solid var(--border)",
+            background: "var(--card)",
+            border: "1px solid var(--rule)",
             borderRadius: 4,
           }}
         >
-          <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
+          <span style={{ fontSize: 13, color: "var(--ink)" }}>
             {c.id} — {c.text} ({c.weight}%)
           </span>
           <select
@@ -144,9 +144,9 @@ function CalibrationWarmUp({
             style={{
               padding: "4px 8px",
               borderRadius: 4,
-              background: "var(--bg-surface3)",
-              color: "var(--text-primary)",
-              border: "1px solid var(--border)",
+              background: "var(--paper-2)",
+              color: "var(--ink)",
+              border: "1px solid var(--rule)",
             }}
           >
             <option value="">…</option>
@@ -163,9 +163,9 @@ function CalibrationWarmUp({
         style={{
           marginTop: 12,
           padding: "8px 16px",
-          background: allRated ? "var(--color-blue)" : "var(--bg-surface3)",
-          color: allRated ? "white" : "var(--text-muted)",
-          border: "1px solid var(--border)",
+          background: allRated ? "var(--info)" : "var(--paper-2)",
+          color: allRated ? "white" : "var(--ink-3)",
+          border: "1px solid var(--rule)",
           borderRadius: 4,
           cursor: allRated ? "pointer" : "not-allowed",
           fontWeight: 600,
@@ -216,7 +216,7 @@ function QueuePanel({
 
   return (
     <section style={{ marginTop: 24 }}>
-      <h2 style={{ fontSize: 16, marginBottom: 8, color: "var(--text-primary)" }}>
+      <h2 style={{ fontSize: 16, marginBottom: 8, color: "var(--ink)" }}>
         Grading queue
       </h2>
 
@@ -246,10 +246,10 @@ function QueuePanel({
         <div
           style={{
             padding: 16,
-            background: "var(--bg-surface1)",
-            border: "1px solid var(--border)",
+            background: "var(--paper-2)",
+            border: "1px solid var(--rule)",
             borderRadius: 8,
-            color: "var(--text-primary)",
+            color: "var(--ink)",
           }}
         >
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
@@ -266,7 +266,7 @@ function QueuePanel({
             {activeItem.type_id && <Pill tone="muted">{activeItem.type_id}</Pill>}
           </div>
 
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
+          <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 12 }}>
             response&nbsp;<code>{activeItem.response_id.slice(0, 8)}…</code>
             {activeItem.criterion && (
               <> · criterion <code>{activeItem.criterion}</code></>
@@ -279,12 +279,12 @@ function QueuePanel({
               style={{
                 marginBottom: 12,
                 padding: 8,
-                background: "var(--bg-surface2)",
-                border: "1px solid var(--border)",
+                background: "var(--card)",
+                border: "1px solid var(--rule)",
                 borderRadius: 4,
               }}
             >
-              <summary style={{ cursor: "pointer", color: "var(--text-secondary)" }}>
+              <summary style={{ cursor: "pointer", color: "var(--ink-2)" }}>
                 AI's suggestion (collapsed — open only after forming your own view)
               </summary>
               <pre
@@ -292,7 +292,7 @@ function QueuePanel({
                   fontSize: 11,
                   marginTop: 8,
                   whiteSpace: "pre-wrap",
-                  color: "var(--text-primary)",
+                  color: "var(--ink)",
                 }}
               >
                 {JSON.stringify(activeItem.ai_resolution, null, 2)}
@@ -304,7 +304,7 @@ function QueuePanel({
             style={{
               display: "block",
               fontSize: 13,
-              color: "var(--text-secondary)",
+              color: "var(--ink-2)",
               marginBottom: 4,
             }}
           >
@@ -316,9 +316,9 @@ function QueuePanel({
             style={{
               padding: "6px 12px",
               borderRadius: 4,
-              background: "var(--bg-surface3)",
-              color: "var(--text-primary)",
-              border: "1px solid var(--border)",
+              background: "var(--paper-2)",
+              color: "var(--ink)",
+              border: "1px solid var(--rule)",
               marginBottom: 8,
             }}
           >
@@ -332,7 +332,7 @@ function QueuePanel({
             style={{
               display: "block",
               fontSize: 13,
-              color: "var(--text-secondary)",
+              color: "var(--ink-2)",
               marginBottom: 4,
             }}
           >
@@ -347,9 +347,9 @@ function QueuePanel({
               width: "100%",
               padding: 6,
               fontSize: 13,
-              background: "var(--bg-surface3)",
-              color: "var(--text-primary)",
-              border: "1px solid var(--border)",
+              background: "var(--paper-2)",
+              color: "var(--ink)",
+              border: "1px solid var(--rule)",
               borderRadius: 4,
               marginBottom: 12,
             }}
@@ -363,10 +363,10 @@ function QueuePanel({
                 padding: "8px 16px",
                 background:
                   satisfied !== "" && !busy
-                    ? "var(--color-blue)"
-                    : "var(--bg-surface3)",
-                color: satisfied !== "" && !busy ? "white" : "var(--text-muted)",
-                border: "1px solid var(--border)",
+                    ? "var(--info)"
+                    : "var(--paper-2)",
+                color: satisfied !== "" && !busy ? "white" : "var(--ink-3)",
+                border: "1px solid var(--rule)",
                 borderRadius: 4,
                 cursor: satisfied !== "" && !busy ? "pointer" : "not-allowed",
                 fontWeight: 600,
@@ -379,9 +379,9 @@ function QueuePanel({
               disabled={busy}
               style={{
                 padding: "8px 16px",
-                background: "var(--bg-surface2)",
-                color: "var(--text-primary)",
-                border: "1px solid var(--border)",
+                background: "var(--card)",
+                color: "var(--ink)",
+                border: "1px solid var(--rule)",
                 borderRadius: 4,
                 cursor: busy ? "not-allowed" : "pointer",
               }}
@@ -400,16 +400,16 @@ function StatCard({ label, value }: { label: string; value: string }) {
     <div
       style={{
         padding: 12,
-        background: "var(--bg-surface2)",
-        border: "1px solid var(--border)",
+        background: "var(--card)",
+        border: "1px solid var(--rule)",
         borderRadius: 6,
-        color: "var(--text-primary)",
+        color: "var(--ink)",
       }}
     >
       <div
         style={{
           fontSize: 11,
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
           textTransform: "uppercase",
           letterSpacing: 0.04,
         }}
@@ -535,7 +535,7 @@ export function GraderQueue() {
               fontSize: 16,
               marginTop: 24,
               marginBottom: 8,
-              color: "var(--text-primary)",
+              color: "var(--ink)",
             }}
           >
             Daily calibration warm-up
@@ -543,7 +543,7 @@ export function GraderQueue() {
           <p
             style={{
               fontSize: 13,
-              color: "var(--text-secondary)",
+              color: "var(--ink-2)",
               marginBottom: 16,
             }}
           >
@@ -573,9 +573,9 @@ export function GraderQueue() {
               onClick={() => setCalibrationFailed(false)}
               style={{
                 padding: "8px 16px",
-                background: "var(--color-blue)",
+                background: "var(--info)",
                 color: "white",
-                border: "1px solid var(--border)",
+                border: "1px solid var(--rule)",
                 borderRadius: 4,
                 cursor: "pointer",
                 fontWeight: 600,
@@ -587,9 +587,9 @@ export function GraderQueue() {
               href="/calibration-dashboard"
               style={{
                 padding: "8px 16px",
-                background: "var(--bg-surface2)",
-                color: "var(--text-primary)",
-                border: "1px solid var(--border)",
+                background: "var(--card)",
+                color: "var(--ink)",
+                border: "1px solid var(--rule)",
                 borderRadius: 4,
                 textDecoration: "none",
                 fontWeight: 600,

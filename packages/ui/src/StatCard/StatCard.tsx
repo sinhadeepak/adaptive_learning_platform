@@ -39,13 +39,13 @@ export interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 function toneColor(tone: StatCardTone): string {
   switch (tone) {
-    case "brand":   return "var(--brand-600)";
+    case "brand":   return "var(--accent)";
     case "success": return "var(--success-600)";
     case "warning": return "var(--developing-600)";
     case "danger":  return "var(--danger-600)";
     case "reward":  return "var(--reward-500)";
-    case "aurora":  return "var(--aurora-500)";
-    default:        return "var(--neutral-900)";
+    case "aurora":  return "var(--gold)";
+    default:        return "var(--ink)";
   }
 }
 

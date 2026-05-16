@@ -31,7 +31,7 @@ export function ConfidenceSlider({
     <div
       style={{
         padding: 12,
-        background: "var(--bg-subtle, #f8f9fc)",
+        background: "var(--paper-2, #f8f9fc)",
         borderRadius: 8,
         marginTop: 12,
       }}
@@ -57,7 +57,7 @@ export function ConfidenceSlider({
               fontSize: 11,
               padding: "2px 8px",
               background: "transparent",
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 12,
               cursor: disabled ? "not-allowed" : "pointer",
             }}
@@ -79,10 +79,10 @@ export function ConfidenceSlider({
               padding: "6px 4px",
               background:
                 value === p.value
-                  ? "var(--color-blue, #4f87f6)"
-                  : "var(--bg-surface2)",
+                  ? "var(--info, #4f87f6)"
+                  : "var(--card)",
               color: value === p.value ? "white" : "inherit",
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 4,
               cursor: disabled ? "not-allowed" : "pointer",
               fontSize: 12,

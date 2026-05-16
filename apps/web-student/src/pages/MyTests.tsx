@@ -197,13 +197,13 @@ export function MyTests() {
                       {stats && bp.shareSlug && (
                         <>
                           <span className="pg-row-meta-dot">·</span>
-                          <span style={{ color: "var(--color-blue)" }}>
+                          <span style={{ color: "var(--info)" }}>
                             {stats.attempts} attempt{stats.attempts === 1 ? "" : "s"}
                           </span>
                           {stats.ratings.count > 0 && (
                             <>
                               <span className="pg-row-meta-dot">·</span>
-                              <span style={{ color: "var(--color-amber)" }}>
+                              <span style={{ color: "var(--warn)" }}>
                                 ★ {stats.ratings.avgStars?.toFixed(1)} (
                                 {stats.ratings.count})
                               </span>

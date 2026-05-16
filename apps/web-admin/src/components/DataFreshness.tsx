@@ -26,7 +26,7 @@ export function DataFreshness({
 }): ReactNode {
   if (!asOf) {
     return (
-      <p style={{ color: "var(--text-muted)", fontSize: 11, marginTop: 16, fontStyle: "italic" }}>
+      <p style={{ color: "var(--ink-3)", fontSize: 11, marginTop: 16, fontStyle: "italic" }}>
         Live data — no snapshot timestamp.
       </p>
     );
@@ -34,7 +34,7 @@ export function DataFreshness({
   const ts = new Date(asOf);
   const ageHours = (Date.now() - ts.getTime()) / 3_600_000;
   const stale = ageHours > threshold;
-  const tone = stale ? "var(--color-amber)" : "var(--text-muted)";
+  const tone = stale ? "var(--warn)" : "var(--ink-3)";
   return (
     <p style={{ color: tone, fontSize: 11, marginTop: 16, fontStyle: "italic" }}>
       Data as of {ts.toLocaleString()} ({Math.round(ageHours)}h ago)

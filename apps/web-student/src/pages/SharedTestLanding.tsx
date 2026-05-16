@@ -156,7 +156,7 @@ export function SharedTestLanding() {
                 <div className="pg-stat-label">Ratings</div>
                 <div
                   className="pg-stat-value"
-                  style={{ fontSize: 16, color: "var(--color-amber)" }}
+                  style={{ fontSize: 16, color: "var(--warn)" }}
                 >
                   {bp.ratings.count === 0
                     ? "—"

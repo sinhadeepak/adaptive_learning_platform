@@ -41,8 +41,8 @@ function strokeFor(tone: ProgressRingTone): string {
     case "developing": return "var(--developing-600)";
     case "strong":     return "var(--success-600)";
     case "mastered":   return "var(--success-500)";
-    case "aurora":     return "var(--brand-600)";
-    default:           return "var(--neutral-500)";
+    case "aurora":     return "var(--accent)";
+    default:           return "var(--ink-3)";
   }
 }
 
@@ -87,7 +87,7 @@ export const ProgressRing = forwardRef<SVGSVGElement, ProgressRingProps>(
             cy={cx}
             r={r}
             fill="none"
-            stroke={trackColor ?? "var(--neutral-200)"}
+            stroke={trackColor ?? "var(--rule-2)"}
             strokeWidth={thickness}
           />
           <circle

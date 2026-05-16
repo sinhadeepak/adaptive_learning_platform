@@ -245,7 +245,7 @@ export function Courses() {
                     {c.description && c.description.trim() && c.description !== "—" ? (
                       <p className="pg-card-desc">{c.description}</p>
                     ) : (
-                      <p className="pg-card-desc" style={{ fontStyle: "italic", color: "var(--text-faint)" }}>
+                      <p className="pg-card-desc" style={{ fontStyle: "italic", color: "var(--ink-4)" }}>
                         No description provided.
                       </p>
                     )}
@@ -266,12 +266,12 @@ export function Courses() {
                       <span className="pg-card-rating">
                         <span className="pg-card-rating-star">★</span>
                         {(c.ratingAvg ?? 0).toFixed(1)}
-                        <span style={{ color: "var(--text-faint)" }}>
+                        <span style={{ color: "var(--ink-4)" }}>
                           ({c.ratingCount})
                         </span>
                       </span>
                     ) : (
-                      <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
+                      <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
                         New
                       </span>
                     )}

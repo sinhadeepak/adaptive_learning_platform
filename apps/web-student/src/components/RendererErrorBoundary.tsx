@@ -67,16 +67,16 @@ export class RendererErrorBoundary extends Component<Props, State> {
         role="alert"
         style={{
           padding: 16,
-          background: "var(--bg-surface3, #fff8f8)",
-          border: "1px solid var(--color-red, #f43f5e)",
+          background: "var(--paper-2, #fff8f8)",
+          border: "1px solid var(--bad, #f43f5e)",
           borderRadius: 8,
-          color: "var(--text-primary, #1f2937)",
+          color: "var(--ink, #1f2937)",
         }}
       >
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
           ⚠ This question can't be displayed
         </div>
-        <p style={{ fontSize: 12, lineHeight: 1.5, margin: "0 0 12px", color: "var(--text-muted, #6b7280)" }}>
+        <p style={{ fontSize: 12, lineHeight: 1.5, margin: "0 0 12px", color: "var(--ink-3, #6b7280)" }}>
           The renderer hit an unexpected payload shape. We've logged the
           issue. Skip to the next item to keep practising — your earlier
           answers are saved.

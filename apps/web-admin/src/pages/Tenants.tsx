@@ -124,16 +124,16 @@ export function Tenants() {
 
         {listError && <p className="banner banner-error">{listError}</p>}
         {list === null && !listError && (
-          <p style={{ color: "var(--text-muted)" }}>Loading…</p>
+          <p style={{ color: "var(--ink-3)" }}>Loading…</p>
         )}
         {list !== null && list.length === 0 && (
-          <p style={{ color: "var(--text-muted)" }}>No tenants yet.</p>
+          <p style={{ color: "var(--ink-3)" }}>No tenants yet.</p>
         )}
         {list !== null && list.length > 0 && (
           <div
             style={{
-              background: "var(--bg-surface1)",
-              border: "1px solid var(--border)",
+              background: "var(--paper-2)",
+              border: "1px solid var(--rule)",
               borderRadius: 8,
               overflow: "hidden",
             }}
@@ -148,9 +148,9 @@ export function Tenants() {
               <thead>
                 <tr
                   style={{
-                    background: "var(--bg-surface2)",
-                    color: "var(--text-muted)",
-                    borderBottom: "1px solid var(--border)",
+                    background: "var(--card)",
+                    color: "var(--ink-3)",
+                    borderBottom: "1px solid var(--rule)",
                     textAlign: "left",
                   }}
                 >
@@ -176,8 +176,8 @@ export function Tenants() {
                   <tr
                     key={t.id}
                     style={{
-                      borderBottom: "1px solid var(--border)",
-                      color: "var(--text-primary)",
+                      borderBottom: "1px solid var(--rule)",
+                      color: "var(--ink)",
                     }}
                   >
                     <td style={{ padding: "10px 12px", fontWeight: 600 }}>
@@ -187,7 +187,7 @@ export function Tenants() {
                       style={{
                         padding: "10px 12px",
                         fontFamily: "var(--font-mono, monospace)",
-                        color: "var(--text-secondary)",
+                        color: "var(--ink-2)",
                       }}
                     >
                       {t.slug}
@@ -195,7 +195,7 @@ export function Tenants() {
                     <td
                       style={{
                         padding: "10px 12px",
-                        color: "var(--text-secondary)",
+                        color: "var(--ink-2)",
                       }}
                     >
                       {t.kind}
@@ -207,7 +207,7 @@ export function Tenants() {
                       <Link to={`/institutions/${t.id}/cohorts`}>Cohorts →</Link>
                       <Link
                         to={`/institutes/${t.id}/analytics`}
-                        style={{ color: "var(--color-ai)" }}
+                        style={{ color: "var(--gold)" }}
                       >
                         Analytics →
                       </Link>
@@ -238,7 +238,7 @@ export function Tenants() {
           {tenant && (
             <div style={{ marginTop: 16, fontSize: 13 }}>
               <strong style={{ fontSize: 15 }}>{tenant.name}</strong>
-              <p style={{ margin: "4px 0", color: "var(--text-muted)" }}>
+              <p style={{ margin: "4px 0", color: "var(--ink-3)" }}>
                 {tenant.kind} · slug: <code>{tenant.slug}</code>
                 {tenant.seatLimit != null && ` · ${tenant.seatLimit} seats`}
               </p>
@@ -348,8 +348,8 @@ function Modal({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--bg-surface1)",
-          border: "1px solid var(--border)",
+          background: "var(--paper-2)",
+          border: "1px solid var(--rule)",
           borderRadius: 10,
           padding: 24,
           minWidth: 420,
@@ -366,14 +366,14 @@ function Modal({
             marginBottom: 16,
           }}
         >
-          <h3 style={{ margin: 0, color: "var(--text-primary)" }}>{title}</h3>
+          <h3 style={{ margin: 0, color: "var(--ink)" }}>{title}</h3>
           <button
             onClick={onClose}
             aria-label="Close"
             style={{
               background: "none",
               border: "none",
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               fontSize: 20,
               cursor: "pointer",
               padding: "0 4px",
@@ -391,9 +391,9 @@ function Modal({
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "8px 10px",
-  background: "var(--bg-surface3)",
-  color: "var(--text-primary)",
-  border: "1px solid var(--border)",
+  background: "var(--paper-2)",
+  color: "var(--ink)",
+  border: "1px solid var(--rule)",
   borderRadius: 4,
   fontSize: 13,
   marginTop: 4,
@@ -402,12 +402,12 @@ const inputStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: 12,
-  color: "var(--text-muted)",
+  color: "var(--ink-3)",
 };
 
 const btnPrimary: React.CSSProperties = {
   padding: "8px 16px",
-  background: "var(--color-blue)",
+  background: "var(--info)",
   color: "white",
   border: "none",
   borderRadius: 4,
@@ -418,9 +418,9 @@ const btnPrimary: React.CSSProperties = {
 
 const btnSecondary: React.CSSProperties = {
   padding: "8px 16px",
-  background: "var(--bg-surface2)",
-  color: "var(--text-primary)",
-  border: "1px solid var(--border)",
+  background: "var(--card)",
+  color: "var(--ink)",
+  border: "1px solid var(--rule)",
   borderRadius: 4,
   cursor: "pointer",
   fontSize: 13,

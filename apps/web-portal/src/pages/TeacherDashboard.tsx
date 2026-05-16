@@ -34,7 +34,7 @@ export function TeacherDashboard() {
     <AppShell title="Teacher Dashboard">
       <main className="page" style={{ padding: 24 }}>
         <h1 style={{ marginTop: 0 }}>My cohorts</h1>
-        <p style={{ color: "var(--text-muted)", marginTop: -8, marginBottom: 24 }}>
+        <p style={{ color: "var(--ink-3)", marginTop: -8, marginBottom: 24 }}>
           One row per assigned cohort with rolling readiness deltas. Drill into a
           cohort for topic heatmap, trend chart, engagement and assignment
           compliance.
@@ -43,7 +43,7 @@ export function TeacherDashboard() {
         {!cohorts ? (
           <SkeletonRows count={5} />
         ) : cohorts.length === 0 ? (
-          <p style={{ color: "var(--text-muted)" }}>
+          <p style={{ color: "var(--ink-3)" }}>
             No cohorts assigned yet. Once an institution admin assigns you to a
             cohort, it will appear here.
           </p>
@@ -69,11 +69,11 @@ export function TeacherDashboard() {
                   </td>
                   <td>{c.nStudents}</td>
                   <td>{Math.round(c.avgReadiness * 100)}%</td>
-                  <td style={{ color: c.deltaReadiness7d >= 0 ? "var(--color-green)" : "var(--color-red)" }}>
+                  <td style={{ color: c.deltaReadiness7d >= 0 ? "var(--good)" : "var(--bad)" }}>
                     {c.deltaReadiness7d >= 0 ? "+" : ""}
                     {(c.deltaReadiness7d * 100).toFixed(1)}%
                   </td>
-                  <td style={{ color: c.deltaReadiness30d >= 0 ? "var(--color-green)" : "var(--color-red)" }}>
+                  <td style={{ color: c.deltaReadiness30d >= 0 ? "var(--good)" : "var(--bad)" }}>
                     {c.deltaReadiness30d >= 0 ? "+" : ""}
                     {(c.deltaReadiness30d * 100).toFixed(1)}%
                   </td>
@@ -81,7 +81,7 @@ export function TeacherDashboard() {
                     {c.nAtRisk > 0 ? (
                       <Pill tone="danger">{c.nAtRisk}</Pill>
                     ) : (
-                      <span style={{ color: "var(--text-muted)" }}>0</span>
+                      <span style={{ color: "var(--ink-3)" }}>0</span>
                     )}
                   </td>
                   <td>{c.nTopQuartile}</td>

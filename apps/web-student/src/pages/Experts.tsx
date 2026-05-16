@@ -544,7 +544,7 @@ export function Experts() {
                     padding: 24,
                     textAlign: "center",
                     fontSize: 11,
-                    color: "var(--text-faint)",
+                    color: "var(--ink-4)",
                     lineHeight: 1.5,
                   }}
                 >
@@ -590,7 +590,7 @@ export function Experts() {
             {!active ? (
               <div className="eh-msg-empty" style={{ margin: "auto", padding: 24 }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}>💬</div>
-                <h2 style={{ fontSize: 14, color: "var(--text-primary)", margin: "0 0 4px" }}>
+                <h2 style={{ fontSize: 14, color: "var(--ink)", margin: "0 0 4px" }}>
                   No question selected
                 </h2>
                 <p>
@@ -650,7 +650,7 @@ export function Experts() {
                 {activeMastery !== null && activeMastery !== undefined ? (
                   <div className="eh-ai-banner">
                     <div className="eh-ai-banner-inner">
-                      <span aria-hidden style={{ fontSize: 12, color: "var(--color-ai)" }}>
+                      <span aria-hidden style={{ fontSize: 12, color: "var(--gold)" }}>
                         ◈
                       </span>
                       <div className="eh-ai-banner-text">
@@ -709,7 +709,7 @@ export function Experts() {
                           AI Tutor · {formatRelative(m.ts)}
                           {parsed.body && last && !streaming ? " · " : ""}
                           {parsed.body && last && !streaming ? (
-                            <span style={{ color: "var(--color-green)" }}>
+                            <span style={{ color: "var(--good)" }}>
                               ✓ Answered
                             </span>
                           ) : null}
@@ -798,25 +798,25 @@ export function Experts() {
               </div>
               <div className="eh-tcard-stats">
                 <div className="eh-tcard-stat">
-                  <div className="eh-tcard-snum" style={{ color: "var(--color-green)" }}>
+                  <div className="eh-tcard-snum" style={{ color: "var(--good)" }}>
                     24/7
                   </div>
                   <div className="eh-tcard-slbl">Availability</div>
                 </div>
                 <div className="eh-tcard-stat">
-                  <div className="eh-tcard-snum" style={{ color: "var(--color-ai)" }}>
+                  <div className="eh-tcard-snum" style={{ color: "var(--gold)" }}>
                     &lt;30s
                   </div>
                   <div className="eh-tcard-slbl">First token</div>
                 </div>
                 <div className="eh-tcard-stat">
-                  <div className="eh-tcard-snum" style={{ color: "var(--color-blue)" }}>
+                  <div className="eh-tcard-snum" style={{ color: "var(--info)" }}>
                     Streamed
                   </div>
                   <div className="eh-tcard-slbl">Live replies</div>
                 </div>
                 <div className="eh-tcard-stat">
-                  <div className="eh-tcard-snum" style={{ color: "var(--color-purple)" }}>
+                  <div className="eh-tcard-snum" style={{ color: "var(--accent)" }}>
                     P2
                   </div>
                   <div className="eh-tcard-slbl">Human review</div>
@@ -851,11 +851,11 @@ export function Experts() {
                       style={{
                         color: activeMastery
                           ? activeMastery.ewa >= 0.7
-                            ? "var(--color-green)"
+                            ? "var(--good)"
                             : activeMastery.ewa >= 0.4
-                              ? "var(--color-blue)"
-                              : "var(--color-red)"
-                          : "var(--text-faint)",
+                              ? "var(--info)"
+                              : "var(--bad)"
+                          : "var(--ink-4)",
                       }}
                     >
                       {activeMastery
@@ -874,8 +874,8 @@ export function Experts() {
                       style={{
                         color:
                           active.status === "OPEN"
-                            ? "var(--color-amber)"
-                            : "var(--color-green)",
+                            ? "var(--warn)"
+                            : "var(--good)",
                       }}
                     >
                       {active.status}

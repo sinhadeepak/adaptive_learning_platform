@@ -271,7 +271,7 @@ export function Dashboard() {
         aria-label="Authoring KPIs"
       >
         <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-blue)" }}>
+          <div className="topic-stat-num" style={{ color: "var(--info)" }}>
             {counts === null ? "…" : counts.draft}
           </div>
           <div className="topic-stat-lbl">Drafts</div>
@@ -282,7 +282,7 @@ export function Dashboard() {
           </div>
         </div>
         <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-amber)" }}>
+          <div className="topic-stat-num" style={{ color: "var(--warn)" }}>
             {counts === null ? "…" : counts.review}
           </div>
           <div className="topic-stat-lbl">In review</div>
@@ -293,7 +293,7 @@ export function Dashboard() {
           </div>
         </div>
         <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-green)" }}>
+          <div className="topic-stat-num" style={{ color: "var(--good)" }}>
             {counts === null ? "…" : counts.published}
           </div>
           <div className="topic-stat-lbl">Published</div>
@@ -309,8 +309,8 @@ export function Dashboard() {
             style={{
               color:
                 counts && counts.rejected > 0
-                  ? "var(--color-red)"
-                  : "var(--text-muted)",
+                  ? "var(--bad)"
+                  : "var(--ink-3)",
             }}
           >
             {counts === null ? "…" : counts.rejected}
@@ -339,7 +339,7 @@ export function Dashboard() {
             <p
               style={{
                 fontSize: 12,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 margin: 0,
                 padding: "var(--sp-2) 0",
               }}
@@ -398,7 +398,7 @@ export function Dashboard() {
             <p
               style={{
                 fontSize: 12,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 margin: 0,
                 padding: "var(--sp-2) 0",
               }}
@@ -516,7 +516,7 @@ export function Dashboard() {
           <p
             style={{
               fontSize: 11,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               marginTop: "var(--sp-3)",
             }}
           >

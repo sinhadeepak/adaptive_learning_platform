@@ -91,12 +91,12 @@ export function Leaderboards() {
             fontSize: "var(--t-h1-size)",
             lineHeight: "var(--t-h1-line)",
             fontWeight: 700,
-            color: "var(--neutral-900)",
+            color: "var(--ink)",
           }}
         >
           Leaderboards
         </h1>
-        <p style={{ margin: "4px 0 0", color: "var(--neutral-600)" }}>
+        <p style={{ margin: "4px 0 0", color: "var(--ink-3)" }}>
           Rankings refresh every 15 minutes. New battles need ~1 cycle before
           they affect the boards.
         </p>
@@ -109,7 +109,7 @@ export function Leaderboards() {
         style={{
           display: "inline-flex",
           gap: 0,
-          backgroundColor: "var(--neutral-100)",
+          backgroundColor: "var(--rule)",
           borderRadius: "var(--r-pill)",
           padding: 2,
           marginBottom: 12,
@@ -127,15 +127,15 @@ export function Leaderboards() {
               style={{
                 appearance: "none",
                 border: 0,
-                background: active ? "var(--neutral-0)" : "transparent",
-                color: active ? "var(--neutral-900)" : "var(--neutral-600)",
+                background: active ? "var(--paper)" : "transparent",
+                color: active ? "var(--ink)" : "var(--ink-3)",
                 fontFamily: "var(--font-ui)",
                 fontSize: 13,
                 fontWeight: active ? 700 : 500,
                 padding: "6px 16px",
                 borderRadius: "var(--r-pill)",
                 cursor: "pointer",
-                boxShadow: active ? "var(--sh-sm)" : "none",
+                boxShadow: active ? "var(--shadow-sm)" : "none",
                 transition: "all 120ms var(--m-ease)",
               }}
             >
@@ -145,7 +145,7 @@ export function Leaderboards() {
         })}
       </div>
       {board ? (
-        <div style={{ fontSize: 13, color: "var(--neutral-500)", marginBottom: 20 }}>
+        <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 20 }}>
           {board.hint}
         </div>
       ) : null}
@@ -209,7 +209,7 @@ export function Leaderboards() {
                   r.rank === 1
                     ? "var(--reward-500)"
                     : r.rank === 2
-                      ? "var(--neutral-400)"
+                      ? "var(--ink-4)"
                       : "#A16207";
                 return (
                   <Card key={r.userId} padding="md">
@@ -241,7 +241,7 @@ export function Leaderboards() {
                       <div
                         style={{
                           fontWeight: 600,
-                          color: "var(--neutral-900)",
+                          color: "var(--ink)",
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -256,7 +256,7 @@ export function Leaderboards() {
                           fontFamily: "var(--font-mono)",
                           fontSize: 20,
                           fontWeight: 700,
-                          color: "var(--neutral-900)",
+                          color: "var(--ink)",
                           fontFeatureSettings: '"tnum"',
                         }}
                       >
@@ -279,7 +279,7 @@ export function Leaderboards() {
                     fontSize: "var(--t-h3-size)",
                     lineHeight: "var(--t-h3-line)",
                     fontWeight: 600,
-                    color: "var(--neutral-800)",
+                    color: "var(--ink-2)",
                   }}
                 >
                   All rankings
@@ -299,7 +299,7 @@ export function Leaderboards() {
                         gap: 12,
                         padding: "10px 8px",
                         borderTop:
-                          idx === 0 ? "none" : "1px solid var(--neutral-200)",
+                          idx === 0 ? "none" : "1px solid var(--rule-2)",
                       }}
                     >
                       <span
@@ -307,7 +307,7 @@ export function Leaderboards() {
                           minWidth: 32,
                           fontFamily: "var(--font-mono)",
                           fontWeight: 700,
-                          color: "var(--neutral-700)",
+                          color: "var(--ink-2)",
                           fontFeatureSettings: '"tnum"',
                           textAlign: "right",
                         }}
@@ -322,7 +322,7 @@ export function Leaderboards() {
                         style={{
                           flex: 1,
                           minWidth: 0,
-                          color: "var(--neutral-900)",
+                          color: "var(--ink)",
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -335,7 +335,7 @@ export function Leaderboards() {
                         style={{
                           fontFamily: "var(--font-mono)",
                           fontWeight: 600,
-                          color: "var(--neutral-700)",
+                          color: "var(--ink-2)",
                           fontFeatureSettings: '"tnum"',
                         }}
                       >

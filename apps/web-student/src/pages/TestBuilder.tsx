@@ -298,8 +298,8 @@ export function TestBuilder() {
                   key={s.id}
                   style={{
                     padding: 14,
-                    background: "var(--bg-surface3)",
-                    border: "1px solid var(--border)",
+                    background: "var(--paper-2)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 6,
                     marginBottom: 12,
                   }}
@@ -395,12 +395,12 @@ export function TestBuilder() {
                     <div>
                       <div className="pg-field-label">
                         Topics{" "}
-                        <span style={{ color: "var(--text-faint)", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>
+                        <span style={{ color: "var(--ink-4)", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>
                           (optional — leave empty to pull from all topics in the subject)
                         </span>
                       </div>
                       {subjectTopics.length === 0 ? (
-                        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                        <p style={{ fontSize: 12, color: "var(--ink-3)" }}>
                           Loading topics…
                         </p>
                       ) : (
@@ -469,7 +469,7 @@ export function TestBuilder() {
                   }
                   style={fieldInput}
                 />
-                <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 4 }}>
                   0 disables negative marking.
                 </div>
               </div>
@@ -483,8 +483,8 @@ export function TestBuilder() {
                   onChange={(e) => setInterSectionNav(e.target.checked)}
                 />
                 <span>
-                  <strong style={{ color: "var(--text-primary)" }}>Allow inter-section navigation</strong>{" "}
-                  <span style={{ color: "var(--text-muted)" }}>
+                  <strong style={{ color: "var(--ink)" }}>Allow inter-section navigation</strong>{" "}
+                  <span style={{ color: "var(--ink-3)" }}>
                     — uncheck to lock the student to one section at a time.
                   </span>
                 </span>
@@ -496,8 +496,8 @@ export function TestBuilder() {
                   onChange={(e) => setPerSectionLock(e.target.checked)}
                 />
                 <span>
-                  <strong style={{ color: "var(--text-primary)" }}>Enforce per-section time limits</strong>{" "}
-                  <span style={{ color: "var(--text-muted)" }}>
+                  <strong style={{ color: "var(--ink)" }}>Enforce per-section time limits</strong>{" "}
+                  <span style={{ color: "var(--ink-3)" }}>
                     — section ends when its minute budget hits zero, even if questions are left.
                   </span>
                 </span>
@@ -627,8 +627,8 @@ function Stepper({ step }: { step: Step }) {
         gap: 12,
         marginBottom: 22,
         padding: "12px 16px",
-        background: "var(--bg-surface2)",
-        border: "1px solid var(--border)",
+        background: "var(--card)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
       }}
     >
@@ -652,11 +652,11 @@ function Stepper({ step }: { step: Step }) {
                 height: 24,
                 borderRadius: 12,
                 background: done
-                  ? "var(--color-green)"
+                  ? "var(--good)"
                   : active
-                    ? "var(--color-blue)"
-                    : "var(--bg-surface3)",
-                color: done || active ? "#fff" : "var(--text-muted)",
+                    ? "var(--info)"
+                    : "var(--paper-2)",
+                color: done || active ? "#fff" : "var(--ink-3)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -670,13 +670,13 @@ function Stepper({ step }: { step: Step }) {
               style={{
                 fontSize: 12,
                 fontWeight: active ? 700 : 500,
-                color: active ? "var(--text-primary)" : "var(--text-muted)",
+                color: active ? "var(--ink)" : "var(--ink-3)",
               }}
             >
               {label}
             </span>
             {i < STEPS.length - 1 && (
-              <span style={{ color: "var(--text-faint)", marginLeft: 4 }}>→</span>
+              <span style={{ color: "var(--ink-4)", marginLeft: 4 }}>→</span>
             )}
           </div>
         );
@@ -688,9 +688,9 @@ function Stepper({ step }: { step: Step }) {
 const fieldInput: React.CSSProperties = {
   width: "100%",
   padding: "7px 10px",
-  background: "var(--bg-surface2)",
-  color: "var(--text-primary)",
-  border: "1px solid var(--border-strong)",
+  background: "var(--card)",
+  color: "var(--ink)",
+  border: "1px solid var(--rule-2)",
   borderRadius: 6,
   fontSize: 13,
   fontFamily: "inherit",

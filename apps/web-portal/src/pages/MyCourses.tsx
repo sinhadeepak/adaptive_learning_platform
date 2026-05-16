@@ -198,7 +198,7 @@ export function MyCourses() {
                       </>
                     )}
                     {c.status === "PENDING_REVIEW" && (
-                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
                         Awaiting admin
                       </span>
                     )}

@@ -156,13 +156,13 @@ export function AIQuestionGenerator({ topicId, topicTitle, onSavedAll }: Props) 
         <h3 style={{ margin: 0, fontSize: 15 }}>
           ◈ AI-assisted authoring — {topicTitle || "(pick a topic first)"}
         </h3>
-        <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
+        <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
           Items land as DRAFT; you submit each through the normal review flow.
         </span>
       </div>
 
       {!topicId ? (
-        <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 10 }}>
+        <p style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 10 }}>
           Pick an exam, subject, and topic above before generating.
         </p>
       ) : (
@@ -235,7 +235,7 @@ export function AIQuestionGenerator({ topicId, topicTitle, onSavedAll }: Props) 
             disabled={generating || !topicId}
             style={{
               marginTop: 12,
-              background: "var(--color-purple)",
+              background: "var(--accent)",
               color: "white",
               border: "none",
               padding: "8px 16px",
@@ -257,9 +257,9 @@ export function AIQuestionGenerator({ topicId, topicTitle, onSavedAll }: Props) 
                 marginTop: 10,
                 padding: "8px 12px",
                 background: "rgba(245,166,35,0.08)",
-                borderLeft: "2px solid var(--color-amber)",
+                borderLeft: "2px solid var(--warn)",
                 fontSize: 12,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 borderRadius: 4,
               }}
             >
@@ -271,7 +271,7 @@ export function AIQuestionGenerator({ topicId, topicTitle, onSavedAll }: Props) 
               style={{
                 marginTop: 10,
                 fontSize: 12,
-                color: "var(--color-red)",
+                color: "var(--bad)",
               }}
             >
               {error}
@@ -297,7 +297,7 @@ export function AIQuestionGenerator({ topicId, topicTitle, onSavedAll }: Props) 
                   onClick={saveAll}
                   disabled={saving || unsavedCount === 0}
                   style={{
-                    background: "var(--color-green)",
+                    background: "var(--good)",
                     color: "white",
                     border: "none",
                     padding: "6px 14px",
@@ -373,10 +373,10 @@ function DraftItemCard({
           : "rgba(255,255,255,0.03)",
         borderLeft: `3px solid ${
           item.saved
-            ? "var(--color-green)"
+            ? "var(--good)"
             : item.saveError
-            ? "var(--color-red)"
-            : "var(--color-purple)"
+            ? "var(--bad)"
+            : "var(--accent)"
         }`,
         borderRadius: 4,
       }}
@@ -389,13 +389,13 @@ function DraftItemCard({
           marginBottom: 6,
         }}
       >
-        <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
+        <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
           Q{index + 1} · b={item.difficultyB.toFixed(2)} · {item.language}
           {item.tags.length > 0 ? ` · ${item.tags.join(" · ")}` : ""}
         </span>
         <div style={{ display: "flex", gap: 6 }}>
           {item.saved ? (
-            <span style={{ fontSize: 11, color: "var(--color-green)" }}>✓ saved</span>
+            <span style={{ fontSize: 11, color: "var(--good)" }}>✓ saved</span>
           ) : null}
           <button
             type="button"
@@ -404,7 +404,7 @@ function DraftItemCard({
             style={{
               background: "transparent",
               border: "1px solid rgba(255,255,255,0.1)",
-              color: "var(--text-faint)",
+              color: "var(--ink-4)",
               padding: "2px 8px",
               borderRadius: 3,
               fontSize: 11,
@@ -483,7 +483,7 @@ function DraftItemCard({
           style={{
             marginTop: 6,
             fontSize: 11,
-            color: "var(--color-red)",
+            color: "var(--bad)",
           }}
         >
           Save failed: {item.saveError}

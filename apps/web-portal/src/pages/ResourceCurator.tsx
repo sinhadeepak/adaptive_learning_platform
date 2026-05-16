@@ -343,11 +343,11 @@ export function ResourceCurator() {
       {/* ── Topic cascade ───────────────────────────────────── */}
       <section
         style={{
-          background: "var(--bg-surface2, #101A30)",
+          background: "var(--card, #101A30)",
           padding: 16,
           borderRadius: 8,
           marginBottom: 16,
-          border: "1px solid var(--border-strong, rgba(255,255,255,0.11))",
+          border: "1px solid var(--rule-2, rgba(255,255,255,0.11))",
         }}
       >
         <div
@@ -356,7 +356,7 @@ export function ResourceCurator() {
             fontWeight: 700,
             letterSpacing: 0.5,
             textTransform: "uppercase",
-            color: "var(--text-faint, #7A8BAD)",
+            color: "var(--ink-4, #7A8BAD)",
             marginBottom: 10,
           }}
         >
@@ -369,7 +369,7 @@ export function ResourceCurator() {
             gap: 12,
           }}
         >
-          <label style={{ fontSize: 12, color: "var(--text-secondary, #B8C5E0)" }}>
+          <label style={{ fontSize: 12, color: "var(--ink-2, #B8C5E0)" }}>
             <div style={{ marginBottom: 4 }}>Exam</div>
             <select
               value={examId}
@@ -384,7 +384,7 @@ export function ResourceCurator() {
               ))}
             </select>
           </label>
-          <label style={{ fontSize: 12, color: "var(--text-secondary, #B8C5E0)" }}>
+          <label style={{ fontSize: 12, color: "var(--ink-2, #B8C5E0)" }}>
             <div style={{ marginBottom: 4 }}>Subject</div>
             <select
               value={subjectId}
@@ -402,7 +402,7 @@ export function ResourceCurator() {
               ))}
             </select>
           </label>
-          <label style={{ fontSize: 12, color: "var(--text-secondary, #B8C5E0)" }}>
+          <label style={{ fontSize: 12, color: "var(--ink-2, #B8C5E0)" }}>
             <div style={{ marginBottom: 4 }}>Topic</div>
             <select
               value={topicId}
@@ -452,7 +452,7 @@ export function ResourceCurator() {
                 fontWeight: 700,
                 letterSpacing: 0.6,
                 textTransform: "uppercase",
-                color: "var(--color-ai, #22D4EE)",
+                color: "var(--gold, #22D4EE)",
               }}
             >
               ✨ AI search suggestions
@@ -460,7 +460,7 @@ export function ResourceCurator() {
             <div
               style={{
                 fontSize: 12,
-                color: "var(--text-secondary, #B8C5E0)",
+                color: "var(--ink-2, #B8C5E0)",
                 marginTop: 2,
               }}
             >
@@ -473,7 +473,7 @@ export function ResourceCurator() {
             <div
               style={{
                 fontSize: 10,
-                color: "var(--text-faint, #7A8BAD)",
+                color: "var(--ink-4, #7A8BAD)",
                 fontFamily: "var(--font-mono, monospace)",
               }}
             >
@@ -490,7 +490,7 @@ export function ResourceCurator() {
               marginTop: 8,
               padding: 10,
               fontSize: 12,
-              color: "var(--color-red, #F43F5E)",
+              color: "var(--bad, #F43F5E)",
               background: "rgba(244,63,94,0.08)",
               border: "1px solid rgba(244,63,94,0.25)",
               borderRadius: 6,
@@ -527,8 +527,8 @@ export function ResourceCurator() {
                     // Auto-themed surface — was hardcoded rgba(12,20,34,0.7)
                     // (a deep navy at 70% alpha) which rendered as a dark
                     // stripe on the light cyan-tinted panel in light mode.
-                    background: "var(--bg-surface3)",
-                    border: "1px solid var(--border)",
+                    background: "var(--paper-2)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 6,
                     padding: 12,
                     display: "flex",
@@ -548,7 +548,7 @@ export function ResourceCurator() {
                       style={{
                         fontSize: 13,
                         fontWeight: 500,
-                        color: "var(--text-primary, #EEF2FF)",
+                        color: "var(--ink, #EEF2FF)",
                         flex: 1,
                       }}
                     >
@@ -569,7 +569,7 @@ export function ResourceCurator() {
                   <div
                     style={{
                       fontSize: 11,
-                      color: "var(--text-secondary, #B8C5E0)",
+                      color: "var(--ink-2, #B8C5E0)",
                       lineHeight: 1.45,
                     }}
                   >
@@ -625,7 +625,7 @@ export function ResourceCurator() {
             fontWeight: 700,
             letterSpacing: 0.5,
             textTransform: "uppercase",
-            color: "var(--text-faint, #7A8BAD)",
+            color: "var(--ink-4, #7A8BAD)",
             marginBottom: 10,
             display: "flex",
             alignItems: "center",
@@ -675,7 +675,7 @@ export function ResourceCurator() {
               marginTop: 10,
               padding: 10,
               fontSize: 12,
-              color: "var(--color-amber, #F5A623)",
+              color: "var(--warn, #F5A623)",
               background: "rgba(245,166,35,0.08)",
               border: "1px solid rgba(245,166,35,0.25)",
               borderRadius: 6,
@@ -691,7 +691,7 @@ export function ResourceCurator() {
             style={{
               marginTop: 12,
               fontSize: 13,
-              color: "var(--text-secondary, #B8C5E0)",
+              color: "var(--ink-2, #B8C5E0)",
             }}
           >
             No matches. Try a more specific query (concept + grade level).
@@ -715,10 +715,10 @@ export function ResourceCurator() {
                 <div
                   key={item.video_id}
                   style={{
-                    background: "var(--bg-surface3, #162038)",
+                    background: "var(--paper-2, #162038)",
                     borderRadius: 6,
                     border:
-                      "1px solid var(--border, rgba(255,255,255,0.07))",
+                      "1px solid var(--rule, rgba(255,255,255,0.07))",
                     overflow: "hidden",
                     display: "flex",
                     flexDirection: "column",
@@ -741,7 +741,7 @@ export function ResourceCurator() {
                       style={{
                         fontSize: 13,
                         fontWeight: 500,
-                        color: "var(--text-primary, #EEF2FF)",
+                        color: "var(--ink, #EEF2FF)",
                         marginBottom: 4,
                         display: "-webkit-box",
                         WebkitLineClamp: 2,
@@ -754,7 +754,7 @@ export function ResourceCurator() {
                     <div
                       style={{
                         fontSize: 11,
-                        color: "var(--text-faint, #7A8BAD)",
+                        color: "var(--ink-4, #7A8BAD)",
                         marginBottom: 8,
                       }}
                     >
@@ -792,7 +792,7 @@ export function ResourceCurator() {
             fontWeight: 700,
             letterSpacing: 0.5,
             textTransform: "uppercase",
-            color: "var(--text-faint, #7A8BAD)",
+            color: "var(--ink-4, #7A8BAD)",
             marginBottom: 10,
           }}
         >
@@ -834,7 +834,7 @@ export function ResourceCurator() {
             fontWeight: 700,
             letterSpacing: 0.5,
             textTransform: "uppercase",
-            color: "var(--text-faint, #7A8BAD)",
+            color: "var(--ink-4, #7A8BAD)",
             marginBottom: 10,
           }}
         >
@@ -844,7 +844,7 @@ export function ResourceCurator() {
           <div
             style={{
               fontSize: 13,
-              color: "var(--text-secondary, #B8C5E0)",
+              color: "var(--ink-2, #B8C5E0)",
               opacity: 0.8,
             }}
           >
@@ -870,10 +870,10 @@ export function ResourceCurator() {
                   display: "flex",
                   gap: 12,
                   padding: 10,
-                  background: "var(--bg-surface3, #162038)",
+                  background: "var(--paper-2, #162038)",
                   borderRadius: 6,
                   alignItems: "center",
-                  border: "1px solid var(--border, rgba(255,255,255,0.07))",
+                  border: "1px solid var(--rule, rgba(255,255,255,0.07))",
                 }}
               >
                 {p.thumbnail_url && (
@@ -895,7 +895,7 @@ export function ResourceCurator() {
                     style={{
                       fontSize: 13,
                       fontWeight: 500,
-                      color: "var(--text-primary, #EEF2FF)",
+                      color: "var(--ink, #EEF2FF)",
                     }}
                   >
                     <a
@@ -910,7 +910,7 @@ export function ResourceCurator() {
                   <div
                     style={{
                       fontSize: 11,
-                      color: "var(--text-faint, #7A8BAD)",
+                      color: "var(--ink-4, #7A8BAD)",
                       marginTop: 2,
                       display: "flex",
                       gap: 8,
@@ -998,18 +998,18 @@ const fieldStyle: React.CSSProperties = {
   display: "block",
   width: "100%",
   padding: "8px 10px",
-  background: "var(--bg-surface3, #162038)",
-  color: "var(--text-primary, #EEF2FF)",
-  border: "1px solid var(--border-strong, rgba(255,255,255,0.11))",
+  background: "var(--paper-2, #162038)",
+  color: "var(--ink, #EEF2FF)",
+  border: "1px solid var(--rule-2, rgba(255,255,255,0.11))",
   borderRadius: 6,
   fontSize: 13,
   fontFamily: "inherit",
 };
 
 const cardStyle: React.CSSProperties = {
-  background: "var(--bg-surface2, #101A30)",
+  background: "var(--card, #101A30)",
   padding: 16,
   borderRadius: 8,
   marginBottom: 16,
-  border: "1px solid var(--border-strong, rgba(255,255,255,0.11))",
+  border: "1px solid var(--rule-2, rgba(255,255,255,0.11))",
 };

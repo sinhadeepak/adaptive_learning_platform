@@ -235,7 +235,7 @@ export function TutorApply() {
               <div
                 style={{
                   fontSize: 11,
-                  color: "var(--text-faint)",
+                  color: "var(--ink-4)",
                   marginTop: 4,
                 }}
               >
@@ -262,7 +262,7 @@ export function TutorApply() {
             <div
               style={{
                 fontSize: 11,
-                color: "var(--text-faint)",
+                color: "var(--ink-4)",
                 marginTop: 4,
               }}
             >
@@ -290,8 +290,8 @@ export function TutorApply() {
                 alignItems: "end",
                 marginBottom: 10,
                 padding: 12,
-                background: "var(--bg-surface3)",
-                border: "1px solid var(--border)",
+                background: "var(--paper-2)",
+                border: "1px solid var(--rule)",
                 borderRadius: 6,
               }}
             >
@@ -404,8 +404,8 @@ export function TutorApply() {
                 alignItems: "end",
                 marginBottom: 10,
                 padding: 12,
-                background: "var(--bg-surface3)",
-                border: "1px solid var(--border)",
+                background: "var(--paper-2)",
+                border: "1px solid var(--rule)",
                 borderRadius: 6,
               }}
             >
@@ -486,7 +486,7 @@ export function TutorApply() {
           <p
             style={{
               fontSize: 11,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               marginTop: 8,
               lineHeight: 1.5,
             }}
@@ -532,18 +532,18 @@ export function TutorApply() {
                       alignItems: "center",
                       gap: 6,
                       padding: "5px 8px 5px 12px",
-                      background: "var(--bg-surface2)",
-                      border: "1px solid var(--border)",
+                      background: "var(--card)",
+                      border: "1px solid var(--rule)",
                       borderRadius: 999,
                       fontSize: 12,
-                      color: "var(--text-primary)",
+                      color: "var(--ink)",
                     }}
                   >
                     <span style={{ fontWeight: 600 }}>
                       {m?.title ?? id.slice(0, 8)}
                     </span>
                     {m?.subjectName && (
-                      <span style={{ color: "var(--text-muted)", fontSize: 11 }}>
+                      <span style={{ color: "var(--ink-3)", fontSize: 11 }}>
                         · {m.subjectName}
                         {m.examName ? ` · ${m.examName}` : ""}
                       </span>
@@ -555,7 +555,7 @@ export function TutorApply() {
                       style={{
                         background: "transparent",
                         border: "none",
-                        color: "var(--text-muted)",
+                        color: "var(--ink-3)",
                         cursor: "pointer",
                         fontSize: 14,
                         padding: 0,
@@ -574,11 +574,11 @@ export function TutorApply() {
               style={{
                 padding: 12,
                 marginBottom: 16,
-                background: "var(--bg-surface3)",
-                border: "1px dashed var(--border-strong)",
+                background: "var(--paper-2)",
+                border: "1px dashed var(--rule-2)",
                 borderRadius: 6,
                 fontSize: 13,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
               }}
             >
               No topics selected yet — pick an exam + subject below and check
@@ -652,12 +652,12 @@ export function TutorApply() {
                         padding: "8px 12px",
                         background: checked
                           ? "rgba(16,196,122,0.08)"
-                          : "var(--bg-surface3)",
-                        border: `1px solid ${checked ? "rgba(16,196,122,0.30)" : "var(--border)"}`,
+                          : "var(--paper-2)",
+                        border: `1px solid ${checked ? "rgba(16,196,122,0.30)" : "var(--rule)"}`,
                         borderRadius: 6,
                         cursor: "pointer",
                         fontSize: 13,
-                        color: "var(--text-primary)",
+                        color: "var(--ink)",
                         transition: "background var(--trans-fast)",
                       }}
                     >
@@ -679,7 +679,7 @@ export function TutorApply() {
             <p
               style={{
                 fontSize: 13,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 marginTop: 8,
               }}
             >
@@ -716,9 +716,9 @@ export function TutorApply() {
 const fieldInputStyle: React.CSSProperties = {
   width: "100%",
   padding: "7px 10px",
-  background: "var(--bg-surface2)",
-  color: "var(--text-primary)",
-  border: "1px solid var(--border-strong)",
+  background: "var(--card)",
+  color: "var(--ink)",
+  border: "1px solid var(--rule-2)",
   borderRadius: 6,
   fontSize: 13,
   fontFamily: "inherit",

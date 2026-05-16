@@ -105,9 +105,9 @@ export function Inbox() {
             style={{
               padding: "6px 12px",
               borderRadius: 999,
-              border: `1px solid ${filter === f ? "var(--color-blue)" : "var(--border-default)"}`,
-              background: filter === f ? "var(--color-blue)" : "transparent",
-              color: filter === f ? "#fff" : "var(--text-primary)",
+              border: `1px solid ${filter === f ? "var(--info)" : "var(--rule)"}`,
+              background: filter === f ? "var(--info)" : "transparent",
+              color: filter === f ? "#fff" : "var(--ink)",
               fontSize: 12,
               fontWeight: 600,
               cursor: "pointer",
@@ -138,16 +138,16 @@ export function Inbox() {
           style={{
             padding: "var(--sp-5)",
             textAlign: "center",
-            color: "var(--text-muted)",
-            border: "1px dashed var(--border-default)",
+            color: "var(--ink-3)",
+            border: "1px dashed var(--rule)",
             borderRadius: 12,
-            background: "var(--bg-surface-1)",
+            background: "var(--card-1)",
           }}
         >
           <div style={{ fontSize: 36, marginBottom: 8 }}>
             {filter === "unread" ? "🎉" : "🔕"}
           </div>
-          <div style={{ color: "var(--text-primary)", fontWeight: 600, marginBottom: 6 }}>
+          <div style={{ color: "var(--ink)", fontWeight: 600, marginBottom: 6 }}>
             {filter === "unread"
               ? "All caught up"
               : "No notifications yet"}
@@ -175,8 +175,8 @@ export function Inbox() {
             const body = (
               <div
                 style={{
-                  background: isUnread ? "var(--bg-surface-2)" : "var(--bg-surface-1)",
-                  border: `1px solid ${isUnread ? "var(--color-blue)" : "var(--border-default)"}`,
+                  background: isUnread ? "var(--card-2)" : "var(--card-1)",
+                  border: `1px solid ${isUnread ? "var(--info)" : "var(--rule)"}`,
                   borderRadius: 12,
                   padding: "var(--sp-3)",
                   cursor: link ? "pointer" : "default",
@@ -193,21 +193,21 @@ export function Inbox() {
                       width: 8,
                       height: 8,
                       borderRadius: 999,
-                      background: "var(--color-blue)",
+                      background: "var(--info)",
                     }}
                   />
                 ) : null}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <Pill tone={isUnread ? "info" : "muted"}>{prettyType(n.type)}</Pill>
                   <span style={{ flex: 1 }} />
-                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                  <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
                     {relative(n.createdAt)}
                   </span>
                 </div>
                 <div
                   style={{
                     marginTop: 8,
-                    color: "var(--text-primary)",
+                    color: "var(--ink)",
                     fontSize: 14,
                     lineHeight: 1.45,
                   }}

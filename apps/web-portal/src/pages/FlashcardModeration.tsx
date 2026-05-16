@@ -78,13 +78,13 @@ export function FlashcardModeration() {
   return (
     <AppShell title="Flashcard moderation">
       <main className="page" style={{ padding: 24, maxWidth: 1100 }}>
-        <Link to="/teacher/dashboard" style={{ color: "var(--text-muted)", fontSize: 12 }}>
+        <Link to="/teacher/dashboard" style={{ color: "var(--ink-3)", fontSize: 12 }}>
           ← Back to dashboard
         </Link>
         <h1 style={{ marginTop: 8 }}>Deck review queue</h1>
         {!loaded && <SkeletonRows count={3} />}
         {loaded && queue.length === 0 && (
-          <p style={{ color: "var(--text-muted)" }}>Queue is empty — no decks awaiting review.</p>
+          <p style={{ color: "var(--ink-3)" }}>Queue is empty — no decks awaiting review.</p>
         )}
         <ul style={{ listStyle: "none", padding: 0 }}>
           {queue.map((d) => (
@@ -92,8 +92,8 @@ export function FlashcardModeration() {
               key={d.id}
               style={{
                 padding: 12,
-                background: "var(--bg-surface-1)",
-                border: "1px solid var(--border-default)",
+                background: "var(--card-1)",
+                border: "1px solid var(--rule)",
                 borderRadius: 8,
                 marginBottom: 10,
               }}
@@ -101,13 +101,13 @@ export function FlashcardModeration() {
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600 }}>{d.title}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
                     {d.nCards} cards · <Pill tone="info">{d.visibility}</Pill> · owner{" "}
                     <code>{d.ownerUserId.slice(0, 8)}</code> · submitted{" "}
                     {new Date(d.updatedAt).toLocaleDateString()}
                   </div>
                   {d.description && (
-                    <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>
+                    <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 4 }}>
                       {d.description}
                     </div>
                   )}
@@ -116,9 +116,9 @@ export function FlashcardModeration() {
                   type="button"
                   onClick={() => openDeckPreview(d.id)}
                   style={{
-                    background: "var(--bg-surface-1)",
-                    border: "1px solid var(--border-default)",
-                    color: "var(--text-primary)",
+                    background: "var(--card-1)",
+                    border: "1px solid var(--rule)",
+                    color: "var(--ink)",
                     padding: "6px 12px",
                     borderRadius: 6,
                     cursor: "pointer",
@@ -152,9 +152,9 @@ export function FlashcardModeration() {
                     style={{
                       width: "100%",
                       padding: 8,
-                      background: "var(--bg-surface)",
-                      border: "1px solid var(--border-default)",
-                      color: "var(--text-primary)",
+                      background: "var(--card)",
+                      border: "1px solid var(--rule)",
+                      color: "var(--ink)",
                       borderRadius: 6,
                       marginBottom: 8,
                     }}
@@ -166,20 +166,20 @@ export function FlashcardModeration() {
                         style={{
                           padding: 10,
                           marginBottom: 6,
-                          background: "var(--bg-surface)",
-                          border: "1px solid var(--border-default)",
+                          background: "var(--card)",
+                          border: "1px solid var(--rule)",
                           borderRadius: 6,
                           fontSize: 13,
                         }}
                       >
                         <div style={{ fontWeight: 600 }}>Q. {c.frontMd}</div>
-                        <div style={{ marginTop: 4, color: "var(--text-secondary)", whiteSpace: "pre-wrap" }}>
+                        <div style={{ marginTop: 4, color: "var(--ink-2)", whiteSpace: "pre-wrap" }}>
                           A. {c.backMd}
                         </div>
                       </li>
                     ))}
                     {cards.length > 20 && (
-                      <li style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      <li style={{ fontSize: 11, color: "var(--ink-3)" }}>
                         … {cards.length - 20} more cards
                       </li>
                     )}
@@ -195,7 +195,7 @@ export function FlashcardModeration() {
 }
 
 const btnApprove: React.CSSProperties = {
-  background: "var(--color-green)",
+  background: "var(--good)",
   color: "#000",
   border: 0,
   padding: "6px 14px",
@@ -206,7 +206,7 @@ const btnApprove: React.CSSProperties = {
 };
 
 const btnReject: React.CSSProperties = {
-  background: "var(--color-red)",
+  background: "var(--bad)",
   color: "#fff",
   border: 0,
   padding: "6px 14px",

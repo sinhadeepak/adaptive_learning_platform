@@ -110,7 +110,7 @@ function ExamCard({ exam }: { exam: Exam }) {
               width: 40,
               height: 40,
               borderRadius: 10,
-              background: "var(--brand-50)",
+              background: "var(--accent-soft)",
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
@@ -120,12 +120,12 @@ function ExamCard({ exam }: { exam: Exam }) {
             {stream.emoji}
           </span>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 600, color: "var(--neutral-900)" }}>{exam.name}</div>
+            <div style={{ fontWeight: 600, color: "var(--ink)" }}>{exam.name}</div>
             {exam.subtitle ? (
               <div
                 style={{
                   fontSize: 13,
-                  color: "var(--neutral-600)",
+                  color: "var(--ink-3)",
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -144,7 +144,7 @@ function ExamCard({ exam }: { exam: Exam }) {
           <span
             aria-hidden
             style={{
-              color: "var(--brand-600)",
+              color: "var(--accent)",
               fontSize: 18,
               lineHeight: 1,
             }}
@@ -214,12 +214,12 @@ export function Catalog() {
             lineHeight: "var(--t-h1-line)",
             fontWeight: 700,
             margin: 0,
-            color: "var(--neutral-900)",
+            color: "var(--ink)",
           }}
         >
           Browse exams
         </h1>
-        <p style={{ margin: "4px 0 0", color: "var(--neutral-600)" }}>
+        <p style={{ margin: "4px 0 0", color: "var(--ink-3)" }}>
           Pick an exam to explore its subjects and topics.
         </p>
       </header>
@@ -270,7 +270,7 @@ export function Catalog() {
                   lineHeight: "var(--t-h3-line)",
                   fontWeight: 600,
                   margin: "0 0 12px",
-                  color: "var(--neutral-800)",
+                  color: "var(--ink-2)",
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 8,

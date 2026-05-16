@@ -146,15 +146,15 @@ function Tile({
     <div
       style={{
         padding: 12,
-        border: "1px solid var(--border-faint)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
-        background: "var(--bg-surface-1, #fff)",
+        background: "var(--card-1, #fff)",
       }}
     >
-      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{label}</div>
+      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>{value}</div>
       {sub && (
-        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+        <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
           {sub}
         </div>
       )}

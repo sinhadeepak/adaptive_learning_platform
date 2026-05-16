@@ -78,14 +78,14 @@ export function RealExamReport() {
       className="card"
       style={{
         padding: 16,
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border-default)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 12,
         marginTop: 16,
       }}
     >
       <h3 style={{ marginTop: 0, fontSize: 14 }}>Real exam outcomes</h3>
-      <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+      <p style={{ fontSize: 12, color: "var(--ink-3)" }}>
         Self-report your real exam score / rank / admit. We use it to
         calibrate the career-outcome card on your dashboard. Stays private
         unless you opt into the leaderboard.
@@ -101,15 +101,15 @@ export function RealExamReport() {
                 alignItems: "center",
                 gap: 8,
                 padding: "6px 8px",
-                background: "var(--bg-surface)",
-                border: "1px solid var(--border-default)",
+                background: "var(--card)",
+                border: "1px solid var(--rule)",
                 borderRadius: 6,
                 marginBottom: 4,
                 fontSize: 13,
               }}
             >
               <strong style={{ minWidth: 60 }}>{o.examCode}</strong>
-              <span style={{ color: "var(--text-muted)" }}>
+              <span style={{ color: "var(--ink-3)" }}>
                 {o.realScore !== null ? `${o.realScore}` : "—"} score ·{" "}
                 {o.realRank !== null ? `AIR ${o.realRank.toLocaleString()}` : "—"} rank
                 {o.admittedTo ? ` · ${o.admittedTo}` : ""}
@@ -121,7 +121,7 @@ export function RealExamReport() {
                 style={{
                   background: "transparent",
                   border: 0,
-                  color: "var(--color-red)",
+                  color: "var(--bad)",
                   cursor: "pointer",
                   fontSize: 11,
                 }}
@@ -147,8 +147,8 @@ export function RealExamReport() {
           style={{
             marginTop: 12,
             padding: 12,
-            background: "var(--bg-surface)",
-            border: "1px solid var(--border-default)",
+            background: "var(--card)",
+            border: "1px solid var(--rule)",
             borderRadius: 8,
             display: "grid",
             gap: 8,
@@ -200,7 +200,7 @@ export function RealExamReport() {
             <button type="button" className="btn btn-primary" onClick={save}>
               Save
             </button>
-            {saved && <span style={{ color: "var(--color-green)", alignSelf: "center" }}>✓ saved</span>}
+            {saved && <span style={{ color: "var(--good)", alignSelf: "center" }}>✓ saved</span>}
           </div>
         </div>
       )}
@@ -208,13 +208,13 @@ export function RealExamReport() {
   );
 }
 
-const lbl: React.CSSProperties = { display: "flex", flexDirection: "column", fontSize: 11, color: "var(--text-muted)" };
+const lbl: React.CSSProperties = { display: "flex", flexDirection: "column", fontSize: 11, color: "var(--ink-3)" };
 const inp: React.CSSProperties = {
   marginTop: 4,
   padding: 8,
-  background: "var(--bg-surface1)",
-  border: "1px solid var(--border-default)",
-  color: "var(--text-primary)",
+  background: "var(--paper-2)",
+  border: "1px solid var(--rule)",
+  color: "var(--ink)",
   borderRadius: 6,
   fontSize: 13,
 };

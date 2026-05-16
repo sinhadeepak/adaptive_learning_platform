@@ -137,7 +137,7 @@ export function Library() {
         <section className="pg-section">
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 600 }}>
+              <label style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600 }}>
                 Exam
               </label>
               <select
@@ -155,7 +155,7 @@ export function Library() {
               </select>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 600 }}>
+              <span style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600 }}>
                 Duration
               </span>
               {MAX_MINUTES_OPTIONS.map((opt) => (
@@ -185,9 +185,9 @@ export function Library() {
                 padding: 24,
                 textAlign: "center",
                 background: "rgba(0,0,0,0.02)",
-                border: "1px dashed var(--border-subtle)",
+                border: "1px dashed var(--rule)",
                 borderRadius: 10,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
               }}
             >
               No curated tests match those filters yet. Try widening duration
@@ -207,8 +207,8 @@ export function Library() {
                   key={bp.id}
                   style={{
                     padding: 18,
-                    background: "var(--bg-elevated)",
-                    border: "1px solid var(--border-subtle)",
+                    background: "var(--card)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 10,
                     display: "flex",
                     flexDirection: "column",
@@ -216,7 +216,7 @@ export function Library() {
                   }}
                 >
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{bp.name}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
                     {examNameById[bp.examId] ?? "Exam"}
                   </div>
                   <div className="pg-row-meta" style={{ marginTop: 4 }}>

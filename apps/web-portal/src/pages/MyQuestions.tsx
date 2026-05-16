@@ -305,9 +305,9 @@ export function MyQuestions() {
             flex: 1,
             minWidth: 220,
             padding: "8px 12px",
-            background: "var(--bg-surface3)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border-strong)",
+            background: "var(--paper-2)",
+            color: "var(--ink)",
+            border: "1px solid var(--rule-2)",
             borderRadius: 6,
             fontSize: 13,
             fontFamily: "inherit",
@@ -320,9 +320,9 @@ export function MyQuestions() {
           aria-label="Filter by question type"
           style={{
             padding: "8px 10px",
-            background: "var(--bg-surface3)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border-strong)",
+            background: "var(--paper-2)",
+            color: "var(--ink)",
+            border: "1px solid var(--rule-2)",
             borderRadius: 6,
             fontSize: 13,
           }}
@@ -406,7 +406,7 @@ export function MyQuestions() {
 
         <span
           style={{
-            color: "var(--text-faint, #7A8BAD)",
+            color: "var(--ink-4, #7A8BAD)",
             fontSize: 12,
             marginLeft: 4,
           }}
@@ -477,7 +477,7 @@ export function MyQuestions() {
                 >
                   <div className="row-link-body" style={{ flex: 1, minWidth: 0 }}>
                     <p className="row-link-title">
-                      <span style={{ color: "var(--text-faint, #7A8BAD)", marginRight: 6 }}>
+                      <span style={{ color: "var(--ink-4, #7A8BAD)", marginRight: 6 }}>
                         {expanded ? "▾" : "▸"}
                       </span>
                       {q.stem.slice(0, 120)}
@@ -488,16 +488,16 @@ export function MyQuestions() {
                       style={{ display: "flex", gap: 10, flexWrap: "wrap" }}
                     >
                       <span>{new Date(q.createdAt).toLocaleDateString()}</span>
-                      <span style={{ color: "var(--text-faint, #7A8BAD)" }}>·</span>
+                      <span style={{ color: "var(--ink-4, #7A8BAD)" }}>·</span>
                       <span>type: {q.questionType ?? "MCQ_SINGLE"}</span>
-                      <span style={{ color: "var(--text-faint, #7A8BAD)" }}>·</span>
+                      <span style={{ color: "var(--ink-4, #7A8BAD)" }}>·</span>
                       <span>lang: {q.language?.toUpperCase()}</span>
-                      <span style={{ color: "var(--text-faint, #7A8BAD)" }}>·</span>
+                      <span style={{ color: "var(--ink-4, #7A8BAD)" }}>·</span>
                       <span>diff b={q.difficultyB.toFixed(2)}</span>
-                      <span style={{ color: "var(--text-faint, #7A8BAD)" }}>·</span>
+                      <span style={{ color: "var(--ink-4, #7A8BAD)" }}>·</span>
                       <span>{q.choices.length} choices</span>
                       {q.reviewNotes ? (
-                        <span style={{ color: "var(--color-red)" }}>
+                        <span style={{ color: "var(--bad)" }}>
                           · {q.reviewNotes}
                         </span>
                       ) : null}
@@ -541,7 +541,7 @@ export function MyQuestions() {
             alignItems: "center",
             justifyContent: "center",
             marginTop: 16,
-            color: "var(--text-secondary, #B8C5E0)",
+            color: "var(--ink-2, #B8C5E0)",
             fontSize: 13,
           }}
         >
@@ -556,7 +556,7 @@ export function MyQuestions() {
           <span>
             Page <strong>{page + 1}</strong> of{" "}
             <strong>{Math.max(1, Math.ceil(total / PAGE_SIZE))}</strong>{" "}
-            <span style={{ color: "var(--text-faint, #7A8BAD)" }}>
+            <span style={{ color: "var(--ink-4, #7A8BAD)" }}>
               · showing {page * PAGE_SIZE + 1}–
               {Math.min(total, (page + 1) * PAGE_SIZE)} of{" "}
               {total.toLocaleString()}
@@ -578,9 +578,9 @@ export function MyQuestions() {
 
 const selectStyle = {
   padding: "8px 10px",
-  background: "var(--bg-surface3)",
-  color: "var(--text-primary)",
-  border: "1px solid var(--border-strong)",
+  background: "var(--paper-2)",
+  color: "var(--ink)",
+  border: "1px solid var(--rule-2)",
   borderRadius: 6,
   fontSize: 13,
   maxWidth: 200,
@@ -633,10 +633,10 @@ function QuestionDetailPanel({ questionId }: { questionId: string }) {
     <div
       style={{
         padding: "12px 20px 16px 36px",
-        background: "var(--bg-surface1, #0C1422)",
-        borderTop: "1px solid var(--border, rgba(255,255,255,.07))",
+        background: "var(--paper-2, #0C1422)",
+        borderTop: "1px solid var(--rule, rgba(255,255,255,.07))",
         fontSize: 13,
-        color: "var(--text-secondary, #B8C5E0)",
+        color: "var(--ink-2, #B8C5E0)",
       }}
     >
       {error && <Banner tone="danger">{error}</Banner>}
@@ -644,13 +644,13 @@ function QuestionDetailPanel({ questionId }: { questionId: string }) {
       {detail && (
         <div style={{ display: "grid", gap: 12 }}>
           <div>
-            <strong style={{ color: "var(--text-primary, #EEF2FF)" }}>Stem</strong>
+            <strong style={{ color: "var(--ink, #EEF2FF)" }}>Stem</strong>
             <p style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>{detail.stem}</p>
           </div>
 
           {detail.choices.length > 1 && (
             <div>
-              <strong style={{ color: "var(--text-primary, #EEF2FF)" }}>
+              <strong style={{ color: "var(--ink, #EEF2FF)" }}>
                 Choices
               </strong>
               <ol style={{ marginTop: 4, paddingLeft: 20 }}>
@@ -660,7 +660,7 @@ function QuestionDetailPanel({ questionId }: { questionId: string }) {
                     style={{
                       color:
                         i === detail.correctIdx
-                          ? "var(--color-green, #10C47A)"
+                          ? "var(--good, #10C47A)"
                           : "inherit",
                       fontWeight: i === detail.correctIdx ? 600 : 400,
                     }}
@@ -677,7 +677,7 @@ function QuestionDetailPanel({ questionId }: { questionId: string }) {
 
           {detail.explanation && (
             <div>
-              <strong style={{ color: "var(--text-primary, #EEF2FF)" }}>
+              <strong style={{ color: "var(--ink, #EEF2FF)" }}>
                 Explanation
               </strong>
               <p style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>
@@ -692,7 +692,7 @@ function QuestionDetailPanel({ questionId }: { questionId: string }) {
               gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
               gap: 12,
               fontSize: 12,
-              borderTop: "1px solid var(--border, rgba(255,255,255,.07))",
+              borderTop: "1px solid var(--rule, rgba(255,255,255,.07))",
               paddingTop: 10,
             }}
           >
@@ -747,7 +747,7 @@ function Meta({
           fontWeight: 600,
           letterSpacing: 0.5,
           textTransform: "uppercase",
-          color: "var(--text-faint, #7A8BAD)",
+          color: "var(--ink-4, #7A8BAD)",
         }}
       >
         {label}
@@ -756,7 +756,7 @@ function Meta({
         style={{
           marginTop: 2,
           fontFamily: mono ? "var(--font-mono, monospace)" : "inherit",
-          color: "var(--text-primary, #EEF2FF)",
+          color: "var(--ink, #EEF2FF)",
           fontSize: mono ? 11 : 13,
           wordBreak: mono ? "break-all" : "normal",
         }}

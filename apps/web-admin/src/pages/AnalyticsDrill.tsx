@@ -314,7 +314,7 @@ export function AnalyticsDrill() {
                   onClick={() => go({ students: "1" })}
                   style={{
                     padding: "6px 14px",
-                    background: "var(--color-blue)",
+                    background: "var(--info)",
                     color: "white",
                     border: "none",
                     borderRadius: 4,
@@ -373,14 +373,14 @@ export function AnalyticsDrill() {
                     r.isWeak ? (
                       <span
                         style={{
-                          color: "var(--color-red, #f43f5e)",
+                          color: "var(--bad, #f43f5e)",
                           fontWeight: 600,
                         }}
                       >
                         Weak
                       </span>
                     ) : (
-                      <span style={{ color: "var(--color-green, #10C47A)" }}>
+                      <span style={{ color: "var(--good, #10C47A)" }}>
                         OK
                       </span>
                     ),

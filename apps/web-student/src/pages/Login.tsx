@@ -134,7 +134,7 @@ export function Login() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
-                color: "var(--neutral-700)",
+                color: "var(--ink-2)",
               }}
             >
               <Checkbox
@@ -145,7 +145,7 @@ export function Login() {
             </label>
             <Link
               to="/forgot-password"
-              style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+              style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
             >
               Forgot?
             </Link>
@@ -165,14 +165,14 @@ export function Login() {
             style={{
               textAlign: "center",
               margin: 0,
-              color: "var(--neutral-600)",
+              color: "var(--ink-3)",
               fontSize: 14,
             }}
           >
             New here?{" "}
             <Link
               to="/register"
-              style={{ color: "var(--brand-600)", textDecoration: "none", fontWeight: 600 }}
+              style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
             >
               Sign up
             </Link>

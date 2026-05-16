@@ -171,10 +171,10 @@ export function History() {
                 style={{
                   color:
                     stats.accuracy >= 75
-                      ? "var(--color-green)"
+                      ? "var(--good)"
                       : stats.accuracy >= 50
-                        ? "var(--color-blue)"
-                        : "var(--color-red)",
+                        ? "var(--info)"
+                        : "var(--bad)",
                 }}
               >
                 {stats.accuracy}%
@@ -192,7 +192,7 @@ export function History() {
             </div>
             <div className="pg-stat">
               <div className="pg-stat-label">In progress</div>
-              <div className="pg-stat-value" style={{ color: "var(--color-amber)" }}>
+              <div className="pg-stat-value" style={{ color: "var(--warn)" }}>
                 {stats.inProgress}
               </div>
               <div className="pg-stat-delta">
@@ -327,7 +327,7 @@ export function History() {
                           {r.targetCount > r.servedCount && r.status === "IN_PROGRESS" && (
                             <>
                               <span className="pg-row-meta-dot">·</span>
-                              <span style={{ color: "var(--color-amber)" }}>
+                              <span style={{ color: "var(--warn)" }}>
                                 {r.targetCount - r.servedCount} remaining
                               </span>
                             </>

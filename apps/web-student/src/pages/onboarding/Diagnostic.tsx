@@ -245,7 +245,7 @@ export function Diagnostic() {
             <div
               style={{
                 height: 4,
-                background: "var(--bg-surface3)",
+                background: "var(--paper-2)",
                 borderRadius: 2,
                 overflow: "hidden",
                 margin: "8px 0 16px",
@@ -256,7 +256,7 @@ export function Diagnostic() {
                   width: `${Math.round((current.itemIdx / current.total) * 100)}%`,
                   height: "100%",
                   background:
-                    "linear-gradient(90deg, var(--color-ai), var(--color-blue))",
+                    "linear-gradient(90deg, var(--gold), var(--info))",
                   transition: "width 0.3s ease",
                 }}
               />
@@ -268,7 +268,7 @@ export function Diagnostic() {
               style={{
                 fontSize: 15,
                 lineHeight: 1.6,
-                color: "var(--text-primary)",
+                color: "var(--ink)",
                 margin: "0 0 14px",
               }}
             >
@@ -287,11 +287,11 @@ export function Diagnostic() {
                       padding: "12px 14px",
                       background: on
                         ? "rgba(47,93,203,0.12)"
-                        : "var(--bg-surface3)",
-                      border: `1px solid ${on ? "var(--color-blue)" : "var(--border)"}`,
+                        : "var(--paper-2)",
+                      border: `1px solid ${on ? "var(--info)" : "var(--rule)"}`,
                       borderRadius: 6,
                       cursor: "pointer",
-                      color: "var(--text-primary)",
+                      color: "var(--ink)",
                       fontSize: 14,
                       fontFamily: "inherit",
                       display: "flex",
@@ -302,8 +302,8 @@ export function Diagnostic() {
                       style={{
                         fontWeight: 700,
                         color: on
-                          ? "var(--color-blue)"
-                          : "var(--text-muted)",
+                          ? "var(--info)"
+                          : "var(--ink-3)",
                         minWidth: 18,
                       }}
                     >

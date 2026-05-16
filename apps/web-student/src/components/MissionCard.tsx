@@ -88,7 +88,7 @@ export function MissionCard() {
     return (
       <section style={{ ...cardStyle, opacity: 0.6 }}>
         <div style={eyebrow}>✦ TODAY'S MISSION</div>
-        <p style={{ marginTop: 8, color: "var(--text-secondary, #B8C5E0)", fontSize: 13 }}>
+        <p style={{ marginTop: 8, color: "var(--ink-2, #B8C5E0)", fontSize: 13 }}>
           {error}. Try refreshing.
         </p>
       </section>
@@ -99,8 +99,8 @@ export function MissionCard() {
     return (
       <section style={cardStyle}>
         <div style={eyebrow}>✦ TODAY'S MISSION</div>
-        <div style={{ marginTop: 12, height: 16, width: "60%", background: "var(--surface-elev1)", borderRadius: 4 }} />
-        <div style={{ marginTop: 8, height: 12, width: "40%", background: "var(--surface-elev1)", borderRadius: 4 }} />
+        <div style={{ marginTop: 12, height: 16, width: "60%", background: "var(--card)", borderRadius: 4 }} />
+        <div style={{ marginTop: 8, height: 12, width: "40%", background: "var(--card)", borderRadius: 4 }} />
       </section>
     );
   }
@@ -117,7 +117,7 @@ export function MissionCard() {
         {mission.primary_cta?.intent && (
           <>
             {" · "}
-            <span style={{ color: "var(--color-blue, #4F87F6)" }}>
+            <span style={{ color: "var(--info, #4F87F6)" }}>
               {mission.primary_cta.intent === "match" ? "Match your level"
                 : mission.primary_cta.intent === "push" ? "Push yourself"
                 : "Build confidence"}
@@ -152,12 +152,12 @@ export function MissionCard() {
           </>
         )}
         {isCompleted && (
-          <span style={{ color: "var(--color-green, #10C47A)", fontSize: 13 }}>
+          <span style={{ color: "var(--good, #10C47A)", fontSize: 13 }}>
             ✓ Mission complete — see you tomorrow.
           </span>
         )}
         {isSkipped && (
-          <span style={{ color: "var(--text-faint, #7A8BAD)", fontSize: 13 }}>
+          <span style={{ color: "var(--ink-4, #7A8BAD)", fontSize: 13 }}>
             Skipped for today. New mission tomorrow.
           </span>
         )}
@@ -166,7 +166,7 @@ export function MissionCard() {
         <div
           style={{
             marginTop: 12, fontSize: 10,
-            color: "var(--text-faint, #7A8BAD)",
+            color: "var(--ink-4, #7A8BAD)",
             fontFamily: "var(--font-mono, monospace)",
           }}
         >
@@ -188,19 +188,19 @@ const cardStyle: React.CSSProperties = {
 
 const eyebrow: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase",
-  color: "var(--color-ai, #22D4EE)",
+  color: "var(--gold, #22D4EE)",
 };
 
 const titleStyle: React.CSSProperties = {
   fontSize: 18, fontWeight: 600,
-  color: "var(--text-primary, #EEF2FF)",
+  color: "var(--ink, #EEF2FF)",
   margin: "8px 0 4px",
   lineHeight: 1.35,
 };
 
 const metaStyle: React.CSSProperties = {
   fontSize: 12,
-  color: "var(--text-secondary, #B8C5E0)",
+  color: "var(--ink-2, #B8C5E0)",
   margin: 0,
 };
 
@@ -210,19 +210,19 @@ const whyBlockStyle: React.CSSProperties = {
   // Theme-aware translucent overlay — slate-tinted in light mode, white
   // in dark. The original rgba(0,0,0,0.2) read as a dark stripe in dark
   // mode (intentional) but turned into a heavy gray patch in light.
-  background: "var(--surface-elev2)",
+  background: "var(--card)",
   borderRadius: 6,
-  borderLeft: "2px solid var(--color-ai, #22D4EE)",
+  borderLeft: "2px solid var(--gold, #22D4EE)",
 };
 
 const whyEyebrow: React.CSSProperties = {
   fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase",
-  color: "var(--text-faint, #7A8BAD)",
+  color: "var(--ink-4, #7A8BAD)",
   marginBottom: 4,
 };
 
 const whyText: React.CSSProperties = {
   fontSize: 13, lineHeight: 1.5,
-  color: "var(--text-secondary, #B8C5E0)",
+  color: "var(--ink-2, #B8C5E0)",
   margin: 0,
 };

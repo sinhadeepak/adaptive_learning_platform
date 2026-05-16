@@ -137,7 +137,7 @@ export function PYQDrill() {
   return (
     <main className="page" style={{ padding: 24, maxWidth: 1200 }}>
       <h1>PYQ Drill</h1>
-      <p style={{ color: "var(--text-muted)" }}>
+      <p style={{ color: "var(--ink-3)" }}>
         Browse previous-year questions chapter-wise and year-wise. Frequency
         view shows which chapters dominate the recent papers.
       </p>
@@ -152,8 +152,8 @@ export function PYQDrill() {
             style={{
               padding: "6px 12px",
               borderRadius: 6,
-              border: "1px solid var(--border-faint)",
-              background: subjectId === s.id ? "var(--bg-elevated, #eef)" : "transparent",
+              border: "1px solid var(--rule)",
+              background: subjectId === s.id ? "var(--card, #eef)" : "transparent",
             }}
           >
             {s.name}
@@ -167,7 +167,7 @@ export function PYQDrill() {
           <h2 style={{ fontSize: 16, marginTop: 0 }}>Chapters</h2>
           {frequency === null && <p>Loading…</p>}
           {frequency !== null && frequency.chapters.length === 0 && (
-            <p style={{ color: "var(--text-muted)" }}>No PYQs for this subject yet.</p>
+            <p style={{ color: "var(--ink-3)" }}>No PYQs for this subject yet.</p>
           )}
           <ul style={{ listStyle: "none", padding: 0 }}>
             {frequency?.chapters.map((ch) => {
@@ -176,10 +176,10 @@ export function PYQDrill() {
                 dir === "up" ? "↑" : dir === "down" ? "↓" : dir === "single" ? "·" : "→";
               const arrowColor =
                 dir === "up"
-                  ? "var(--color-green, #10C47A)"
+                  ? "var(--good, #10C47A)"
                   : dir === "down"
-                  ? "var(--color-red, #F43F5E)"
-                  : "var(--text-muted)";
+                  ? "var(--bad, #F43F5E)"
+                  : "var(--ink-3)";
               return (
                 <li key={ch.topicId} style={{ marginBottom: 4 }}>
                   <button
@@ -190,10 +190,10 @@ export function PYQDrill() {
                       textAlign: "left",
                       padding: "8px 12px",
                       borderRadius: 4,
-                      border: "1px solid var(--border-faint)",
+                      border: "1px solid var(--rule)",
                       background:
                         activeTopicId === ch.topicId
-                          ? "var(--bg-elevated, #eef)"
+                          ? "var(--card, #eef)"
                           : "transparent",
                       display: "flex",
                       justifyContent: "space-between",
@@ -222,8 +222,8 @@ export function PYQDrill() {
                 style={{
                   padding: "6px 10px",
                   borderRadius: 6,
-                  border: "1px solid var(--border-faint)",
-                  background: yearFilter === null ? "var(--bg-elevated, #eef)" : "transparent",
+                  border: "1px solid var(--rule)",
+                  background: yearFilter === null ? "var(--card, #eef)" : "transparent",
                 }}
               >
                 All years
@@ -236,8 +236,8 @@ export function PYQDrill() {
                   style={{
                     padding: "6px 10px",
                     borderRadius: 6,
-                    border: "1px solid var(--border-faint)",
-                    background: yearFilter === y ? "var(--bg-elevated, #eef)" : "transparent",
+                    border: "1px solid var(--rule)",
+                    background: yearFilter === y ? "var(--card, #eef)" : "transparent",
                   }}
                 >
                   {y}
@@ -249,7 +249,7 @@ export function PYQDrill() {
           {/* Question list */}
           {questions === null && activeTopicId !== null && <p>Loading…</p>}
           {questions !== null && questions.items.length === 0 && (
-            <p style={{ color: "var(--text-muted)" }}>No PYQs match this filter.</p>
+            <p style={{ color: "var(--ink-3)" }}>No PYQs match this filter.</p>
           )}
           <ol style={{ listStyle: "none", padding: 0 }}>
             {questions?.items.map((q, i) => {
@@ -259,13 +259,13 @@ export function PYQDrill() {
                 <li
                   key={q.id}
                   style={{
-                    background: "var(--bg-surface-1, #fff)",
+                    background: "var(--card-1, #fff)",
                     padding: 16,
                     borderRadius: 8,
                     marginBottom: 12,
                   }}
                 >
-                  <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
+                  <div style={{ color: "var(--ink-3)", fontSize: 13 }}>
                     Q{i + 1}
                     {q.examYear && ` · ${q.examYear}`}
                     {q.paperSession && ` · ${q.paperSession}`}
@@ -277,12 +277,12 @@ export function PYQDrill() {
                       const isPicked = choice === idx;
                       const styleAfter = showAnswer
                         ? isCorrect
-                          ? "var(--color-green, #10C47A)"
+                          ? "var(--good, #10C47A)"
                           : isPicked
-                          ? "var(--color-red, #F43F5E)"
+                          ? "var(--bad, #F43F5E)"
                           : "transparent"
                         : isPicked
-                        ? "var(--bg-elevated, #eef)"
+                        ? "var(--card, #eef)"
                         : "transparent";
                       return (
                         <li key={idx}>
@@ -297,7 +297,7 @@ export function PYQDrill() {
                               padding: 8,
                               marginBottom: 4,
                               borderRadius: 4,
-                              border: "1px solid var(--border-faint)",
+                              border: "1px solid var(--rule)",
                               background: styleAfter,
                               color: showAnswer && (isCorrect || isPicked) ? "#fff" : undefined,
                               cursor: showAnswer ? "default" : "pointer",
@@ -310,7 +310,7 @@ export function PYQDrill() {
                     })}
                   </ul>
                   {showAnswer && (
-                    <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
+                    <p style={{ color: "var(--ink-3)", fontSize: 14 }}>
                       {choice === q.correctIdx ? "✓ Correct" : `✗ Correct answer: ${String.fromCharCode(65 + q.correctIdx)}`}
                     </p>
                   )}

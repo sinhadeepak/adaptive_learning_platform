@@ -172,8 +172,8 @@ export function QuestionRenderer({
         <div
           style={{
             padding: 16,
-            background: "var(--color-red-bg, #fee)",
-            color: "var(--color-red, #f43f5e)",
+            background: "var(--bad-soft, #fee)",
+            color: "var(--bad, #f43f5e)",
             borderRadius: 6,
             fontSize: 13,
           }}

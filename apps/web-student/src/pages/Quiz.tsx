@@ -659,7 +659,7 @@ export function Quiz() {
                     <span className="af-val">
                       {masteryPct !== null ? `${masteryPct}%` : "—"}
                       <span className="af-arrow"> →</span>
-                      <span style={{ color: "var(--color-green)" }}>
+                      <span style={{ color: "var(--good)" }}>
                         {masteryPct !== null
                           ? `${Math.min(100, masteryPct + (verdict!.isCorrect ? 3 : 0))}%`
                           : "—"}
@@ -672,8 +672,8 @@ export function Quiz() {
                       className="af-val"
                       style={{
                         color: verdict!.isCorrect
-                          ? "var(--color-amber)"
-                          : "var(--color-blue)",
+                          ? "var(--warn)"
+                          : "var(--info)",
                       }}
                     >
                       {verdict!.isCorrect ? "Harder · IRT-driven" : "Similar · IRT-driven"}
@@ -683,7 +683,7 @@ export function Quiz() {
                     <span className="af-lbl">Readiness pts</span>
                     <span
                       className="af-val"
-                      style={{ color: "var(--color-green)" }}
+                      style={{ color: "var(--good)" }}
                     >
                       {verdict!.isCorrect ? "+0.4 pts" : "+0.0 pts"}
                     </span>
@@ -729,7 +729,7 @@ export function Quiz() {
                   <div
                     style={{
                       fontSize: 10,
-                      color: "var(--color-ai)",
+                      color: "var(--gold)",
                       fontWeight: 600,
                     }}
                   >
@@ -778,20 +778,20 @@ export function Quiz() {
                 <div className="ss-card">
                   <div
                     className="ss-num"
-                    style={{ color: "var(--color-green)" }}
+                    style={{ color: "var(--good)" }}
                   >
                     {counts.correct}
                   </div>
                   <div className="ss-lbl">Correct</div>
                 </div>
                 <div className="ss-card">
-                  <div className="ss-num" style={{ color: "var(--color-red)" }}>
+                  <div className="ss-num" style={{ color: "var(--bad)" }}>
                     {counts.wrong}
                   </div>
                   <div className="ss-lbl">Wrong</div>
                 </div>
                 <div className="ss-card">
-                  <div className="ss-num" style={{ color: "var(--color-ai)" }}>
+                  <div className="ss-num" style={{ color: "var(--gold)" }}>
                     +{(counts.correct * 0.4).toFixed(1)}
                   </div>
                   <div className="ss-lbl">Readiness pts</div>
@@ -799,7 +799,7 @@ export function Quiz() {
                 <div className="ss-card">
                   <div
                     className="ss-num"
-                    style={{ color: "var(--color-amber)" }}
+                    style={{ color: "var(--warn)" }}
                   >
                     {accuracyPct !== null ? `${accuracyPct}%` : "—"}
                   </div>
@@ -993,7 +993,7 @@ export function Quiz() {
             padding: "6px 14px",
             borderRadius: 20,
             background: "rgba(124,58,237,0.18)",
-            color: "var(--color-ai)",
+            color: "var(--gold)",
             fontSize: 12,
             fontWeight: 600,
             zIndex: 60,
@@ -1014,12 +1014,12 @@ function MasteryRing({ pct }: { pct: number }) {
   // map onto the same tokens via getComputedStyle when rendered.
   const stroke =
     pct >= 70
-      ? "var(--color-green)"
+      ? "var(--good)"
       : pct >= 40
-        ? "var(--color-blue)"
+        ? "var(--info)"
         : pct > 0
-          ? "var(--color-red)"
-          : "var(--text-faint)";
+          ? "var(--bad)"
+          : "var(--ink-4)";
   return (
     <div
       className="mr-ring"
@@ -1032,7 +1032,7 @@ function MasteryRing({ pct }: { pct: number }) {
           cy="26"
           r={r}
           fill="none"
-          stroke="var(--border)"
+          stroke="var(--rule)"
           strokeWidth="5"
         />
         <circle

@@ -55,7 +55,7 @@ export function PhaseTwoStub({
                   padding: "2px 9px",
                   background: "rgba(245,166,35,0.12)",
                   border: "1px solid rgba(245,166,35,0.30)",
-                  color: "var(--color-amber)",
+                  color: "var(--warn)",
                   borderRadius: 20,
                   fontSize: 9,
                   fontWeight: 700,
@@ -106,7 +106,7 @@ export function PhaseTwoStub({
                   fontWeight: 700,
                   letterSpacing: 0.6,
                   textTransform: "uppercase",
-                  color: "var(--text-faint)",
+                  color: "var(--ink-4)",
                   margin: "0 0 6px",
                 }}
               >
@@ -115,7 +115,7 @@ export function PhaseTwoStub({
               <p
                 style={{
                   fontSize: 13,
-                  color: "var(--text-secondary)",
+                  color: "var(--ink-2)",
                   lineHeight: 1.55,
                   margin: 0,
                 }}
@@ -144,7 +144,7 @@ export function PhaseTwoStub({
               style={{
                 fontSize: 13,
                 fontWeight: 700,
-                color: "var(--color-amber)",
+                color: "var(--warn)",
                 margin: "0 0 6px",
                 letterSpacing: 0.2,
               }}
@@ -154,14 +154,14 @@ export function PhaseTwoStub({
             <p
               style={{
                 fontSize: 13,
-                color: "var(--text-primary)",
+                color: "var(--ink)",
                 lineHeight: 1.55,
                 margin: "0 0 6px",
               }}
             >
               {serviceNote}
             </p>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 11, color: "var(--ink-3)", margin: 0, lineHeight: 1.5 }}>
               See <code>docs/02_planning/19_Phase2_SprintDevelopmentPlan.md</code>{" "}
               for the rollout plan. Until then, every action on this surface
               is a no-op stub — the navigation entry is live so deep-links

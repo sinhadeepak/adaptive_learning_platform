@@ -316,12 +316,12 @@ export function StudyMap() {
                     style={{
                       background:
                         line.tone === "weak"
-                          ? "var(--color-red)"
+                          ? "var(--bad)"
                           : line.tone === "strong"
-                            ? "var(--color-green)"
+                            ? "var(--good)"
                             : line.tone === "warn"
-                              ? "var(--color-amber)"
-                              : "var(--color-ai)",
+                              ? "var(--warn)"
+                              : "var(--gold)",
                     }}
                   />
                   <div className="ac-text">{line.text}</div>
@@ -336,7 +336,7 @@ export function StudyMap() {
               <p
                 style={{
                   fontSize: 11,
-                  color: "var(--text-muted)",
+                  color: "var(--ink-3)",
                   padding: "8px 10px",
                 }}
               >
@@ -354,12 +354,12 @@ export function StudyMap() {
                         : "weak";
                 const dotColor =
                   bucket === "strong"
-                    ? "var(--color-green)"
+                    ? "var(--good)"
                     : bucket === "developing"
-                      ? "var(--color-blue)"
+                      ? "var(--info)"
                       : bucket === "weak"
-                        ? "var(--color-red)"
-                        : "var(--text-faint)";
+                        ? "var(--bad)"
+                        : "var(--ink-4)";
                 return (
                   <Link
                     key={s.id}
@@ -395,7 +395,7 @@ export function StudyMap() {
                   <div
                     style={{
                       fontSize: 10,
-                      color: "var(--text-faint)",
+                      color: "var(--ink-4)",
                       marginTop: 1,
                     }}
                   >
@@ -430,20 +430,20 @@ export function StudyMap() {
                           : "WEAK";
                   const barColor =
                     bucket === "strong"
-                      ? "var(--color-green)"
+                      ? "var(--good)"
                       : bucket === "developing"
-                        ? "var(--color-blue)"
+                        ? "var(--info)"
                         : bucket === "weak"
-                          ? "var(--color-red)"
-                          : "var(--text-faint)";
+                          ? "var(--bad)"
+                          : "var(--ink-4)";
                   const pctColor =
                     bucket === "strong"
-                      ? "var(--color-green)"
+                      ? "var(--good)"
                       : bucket === "developing"
-                        ? "var(--color-blue)"
+                        ? "var(--info)"
                         : bucket === "weak"
-                          ? "var(--color-red)"
-                          : "var(--text-muted)";
+                          ? "var(--bad)"
+                          : "var(--ink-3)";
                   const ctaClass =
                     bucket === "weak"
                       ? "btn-sm btn-sm-fix"
@@ -508,8 +508,8 @@ export function StudyMap() {
                           style={{
                             color:
                               bucket === "strong" || bucket === "not-started"
-                                ? "var(--text-faint)"
-                                : "var(--color-green)",
+                                ? "var(--ink-4)"
+                                : "var(--good)",
                           }}
                         >
                           {points}
@@ -522,14 +522,14 @@ export function StudyMap() {
               )}
 
               {/* ── Mock tests section ────────────────────────────── */}
-              <div className="divider" style={{ height: 1, background: "var(--border)", margin: "var(--sp-5) 0" }} />
+              <div className="divider" style={{ height: 1, background: "var(--rule)", margin: "var(--sp-5) 0" }} />
               <div className="sec-row">
                 <div>
                   <h2 className="section-heading">🏆 Mock Tests · {exam.name}</h2>
                   <div
                     style={{
                       fontSize: 10,
-                      color: "var(--text-faint)",
+                      color: "var(--ink-4)",
                       marginTop: 1,
                     }}
                   >
@@ -541,7 +541,7 @@ export function StudyMap() {
 
               <div className="card empty-state">
                 <div className="empty-state-title">No mock tests yet</div>
-                <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                <p style={{ fontSize: 12, color: "var(--ink-3)" }}>
                   Mock test history + upcoming assigned mocks will appear here
                   once the assignments service lands. Until then use the topic
                   practice above.

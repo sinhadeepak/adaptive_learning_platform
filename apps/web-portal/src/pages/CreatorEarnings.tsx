@@ -109,7 +109,7 @@ export function CreatorEarnings() {
                 <div className="pg-stat-label">Total net</div>
                 <div
                   className="pg-stat-value"
-                  style={{ color: "var(--color-green)" }}
+                  style={{ color: "var(--good)" }}
                 >
                   {paiseToRupees(earnings.totalNetPaise)}
                 </div>
@@ -121,7 +121,7 @@ export function CreatorEarnings() {
                 <div className="pg-stat-label">Courses net</div>
                 <div
                   className="pg-stat-value"
-                  style={{ color: "var(--color-blue)" }}
+                  style={{ color: "var(--info)" }}
                 >
                   {paiseToRupees(earnings.courseNetPaise)}
                 </div>
@@ -134,7 +134,7 @@ export function CreatorEarnings() {
                 <div className="pg-stat-label">Tutor sessions net</div>
                 <div
                   className="pg-stat-value"
-                  style={{ color: "var(--color-purple)" }}
+                  style={{ color: "var(--accent)" }}
                 >
                   {paiseToRupees(earnings.sessionNetPaise)}
                 </div>
@@ -170,7 +170,7 @@ export function CreatorEarnings() {
                   </div>
                   <div>
                     <div className="pg-field-label">Platform commission</div>
-                    <div className="pg-field-value" style={{ color: "var(--color-red)" }}>
+                    <div className="pg-field-value" style={{ color: "var(--bad)" }}>
                       − {paiseToRupees(earnings.courseCommissionPaise)}
                     </div>
                   </div>
@@ -178,7 +178,7 @@ export function CreatorEarnings() {
                     <div className="pg-field-label">Net to you</div>
                     <div
                       className="pg-field-value"
-                      style={{ color: "var(--color-green)", fontWeight: 700 }}
+                      style={{ color: "var(--good)", fontWeight: 700 }}
                     >
                       {paiseToRupees(earnings.courseNetPaise)}
                     </div>
@@ -203,7 +203,7 @@ export function CreatorEarnings() {
                   </div>
                   <div>
                     <div className="pg-field-label">Platform commission</div>
-                    <div className="pg-field-value" style={{ color: "var(--color-red)" }}>
+                    <div className="pg-field-value" style={{ color: "var(--bad)" }}>
                       − {paiseToRupees(earnings.sessionCommissionPaise)}
                     </div>
                   </div>
@@ -211,7 +211,7 @@ export function CreatorEarnings() {
                     <div className="pg-field-label">Net to you</div>
                     <div
                       className="pg-field-value"
-                      style={{ color: "var(--color-green)", fontWeight: 700 }}
+                      style={{ color: "var(--good)", fontWeight: 700 }}
                     >
                       {paiseToRupees(earnings.sessionNetPaise)}
                     </div>

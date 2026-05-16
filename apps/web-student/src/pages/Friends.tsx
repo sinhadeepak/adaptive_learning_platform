@@ -188,12 +188,12 @@ export function Friends() {
             fontSize: "var(--t-h1-size)",
             lineHeight: "var(--t-h1-line)",
             fontWeight: 700,
-            color: "var(--neutral-900)",
+            color: "var(--ink)",
           }}
         >
           Friends
         </h1>
-        <p style={{ margin: "4px 0 0", color: "var(--neutral-600)" }}>
+        <p style={{ margin: "4px 0 0", color: "var(--ink-3)" }}>
           Add other students to challenge them to battles and compare progress.
         </p>
       </header>
@@ -224,21 +224,21 @@ export function Friends() {
           <Card padding="md">
             <div style={{ fontSize: 28, marginBottom: 8 }} aria-hidden>⚔</div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>1v1 Battle</div>
-            <div style={{ fontSize: 13, color: "var(--neutral-600)" }}>
+            <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
               Race through 5 quick questions head-to-head.
             </div>
           </Card>
           <Card padding="md">
             <div style={{ fontSize: 28, marginBottom: 8 }} aria-hidden>🎯</div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>Compare progress</div>
-            <div style={{ fontSize: 13, color: "var(--neutral-600)" }}>
+            <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
               See where you rank vs your friends, week by week.
             </div>
           </Card>
           <Card padding="md">
             <div style={{ fontSize: 28, marginBottom: 8 }} aria-hidden>🏆</div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>Friends leaderboard</div>
-            <div style={{ fontSize: 13, color: "var(--neutral-600)" }}>
+            <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
               Win the week against people you actually know.
             </div>
           </Card>
@@ -251,7 +251,7 @@ export function Friends() {
         style={{ maxWidth: 880, marginBottom: 20 }}
       >
         <Card padding="md">
-          <div style={{ fontWeight: 600, color: "var(--neutral-900)", marginBottom: 8 }}>
+          <div style={{ fontWeight: 600, color: "var(--ink)", marginBottom: 8 }}>
             Add a friend
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
@@ -301,7 +301,7 @@ export function Friends() {
                     <div
                       style={{
                         fontWeight: 600,
-                        color: "var(--neutral-900)",
+                        color: "var(--ink)",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -309,7 +309,7 @@ export function Friends() {
                     >
                       {formatUser(p.fromUserId, dir[p.fromUserId])}
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--neutral-500)" }}>
+                    <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
                       Sent {new Date(p.requestedAt).toLocaleString()}
                     </div>
                   </div>
@@ -364,7 +364,7 @@ export function Friends() {
                     <div
                       style={{
                         fontWeight: 600,
-                        color: "var(--neutral-900)",
+                        color: "var(--ink)",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -372,7 +372,7 @@ export function Friends() {
                     >
                       {formatUser(f.userId, dir[f.userId])}
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--neutral-500)" }}>
+                    <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
                       Since {f.acceptedAt ? new Date(f.acceptedAt).toLocaleDateString() : "?"}
                     </div>
                   </div>
@@ -408,7 +408,7 @@ function SectionHeading({
           fontSize: "var(--t-h3-size)",
           lineHeight: "var(--t-h3-line)",
           fontWeight: 600,
-          color: "var(--neutral-800)",
+          color: "var(--ink-2)",
         }}
       >
         {title}

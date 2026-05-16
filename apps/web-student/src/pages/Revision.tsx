@@ -88,10 +88,10 @@ export function Revision() {
   }
 
   function bucketColour(bucket: string): string {
-    if (bucket === "STRONG") return "var(--color-green, #10C47A)";
-    if (bucket === "DEVELOPING") return "var(--color-blue, #4F87F6)";
-    if (bucket === "WEAK") return "var(--color-red, #F43F5E)";
-    return "var(--text-muted, #7A8BAD)";
+    if (bucket === "STRONG") return "var(--good, #10C47A)";
+    if (bucket === "DEVELOPING") return "var(--info, #4F87F6)";
+    if (bucket === "WEAK") return "var(--bad, #F43F5E)";
+    return "var(--ink-3, #7A8BAD)";
   }
 
   if (error) {
@@ -105,7 +105,7 @@ export function Revision() {
   return (
     <main className="page" style={{ padding: 24, maxWidth: 800 }}>
       <h1>Daily Revision</h1>
-      <p style={{ color: "var(--text-muted)" }}>
+      <p style={{ color: "var(--ink-3)" }}>
         Spaced-repetition queue (SM-2 with EWA tie-in). Topics surface here
         before mastery decays — even 10 minutes a day counts.
       </p>
@@ -115,7 +115,7 @@ export function Revision() {
       {items !== null && items.length === 0 && (
         <section
           style={{
-            background: "var(--bg-surface-1, #fff)",
+            background: "var(--card-1, #fff)",
             padding: 32,
             borderRadius: 8,
             marginTop: 24,
@@ -133,7 +133,7 @@ export function Revision() {
           <p
             style={{
               fontSize: 14,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               marginTop: 16,
             }}
           >
@@ -145,7 +145,7 @@ export function Revision() {
               <li
                 key={item.topicId}
                 style={{
-                  background: "var(--bg-surface-1, #fff)",
+                  background: "var(--card-1, #fff)",
                   padding: 16,
                   borderRadius: 8,
                   marginBottom: 12,
@@ -162,7 +162,7 @@ export function Revision() {
                     style={{
                       margin: "4px 0",
                       fontSize: 13,
-                      color: "var(--text-muted)",
+                      color: "var(--ink-3)",
                     }}
                   >
                     <span
@@ -185,7 +185,7 @@ export function Revision() {
                         ·{" "}
                         <span
                           style={{
-                            color: "var(--color-red, #F43F5E)",
+                            color: "var(--bad, #F43F5E)",
                             fontWeight: 600,
                           }}
                         >

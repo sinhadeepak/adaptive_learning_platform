@@ -345,8 +345,8 @@ export function Practice() {
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: "var(--bg-surface2)",
-              border: "1px solid var(--border)",
+              background: "var(--card)",
+              border: "1px solid var(--rule)",
               borderRadius: 12,
               maxWidth: 460,
               width: "100%",
@@ -362,7 +362,7 @@ export function Practice() {
                 padding: "3px 9px",
                 background: "rgba(8,145,178,0.08)",
                 border: "1px solid rgba(8,145,178,0.30)",
-                color: "var(--color-ai)",
+                color: "var(--gold)",
                 borderRadius: 20,
                 fontSize: 9,
                 fontWeight: 700,
@@ -377,7 +377,7 @@ export function Practice() {
               style={{
                 fontSize: 18,
                 fontWeight: 700,
-                color: "var(--text-primary)",
+                color: "var(--ink)",
                 margin: "0 0 8px",
                 lineHeight: 1.3,
               }}
@@ -387,7 +387,7 @@ export function Practice() {
             <p
               style={{
                 fontSize: 13,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 margin: "0 0 16px",
                 lineHeight: 1.55,
               }}
@@ -424,7 +424,7 @@ export function Practice() {
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
               <span className="ai-pill">◈ AI PRACTICE · NEXT</span>
               <Pill tone="info">{ACTION_LABEL[heroStep.action]}</Pill>
-              <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
+              <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
                 ~{heroStep.estMinutes} min
               </span>
             </div>
@@ -455,21 +455,21 @@ export function Practice() {
           </div>
           <div className="ai-header-stats">
             <div className="ai-stat">
-              <div className="ai-stat-num" style={{ color: "var(--color-amber)" }}>
+              <div className="ai-stat-num" style={{ color: "var(--warn)" }}>
                 {streak?.currentStreak ?? 0}
               </div>
               <div className="ai-stat-lbl">DAY STREAK</div>
             </div>
             <div className="ai-divider" />
             <div className="ai-stat">
-              <div className="ai-stat-num" style={{ color: "var(--color-blue)" }}>
+              <div className="ai-stat-num" style={{ color: "var(--info)" }}>
                 {totalSessions}
               </div>
               <div className="ai-stat-lbl">SESSIONS</div>
             </div>
             <div className="ai-divider" />
             <div className="ai-stat">
-              <div className="ai-stat-num" style={{ color: "var(--color-green)" }}>
+              <div className="ai-stat-num" style={{ color: "var(--good)" }}>
                 {tested.length > 0 ? `${Math.round(meanEwa * 100)}%` : "—"}
               </div>
               <div className="ai-stat-lbl">AVG MASTERY</div>
@@ -505,7 +505,7 @@ export function Practice() {
                   style={{
                     margin: 0,
                     fontSize: 12,
-                    color: "var(--text-muted)",
+                    color: "var(--ink-3)",
                     textTransform: "uppercase",
                     letterSpacing: 0.04,
                   }}
@@ -529,11 +529,11 @@ export function Practice() {
               <div style={{ marginBottom: 8 }}>
                 <MasteryBar ewa={readinessBand.readiness_score} />
               </div>
-              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
+              <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>
                 Target {Math.round(readinessBand.target_score * 100)}% in {readinessBand.days_to_exam} days
               </div>
               {readinessBand.actions.length > 0 && (
-                <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12, color: "var(--text-secondary)" }}>
+                <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12, color: "var(--ink-2)" }}>
                   {readinessBand.actions.slice(0, 3).map((a, i) => (
                     <li key={i} style={{ marginBottom: 2 }}>{a}</li>
                   ))}
@@ -548,7 +548,7 @@ export function Practice() {
                 style={{
                   margin: "0 0 8px",
                   fontSize: 12,
-                  color: "var(--text-muted)",
+                  color: "var(--ink-3)",
                   textTransform: "uppercase",
                   letterSpacing: 0.04,
                 }}
@@ -565,9 +565,9 @@ export function Practice() {
                       display: "flex",
                       justifyContent: "space-between",
                       padding: "6px 0",
-                      borderBottom: "1px solid var(--border)",
+                      borderBottom: "1px solid var(--rule)",
                       fontSize: 13,
-                      color: "var(--text-primary)",
+                      color: "var(--ink)",
                     }}
                   >
                     <span>{r.topicTitle}</span>
@@ -576,8 +576,8 @@ export function Practice() {
                         fontSize: 11,
                         color:
                           r.overdueDays > 0
-                            ? "var(--color-red, #f43f5e)"
-                            : "var(--text-muted)",
+                            ? "var(--bad, #f43f5e)"
+                            : "var(--ink-3)",
                       }}
                     >
                       {r.overdueDays > 0
@@ -596,7 +596,7 @@ export function Practice() {
                 style={{
                   margin: "0 0 8px",
                   fontSize: 12,
-                  color: "var(--text-muted)",
+                  color: "var(--ink-3)",
                   textTransform: "uppercase",
                   letterSpacing: 0.04,
                 }}
@@ -611,7 +611,7 @@ export function Practice() {
                     justifyContent: "space-between",
                     fontSize: 12,
                     padding: "4px 0",
-                    color: "var(--text-secondary)",
+                    color: "var(--ink-2)",
                   }}
                 >
                   <span>{d.topicId?.slice(0, 8) ?? d.conceptId?.slice(0, 8) ?? "?"}…</span>
@@ -619,10 +619,10 @@ export function Practice() {
                     style={{
                       color:
                         d.severity === "critical"
-                          ? "var(--color-red, #f43f5e)"
+                          ? "var(--bad, #f43f5e)"
                           : d.severity === "stale"
-                          ? "var(--color-amber, #fbbf24)"
-                          : "var(--text-muted)",
+                          ? "var(--warn, #fbbf24)"
+                          : "var(--ink-3)",
                       fontWeight: 600,
                     }}
                   >
@@ -645,7 +645,7 @@ export function Practice() {
           <h2 className="section-heading" style={{ justifyContent: "center" }}>
             Run your first practice round
           </h2>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)", maxWidth: 460, margin: "0 auto 14px" }}>
+          <p style={{ fontSize: 12, color: "var(--ink-2)", maxWidth: 460, margin: "0 auto 14px" }}>
             Pick any topic from the catalog and we'll start an adaptive
             practice session — the IRT engine picks items at your edge of
             difficulty.
@@ -691,19 +691,19 @@ export function Practice() {
                 style={{
                   fontSize: 14,
                   fontWeight: 700,
-                  color: "var(--text-primary)",
+                  color: "var(--ink)",
                   marginBottom: 3,
                 }}
               >
                 Drill your mistakes
               </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
                 Re-attempt the questions you got wrong. Filter by recency or topic.
               </div>
             </div>
             <span
               style={{
-                color: "var(--color-amber)",
+                color: "var(--warn)",
                 fontWeight: 700,
                 fontSize: 13,
                 flexShrink: 0,
@@ -734,17 +734,17 @@ export function Practice() {
                 style={{
                   fontSize: 14,
                   fontWeight: 700,
-                  color: "var(--text-primary)",
+                  color: "var(--ink)",
                   marginBottom: 3,
                 }}
               >
                 Build a custom test
               </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
                 Pick topics + length + difficulty + marking. Save and re-use.{" "}
                 <Link
                   to="/practice/my-tests"
-                  style={{ color: "var(--color-blue)" }}
+                  style={{ color: "var(--info)" }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   My tests →
@@ -753,7 +753,7 @@ export function Practice() {
             </div>
             <span
               style={{
-                color: "var(--color-blue)",
+                color: "var(--info)",
                 fontWeight: 700,
                 fontSize: 13,
                 flexShrink: 0,
@@ -785,13 +785,13 @@ export function Practice() {
                 style={{
                   fontSize: 14,
                   fontWeight: 700,
-                  color: "var(--text-primary)",
+                  color: "var(--ink)",
                   marginBottom: 3,
                 }}
               >
                 AI test of the day
               </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
                 Auto-composed test targeting your weakest topics. 4 shapes
                 to choose from.
               </div>
@@ -822,14 +822,14 @@ export function Practice() {
               <h2 className="section-heading">
                 ◈ AI-recommended drills
                 {guided?.source === "heuristic" ? (
-                  <span style={{ fontSize: 9.5, color: "var(--text-faint)", fontWeight: 500 }}>
+                  <span style={{ fontSize: 9.5, color: "var(--ink-4)", fontWeight: 500 }}>
                     · heuristic
                   </span>
                 ) : null}
               </h2>
             </div>
             {restSteps.length === 0 ? (
-              <div style={{ fontSize: 11.5, color: "var(--text-faint)", padding: "8px 0" }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink-4)", padding: "8px 0" }}>
                 {guided
                   ? "Top recommendation is in the hero card above. Drill weak topics ↓"
                   : "Recommendations loading…"}
@@ -876,7 +876,7 @@ export function Practice() {
               </Link>
             </div>
             {weakestDrills.length === 0 ? (
-              <div style={{ fontSize: 11.5, color: "var(--text-faint)", padding: "8px 0" }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink-4)", padding: "8px 0" }}>
                 No mastery data yet.
               </div>
             ) : (
@@ -885,12 +885,12 @@ export function Practice() {
                 const strength = strengthFor(t.ewa);
                 const barColor =
                   strength === "STRONG"
-                    ? "var(--color-green)"
+                    ? "var(--good)"
                     : strength === "DEVELOPING"
-                      ? "var(--color-blue)"
+                      ? "var(--info)"
                       : strength === "WEAK"
-                        ? "var(--color-red)"
-                        : "var(--text-faint)";
+                        ? "var(--bad)"
+                        : "var(--ink-4)";
                 const isStarting = startingTopicId === t.topicId;
                 return (
                   <div key={t.topicId} className="pr-drill-card">
@@ -935,7 +935,7 @@ export function Practice() {
         <div className="card" style={{ marginTop: "var(--sp-4)" }}>
           <div className="sec-row">
             <h2 className="section-heading">Recently practiced</h2>
-            <span style={{ fontSize: 10.5, color: "var(--text-faint)" }}>
+            <span style={{ fontSize: 10.5, color: "var(--ink-4)" }}>
               keep cadence — sessions compound mastery
             </span>
           </div>
@@ -944,10 +944,10 @@ export function Practice() {
             const strength = strengthFor(t.ewa);
             const barColor =
               strength === "STRONG"
-                ? "var(--color-green)"
+                ? "var(--good)"
                 : strength === "DEVELOPING"
-                  ? "var(--color-blue)"
-                  : "var(--color-red)";
+                  ? "var(--info)"
+                  : "var(--bad)";
             const isStarting = startingTopicId === t.topicId;
             return (
               <div key={t.topicId} className="pr-drill-card">
@@ -988,7 +988,7 @@ export function Practice() {
       {/* ── AI Mock test ─────────────────────────────────────────────────── */}
       <div
         className="pr-mock-card"
-        style={{ marginTop: "var(--sp-4)", borderLeft: "3px solid var(--color-amber)" }}
+        style={{ marginTop: "var(--sp-4)", borderLeft: "3px solid var(--warn)" }}
       >
         <div className="pr-mock-icon">⏱</div>
         <div className="pr-mock-body">

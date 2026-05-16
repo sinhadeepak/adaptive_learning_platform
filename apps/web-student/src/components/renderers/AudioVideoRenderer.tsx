@@ -127,8 +127,8 @@ function MediaQuestion({
         style={{
           padding: 14,
           marginBottom: 14,
-          background: "var(--bg-surface3, #f8f9fc)",
-          border: "1px solid var(--border, #e1e5ee)",
+          background: "var(--paper-2, #f8f9fc)",
+          border: "1px solid var(--rule, #e1e5ee)",
           borderRadius: 6,
           display: "flex",
           alignItems: "center",
@@ -174,7 +174,7 @@ function MediaQuestion({
               fontWeight: 600,
               padding: "6px 12px",
               background: "transparent",
-              border: "1px solid var(--border, #e1e5ee)",
+              border: "1px solid var(--rule, #e1e5ee)",
               borderRadius: 4,
               cursor: "pointer",
             }}
@@ -186,7 +186,7 @@ function MediaQuestion({
               style={{
                 marginTop: 8,
                 padding: 12,
-                background: "var(--bg-surface2, #f0f2f6)",
+                background: "var(--card, #f0f2f6)",
                 borderRadius: 4,
                 fontSize: 13,
                 fontFamily: "inherit",
@@ -203,10 +203,10 @@ function MediaQuestion({
       <div
         style={{
           padding: 10,
-          background: "var(--bg-subtle, #f8f9fc)",
+          background: "var(--paper-2, #f8f9fc)",
           borderRadius: 4,
           fontSize: 13,
-          color: "var(--text-muted, #5a6378)",
+          color: "var(--ink-3, #5a6378)",
         }}
       >
         Sub-questions are answered one-by-one in the steps that follow.

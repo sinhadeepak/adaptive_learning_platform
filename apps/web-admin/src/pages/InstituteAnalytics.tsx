@@ -56,7 +56,7 @@ export function InstituteAnalytics() {
   return (
     <AppShell title={`Institute ${tenantId.slice(0, 8)}`}>
       <main className="page" style={{ padding: 24 }}>
-        <Link to="/tenants" style={{ color: "var(--text-muted)", fontSize: 12 }}>
+        <Link to="/tenants" style={{ color: "var(--ink-3)", fontSize: 12 }}>
           ← All institutes
         </Link>
         <div
@@ -76,7 +76,7 @@ export function InstituteAnalytics() {
             to={`/analytics/drill?tenant=${encodeURIComponent(tenantId)}`}
             style={{
               padding: "8px 14px",
-              background: "var(--color-blue, #4F87F6)",
+              background: "var(--info, #4F87F6)",
               color: "white",
               borderRadius: 6,
               fontSize: 13,
@@ -142,7 +142,7 @@ function InterventionEfficacyTab({ tenantId }: { tenantId: string }) {
     return (
       <div>
         <Pill tone="info">No manual interventions logged yet.</Pill>
-        <p style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 8 }}>
+        <p style={{ color: "var(--ink-3)", fontSize: 13, marginTop: 8 }}>
           {data.notes[0] ??
             "Teachers can log interventions from the cohort deep-dive panel."}
         </p>
@@ -155,25 +155,25 @@ function InterventionEfficacyTab({ tenantId }: { tenantId: string }) {
         <IeTile
           label="Total interventions"
           value={data.n_interventions_total}
-          color="var(--color-ai)"
+          color="var(--gold)"
         />
         <IeTile
           label="Fulfilled"
           value={data.n_fulfilled}
-          color="var(--color-green)"
+          color="var(--good)"
         />
         <IeTile
           label="Fulfillment rate"
           value={`${Math.round(data.overall_fulfillment_rate * 100)}%`}
-          color="var(--color-blue)"
+          color="var(--info)"
         />
       </div>
-      <h3 style={{ fontSize: 13, color: "var(--text-muted)", textTransform: "uppercase" }}>
+      <h3 style={{ fontSize: 13, color: "var(--ink-3)", textTransform: "uppercase" }}>
         By action
       </h3>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
         <thead>
-          <tr style={{ borderBottom: "1px solid var(--border-default)" }}>
+          <tr style={{ borderBottom: "1px solid var(--rule)" }}>
             <th style={ieTh}>Action</th>
             <th style={ieTh}>N</th>
             <th style={ieTh}>Fulfilled</th>
@@ -185,7 +185,7 @@ function InterventionEfficacyTab({ tenantId }: { tenantId: string }) {
         </thead>
         <tbody>
           {data.by_action.map((r) => (
-            <tr key={r.action} style={{ borderBottom: "1px solid var(--border-default)" }}>
+            <tr key={r.action} style={{ borderBottom: "1px solid var(--rule)" }}>
               <td style={ieTd}>
                 <Pill tone="info">{r.action}</Pill>
               </td>
@@ -205,10 +205,10 @@ function InterventionEfficacyTab({ tenantId }: { tenantId: string }) {
                   ...ieTd,
                   color:
                     r.delta_vs_baseline === null
-                      ? "var(--text-muted)"
+                      ? "var(--ink-3)"
                       : r.delta_vs_baseline > 0
-                        ? "var(--color-green)"
-                        : "var(--color-red)",
+                        ? "var(--good)"
+                        : "var(--bad)",
                 }}
               >
                 {r.delta_vs_baseline === null
@@ -236,13 +236,13 @@ function IeTile({
     <div
       style={{
         padding: "12px 16px",
-        border: "1px solid var(--border-default)",
+        border: "1px solid var(--rule)",
         borderRadius: 8,
         minWidth: 140,
-        background: "var(--bg-surface-1)",
+        background: "var(--card-1)",
       }}
     >
-      <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase" }}>
+      <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase" }}>
         {label}
       </div>
       <div style={{ fontSize: 22, fontWeight: 700, color, fontVariantNumeric: "tabular-nums" }}>
@@ -256,7 +256,7 @@ const ieTh: React.CSSProperties = {
   textAlign: "left",
   padding: "6px 10px",
   fontSize: 11,
-  color: "var(--text-muted)",
+  color: "var(--ink-3)",
   textTransform: "uppercase",
 };
 
@@ -271,7 +271,7 @@ function OutcomesReportTab({ tenantId }: { tenantId: string }) {
   return (
     <div>
       <h3 style={{ marginTop: 0 }}>Institute outcomes report</h3>
-      <p style={{ color: "var(--text-muted)", marginBottom: 16 }}>
+      <p style={{ color: "var(--ink-3)", marginBottom: 16 }}>
         A printable one-page summary: roll-up readiness, strongest/weakest
         topics, activity trend. Shareable with parents and stakeholders.
       </p>
@@ -282,7 +282,7 @@ function OutcomesReportTab({ tenantId }: { tenantId: string }) {
           rel="noreferrer"
           style={{
             padding: "8px 16px",
-            background: "var(--color-ai)",
+            background: "var(--gold)",
             color: "#fff",
             borderRadius: 6,
             textDecoration: "none",
@@ -298,9 +298,9 @@ function OutcomesReportTab({ tenantId }: { tenantId: string }) {
           rel="noreferrer"
           style={{
             padding: "8px 16px",
-            background: "var(--bg-surface-1)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border-default)",
+            background: "var(--card-1)",
+            color: "var(--ink)",
+            border: "1px solid var(--rule)",
             borderRadius: 6,
             textDecoration: "none",
             fontSize: 13,
@@ -310,7 +310,7 @@ function OutcomesReportTab({ tenantId }: { tenantId: string }) {
           🖼 Preview HTML
         </a>
       </div>
-      <p style={{ marginTop: 16, fontSize: 11, color: "var(--text-muted)" }}>
+      <p style={{ marginTop: 16, fontSize: 11, color: "var(--ink-3)" }}>
         If PDF rendering isn't available on the server, the PDF link returns an
         HTML fallback that prints to PDF in any browser.
       </p>
@@ -337,9 +337,9 @@ function TabBar({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
           key={t.key}
           onClick={() => setTab(t.key)}
           style={{
-            background: tab === t.key ? "var(--color-ai)" : "var(--bg-surface-1)",
-            color: tab === t.key ? "#fff" : "var(--text-secondary)",
-            border: "1px solid var(--border-default)",
+            background: tab === t.key ? "var(--gold)" : "var(--card-1)",
+            color: tab === t.key ? "#fff" : "var(--ink-2)",
+            border: "1px solid var(--rule)",
             padding: "6px 12px",
             borderRadius: 6,
             cursor: "pointer",
@@ -365,17 +365,17 @@ function OverviewTab({ tenantId }: { tenantId: string }) {
   if (error) return <Pill tone="danger">{error}</Pill>;
   if (!data) return <SkeletonRows count={3} />;
   const tiles = [
-    { label: "Students", value: data.nStudents, color: "var(--color-blue)" },
-    { label: "Active in 7d", value: data.nActive7d, color: "var(--color-green)" },
+    { label: "Students", value: data.nStudents, color: "var(--info)" },
+    { label: "Active in 7d", value: data.nActive7d, color: "var(--good)" },
     {
       label: "Avg readiness",
       value: `${Math.round(data.avgReadiness * 100)}%`,
-      color: "var(--color-ai)",
+      color: "var(--gold)",
     },
     {
       label: "Median readiness",
       value: `${Math.round(data.medianReadiness * 100)}%`,
-      color: "var(--color-purple)",
+      color: "var(--accent)",
     },
   ];
   return (
@@ -386,9 +386,9 @@ function OverviewTab({ tenantId }: { tenantId: string }) {
         <div
           key={t.label}
           className="card"
-          style={{ padding: 16, border: "1px solid var(--border-default)", borderRadius: 8 }}
+          style={{ padding: 16, border: "1px solid var(--rule)", borderRadius: 8 }}
         >
-          <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.8 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.8 }}>
             {t.label}
           </div>
           <div
@@ -412,7 +412,7 @@ function CohortsTab({ tenantId }: { tenantId: string }) {
   }, [tenantId]);
   if (error) return <Pill tone="danger">{error}</Pill>;
   if (!rows) return <SkeletonRows count={5} />;
-  if (rows.length === 0) return <p style={{ color: "var(--text-muted)" }}>No cohorts yet.</p>;
+  if (rows.length === 0) return <p style={{ color: "var(--ink-3)" }}>No cohorts yet.</p>;
   return (
     <table className="leaderboard">
       <thead>
@@ -433,7 +433,7 @@ function CohortsTab({ tenantId }: { tenantId: string }) {
             <td>{Math.round(c.avgReadiness * 100)}%</td>
             <td>{c.nStudents}</td>
             <td>{c.nActive7d}</td>
-            <td style={{ color: "var(--text-muted)", fontSize: 11 }}>{c.snapshotDate ?? "—"}</td>
+            <td style={{ color: "var(--ink-3)", fontSize: 11 }}>{c.snapshotDate ?? "—"}</td>
           </tr>
         ))}
       </tbody>
@@ -463,7 +463,7 @@ function TeachersTab({ tenantId }: { tenantId: string }) {
       </Banner>
       <div style={{ height: 12 }} />
       {rows.length === 0 ? (
-        <p style={{ color: "var(--text-muted)" }}>No teacher data yet.</p>
+        <p style={{ color: "var(--ink-3)" }}>No teacher data yet.</p>
       ) : (
         <table className="leaderboard">
           <thead>
@@ -483,11 +483,11 @@ function TeachersTab({ tenantId }: { tenantId: string }) {
                 </td>
                 <td>{t.nStudents}</td>
                 <td>{Math.round(t.avgReadiness * 100)}%</td>
-                <td style={{ color: t.delta7d >= 0 ? "var(--color-green)" : "var(--color-red)" }}>
+                <td style={{ color: t.delta7d >= 0 ? "var(--good)" : "var(--bad)" }}>
                   {t.delta7d >= 0 ? "+" : ""}
                   {(t.delta7d * 100).toFixed(1)}%
                 </td>
-                <td style={{ color: t.delta30d >= 0 ? "var(--color-green)" : "var(--color-red)" }}>
+                <td style={{ color: t.delta30d >= 0 ? "var(--good)" : "var(--bad)" }}>
                   {t.delta30d >= 0 ? "+" : ""}
                   {(t.delta30d * 100).toFixed(1)}%
                 </td>
@@ -510,7 +510,7 @@ function SubjectsTab({ tenantId }: { tenantId: string }) {
   }, [tenantId]);
   if (error) return <Pill tone="danger">{error}</Pill>;
   if (!rows) return <SkeletonRows count={6} />;
-  if (rows.length === 0) return <p style={{ color: "var(--text-muted)" }}>No mastery data yet.</p>;
+  if (rows.length === 0) return <p style={{ color: "var(--ink-3)" }}>No mastery data yet.</p>;
   return (
     <table className="leaderboard">
       <thead>
@@ -523,7 +523,7 @@ function SubjectsTab({ tenantId }: { tenantId: string }) {
       <tbody>
         {rows.map((r) => {
           const pct = Math.round(r.avgEwa * 100);
-          const tone = pct >= 70 ? "var(--color-green)" : pct >= 40 ? "var(--color-blue)" : "var(--color-red)";
+          const tone = pct >= 70 ? "var(--good)" : pct >= 40 ? "var(--info)" : "var(--bad)";
           return (
             <tr key={r.topicId}>
               <td>
@@ -558,9 +558,9 @@ function TrendTab({ tenantId }: { tenantId: string }) {
             key={d}
             onClick={() => setDays(d)}
             style={{
-              background: days === d ? "var(--color-ai)" : "var(--bg-surface-1)",
-              color: days === d ? "#fff" : "var(--text-secondary)",
-              border: "1px solid var(--border-default)",
+              background: days === d ? "var(--gold)" : "var(--card-1)",
+              color: days === d ? "#fff" : "var(--ink-2)",
+              border: "1px solid var(--rule)",
               padding: "4px 10px",
               borderRadius: 4,
               cursor: "pointer",
@@ -572,7 +572,7 @@ function TrendTab({ tenantId }: { tenantId: string }) {
         ))}
       </div>
       {points.length === 0 ? (
-        <p style={{ color: "var(--text-muted)" }}>No trend data yet.</p>
+        <p style={{ color: "var(--ink-3)" }}>No trend data yet.</p>
       ) : (
         <SimpleSparkline values={points.map((p) => p.avgReadiness)} />
       )}
@@ -597,7 +597,7 @@ function MarketplaceTab({ tenantId }: { tenantId: string }) {
         <Tile label="Tutor sessions" value={data.tutorSessions} />
       </div>
       {data.note && (
-        <p style={{ color: "var(--text-muted)", fontSize: 11, fontStyle: "italic", marginTop: 12 }}>
+        <p style={{ color: "var(--ink-3)", fontSize: 11, fontStyle: "italic", marginTop: 12 }}>
           {data.note}
         </p>
       )}
@@ -607,8 +607,8 @@ function MarketplaceTab({ tenantId }: { tenantId: string }) {
 
 function Tile({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="card" style={{ padding: 16, border: "1px solid var(--border-default)", borderRadius: 8 }}>
-      <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.8 }}>
+    <div className="card" style={{ padding: 16, border: "1px solid var(--rule)", borderRadius: 8 }}>
+      <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.8 }}>
         {label}
       </div>
       <div style={{ fontSize: 24, fontWeight: 700, marginTop: 4 }}>{value}</div>
@@ -646,7 +646,7 @@ function BenchmarkTab({ tenantId }: { tenantId: string }) {
           value={`${Math.round((data.peerAvgReadiness ?? 0) * 100)}%`}
         />
       </div>
-      <p style={{ color: "var(--text-muted)", fontSize: 11, marginTop: 12 }}>
+      <p style={{ color: "var(--ink-3)", fontSize: 11, marginTop: 12 }}>
         Peer set: {data.peerCount} institutes within ±20% of your student count.
         Identifiable institute names never appear.
       </p>
@@ -668,10 +668,10 @@ function SimpleSparkline({ values }: { values: number[] }) {
   const d = xs.map((x, i) => `${i === 0 ? "M" : "L"} ${x} ${ys[i]}`).join(" ");
   return (
     <svg width={w} height={h} role="img" aria-label="Trend">
-      <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="var(--border-default)" />
-      <path d={d} fill="none" stroke="var(--color-ai)" strokeWidth={2} />
+      <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="var(--rule)" />
+      <path d={d} fill="none" stroke="var(--gold)" strokeWidth={2} />
       {xs.map((x, i) => (
-        <circle key={i} cx={x} cy={ys[i]} r={2.5} fill="var(--color-ai)" />
+        <circle key={i} cx={x} cy={ys[i]} r={2.5} fill="var(--gold)" />
       ))}
     </svg>
   );

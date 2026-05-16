@@ -184,7 +184,7 @@ export function Search() {
               transform: "translateY(-50%)",
               background: "transparent",
               border: "none",
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               fontSize: 18,
               cursor: "pointer",
             }}
@@ -236,7 +236,7 @@ export function Search() {
             <span
               style={{
                 fontSize: 11,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 fontWeight: 700,
                 letterSpacing: 0.6,
                 textTransform: "uppercase",
@@ -251,7 +251,7 @@ export function Search() {
               style={{
                 background: "transparent",
                 border: 0,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 fontSize: 11,
                 cursor: "pointer",
                 fontFamily: "inherit",
@@ -279,11 +279,11 @@ export function Search() {
                   gap: 8,
                   padding: "8px 12px",
                   borderRadius: 10,
-                  border: "1px solid var(--border-default)",
-                  background: "var(--bg-surface-1)",
+                  border: "1px solid var(--rule)",
+                  background: "var(--card-1)",
                 }}
               >
-                <span aria-hidden style={{ color: "var(--text-muted)", fontSize: 14 }}>
+                <span aria-hidden style={{ color: "var(--ink-3)", fontSize: 14 }}>
                   ↺
                 </span>
                 <button
@@ -293,7 +293,7 @@ export function Search() {
                     flex: 1,
                     background: "transparent",
                     border: 0,
-                    color: "var(--text-primary)",
+                    color: "var(--ink)",
                     fontSize: 13,
                     cursor: "pointer",
                     fontFamily: "inherit",
@@ -309,7 +309,7 @@ export function Search() {
                   style={{
                     background: "transparent",
                     border: 0,
-                    color: "var(--text-muted)",
+                    color: "var(--ink-3)",
                     fontSize: 14,
                     cursor: "pointer",
                     padding: 4,
@@ -327,7 +327,7 @@ export function Search() {
         <section style={{ marginTop: "var(--sp-5)" }}>
           <p
             style={{
-              color: "var(--text-secondary)",
+              color: "var(--ink-2)",
               fontSize: 13,
               margin: "0 0 var(--sp-3)",
             }}
@@ -358,7 +358,7 @@ export function Search() {
                     </div>
                     <div className="row-link-trail">
                       {r.score !== null && r.score !== undefined ? (
-                        <span style={{ color: "var(--text-muted)", fontSize: 11 }}>
+                        <span style={{ color: "var(--ink-3)", fontSize: 11 }}>
                           match {Math.round((r.score / 10) * 100)}%
                         </span>
                       ) : null}

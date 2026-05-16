@@ -148,7 +148,7 @@ export function CuratedTestAuthor() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 22 }}>Author a curated test</h1>
-          <p style={{ marginTop: 4, color: "var(--text-muted)", fontSize: 13 }}>
+          <p style={{ marginTop: 4, color: "var(--ink-3)", fontSize: 13 }}>
             Curated tests appear in the student-facing Library after an
             admin reviews and approves them.
           </p>
@@ -159,17 +159,17 @@ export function CuratedTestAuthor() {
       </div>
 
       {error && (
-        <div style={{ padding: 12, marginBottom: 12, background: "var(--bg-danger-soft)", color: "var(--text-danger)", borderRadius: 8 }}>
+        <div style={{ padding: 12, marginBottom: 12, background: "var(--bad-soft-soft)", color: "var(--bad)", borderRadius: 8 }}>
           {error}
         </div>
       )}
       {success && (
-        <div style={{ padding: 12, marginBottom: 12, background: "var(--bg-success-soft)", color: "var(--text-success)", borderRadius: 8 }}>
+        <div style={{ padding: 12, marginBottom: 12, background: "var(--good-soft-soft)", color: "var(--good)", borderRadius: 8 }}>
           {success}
         </div>
       )}
 
-      <fieldset style={{ border: "1px solid var(--border-subtle)", padding: 16, borderRadius: 8, marginBottom: 16 }}>
+      <fieldset style={{ border: "1px solid var(--rule)", padding: 16, borderRadius: 8, marginBottom: 16 }}>
         <legend>Test details</legend>
         <label style={{ display: "block", marginBottom: 8 }}>
           Name
@@ -215,10 +215,10 @@ export function CuratedTestAuthor() {
         </div>
       </fieldset>
 
-      <fieldset style={{ border: "1px solid var(--border-subtle)", padding: 16, borderRadius: 8, marginBottom: 16 }}>
+      <fieldset style={{ border: "1px solid var(--rule)", padding: 16, borderRadius: 8, marginBottom: 16 }}>
         <legend>Sections ({sections.length})</legend>
         {sections.map((s, i) => (
-          <div key={s.section_id} style={{ borderTop: i > 0 ? "1px dashed var(--border-subtle)" : "none", paddingTop: i > 0 ? 12 : 0, marginTop: i > 0 ? 12 : 0 }}>
+          <div key={s.section_id} style={{ borderTop: i > 0 ? "1px dashed var(--rule)" : "none", paddingTop: i > 0 ? 12 : 0, marginTop: i > 0 ? 12 : 0 }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
               <input
                 value={s.name}
@@ -301,7 +301,7 @@ export function CuratedTestAuthor() {
           type="button"
           onClick={submit}
           disabled={submitting}
-          style={{ padding: "10px 18px", background: "var(--color-blue)", color: "#fff", borderRadius: 8 }}
+          style={{ padding: "10px 18px", background: "var(--info)", color: "#fff", borderRadius: 8 }}
         >
           {submitting ? "Submitting…" : "Submit for review"}
         </button>

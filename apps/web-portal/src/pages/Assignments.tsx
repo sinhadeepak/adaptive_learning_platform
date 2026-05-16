@@ -223,7 +223,7 @@ export function Assignments() {
               style={{
                 fontSize: 14,
                 fontWeight: 700,
-                color: "var(--text-primary)",
+                color: "var(--ink)",
                 marginBottom: 12,
                 marginTop: 4,
               }}
@@ -244,7 +244,7 @@ export function Assignments() {
                       <p className="pg-row-title">{a.title}</p>
                       <div className="pg-row-meta">
                         {due ? (
-                          <span style={overdue ? { color: "var(--color-red)" } : {}}>
+                          <span style={overdue ? { color: "var(--bad)" } : {}}>
                             📅 due {due.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                             {overdue ? " · overdue" : ""}
                           </span>

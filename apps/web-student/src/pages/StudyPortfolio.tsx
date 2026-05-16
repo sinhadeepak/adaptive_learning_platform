@@ -97,7 +97,7 @@ export function StudyPortfolio() {
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: "4px 0 4px" }}>
           Where is your effort going?
         </h1>
-        <p style={{ fontSize: 13, color: "var(--text-secondary, #B8C5E0)", margin: 0 }}>
+        <p style={{ fontSize: 13, color: "var(--ink-2, #B8C5E0)", margin: 0 }}>
           Compare your current mastery allocation against the optimal mix for the
           forecast year. Buckets with a positive Δ are under-invested.
         </p>
@@ -105,11 +105,11 @@ export function StudyPortfolio() {
 
       {exams.length > 1 && (
         <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 11, color: "var(--text-faint, #7A8BAD)" }}>Exam: </label>
+          <label style={{ fontSize: 11, color: "var(--ink-4, #7A8BAD)" }}>Exam: </label>
           <select
             value={selectedExam}
             onChange={(e) => setSelectedExam(e.target.value)}
-            style={{ padding: "4px 8px", background: "var(--surface-elev1)", color: "inherit", border: "1px solid var(--surface-elev2)", borderRadius: 4 }}
+            style={{ padding: "4px 8px", background: "var(--card)", color: "inherit", border: "1px solid var(--card)", borderRadius: 4 }}
           >
             {exams.map((e) => (
               <option key={e.examId} value={e.examId}>{e.name || e.examId}</option>
@@ -120,13 +120,13 @@ export function StudyPortfolio() {
 
       {error && (
         <section style={cardStyle}>
-          <p style={{ color: "var(--color-red, #FF5C7A)", fontSize: 13 }}>{error}</p>
+          <p style={{ color: "var(--bad, #FF5C7A)", fontSize: 13 }}>{error}</p>
         </section>
       )}
 
       {loading && !data && (
         <section style={cardStyle}>
-          <div style={{ height: 120, background: "var(--surface-elev1)", borderRadius: 6 }} />
+          <div style={{ height: 120, background: "var(--card)", borderRadius: 6 }} />
         </section>
       )}
 
@@ -162,7 +162,7 @@ export function StudyPortfolio() {
 
           <section style={cardStyle}>
             <div style={eyebrow}>◈ REBALANCE HINT</div>
-            <p style={{ marginTop: 8, fontSize: 14, color: "var(--text-primary, #EEF2FF)" }}>
+            <p style={{ marginTop: 8, fontSize: 14, color: "var(--ink, #EEF2FF)" }}>
               {data.reallocationHint}
             </p>
             <button
@@ -174,7 +174,7 @@ export function StudyPortfolio() {
             >
               {recomputing ? "Rebalancing…" : "Rebalance my plan →"}
             </button>
-            <p style={{ marginTop: 8, fontSize: 11, color: "var(--text-faint, #7A8BAD)" }}>
+            <p style={{ marginTop: 8, fontSize: 11, color: "var(--ink-4, #7A8BAD)" }}>
               Re-runs PCE; today's plan will pick up the new weights on the next IGS recompute.
             </p>
           </section>
@@ -187,10 +187,10 @@ export function StudyPortfolio() {
 function Column(props: { title: string; subtitle: string; buckets: Bucket[]; kind: "current" | "optimal" }) {
   return (
     <div>
-      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary, #EEF2FF)" }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink, #EEF2FF)" }}>
         {props.title}
       </div>
-      <div style={{ fontSize: 11, color: "var(--text-faint, #7A8BAD)", marginBottom: 10 }}>
+      <div style={{ fontSize: 11, color: "var(--ink-4, #7A8BAD)", marginBottom: 10 }}>
         {props.subtitle}
       </div>
       {props.buckets.map((b) => {
@@ -203,7 +203,7 @@ function Column(props: { title: string; subtitle: string; buckets: Bucket[]; kin
               <span>{b.bucket}-yield</span>
               <span style={{ fontFamily: "var(--font-mono, monospace)" }}>{(value * 100).toFixed(1)}%</span>
             </div>
-            <div style={{ height: 8, background: "var(--surface-elev1)", borderRadius: 4, overflow: "hidden", marginTop: 2 }}>
+            <div style={{ height: 8, background: "var(--card)", borderRadius: 4, overflow: "hidden", marginTop: 2 }}>
               <div style={{ width: `${widthPct}%`, height: "100%", background: color, transition: "width 250ms" }} />
             </div>
             {props.kind === "optimal" && Math.abs(b.delta) > 0.01 && (
@@ -220,13 +220,13 @@ function Column(props: { title: string; subtitle: string; buckets: Bucket[]; kin
 
 const cardStyle: React.CSSProperties = {
   padding: 20,
-  background: "var(--surface-elev1)",
-  border: "1px solid var(--surface-elev2)",
+  background: "var(--card)",
+  border: "1px solid var(--card)",
   borderRadius: 12,
   marginBottom: 16,
 };
 
 const eyebrow: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase",
-  color: "var(--color-ai, #22D4EE)",
+  color: "var(--gold, #22D4EE)",
 };

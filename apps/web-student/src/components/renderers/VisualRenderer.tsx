@@ -67,7 +67,7 @@ export const DiagramHotspotRenderer: Renderer<
             maxWidth: "100%",
             maxHeight: 600,
             cursor: disabled ? "not-allowed" : "crosshair",
-            border: "1px solid var(--border, #e1e5ee)",
+            border: "1px solid var(--rule, #e1e5ee)",
             borderRadius: 6,
           }}
         />
@@ -81,9 +81,9 @@ export const DiagramHotspotRenderer: Renderer<
               width: 20,
               height: 20,
               borderRadius: "50%",
-              background: "var(--color-amber, #f59e0b)",
+              background: "var(--warn, #f59e0b)",
               border: "3px solid white",
-              boxShadow: "0 0 0 2px var(--color-amber, #f59e0b)",
+              boxShadow: "0 0 0 2px var(--warn, #f59e0b)",
               pointerEvents: "none",
             }}
           />
@@ -188,8 +188,8 @@ export const DiagramLabelRenderer: Renderer<
             style={{
               maxWidth: "100%",
               height: "auto",
-              background: "var(--bg-elevated, #f8f9fc)",
-              border: "1px dashed var(--border-subtle, #d6dbe8)",
+              background: "var(--card, #f8f9fc)",
+              border: "1px dashed var(--rule, #d6dbe8)",
               borderRadius: 8,
             }}
             role="img"
@@ -218,7 +218,7 @@ export const DiagramLabelRenderer: Renderer<
                     cx={m.x}
                     cy={m.y}
                     r={14}
-                    fill="var(--color-amber, #F5A623)"
+                    fill="var(--warn, #F5A623)"
                     stroke="white"
                     strokeWidth={2}
                   />
@@ -238,7 +238,7 @@ export const DiagramLabelRenderer: Renderer<
                       y={m.y + 4}
                       fontSize={12}
                       fontWeight={600}
-                      fill="var(--text-primary, #1f2937)"
+                      fill="var(--ink, #1f2937)"
                     >
                       {pickedLabel}
                     </text>
@@ -265,7 +265,7 @@ export const DiagramLabelRenderer: Renderer<
               style={{
                 maxWidth: "100%",
                 maxHeight: 500,
-                border: "1px solid var(--border, #e1e5ee)",
+                border: "1px solid var(--rule, #e1e5ee)",
                 borderRadius: 6,
               }}
             />
@@ -281,8 +281,8 @@ export const DiagramLabelRenderer: Renderer<
                     width: 28,
                     height: 28,
                     borderRadius: "50%",
-                    background: "var(--color-amber, #f59e0b)",
-                    color: "var(--bg-surface2)",
+                    background: "var(--warn, #f59e0b)",
+                    color: "var(--card)",
                     fontSize: 12,
                     fontWeight: 700,
                     display: "flex",
@@ -300,7 +300,7 @@ export const DiagramLabelRenderer: Renderer<
 
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
-          <tr style={{ borderBottom: "1px solid var(--border, #e1e5ee)" }}>
+          <tr style={{ borderBottom: "1px solid var(--rule, #e1e5ee)" }}>
             <th style={{ textAlign: "left", padding: 8 }}>Marker</th>
             <th style={{ textAlign: "left", padding: 8 }}>Label</th>
           </tr>
@@ -318,7 +318,7 @@ export const DiagramLabelRenderer: Renderer<
                   disabled={disabled}
                   style={{
                     padding: 6,
-                    border: "1px solid var(--border, #e1e5ee)",
+                    border: "1px solid var(--rule, #e1e5ee)",
                     borderRadius: 4,
                     minWidth: 200,
                   }}
@@ -406,7 +406,7 @@ export const PictorialIdentifyRenderer: Renderer<
           style={{
             maxWidth: "100%",
             maxHeight: 400,
-            border: "1px solid var(--border, #e1e5ee)",
+            border: "1px solid var(--rule, #e1e5ee)",
             borderRadius: 6,
           }}
         />
@@ -423,11 +423,11 @@ export const PictorialIdentifyRenderer: Renderer<
                 gap: 12,
                 padding: 12,
                 border: selected
-                  ? "2px solid var(--color-blue, #4f87f6)"
-                  : "1px solid var(--border, #e1e5ee)",
+                  ? "2px solid var(--info, #4f87f6)"
+                  : "1px solid var(--rule, #e1e5ee)",
                 borderRadius: 6,
                 cursor: disabled ? "not-allowed" : "pointer",
-                background: selected ? "var(--color-blue-bg, #dbeafe)" : "var(--bg-surface2)",
+                background: selected ? "var(--info-soft, #dbeafe)" : "var(--card)",
               }}
             >
               <input
@@ -456,4 +456,3 @@ function resolveMediaUrl(mediaId: string): string {
   // ships with S3 + CDN.
   return `/api/v1/content/media/${encodeURIComponent(mediaId)}/file`;
 }
-

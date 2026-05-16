@@ -1,17 +1,12 @@
 /* ============================================================
    web-portal app — teacher / institution + author surface
-   Mirrors docs/ui/04_TeacherPortal/01_dashboard.html chrome.
 
-   Inherits chrome + form/auth primitives from
-   @alp/design-system/shell.css and re-aliases the blue accent
-   to teacher green inside .app-shell so every gradient / border
-   / accent rule retokens to teacher in one declaration.
+   Vidya v1: teacher's accent comes from data-persona="pro" set
+   on <html> in apps/web-portal/index.html. Author routes can
+   layer a different persona via a wrapping element. The legacy
+   `.app-shell { --info: green }` block was removed when Aurora
+   was retired (see ADR-0034).
    ============================================================ */
-
-.app-shell {
-  --color-blue:  #10C47A;     /* teacher accent (green) */
-  --color-blue2: #068852;     /* darker green for gradients */
-}
 
 /* ── Review card surface (peer-review queue) ──────────────── */
 .review-card { padding: var(--sp-5); }
@@ -27,7 +22,7 @@
   font-size: 15px;
   font-weight: 600;
   line-height: 1.5;
-  color: var(--text-primary);
+  color: var(--ink);
   flex: 1;
 }
 .review-choices {
@@ -43,14 +38,14 @@
   align-items: center;
   gap: var(--sp-3);
   padding: 10px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--rule);
   border-radius: var(--radius-md);
-  background: var(--bg-surface3);
+  background: var(--paper-2);
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--ink-2);
 }
 .review-choice-correct {
-  border-color: var(--color-green);
+  border-color: var(--good);
   background: rgba(16, 196, 122, 0.10);
-  color: var(--text-primary);
+  color: var(--ink);
 }

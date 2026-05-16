@@ -78,10 +78,10 @@ export function RankTrajectoryCard({ userId }: { userId: string }) {
 
   const confTone =
     data.confidence === "high"
-      ? "var(--color-green)"
+      ? "var(--good)"
       : data.confidence === "medium"
-      ? "var(--color-blue)"
-      : "var(--color-amber)";
+      ? "var(--info)"
+      : "var(--warn)";
 
   return (
     <section
@@ -90,7 +90,7 @@ export function RankTrajectoryCard({ userId }: { userId: string }) {
         marginTop: "var(--sp-5)",
         background:
           "linear-gradient(135deg, rgba(102,67,255,0.08), rgba(79,135,246,0.04))",
-        borderLeft: "3px solid var(--color-purple)",
+        borderLeft: "3px solid var(--accent)",
       }}
     >
       <div className="sec-row">
@@ -105,8 +105,8 @@ export function RankTrajectoryCard({ userId }: { userId: string }) {
                 background:
                   e.code === examCode ? "rgba(102,67,255,0.2)" : "transparent",
                 color:
-                  e.code === examCode ? "var(--color-purple)" : "var(--text-faint)",
-                border: "1px solid var(--border-strong)",
+                  e.code === examCode ? "var(--accent)" : "var(--ink-4)",
+                border: "1px solid var(--rule-2)",
                 padding: "3px 8px",
                 borderRadius: 4,
                 fontSize: 11,
@@ -132,7 +132,7 @@ export function RankTrajectoryCard({ userId }: { userId: string }) {
           <div
             style={{
               fontSize: 11,
-              color: "var(--text-faint)",
+              color: "var(--ink-4)",
               letterSpacing: "0.05em",
             }}
           >
@@ -142,7 +142,7 @@ export function RankTrajectoryCard({ userId }: { userId: string }) {
             style={{
               fontSize: 38,
               fontWeight: 700,
-              color: "var(--color-purple)",
+              color: "var(--accent)",
               lineHeight: 1,
               marginTop: 4,
             }}
@@ -152,7 +152,7 @@ export function RankTrajectoryCard({ userId }: { userId: string }) {
           <div
             style={{
               fontSize: 11,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               marginTop: 4,
             }}
           >
@@ -183,14 +183,14 @@ export function RankTrajectoryCard({ userId }: { userId: string }) {
           <div
             style={{
               fontSize: 12,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               padding: "8px 12px",
               background: "rgba(16,196,122,0.06)",
-              borderLeft: "2px solid var(--color-green)",
+              borderLeft: "2px solid var(--good)",
               borderRadius: 4,
             }}
           >
-            <strong style={{ color: "var(--color-green)" }}>Next move:</strong>{" "}
+            <strong style={{ color: "var(--good)" }}>Next move:</strong>{" "}
             {data.commentary.next_action}
           </div>
           <div
@@ -198,7 +198,7 @@ export function RankTrajectoryCard({ userId }: { userId: string }) {
               display: "flex",
               gap: 12,
               fontSize: 11,
-              color: "var(--text-faint)",
+              color: "var(--ink-4)",
               flexWrap: "wrap",
             }}
           >

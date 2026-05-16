@@ -164,7 +164,7 @@ export function ClanDetailPage() {
                         {m.role === "OWNER" ? "👑 " : m.role === "OFFICER" ? "⭐ " : ""}
                         {formatUser(m.userId, dir[m.userId])}
                         {m.userId === me && (
-                          <span style={{ marginLeft: 8, color: "var(--color-blue)", fontSize: 12 }}>
+                          <span style={{ marginLeft: 8, color: "var(--info)", fontSize: 12 }}>
                             you
                           </span>
                         )}

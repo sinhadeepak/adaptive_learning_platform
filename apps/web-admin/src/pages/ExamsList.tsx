@@ -61,9 +61,9 @@ export function ExamsList() {
             role="alert"
             style={{
               padding: 10,
-              border: "1px solid var(--color-red, #f43f5e)",
+              border: "1px solid var(--bad, #f43f5e)",
               borderRadius: 6,
-              color: "var(--color-red, #f43f5e)",
+              color: "var(--bad, #f43f5e)",
               fontSize: 13,
             }}
           >
@@ -88,7 +88,7 @@ export function ExamsList() {
               </button>
             ))}
           </div>
-          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+          <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
             {visible.length} of {exams?.length ?? 0} exam{exams?.length === 1 ? "" : "s"}
           </span>
         </div>
@@ -98,17 +98,17 @@ export function ExamsList() {
             Loading exams…
           </div>
         ) : visible.length === 0 ? (
-          <div className="card" style={{ padding: 20, fontSize: 13, color: "var(--text-muted)" }}>
+          <div className="card" style={{ padding: 20, fontSize: 13, color: "var(--ink-3)" }}>
             No {filter !== "all" ? filter : ""} exams yet.{" "}
-            <Link to="/exams/new" style={{ color: "var(--color-blue)" }}>
+            <Link to="/exams/new" style={{ color: "var(--info)" }}>
               Add the first one →
             </Link>
           </div>
         ) : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead style={{ background: "var(--bg-surface3)" }}>
-                <tr style={{ textAlign: "left", color: "var(--text-muted)", fontSize: 11 }}>
+              <thead style={{ background: "var(--paper-2)" }}>
+                <tr style={{ textAlign: "left", color: "var(--ink-3)", fontSize: 11 }}>
                   <th style={th}>Name</th>
                   <th style={th}>Code</th>
                   <th style={{ ...th, textAlign: "right" }}>Subjects</th>
@@ -120,17 +120,17 @@ export function ExamsList() {
               </thead>
               <tbody>
                 {visible.map((e) => (
-                  <tr key={e.id} style={{ borderTop: "1px solid var(--border)" }}>
+                  <tr key={e.id} style={{ borderTop: "1px solid var(--rule)" }}>
                     <td style={td}>
                       <div style={{ fontWeight: 600 }}>{e.name}</div>
                       {e.subtitle && (
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                        <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
                           {e.subtitle}
                         </div>
                       )}
                     </td>
                     <td style={td}>
-                      <code style={{ fontSize: 11, color: "var(--color-ai)" }}>{e.code}</code>
+                      <code style={{ fontSize: 11, color: "var(--gold)" }}>{e.code}</code>
                     </td>
                     <td style={{ ...td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
                       {e.subject_count}
@@ -148,7 +148,7 @@ export function ExamsList() {
                           borderRadius: 999,
                           fontSize: 11,
                           background: e.is_published ? "rgba(16,196,122,0.15)" : "rgba(244,63,94,0.15)",
-                          color: e.is_published ? "var(--color-green)" : "var(--color-red)",
+                          color: e.is_published ? "var(--good)" : "var(--bad)",
                         }}
                       >
                         {e.is_published ? "Published" : "Retired"}

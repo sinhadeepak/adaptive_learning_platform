@@ -30,10 +30,10 @@ const strengthLabel: Record<Strength, string> = {
 };
 
 const strengthBarColor: Record<Strength, string> = {
-  STRONG: "var(--color-green)",
-  DEVELOPING: "var(--color-blue)",
-  WEAK: "var(--color-red)",
-  NOT_STARTED: "var(--text-faint)",
+  STRONG: "var(--good)",
+  DEVELOPING: "var(--info)",
+  WEAK: "var(--bad)",
+  NOT_STARTED: "var(--ink-4)",
 };
 
 // ── KPI tile (small dashboard stat) ─────────────────────────────────────
@@ -100,10 +100,10 @@ export interface InsightItem {
 }
 
 const insightDotColor: Record<NonNullable<InsightItem["tone"]>, string> = {
-  ai: "var(--color-ai)",
-  warning: "var(--color-amber)",
-  success: "var(--color-green)",
-  muted: "var(--text-faint)",
+  ai: "var(--gold)",
+  warning: "var(--warn)",
+  success: "var(--good)",
+  muted: "var(--ink-4)",
 };
 
 export function AiInsightPanel({ items }: { items: InsightItem[] }): ReactNode {
@@ -210,8 +210,8 @@ export function ReadinessRing({
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <defs>
           <linearGradient id={id} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="var(--color-green)" />
-            <stop offset="100%" stopColor="var(--color-blue)" />
+            <stop offset="0%" stopColor="var(--good)" />
+            <stop offset="100%" stopColor="var(--info)" />
           </linearGradient>
         </defs>
         <circle
@@ -219,7 +219,7 @@ export function ReadinessRing({
           cy={c}
           r={r}
           fill="none"
-          stroke="var(--border)"
+          stroke="var(--rule)"
           strokeWidth={size * 0.09}
         />
         <circle
@@ -249,7 +249,7 @@ export function ReadinessRing({
           style={{
             fontSize: size * 0.28,
             fontWeight: 800,
-            background: "linear-gradient(135deg, var(--color-green), var(--color-blue))",
+            background: "linear-gradient(135deg, var(--good), var(--info))",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             lineHeight: 1,
@@ -261,7 +261,7 @@ export function ReadinessRing({
         <div
           style={{
             fontSize: size * 0.09,
-            color: "var(--text-faint)",
+            color: "var(--ink-4)",
             marginTop: 1,
             letterSpacing: 0.3,
           }}

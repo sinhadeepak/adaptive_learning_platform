@@ -230,8 +230,8 @@ export function DoubtDetail() {
       {/* Question card */}
       <div
         style={{
-          background: "var(--bg-surface-1)",
-          border: "1px solid var(--border-default)",
+          background: "var(--card-1)",
+          border: "1px solid var(--rule)",
           borderRadius: 14,
           padding: "var(--sp-4)",
           marginBottom: "var(--sp-3)",
@@ -241,13 +241,13 @@ export function DoubtDetail() {
           <Pill tone={statusTone(data.status)}>{data.status}</Pill>
           {data.topicTitle ? <Pill tone="info">◈ {data.topicTitle}</Pill> : null}
           <span style={{ flex: 1 }} />
-          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+          <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
             {relative(data.createdAt)}
           </span>
         </div>
         <div
           style={{
-            color: "var(--text-primary)",
+            color: "var(--ink)",
             fontSize: 15,
             lineHeight: 1.55,
             whiteSpace: "pre-wrap",
@@ -276,7 +276,7 @@ export function DoubtDetail() {
         <h2
           style={{
             fontSize: 13,
-            color: "var(--text-muted)",
+            color: "var(--ink-3)",
             fontWeight: 700,
             letterSpacing: 0.6,
             textTransform: "uppercase",
@@ -290,10 +290,10 @@ export function DoubtDetail() {
       {sortedAnswers.length === 0 ? (
         <div
           style={{
-            color: "var(--text-muted)",
+            color: "var(--ink-3)",
             fontSize: 13,
             padding: "var(--sp-3)",
-            border: "1px dashed var(--border-default)",
+            border: "1px dashed var(--rule)",
             borderRadius: 10,
             marginBottom: "var(--sp-3)",
           }}
@@ -306,8 +306,8 @@ export function DoubtDetail() {
             <li
               key={a.id}
               style={{
-                background: "var(--bg-surface-1)",
-                border: `1px solid ${a.accepted ? "var(--color-green)" : "var(--border-default)"}`,
+                background: "var(--card-1)",
+                border: `1px solid ${a.accepted ? "var(--good)" : "var(--rule)"}`,
                 borderRadius: 12,
                 padding: "var(--sp-3)",
               }}
@@ -316,7 +316,7 @@ export function DoubtDetail() {
                 <Pill tone={sourceTone(a.source)}>{labelForSource(a.source)}</Pill>
                 {a.accepted ? <Pill tone="success">ACCEPTED</Pill> : null}
                 <span style={{ flex: 1 }} />
-                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
                   {relative(a.createdAt)}
                 </span>
                 {!a.accepted &&
@@ -334,7 +334,7 @@ export function DoubtDetail() {
               </div>
               <div
                 style={{
-                  color: "var(--text-primary)",
+                  color: "var(--ink)",
                   fontSize: 14,
                   lineHeight: 1.55,
                   whiteSpace: "pre-wrap",
@@ -369,8 +369,8 @@ export function DoubtDetail() {
       {aiStreaming ? (
         <div
           style={{
-            background: "var(--bg-surface-1)",
-            border: "1px solid var(--color-ai)",
+            background: "var(--card-1)",
+            border: "1px solid var(--gold)",
             borderRadius: 12,
             padding: "var(--sp-3)",
             marginTop: "var(--sp-2)",
@@ -381,7 +381,7 @@ export function DoubtDetail() {
           </div>
           <div
             style={{
-              color: "var(--text-primary)",
+              color: "var(--ink)",
               fontSize: 14,
               lineHeight: 1.55,
               whiteSpace: "pre-wrap",
@@ -395,7 +395,7 @@ export function DoubtDetail() {
                 width: 8,
                 height: 14,
                 marginLeft: 2,
-                background: "var(--color-ai)",
+                background: "var(--gold)",
                 animation: "blink 1s step-start infinite",
               }}
             />
@@ -407,8 +407,8 @@ export function DoubtDetail() {
       {canReply ? (
         <div
           style={{
-            background: "var(--bg-surface-1)",
-            border: "1px solid var(--border-default)",
+            background: "var(--card-1)",
+            border: "1px solid var(--rule)",
             borderRadius: 12,
             padding: "var(--sp-3)",
             marginTop: "var(--sp-4)",
@@ -421,10 +421,10 @@ export function DoubtDetail() {
             placeholder="Add a reply or follow-up question…"
             style={{
               width: "100%",
-              background: "var(--bg-surface-2)",
-              border: "1px solid var(--border-default)",
+              background: "var(--card-2)",
+              border: "1px solid var(--rule)",
               borderRadius: 8,
-              color: "var(--text-primary)",
+              color: "var(--ink)",
               padding: 10,
               fontSize: 14,
               fontFamily: "inherit",

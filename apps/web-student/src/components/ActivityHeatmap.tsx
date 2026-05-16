@@ -76,14 +76,14 @@ export function ActivityHeatmap({ days = 30 }: { days?: number }) {
 
   if (cells === null) {
     return (
-      <div style={{ height: 96, display: "flex", alignItems: "center", color: "var(--text-muted)", fontSize: 12 }}>
+      <div style={{ height: 96, display: "flex", alignItems: "center", color: "var(--ink-3)", fontSize: 12 }}>
         Loading activity…
       </div>
     );
   }
   if (cells.length === 0) {
     return (
-      <div style={{ color: "var(--text-muted)", fontSize: 12 }}>
+      <div style={{ color: "var(--ink-3)", fontSize: 12 }}>
         No activity data yet — your first quiz will start filling this map.
       </div>
     );
@@ -120,7 +120,7 @@ export function ActivityHeatmap({ days = 30 }: { days?: number }) {
                   height: 16,
                   borderRadius: 3,
                   background: heatColor(c.intensity),
-                  border: "1px solid var(--surface-elev1)",
+                  border: "1px solid var(--card)",
                 }}
               />
             ))}
@@ -134,7 +134,7 @@ export function ActivityHeatmap({ days = 30 }: { days?: number }) {
           alignItems: "center",
           marginTop: 10,
           fontSize: 11,
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
         }}
       >
         <span>
@@ -165,10 +165,10 @@ export function ActivityHeatmap({ days = 30 }: { days?: number }) {
 function heatColor(intensity: DayCell["intensity"]): string {
   switch (intensity) {
     case 0:
-      // Typo-bug fix: the original used --bg-surface-3 (with dashes) which
+      // Typo-bug fix: the original used --card-3 (with dashes) which
       // never resolves; the rgba fallback always rendered. Use the actual
       // token name so the empty heatmap cells re-theme.
-      return "var(--bg-surface3)";
+      return "var(--paper-2)";
     case 1:
       return "rgba(99, 102, 241, 0.30)";
     case 2:

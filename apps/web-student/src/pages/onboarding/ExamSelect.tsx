@@ -165,7 +165,7 @@ export function ExamSelect() {
       {exams === null ? (
         <SkeletonRows count={4} />
       ) : exams.length === 0 ? (
-        <p style={{ color: "var(--text-muted)", fontSize: 13 }}>No exams available yet.</p>
+        <p style={{ color: "var(--ink-3)", fontSize: 13 }}>No exams available yet.</p>
       ) : (
         <div role="radiogroup" aria-label="Exam" className="option-list">
           {exams.map((exam) => {
@@ -196,7 +196,7 @@ export function ExamSelect() {
           languages), UPSC optional subject (pick 1 of 26), CBSE 11
           stream (pick 3 of 5), etc. */}
       {selected && loadingPools && (
-        <p style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 16 }}>
+        <p style={{ color: "var(--ink-3)", fontSize: 12, marginTop: 16 }}>
           Loading exam structure…
         </p>
       )}
@@ -208,7 +208,7 @@ export function ExamSelect() {
               fontWeight: 700,
               letterSpacing: 0.4,
               textTransform: "uppercase",
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
             }}
           >
             Pick your optional subjects
@@ -225,8 +225,8 @@ export function ExamSelect() {
                 key={pool.id}
                 style={{
                   padding: 14,
-                  background: "var(--bg-surface2)",
-                  border: "1px solid var(--border)",
+                  background: "var(--card)",
+                  border: "1px solid var(--rule)",
                   borderRadius: 8,
                 }}
               >
@@ -235,7 +235,7 @@ export function ExamSelect() {
                   <span
                     style={{
                       fontSize: 11,
-                      color: valid ? "var(--color-green)" : "var(--text-muted)",
+                      color: valid ? "var(--good)" : "var(--ink-3)",
                     }}
                   >
                     {picked.length} / {pool.pickMax}
@@ -243,11 +243,11 @@ export function ExamSelect() {
                   </span>
                 </div>
                 {pool.description && (
-                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 8 }}>
                     {pool.description}
                   </div>
                 )}
-                <div style={{ fontSize: 10.5, color: "var(--text-faint)", marginBottom: 8 }}>
+                <div style={{ fontSize: 10.5, color: "var(--ink-4)", marginBottom: 8 }}>
                   {constraint}
                 </div>
                 <div
@@ -266,9 +266,9 @@ export function ExamSelect() {
                         onClick={() => togglePick(pool, m.id)}
                         style={{
                           padding: "8px 10px",
-                          background: isOn ? "var(--color-blue)" : "var(--bg-surface3)",
-                          color: isOn ? "#fff" : "var(--text-primary)",
-                          border: `1px solid ${isOn ? "var(--color-blue)" : "var(--border-strong)"}`,
+                          background: isOn ? "var(--info)" : "var(--paper-2)",
+                          color: isOn ? "#fff" : "var(--ink)",
+                          border: `1px solid ${isOn ? "var(--info)" : "var(--rule-2)"}`,
                           borderRadius: 6,
                           cursor: "pointer",
                           fontSize: 12,

@@ -313,7 +313,7 @@ export function MyPurchases() {
                 gap: 4,
                 fontSize: 30,
                 marginBottom: 14,
-                color: "var(--color-amber)",
+                color: "var(--warn)",
                 cursor: "pointer",
               }}
             >
@@ -338,9 +338,9 @@ export function MyPurchases() {
               style={{
                 width: "100%",
                 padding: 10,
-                background: "var(--bg-surface3)",
-                color: "var(--text-primary)",
-                border: "1px solid var(--border)",
+                background: "var(--paper-2)",
+                color: "var(--ink)",
+                border: "1px solid var(--rule)",
                 borderRadius: 6,
                 fontFamily: "inherit",
                 fontSize: 13,

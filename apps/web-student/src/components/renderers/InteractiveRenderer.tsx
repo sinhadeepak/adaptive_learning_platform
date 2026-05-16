@@ -70,7 +70,7 @@ export const KBCLifelineRenderer: Renderer<KBCLifelinePayload, KBCLifelineRespon
           padding: 10,
           marginBottom: 12,
           background:
-            "linear-gradient(90deg, var(--bg-purple-tint, #eee6ff), var(--bg-blue-tint, #e0ecff))",
+            "linear-gradient(90deg, var(--accent-soft-tint, #eee6ff), var(--info-soft-tint, #e0ecff))",
           borderRadius: 6,
           fontSize: 13,
           fontWeight: 700,
@@ -95,11 +95,11 @@ export const KBCLifelineRenderer: Renderer<KBCLifelinePayload, KBCLifelineRespon
                 padding: "6px 14px",
                 fontSize: 13,
                 fontWeight: 600,
-                background: on ? "var(--color-purple, #7c3aed)" : "var(--bg-surface2)",
+                background: on ? "var(--accent, #7c3aed)" : "var(--card)",
                 color: on ? "white" : "inherit",
                 border: on
-                  ? "1px solid var(--color-purple, #7c3aed)"
-                  : "1px solid var(--border, #e1e5ee)",
+                  ? "1px solid var(--accent, #7c3aed)"
+                  : "1px solid var(--rule, #e1e5ee)",
                 borderRadius: 20,
                 cursor: disabled ? "not-allowed" : "pointer",
               }}
@@ -115,7 +115,7 @@ export const KBCLifelineRenderer: Renderer<KBCLifelinePayload, KBCLifelineRespon
           style={{
             padding: 10,
             marginBottom: 12,
-            background: "var(--bg-subtle, #f8f9fc)",
+            background: "var(--paper-2, #f8f9fc)",
             borderRadius: 4,
             fontSize: 13,
           }}
@@ -131,7 +131,7 @@ export const KBCLifelineRenderer: Renderer<KBCLifelinePayload, KBCLifelineRespon
           style={{
             padding: 10,
             marginBottom: 12,
-            background: "var(--bg-amber-tint, #fef3c7)",
+            background: "var(--warn-soft-tint, #fef3c7)",
             borderRadius: 4,
             fontSize: 13,
           }}
@@ -151,7 +151,7 @@ export const KBCLifelineRenderer: Renderer<KBCLifelinePayload, KBCLifelineRespon
         <div
           style={{
             padding: 14,
-            background: "var(--bg-amber-tint, #fef3c7)",
+            background: "var(--warn-soft-tint, #fef3c7)",
             borderRadius: 4,
             fontSize: 13,
           }}
@@ -225,7 +225,7 @@ export const TimedRevealRenderer: Renderer<TimedRevealPayload, TimedRevealRespon
           marginBottom: 12,
           fontFamily: "monospace",
           fontSize: 13,
-          color: "var(--color-amber, #b45309)",
+          color: "var(--warn, #b45309)",
         }}
       >
         ⏱ {elapsed.toFixed(1)} s
@@ -244,10 +244,10 @@ export const TimedRevealRenderer: Renderer<TimedRevealPayload, TimedRevealRespon
               style={{
                 padding: 10,
                 background: unlocked
-                  ? "var(--bg-amber-tint, #fef3c7)"
-                  : "var(--bg-subtle, #f8f9fc)",
+                  ? "var(--warn-soft-tint, #fef3c7)"
+                  : "var(--paper-2, #f8f9fc)",
                 border: `1px solid ${
-                  unlocked ? "var(--color-amber, #f59e0b)" : "var(--border, #e1e5ee)"
+                  unlocked ? "var(--warn, #f59e0b)" : "var(--rule, #e1e5ee)"
                 }`,
                 borderRadius: 4,
                 opacity: unlocked ? 1 : 0.5,
@@ -256,7 +256,7 @@ export const TimedRevealRenderer: Renderer<TimedRevealPayload, TimedRevealRespon
                 alignItems: "flex-start",
               }}
             >
-              <strong style={{ fontFamily: "monospace", color: "var(--color-amber, #b45309)" }}>
+              <strong style={{ fontFamily: "monospace", color: "var(--warn, #b45309)" }}>
                 @{step.at_seconds.toFixed(0)}s
               </strong>
               <span style={{ flex: 1, fontSize: 13 }}>
@@ -278,7 +278,7 @@ export const TimedRevealRenderer: Renderer<TimedRevealPayload, TimedRevealRespon
         <div
           style={{
             padding: 14,
-            background: "var(--bg-amber-tint, #fef3c7)",
+            background: "var(--warn-soft-tint, #fef3c7)",
             borderRadius: 4,
             fontSize: 13,
           }}
@@ -354,7 +354,7 @@ export const AdaptiveDifficultyRenderer: Renderer<
         <div
           style={{
             padding: 14,
-            background: "var(--bg-amber-tint, #fef3c7)",
+            background: "var(--warn-soft-tint, #fef3c7)",
             borderRadius: 4,
             fontSize: 13,
           }}
@@ -368,12 +368,12 @@ export const AdaptiveDifficultyRenderer: Renderer<
 };
 
 function difficultyBg(level: number): string {
-  if (level <= 2) return "var(--bg-green-tint, #ecfdf5)";
-  if (level <= 3) return "var(--bg-amber-tint, #fef3c7)";
-  return "var(--bg-red-tint, #fee2e2)";
+  if (level <= 2) return "var(--good-soft-tint, #ecfdf5)";
+  if (level <= 3) return "var(--warn-soft-tint, #fef3c7)";
+  return "var(--bad-soft-tint, #fee2e2)";
 }
 function difficultyFg(level: number): string {
-  if (level <= 2) return "var(--color-green, #10c47a)";
-  if (level <= 3) return "var(--color-amber, #b45309)";
-  return "var(--color-red, #b91c1c)";
+  if (level <= 2) return "var(--good, #10c47a)";
+  if (level <= 3) return "var(--warn, #b45309)";
+  return "var(--bad, #b91c1c)";
 }

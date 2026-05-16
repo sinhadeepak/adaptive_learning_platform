@@ -45,7 +45,7 @@ export const MatchTheFollowingRenderer: Renderer<MatchPayload, MatchResponse> = 
       </p>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
-          <tr style={{ borderBottom: "1px solid var(--border, #e1e5ee)" }}>
+          <tr style={{ borderBottom: "1px solid var(--rule, #e1e5ee)" }}>
             <th style={{ textAlign: "left", padding: 8 }}>List A</th>
             <th style={{ textAlign: "left", padding: 8 }}>Match to</th>
           </tr>
@@ -54,7 +54,7 @@ export const MatchTheFollowingRenderer: Renderer<MatchPayload, MatchResponse> = 
           {payload.list_a.map((left) => (
             <tr
               key={left.id}
-              style={{ borderBottom: "1px solid var(--border-subtle, #f0f2f6)" }}
+              style={{ borderBottom: "1px solid var(--rule, #f0f2f6)" }}
             >
               <td style={{ padding: 8 }}>
                 <strong>{left.id}.</strong> {left.text}
@@ -66,7 +66,7 @@ export const MatchTheFollowingRenderer: Renderer<MatchPayload, MatchResponse> = 
                   disabled={disabled}
                   style={{
                     padding: 6,
-                    border: "1px solid var(--border, #e1e5ee)",
+                    border: "1px solid var(--rule, #e1e5ee)",
                     borderRadius: 4,
                     minWidth: 200,
                   }}
@@ -146,7 +146,7 @@ export const SequencingRenderer: Renderer<SequencingPayload, SequencingResponse>
                 alignItems: "center",
                 gap: 12,
                 padding: 12,
-                border: "1px solid var(--border, #e1e5ee)",
+                border: "1px solid var(--rule, #e1e5ee)",
                 borderRadius: 6,
               }}
             >
@@ -160,9 +160,9 @@ export const SequencingRenderer: Renderer<SequencingPayload, SequencingResponse>
                 disabled={disabled || idx === 0}
                 style={{
                   padding: "4px 10px",
-                  border: "1px solid var(--border, #e1e5ee)",
+                  border: "1px solid var(--rule, #e1e5ee)",
                   borderRadius: 4,
-                  background: "var(--bg-surface3)",
+                  background: "var(--paper-2)",
                   cursor: disabled || idx === 0 ? "not-allowed" : "pointer",
                 }}
               >
@@ -174,9 +174,9 @@ export const SequencingRenderer: Renderer<SequencingPayload, SequencingResponse>
                 disabled={disabled || idx === order.length - 1}
                 style={{
                   padding: "4px 10px",
-                  border: "1px solid var(--border, #e1e5ee)",
+                  border: "1px solid var(--rule, #e1e5ee)",
                   borderRadius: 4,
-                  background: "var(--bg-surface3)",
+                  background: "var(--paper-2)",
                   cursor:
                     disabled || idx === order.length - 1
                       ? "not-allowed"
@@ -261,7 +261,7 @@ export const ClassificationRenderer: Renderer<ClassificationPayload, Classificat
               gridTemplateColumns: "1fr 240px",
               gap: 12,
               padding: 8,
-              border: "1px solid var(--border-subtle, #f0f2f6)",
+              border: "1px solid var(--rule, #f0f2f6)",
               borderRadius: 6,
             }}
           >
@@ -272,7 +272,7 @@ export const ClassificationRenderer: Renderer<ClassificationPayload, Classificat
               disabled={disabled}
               style={{
                 padding: 6,
-                border: "1px solid var(--border, #e1e5ee)",
+                border: "1px solid var(--rule, #e1e5ee)",
                 borderRadius: 4,
               }}
             >

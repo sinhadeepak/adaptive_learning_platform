@@ -36,9 +36,9 @@ export function CulturalReview() {
           style={{
             padding: 16,
             marginTop: 16,
-            background: "var(--bg-surface1)",
-            border: "1px solid var(--border)",
-            color: "var(--text-secondary)",
+            background: "var(--paper-2)",
+            border: "1px solid var(--rule)",
+            color: "var(--ink-2)",
             borderRadius: 8,
             fontSize: 13,
             lineHeight: 1.5,
@@ -51,12 +51,12 @@ export function CulturalReview() {
               marginBottom: 8,
             }}
           >
-            <strong style={{ color: "var(--text-primary)" }}>About cultural review</strong>
+            <strong style={{ color: "var(--ink)" }}>About cultural review</strong>
             <button
               onClick={() => setShowRationale(false)}
               style={{
                 background: "transparent",
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 border: "none",
                 cursor: "pointer",
                 fontSize: 13,
@@ -94,7 +94,7 @@ export function CulturalReview() {
             style={{
               fontSize: 16,
               marginBottom: 8,
-              color: "var(--text-primary)",
+              color: "var(--ink)",
             }}
           >
             Manual lookup
@@ -102,7 +102,7 @@ export function CulturalReview() {
           <p
             style={{
               fontSize: 13,
-              color: "var(--text-secondary)",
+              color: "var(--ink-2)",
               marginBottom: 12,
             }}
           >
@@ -115,9 +115,9 @@ export function CulturalReview() {
             style={{
               display: "inline-block",
               padding: "8px 16px",
-              background: "var(--color-blue)",
+              background: "var(--info)",
               color: "white",
-              border: "1px solid var(--border)",
+              border: "1px solid var(--rule)",
               borderRadius: 4,
               textDecoration: "none",
               fontSize: 13,
@@ -133,7 +133,7 @@ export function CulturalReview() {
             style={{
               fontSize: 14,
               marginBottom: 8,
-              color: "var(--text-primary)",
+              color: "var(--ink)",
             }}
           >
             SLA tracking
@@ -160,16 +160,16 @@ function SlaCard({ label, hint }: { label: string; hint: string }) {
     <div
       style={{
         padding: 12,
-        background: "var(--bg-surface1)",
-        border: "1px solid var(--border)",
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
         borderRadius: 6,
-        color: "var(--text-primary)",
+        color: "var(--ink)",
       }}
     >
       <div
         style={{
           fontSize: 11,
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
           textTransform: "uppercase",
           letterSpacing: 0.04,
         }}
@@ -177,7 +177,7 @@ function SlaCard({ label, hint }: { label: string; hint: string }) {
         {label}
       </div>
       <div style={{ fontSize: 24, fontWeight: 700, marginTop: 4 }}>—</div>
-      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{hint}</div>
+      <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{hint}</div>
     </div>
   );
 }
