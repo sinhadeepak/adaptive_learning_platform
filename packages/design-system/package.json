@@ -12,30 +12,15 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./tokens": {
-      "types": "./dist/tokens/index.d.ts",
-      "import": "./dist/tokens/index.js"
-    },
-    "./tokens.css": "./src/tokens.css",
-    "./tokens.v2.css": "./src/tokens.v2.css",
-    "./density.css": "./src/density.css",
     "./shell.css": "./src/shell.css",
     "./vidya/tokens.css": "./src/vidya/tokens.css",
     "./vidya/fonts.css": "./src/vidya/fonts.css",
-    "./vidya/density-scalars.css": "./src/vidya/density-scalars.css",
-    "./portals/admin.css": "./src/portals/admin.css",
-    "./portals/teacher.css": "./src/portals/teacher.css",
-    "./portals/author.css": "./src/portals/author.css",
-    "./portals/mobile.css": "./src/portals/mobile.css"
+    "./vidya/density-scalars.css": "./src/vidya/density-scalars.css"
   },
   "files": [
     "dist",
-    "src/tokens.css",
-    "src/tokens.v2.css",
-    "src/density.css",
     "src/shell.css",
     "src/vidya/*.css",
-    "src/portals/*.css",
     "README.md"
   ],
   "scripts": {

@@ -1,15 +1,20 @@
 /* ============================================================
-   @alp/ui — Aurora primitives CSS
+   @alp/ui — Vidya v1 primitives CSS
 
    This sheet styles the primitives in this package. It depends on
-   the Aurora v2 token layer (loaded via @alp/design-system/tokens.css)
-   which provides --brand-*, --neutral-*, --aurora-*, --t-*, --sp-*,
-   --r-*, --sh-*, --m-*, --space-scale, --type-scale, --radius-scale,
-   --motion-scale, --touch-target.
+   the Vidya v1 token layer (loaded via
+   @alp/design-system/vidya/tokens.css + density-scalars.css)
+   which provides --paper / --ink / --accent / --gold / --good /
+   --warn / --bad / --info, --m-* mastery buckets, --subj-*, --t-*
+   typography scale, --sp-* spacing, --r-* radius, --shadow-*,
+   --m-* motion, --d-* density, --touch-target. The density-scalars
+   compat sheet additionally re-emits --space-scale / --type-scale
+   / --radius-scale / --motion-scale (Aurora-era multipliers) under
+   [data-density="compact|regular|comfy"].
 
-   All spacing/radius/type/motion is density-scaled by multiplying the
-   base token by its corresponding scalar — engineering builds each
-   primitive once; density emerges from token consumption.
+   All spacing/radius/type/motion is density-scaled by multiplying
+   the base token by its corresponding scalar — engineering builds
+   each primitive once; density emerges from token consumption.
    ============================================================ */
 
 /* Convenience CSS variable defaults for primitives.
