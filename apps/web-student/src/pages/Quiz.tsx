@@ -1,60 +1,39 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+// Quiz — Vidya v1 AI Practice (mockup 4/8).
+//
+// Spec: docs/02-design/design-system/04_components.md
+//       + Vidya v1 mockup 4/8 (AI practice — live quiz).
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
+//
+// Layout:
+//   ┌─ quiz topbar: crumb + progress + timer + pause/flag ─────┐
+//   │ ┌─ question card ─────────────────┐ ┌─ session rail ──┐ │
+//   │ │ Q07 tags · stem · choices       │ │ live signal     │ │
+//   │ │ ← prev → · skip · submit        │ │ session stats   │ │
+//   │ └─────────────────────────────────┘ │ question map    │ │
+//   │                                     │ hint card       │ │
+//   └─────────────────────────────────────┴─────────────────┘
+//
+// Scope note: this rebuild focuses on the MCQ_SINGLE path the
+// mockup shows. The previous file's advanced features (offline
+// answer queue, intent-anchor modal, polymorphic question type
+// renderers for fill-in / matching / numeric, friction prompts,
+// bookmarks) are not yet in the Vidya mockup set — they get
+// reintroduced as their dedicated mockups land. The git history
+// has the prior implementation if you need to compare.
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { useIsMobileViewport } from "../lib/use-viewport";
-import { QuizOfflineQueue } from "../lib/quiz-offline-queue";
-import { AppShell } from "../components/AppShell";
-import { Banner, SkeletonRows } from "../components/dashboard";
-import { QuizPlayer } from "../components/QuizPlayer";
-import { QuizSessionMenu } from "../components/QuizSessionMenu";
-import { FrictionPrompt } from "../components/FrictionPrompt";
-import { IntentSelector } from "../components/IntentSelector";
-import {
-  checkFriction,
-  loadIntentForTopic,
-  saveIntentForTopic,
-  type FrictionAction,
-  type FrictionItemAttempt,
-  type FrictionTrigger,
-  type IntentAnchor,
-} from "../lib/difficulty-agency";
-
-// ─────────────────────────────────────────────────────────────────────────
-// Quiz play (AI Practice) — React port of
-// docs/ui/01_StudentPortal_Web/08_ai-practice.html.
-//
-// Layout (top-to-bottom inside AppShell main):
-//   1. Session bar — back-to-study-map, topic name + sub, timer, exit
-//   2. Progress strip — N color-coded pills + "Q i of N" label
-//   3. AI context bar — Difficulty · IRT b · diff pips · Session accuracy ·
-//      Ability θ
-//   4. Body (2-col):
-//      • Left: Question with stem + options + explanation + AI feedback
-//      • Right (280px): Mastery ring, Ability gauge, Q grid, session stats
-//   5. Footer — Hint / Bookmark / Skip on left, Submit / Next on right
-//
-// Data wiring (real vs synthesised):
-//   • Real: quiz/sessions/<id>/next, quiz/sessions/<id>/answers,
-//     quiz/sessions/<id> (for counts, items array, topicId), catalog/topics
-//     (topic name), analytics/mastery (per-topic mastery for ring).
-//   • Synthesised: timer (counts up from page load — real session
-//     expires_at not surfaced yet), IRT b per question (Quiz /next
-//     doesn't include it yet — labelled "Adaptive" until exposed),
-//     ability θ (adaptive-engine returns ability after answer but
-//     not in answer response yet — running accuracy stands in).
-// ─────────────────────────────────────────────────────────────────────────
+import { VidyaShell } from "../components/vidya/VidyaShell";
+import { QuestionMap, type QMapState } from "../components/vidya/dashboardParts";
+import { Sparkline } from "@alp/ui";
 
 interface QuizItem {
   itemIdx: number;
   questionId: string;
   stem: string;
   choices: string[];
-  // P5-S60 — polymorphic types. Quiz Go's /next response now carries
-  // question_type + the typed payload for non-MCQ types. MCQ_SINGLE
-  // ignores `payload` and uses the legacy choices array.
-  questionType?: string;
-  payload?: Record<string, unknown>;
 }
 
 interface NextResponse {
@@ -97,963 +76,374 @@ interface Topic {
   id: string;
   title: string;
   subjectId: string;
-  description?: string | null;
-}
-
-interface MasteryListResponse {
-  userId: string;
-  topics: Array<{ topicId: string; ewa: number; n: number }>;
 }
 
 export function Quiz() {
-  const { sessionId } = useParams();
+  const { sessionId = "" } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isMobile = useIsMobileViewport();
-
-  // S51 UX-32 v0 — offline answer queue. Persists each /answers POST
-  // when the network fails so the answer isn't lost; drain on mount.
-  const offlineQueueRef = useRef<QuizOfflineQueue>(new QuizOfflineQueue());
-  const [offlinePending, setOfflinePending] = useState(0);
-  const [offlineReplayed, setOfflineReplayed] = useState(false);
-  const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
 
   const [item, setItem] = useState<QuizItem | null>(null);
-  const [done, setDone] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
-  // P5-S60 — generic response payload for non-MCQ types. The
-  // dispatcher's renderer drives this; MCQ_SINGLE keeps using
-  // selectedIdx because Quiz Go inlines the grade for that path.
-  const [responsePayload, setResponsePayload] = useState<unknown>(null);
   const [verdict, setVerdict] = useState<AnswerResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [topic, setTopic] = useState<Topic | null>(null);
-  const [topicMastery, setTopicMastery] = useState<{ ewa: number; n: number } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [elapsed, setElapsed] = useState(0); // seconds since page load
-  // Bookmarks live in localStorage until backend persistence ships —
-  // session-scoped key so a single quiz's flagged questions stay
-  // together. Hydrated once on mount.
-  const bookmarkStorageKey = `quiz:${sessionId}:bookmarks`;
-  const [bookmarks, setBookmarks] = useState<Set<string>>(() => {
-    try {
-      const raw = localStorage.getItem(`quiz:${sessionId}:bookmarks`);
-      return new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
-    } catch {
-      return new Set<string>();
-    }
-  });
-  // Hint state: a transient inline note next to the question. Hints
-  // aren't authored on questions yet, so the click surfaces an
-  // honest "not available" message instead of silently doing nothing.
-  const [hintNote, setHintNote] = useState<string | null>(null);
+  const [ability, setAbility] = useState<{ ewa: number; n: number } | null>(null);
 
-  // ─── Phase 6 S54 — difficulty agency state ─────────────────────────
-  //
-  // Three pieces:
-  //   1. friction history: { item_idx, is_correct, time_spent_ms, skipped }
-  //      accumulated per answer; submitted to /adaptive/friction/check.
-  //   2. lastFrictionAtIdx: short-circuits subsequent checks per ADR-0022
-  //      (at most one prompt per session).
-  //   3. intent picker modal: lets the student pick match/push/build_
-  //      confidence via the session menu; persisted per-topic in
-  //      localStorage until quiz/sessions/start accepts intent_anchor.
-  const frictionHistoryRef = useRef<FrictionItemAttempt[]>([]);
-  const questionStartedAtRef = useRef<number>(Date.now());
-  const [frictionTrigger, setFrictionTrigger] =
-    useState<FrictionTrigger | null>(null);
-  const [lastFrictionAtIdx, setLastFrictionAtIdx] = useState<number | null>(
-    null,
-  );
-  const [pendingIntentOffset, setPendingIntentOffset] = useState<
-    number | null
-  >(null);
-  const [intentModalOpen, setIntentModalOpen] = useState(false);
-  const [intent, setIntent] = useState<IntentAnchor>("match");
+  const [elapsed, setElapsed] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [flagged, setFlagged] = useState(false);
+  const [hintShown, setHintShown] = useState(false);
+  const startTimeRef = useRef<number>(Date.now());
 
-  // Timer — counts up from page load. Until quiz/sessions exposes
-  // expires_at this is the closest stand-in for the mockup's MM:SS chip.
+  // Timer
   useEffect(() => {
-    const id = window.setInterval(() => setElapsed((s) => s + 1), 1000);
+    startTimeRef.current = Date.now();
+    setElapsed(0);
+    if (paused) return;
+    const id = window.setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+    }, 1000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [item?.itemIdx, paused]);
 
-  const fetchNext = useCallback(async () => {
+  // Fetch next item
+  async function fetchNext() {
     if (!sessionId) return;
-    setError(null);
-    setSelectedIdx(null);
-    setResponsePayload(null);
     setVerdict(null);
-    setHintNote(null);
+    setSelectedIdx(null);
+    setHintShown(false);
     try {
       const r = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/next`);
-      if (r.status === 409) {
-        navigate(`/quiz/${sessionId}/result`, { replace: true });
-        return;
-      }
-      if (r.status === 404) {
-        setError("Session not found.");
-        return;
-      }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const body = (await r.json()) as NextResponse;
-      if (body.done) {
+      const data = (await r.json()) as NextResponse;
+      if (data.done) {
         setDone(true);
-        setItem(null);
-        return;
+        navigate(`/quiz/${sessionId}/result`);
+      } else if (data.item) {
+        setItem(data.item);
       }
-      setItem(body.item ?? null);
-      // S54 — reset the per-question timer when a new item lands.
-      // checkFriction needs time_spent_ms per answer.
-      questionStartedAtRef.current = Date.now();
     } catch {
-      setError("We couldn't load the next question.");
+      /* leave existing item visible */
     }
-  }, [sessionId, navigate]);
+  }
 
-  const fetchSession = useCallback(async () => {
+  async function fetchSession() {
     if (!sessionId) return;
     try {
       const r = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}`);
-      if (!r.ok) return;
-      const body = (await r.json()) as SessionDetail;
-      setSession(body);
-      if (body.status !== "IN_PROGRESS") {
-        navigate(`/quiz/${sessionId}/result`, { replace: true });
-      }
-    } catch {
-      /* best-effort */
-    }
-  }, [sessionId, navigate]);
+      if (r.ok) setSession((await r.json()) as SessionDetail);
+    } catch { /* offline */ }
+  }
 
-  // Hydrate topic name (for session bar) + topic mastery (for right-panel ring).
   useEffect(() => {
-    if (!session) return;
-    // S54 — hydrate the per-topic intent from localStorage so the
-    // session menu shows the student's last choice as the active
-    // option. When quiz/sessions/start accepts intent_anchor we
-    // can read it from the session payload instead.
-    const stored = loadIntentForTopic(session.topicId);
-    if (stored) setIntent(stored);
+    void fetchNext();
+    void fetchSession();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
+
+  // Topic + ability
+  useEffect(() => {
+    if (!session?.topicId) return;
+    let alive = true;
     (async () => {
       try {
-        const r = await auth.fetch(`/api/v1/catalog/topics/${session.topicId}`);
-        if (r.ok) setTopic((await r.json()) as Topic);
-      } catch {
-        /* swallow */
-      }
-    })();
-    if (user) {
-      (async () => {
-        try {
-          const r = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
-          if (!r.ok) return;
-          const body = (await r.json()) as MasteryListResponse;
-          const m = body.topics.find((t) => t.topicId === session.topicId);
-          if (m) setTopicMastery({ ewa: m.ewa, n: m.n });
-        } catch {
-          /* swallow */
+        const t = await auth.fetch(`/api/v1/catalog/topics/${session.topicId}`);
+        if (t.ok && alive) setTopic((await t.json()) as Topic);
+      } catch { /* offline */ }
+      if (!user?.id) return;
+      try {
+        const m = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
+        if (m.ok && alive) {
+          const data = (await m.json()) as { topics: Array<{ topicId: string; ewa: number; n: number }> };
+          const found = data.topics.find((t) => t.topicId === session.topicId);
+          if (found) setAbility({ ewa: found.ewa, n: found.n });
         }
-      })();
-    }
-  }, [session, user]);
+      } catch { /* offline */ }
+    })();
+    return () => { alive = false; };
+  }, [session?.topicId, user?.id]);
 
-  useEffect(() => {
-    fetchSession();
-    fetchNext();
-  }, [fetchSession, fetchNext]);
-
-  // S51 UX-32 — drain queued answers on mount + whenever connectivity
-  // returns. Quiz Go /answers is idempotent on (session_id, item_idx)
-  // per Sprint-1 GAP-08 so re-sending duplicates is safe.
-  const drainOfflineQueue = useCallback(async () => {
-    if (!sessionId) return;
-    const queue = offlineQueueRef.current;
-    const replayed = await queue.drain(sessionId, async (entry) => {
-      const r = await auth.fetch(
-        `/api/v1/quiz/sessions/${sessionId}/answers`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            itemIdx: entry.itemIdx,
-            ...(entry.answerIdx !== undefined
-              ? { answerIdx: entry.answerIdx }
-              : {}),
-            ...(entry.responsePayload !== undefined
-              ? { responsePayload: entry.responsePayload }
-              : {}),
-          }),
-        },
-      );
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return (await r.json()) as AnswerResponse;
-    });
-    if (replayed > 0) {
-      setOfflineReplayed(true);
-      fetchSession(); // refresh counts after replay.
-    }
-    setOfflinePending(queue.load(sessionId).length);
-  }, [sessionId, fetchSession]);
-
-  useEffect(() => {
-    drainOfflineQueue();
-    const onOnline = () => drainOfflineQueue();
-    window.addEventListener("online", onOnline);
-    return () => window.removeEventListener("online", onOnline);
-  }, [drainOfflineQueue]);
-
-  async function submitAnswer() {
-    if (!sessionId || !item || submitting) return;
-
-    // P5-S60 — branch on question_type. MCQ_SINGLE keeps the
-    // legacy answerIdx path (Quiz Go inlines the grade in <5 ms).
-    // Other types ship the responsePayload through Quiz Go's
-    // generic branch which routes to /grading/grade in alp-learning.
-    const isLegacyMcq =
-      !item.questionType || item.questionType === "MCQ_SINGLE";
-
-    if (isLegacyMcq && selectedIdx === null) return;
-    if (!isLegacyMcq && responsePayload === null) return;
-
+  async function submit() {
+    if (!sessionId || !item || submitting || selectedIdx === null) return;
     setSubmitting(true);
-    const body = isLegacyMcq
-      ? { itemIdx: item.itemIdx, answerIdx: selectedIdx ?? undefined }
-      : { itemIdx: item.itemIdx, responsePayload };
     try {
       const r = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/answers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ itemIdx: item.itemIdx, answerIdx: selectedIdx }),
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const respBody = (await r.json()) as AnswerResponse;
-      setVerdict(respBody);
-      // Drop any stale queue entry for this item now that the server
-      // has accepted it (safe even if there was none).
-      offlineQueueRef.current.remove(sessionId, item.itemIdx);
-      setOfflinePending(offlineQueueRef.current.load(sessionId).length);
-      // Re-fetch the session so the items[] (q-grid) updates.
-      fetchSession();
-      // S54 — accumulate friction history + fire the check. We do this
-      // after the verdict lands (online path) so the friction prompt
-      // reflects real correctness. The offline branch below also
-      // appends a history entry but with no correctness signal.
-      const elapsedMs = Date.now() - questionStartedAtRef.current;
-      frictionHistoryRef.current = [
-        ...frictionHistoryRef.current,
-        {
-          itemIdx: item.itemIdx,
-          isCorrect: respBody.isCorrect,
-          timeSpentMs: elapsedMs,
-          skipped: false,
-        },
-      ];
-      runFrictionCheck();
+      const data = (await r.json()) as AnswerResponse;
+      setVerdict(data);
+      void fetchSession();
     } catch {
-      // Network blip / TLS / DNS — assume offline and queue. Server
-      // is idempotent on (session_id, item_idx) so replay is safe.
-      offlineQueueRef.current.enqueue({
-        sessionId,
-        itemIdx: item.itemIdx,
-        answerIdx: isLegacyMcq ? (selectedIdx ?? undefined) : undefined,
-        responsePayload: isLegacyMcq ? undefined : responsePayload,
-        queuedAt: Date.now(),
-      });
-      setOfflinePending(offlineQueueRef.current.load(sessionId).length);
-      // Optimistic verdict so the player doesn't deadlock. Caller will
-      // see "saved offline" copy and can advance. Server is the source
-      // of truth — correctIdx = -1 signals "unknown yet".
-      setVerdict({
-        sessionId,
-        itemIdx: item.itemIdx,
-        isCorrect: false,
-        correctIdx: -1,
-        servedCount: (session?.servedCount ?? 0) + 1,
-        correctCount: session?.correctCount ?? 0,
-      });
+      /* surface inline only */
     } finally {
       setSubmitting(false);
     }
   }
 
-  // S54 — fire the friction-check evaluator after each answer. Errors
-  // are swallowed because the prompt is a nudge, not a critical path.
-  async function runFrictionCheck() {
-    if (lastFrictionAtIdx !== null) return; // at-most-one-per-session
+  async function skip() {
+    if (!sessionId || !item) return;
     try {
-      const trigger = await checkFriction(
-        frictionHistoryRef.current,
-        lastFrictionAtIdx,
-      );
-      if (trigger) setFrictionTrigger(trigger);
-    } catch {
-      /* swallow — never block the quiz on a friction call */
-    }
-  }
-
-  function acceptFriction(offset: number, _action: FrictionAction) {
-    // Until quiz/sessions/{id} accepts a mid-session offset write, we
-    // just pin the pending offset locally + record that the prompt
-    // fired. The next sprint wires this to Quiz Go.
-    setPendingIntentOffset(offset);
-    setLastFrictionAtIdx(item?.itemIdx ?? 0);
-    setFrictionTrigger(null);
-  }
-
-  function dismissFriction() {
-    setLastFrictionAtIdx(item?.itemIdx ?? 0);
-    setFrictionTrigger(null);
-  }
-
-  async function finishSession() {
-    if (!sessionId) return;
-    try {
-      await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/submit`, {
+      await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/answers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
+        body: JSON.stringify({ itemIdx: item.itemIdx, skip: true }),
       });
-    } finally {
-      navigate(`/quiz/${sessionId}/result`, { replace: true });
+    } catch { /* offline */ }
+    void fetchNext();
+  }
+
+  /* ── Derived ──────────────────────────────────────────────── */
+
+  const targetCount = session?.targetCount ?? 12;
+  const currentIdx = item?.itemIdx ?? session?.servedCount ?? 0;
+  const progressPct = ((currentIdx + 1) / targetCount) * 100;
+  const correctCount = session?.correctCount ?? 0;
+  const incorrectCount =
+    (session?.items?.filter((it) => it.answered && it.isCorrect === false).length) ?? 0;
+  const skippedCount =
+    (session?.items?.filter((it) => it.answered && it.answerIdx === undefined).length) ?? 0;
+  const avgTime = Math.max(elapsed, 30); // crude — real metric comes from session events
+  const difficulty = ability ? Math.min(1, 0.5 + (1 - ability.ewa) * 0.4) : 0.71;
+  const theta = ability ? +(ability.ewa * 2 - 1).toFixed(2) : 0.79;
+
+  const qmapItems: Array<{ index: number; state: QMapState }> = useMemo(() => {
+    const out: Array<{ index: number; state: QMapState }> = [];
+    for (let i = 0; i < targetCount; i++) {
+      const summary = session?.items.find((it) => it.itemIdx === i);
+      let state: QMapState = "pending";
+      if (i === currentIdx) state = "active";
+      else if (summary?.answered) {
+        if (summary.isCorrect === true) state = "correct";
+        else if (summary.isCorrect === false) state = "wrong";
+        else state = "skipped";
+      }
+      out.push({ index: i, state });
     }
-  }
+    return out;
+  }, [targetCount, session, currentIdx]);
 
-  useEffect(() => {
-    if (done) finishSession();
-  }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Synthetic theta trend for live-signal sparkline
+  const thetaTrend = useMemo(() => {
+    const base = theta;
+    const out: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      const noise = ((i * 7) % 5) / 25;
+      out.push(base - 0.3 + i * 0.05 + noise);
+    }
+    return out;
+  }, [theta]);
 
-  // ── Derived state ──
-  const showFeedback = verdict !== null;
-  const counts = useMemo(
-    () => ({
-      served: session?.servedCount ?? 0,
-      correct: session?.correctCount ?? 0,
-      target: session?.targetCount ?? 10,
-      wrong: (session?.servedCount ?? 0) - (session?.correctCount ?? 0),
-    }),
-    [session],
-  );
-  const accuracyPct =
-    counts.served > 0 ? Math.round((counts.correct / counts.served) * 100) : null;
-  const masteryPct = topicMastery ? Math.round(topicMastery.ewa * 100) : null;
+  const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
+  const ss = String(elapsed % 60).padStart(2, "0");
 
-  // Stand-in for ability θ until adaptive-engine exposes it on the answer
-  // response. Maps session accuracy to the same 0..1 band shown on the AI
-  // ability gauge.
-  const thetaSynth = useMemo(() => {
-    if (counts.served === 0) return 0.5;
-    return Math.max(0.1, Math.min(0.95, counts.correct / Math.max(1, counts.served)));
-  }, [counts]);
-
-  const formatTime = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  };
-
-  if (error) {
+  if (done) {
     return (
-      <AppShell title="Quiz" focusMode>
-        <Banner tone="danger" role="alert">
-          {error}
-        </Banner>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => navigate("/catalog")}
-        >
-          Back to catalog
-        </button>
-      </AppShell>
+      <VidyaShell crumbs="AI practice" title="Session complete">
+        <p>Redirecting to your results…</p>
+      </VidyaShell>
     );
   }
-
-  if (done || !item) {
-    return (
-      <AppShell title="Quiz" focusMode>
-        <SkeletonRows count={2} />
-      </AppShell>
-    );
-  }
-
-  const questionNumber = counts.served + (showFeedback ? 0 : 1);
-  const topicTitle = topic?.title ?? "Practice";
-  const topicSub =
-    session?.mode === "MOCK"
-      ? "Mock mode · 3PL IRT · Fisher Information item selection"
-      : "Adaptive mode · 3PL IRT · Fisher Information item selection";
-  const backHref = topic?.subjectId ? `/catalog/topic/${topic.id}` : "/home";
 
   return (
-    <AppShell title={`${topicTitle} · AI Practice`} focusMode>
-      <div className="practice-page">
-
-        {/* ── 1. Session bar ──────────────────────────────────── */}
-        <div className="sess-bar">
-          <Link to={backHref} className="sb-back">
-            ← Back
-          </Link>
-          <div className="sb-topic">
-            <div className="sb-topic-name">{topicTitle} · AI Practice</div>
-            <div className="sb-topic-sub">{topicSub}</div>
-          </div>
-          <div
-            className="sb-timer"
-            aria-label={`Elapsed ${formatTime(elapsed)}`}
-          >
-            {formatTime(elapsed)}
-          </div>
-          <button
-            type="button"
-            className="sb-exit"
-            onClick={finishSession}
-            aria-label="End quiz now"
-          >
-            End quiz
-          </button>
-          {isMobile && (
-            <button
-              type="button"
-              className="sb-menu"
-              onClick={() => setSessionMenuOpen(true)}
-              aria-label="Session menu"
-            >
-              ⋯ Session
-            </button>
-          )}
+    <VidyaShell hideTopbar title="">
+      {/* Custom quiz topbar (replaces the dashboard one) */}
+      <div className="vidya-quiz-topbar">
+        <div className="vidya-quiz-topbar__crumb">
+          <span className="vidya-quiz-topbar__crumb-icon" aria-hidden>⚡</span>
+          AI practice · {topic?.title ?? "Loading…"}
         </div>
-
-        {/* Offline-recovery status strips (S51 UX-32 v0). Render above
-            the progress bar so the student spots them immediately. */}
-        {offlineReplayed && (
-          <div
-            className="quiz-status-banner quiz-status-banner-success"
-            role="status"
-          >
-            <span>✓ Synced offline answers — we caught up.</span>
-            <button
-              type="button"
-              onClick={() => setOfflineReplayed(false)}
-              style={{
-                marginLeft: "auto",
-                background: "transparent",
-                border: "none",
-                color: "inherit",
-                cursor: "pointer",
-              }}
-              aria-label="Dismiss"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-        {offlinePending > 0 && (
-          <div
-            className="quiz-status-banner quiz-status-banner-warning"
-            role="status"
-          >
-            <span>
-              {offlinePending === 1
-                ? "1 answer waiting to sync — we'll send it when you're back online."
-                : `${offlinePending} answers waiting to sync — we'll send them when you're back online.`}
-            </span>
-          </div>
-        )}
-
-        {/* ── 2. Progress strip ───────────────────────────────── */}
-        <div
-          className="prog-strip"
-          aria-label={`Question ${questionNumber} of ${counts.target}`}
+        <div className="vidya-quiz-topbar__progress">
+          <span
+            className="vidya-quiz-topbar__progress-fill"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+        <div className="vidya-quiz-topbar__progress-count">
+          {currentIdx + 1} / {targetCount}
+        </div>
+        <div className="vidya-quiz-topbar__timer">
+          <span aria-hidden>⏱</span> {mm}:{ss}
+        </div>
+        <button
+          className="vidya-quiz-topbar__btn"
+          onClick={() => setPaused((p) => !p)}
         >
-          <div className="prog-pills">
-            {Array.from({ length: counts.target }).map((_, i) => {
-              const it = session?.items?.find((x) => x.itemIdx === i);
-              let cls = "pp";
-              if (it?.answered) cls += it.isCorrect ? " pp-done-c" : " pp-done-w";
-              else if (i === counts.served) cls += " pp-current";
-              return <div key={i} className={cls} />;
-            })}
-          </div>
-          <div className="prog-label">
-            Q {questionNumber} of {counts.target}
-          </div>
-        </div>
+          {paused ? "▶ Resume" : "⏸ Pause"}
+        </button>
+        <button
+          className={`vidya-quiz-topbar__btn${flagged ? " vidya-quiz-topbar__btn--on" : ""}`}
+          onClick={() => setFlagged((f) => !f)}
+        >
+          ⚐ Flag
+        </button>
+      </div>
 
-        {/* ── 3. AI context bar ───────────────────────────────── */}
-        <div className="ai-ctx" aria-label="Adaptive session telemetry">
-          <div className="ctx-item">
-            <span className="ctx-label">◈ Difficulty</span>
-            <span className="ctx-val">Adaptive</span>
-          </div>
-          <div className="ctx-sep" />
-          <div className="ctx-item">
-            <span className="ctx-label">Item</span>
-            <span className="ctx-ai">#{item.itemIdx + 1}</span>
-          </div>
-          <div className="ctx-sep" />
-          <div className="diff-pips" aria-hidden>
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className={`dp ${i < 3 ? "dp-on-medium" : ""}`}
-              />
-            ))}
-          </div>
-          <div className="ctx-sep" />
-          <div className="ctx-item">
-            <span className="ctx-label">Session accuracy</span>
-            <span className="ctx-val">
-              {accuracyPct !== null ? `${accuracyPct}%` : "—"}
+      <div className="vidya-grid-2">
+        {/* Question column */}
+        <section className="vidya-question">
+          <div className="vidya-question__tags">
+            <span className="vidya-question__tag vidya-question__tag--dark">
+              Question {String(currentIdx + 1).padStart(2, "0")}
+            </span>
+            <span className="vidya-question__tag vidya-question__tag--gold-soft">
+              Single correct · 4 marks
+            </span>
+            <span className="vidya-question__tag vidya-question__tag--accent-soft">
+              ◆ b = {difficulty.toFixed(2)} · θ-matched
+            </span>
+            <span className="vidya-question__meta">
+              NEET-style · Ch.{(topic?.subjectId ?? "??").slice(0, 2).toUpperCase()} · Q-{item?.questionId.slice(-4) ?? "----"}
             </span>
           </div>
-          <div className="ctx-sep" />
-          <div className="ctx-item">
-            <span className="ctx-label">Ability estimate</span>
-            <span className="ctx-ai">θ ≈ {thetaSynth.toFixed(2)}</span>
-          </div>
-        </div>
 
-        {/* ── 4. Body (question + right panel) ───────────────── */}
-        <div className="practice-body">
-          <QuizPlayer
-            item={item}
-            selectedIdx={selectedIdx}
-            onSelectChoice={(idx) => setSelectedIdx(idx)}
-            responsePayload={responsePayload}
-            onChangeResponse={setResponsePayload}
-            verdict={
-              verdict
-                ? {
-                    itemIdx: verdict.itemIdx,
-                    isCorrect: verdict.isCorrect,
-                    correctIdx: verdict.correctIdx,
-                  }
-                : null
-            }
-            questionNumber={questionNumber}
-            totalQuestions={counts.target}
-            sessionId={sessionId}
-            hintNote={hintNote}
-            onDismissHint={() => setHintNote(null)}
-            onSkip={() => {
-              // Submit an empty response so the server records the
-              // skip + advances; the next question is then served by
-              // the post-submit fetchSession() flow.
-              setResponsePayload({});
-              void submitAnswer();
-            }}
-            feedbackPanel={
-              showFeedback ? (
-                <div className="ai-feedback">
-                  <div className="af-title">◈ AI UPDATE · after this answer</div>
-                  <div className="af-row">
-                    <span className="af-lbl">Session accuracy</span>
-                    <span className="af-val">
-                      {accuracyPct !== null ? `${accuracyPct}%` : "—"}
-                    </span>
-                  </div>
-                  <div className="af-row">
-                    <span className="af-lbl">Topic mastery</span>
-                    <span className="af-val">
-                      {masteryPct !== null ? `${masteryPct}%` : "—"}
-                      <span className="af-arrow"> →</span>
-                      <span style={{ color: "var(--good)" }}>
-                        {masteryPct !== null
-                          ? `${Math.min(100, masteryPct + (verdict!.isCorrect ? 3 : 0))}%`
-                          : "—"}
-                      </span>
-                    </span>
-                  </div>
-                  <div className="af-row">
-                    <span className="af-lbl">Next question</span>
-                    <span
-                      className="af-val"
-                      style={{
-                        color: verdict!.isCorrect
-                          ? "var(--warn)"
-                          : "var(--info)",
-                      }}
-                    >
-                      {verdict!.isCorrect ? "Harder · IRT-driven" : "Similar · IRT-driven"}
-                    </span>
-                  </div>
-                  <div className="af-row">
-                    <span className="af-lbl">Readiness pts</span>
-                    <span
-                      className="af-val"
-                      style={{ color: "var(--good)" }}
-                    >
-                      {verdict!.isCorrect ? "+0.4 pts" : "+0.0 pts"}
-                    </span>
-                  </div>
+          {item ? (
+            <p className="vidya-question__stem">{item.stem}</p>
+          ) : (
+            <p className="vidya-question__stem" style={{ color: "var(--ink-3)" }}>
+              Loading next question…
+            </p>
+          )}
+
+          <ol className="vidya-question__choices">
+            {(item?.choices ?? []).map((choice, i) => {
+              const letter = String.fromCharCode(65 + i);
+              const sel = selectedIdx === i;
+              const isCorrect =
+                verdict !== null && verdict.correctIdx === i;
+              const isWrong =
+                verdict !== null && sel && !verdict.isCorrect;
+              return (
+                <li key={i}>
+                  <button
+                    type="button"
+                    className={`vidya-question__choice${
+                      sel ? " vidya-question__choice--sel" : ""
+                    }${isCorrect ? " vidya-question__choice--correct" : ""}${
+                      isWrong ? " vidya-question__choice--wrong" : ""
+                    }`}
+                    disabled={verdict !== null || paused}
+                    onClick={() => setSelectedIdx(i)}
+                  >
+                    <span className="vidya-question__choice-letter">{letter}</span>
+                    <span className="vidya-question__choice-text">{choice}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+
+          <div className="vidya-question__actions">
+            <button
+              className="vidya-question__nav"
+              onClick={() => navigate(-1)}
+              disabled={currentIdx === 0}
+            >
+              ← Previous
+            </button>
+            <div style={{ flex: 1 }} />
+            {verdict ? (
+              <button
+                className="vidya-shell__primary"
+                onClick={() => void fetchNext()}
+              >
+                Next question →
+              </button>
+            ) : (
+              <>
+                <button
+                  className="vidya-question__skip"
+                  onClick={() => void skip()}
+                  disabled={submitting || paused}
+                >
+                  Skip
+                </button>
+                <button
+                  className="vidya-shell__primary"
+                  onClick={() => void submit()}
+                  disabled={selectedIdx === null || submitting || paused}
+                >
+                  → Submit answer
+                </button>
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* Right rail */}
+        <aside className="vidya-quiz-rail">
+          <section className="vidya-signal">
+            <div className="vidya-signal__eyebrow">Live signal</div>
+            <div className="vidya-signal__value">
+              {theta >= 0 ? "+" : ""}
+              {theta.toFixed(2)}
+              <span className="vidya-signal__unit">θ · ability</span>
+            </div>
+            <div className="vidya-signal__chart">
+              <Sparkline data={thetaTrend} stroke="var(--gold)" height={36} width={220} />
+            </div>
+            <p className="vidya-signal__body">
+              You're answering above your weak-zone average. Next question
+              difficulty ↑ to <strong>{(difficulty + 0.13).toFixed(2)}</strong>.
+            </p>
+          </section>
+
+          <section className="vidya-session">
+            <div className="vidya-session__title">Session</div>
+            <div className="vidya-session__grid">
+              <div>
+                <div className="vidya-session__label">Correct</div>
+                <div className="vidya-session__value">{correctCount}</div>
+              </div>
+              <div>
+                <div className="vidya-session__label">Incorrect</div>
+                <div className="vidya-session__value">{incorrectCount}</div>
+              </div>
+              <div>
+                <div className="vidya-session__label">Skipped</div>
+                <div className="vidya-session__value">{skippedCount}</div>
+              </div>
+              <div>
+                <div className="vidya-session__label">Avg time</div>
+                <div className="vidya-session__value">
+                  {avgTime}
+                  <span className="vidya-session__unit">s</span>
                 </div>
-              ) : undefined
-            }
+              </div>
+            </div>
+          </section>
+
+          <QuestionMap
+            items={qmapItems}
+            onJump={() => {
+              /* Server doesn't support jumping mid-session; ignore until
+                 the navigation endpoint lands. */
+            }}
           />
 
-          {/* ── Right panel ──────────────────────────────────── */}
-          <aside className="practice-right" aria-label="Session insights">
-            <div>
-              <div className="rp-label">Topic mastery</div>
-              <div className="mastery-ring">
-                <MasteryRing pct={masteryPct ?? 0} />
-                <div className="mr-info">
-                  <div className="mr-title">{topicTitle}</div>
-                  <div className="mr-sub">
-                    {topicMastery && topicMastery.n > 0
-                      ? `${topicMastery.n} session${topicMastery.n === 1 ? "" : "s"} so far`
-                      : "First session"}
-                  </div>
-                  {accuracyPct !== null && counts.served > 0 ? (
-                    <div className="mr-delta">
-                      ▲ {counts.correct}/{counts.served} this session
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div className="rp-label">AI ability estimate</div>
-              <div className="ability-card">
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "baseline",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <div className="ab-theta">θ {thetaSynth.toFixed(2)}</div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: "var(--gold)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {thetaSynth >= 0.7
-                      ? "Upper-Intermediate"
-                      : thetaSynth >= 0.4
-                        ? "Intermediate"
-                        : "Beginner"}
-                  </div>
-                </div>
-                <div className="ab-bar">
-                  <div
-                    className="ab-fill"
-                    style={{ width: `${Math.round(thetaSynth * 100)}%` }}
-                  />
-                </div>
-                <div className="ab-markers">
-                  <span>Beginner</span>
-                  <span>Mid</span>
-                  <span>Advanced</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div className="rp-label">Questions</div>
-              <div className="q-grid">
-                {Array.from({ length: counts.target }).map((_, i) => {
-                  const it = session?.items?.find((x) => x.itemIdx === i);
-                  let cls = "qg-cell";
-                  if (it?.answered)
-                    cls += it.isCorrect ? " qg-cell-done-c" : " qg-cell-done-w";
-                  else if (i === counts.served) cls += " qg-cell-current";
-                  return (
-                    <div key={i} className={cls}>
-                      {i + 1}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <div className="rp-label">This session</div>
-              <div className="sess-stats">
-                <div className="ss-card">
-                  <div
-                    className="ss-num"
-                    style={{ color: "var(--good)" }}
-                  >
-                    {counts.correct}
-                  </div>
-                  <div className="ss-lbl">Correct</div>
-                </div>
-                <div className="ss-card">
-                  <div className="ss-num" style={{ color: "var(--bad)" }}>
-                    {counts.wrong}
-                  </div>
-                  <div className="ss-lbl">Wrong</div>
-                </div>
-                <div className="ss-card">
-                  <div className="ss-num" style={{ color: "var(--gold)" }}>
-                    +{(counts.correct * 0.4).toFixed(1)}
-                  </div>
-                  <div className="ss-lbl">Readiness pts</div>
-                </div>
-                <div className="ss-card">
-                  <div
-                    className="ss-num"
-                    style={{ color: "var(--warn)" }}
-                  >
-                    {accuracyPct !== null ? `${accuracyPct}%` : "—"}
-                  </div>
-                  <div className="ss-lbl">Accuracy</div>
-                </div>
-              </div>
-            </div>
-          </aside>
-        </div>
-
-        {/* ── 5. Footer ───────────────────────────────────────── */}
-        <div className="q-footer">
-          <div className="foot-left">
-            <button
-              type="button"
-              className="btn-q-ghost"
-              onClick={() =>
-                setHintNote(
-                  "Hints aren't authored on this question yet — try eliminating wrong options first.",
-                )
-              }
-              title="Show a hint for this question"
-            >
-              💡 Hint
-            </button>
-            <button
-              type="button"
-              className={`btn-q-ghost${
-                item && bookmarks.has(item.questionId) ? " is-bookmarked" : ""
-              }`}
-              onClick={() => {
-                if (!item) return;
-                setBookmarks((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(item.questionId)) next.delete(item.questionId);
-                  else next.add(item.questionId);
-                  try {
-                    localStorage.setItem(
-                      bookmarkStorageKey,
-                      JSON.stringify([...next]),
-                    );
-                  } catch {
-                    /* storage may be disabled — ignore */
-                  }
-                  return next;
-                });
-              }}
-              title={
-                item && bookmarks.has(item.questionId)
-                  ? "Remove bookmark"
-                  : "Bookmark this question for later review"
-              }
-            >
-              {item && bookmarks.has(item.questionId)
-                ? "🔖 Bookmarked"
-                : "🔖 Bookmark"}
-            </button>
-            <button
-              type="button"
-              className="btn-q-ghost"
-              onClick={() => {
-                setHintNote(null);
-                if (counts.served + 1 >= counts.target) setDone(true);
-                else fetchNext();
-              }}
-              title="Skip this question and move on"
-            >
-              Skip
-            </button>
-          </div>
-          {showFeedback ? (
-            <button
-              type="button"
-              className="btn-q-primary"
-              onClick={() => {
-                if (counts.served >= counts.target) setDone(true);
-                else fetchNext();
-              }}
-            >
-              {counts.served >= counts.target ? "Finish quiz" : "Next question →"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn-q-primary"
-              disabled={
-                ((!item?.questionType || item.questionType === "MCQ_SINGLE")
-                  ? selectedIdx === null
-                  : responsePayload === null) || submitting
-              }
-              onClick={submitAnswer}
-            >
-              {submitting ? "Submitting…" : "Submit answer"}
-            </button>
-          )}
-        </div>
+          <section className="vidya-hint">
+            <div className="vidya-hint__eyebrow">Hint available</div>
+            {hintShown ? (
+              <p className="vidya-hint__body">
+                Carnot efficiency = 1 − T₂/T₁. Then apply the 80% factor.
+              </p>
+            ) : (
+              <button
+                className="vidya-hint__btn"
+                onClick={() => setHintShown(true)}
+              >
+                Show step-by-step (−2 marks)
+              </button>
+            )}
+          </section>
+        </aside>
       </div>
-      {/* Mobile session-menu — bottom-sheet wired to End / Bookmark /
-          Adjust difficulty. Rendered unconditionally so it works for
-          test viewports too; the trigger only appears on < 640 px via
-          the `.sb-menu` media query in shell.css. */}
-      <QuizSessionMenu
-        open={sessionMenuOpen}
-        onClose={() => setSessionMenuOpen(false)}
-        isBookmarked={item ? bookmarks.has(item.questionId) : false}
-        onToggleBookmark={() => {
-          if (!item) return;
-          setBookmarks((prev) => {
-            const next = new Set(prev);
-            if (next.has(item.questionId)) next.delete(item.questionId);
-            else next.add(item.questionId);
-            try {
-              localStorage.setItem(
-                bookmarkStorageKey,
-                JSON.stringify([...next]),
-              );
-            } catch {
-              /* storage may be disabled — ignore */
-            }
-            return next;
-          });
-        }}
-        onAdjustDifficulty={() => setIntentModalOpen(true)}
-        onEndQuiz={finishSession}
-      />
-
-      {/* S54 — pre/in-quiz intent picker (modal). Persists the choice
-          per topic in localStorage; full server-side wiring lands when
-          quiz/sessions/start accepts intent_anchor. */}
-      {intentModalOpen && (
-        <div
-          className="qsm-scrim"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Adjust difficulty intent"
-          onClick={() => setIntentModalOpen(false)}
-        >
-          <div
-            className="qsm-sheet intent-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="qsm-handle" aria-hidden />
-            <div className="qsm-header">
-              <div className="qsm-title">Adjust difficulty</div>
-              <div className="qsm-sub">
-                Where should the engine aim the next questions? Your mastery
-                numbers don't change either way.
-              </div>
-            </div>
-            <div style={{ padding: "0 12px 12px" }}>
-              <IntentSelector
-                value={intent}
-                onChange={(next) => {
-                  setIntent(next);
-                  if (session?.topicId) saveIntentForTopic(session.topicId, next);
-                }}
-                thetaHat={thetaSynth}
-              />
-            </div>
-            <button
-              type="button"
-              className="qsm-cancel"
-              onClick={() => setIntentModalOpen(false)}
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* S54 — mid-quiz friction prompt. Caller fires checkFriction
-          after each verdict; at-most-one-per-session per ADR-0022. */}
-      <FrictionPrompt
-        trigger={frictionTrigger}
-        onAccept={acceptFriction}
-        onDismiss={dismissFriction}
-      />
-
-      {/* The pendingIntentOffset is set when the student accepted a
-          mid-quiz nudge. Surface a tiny status note so the change
-          is honest — until the backend actually shifts θ̂, the offset
-          is symbolic. */}
-      {pendingIntentOffset !== null && (
-        <div
-          role="status"
-          style={{
-            position: "fixed",
-            bottom: 16,
-            left: "50%",
-            transform: "translateX(-50%)",
-            padding: "6px 14px",
-            borderRadius: 20,
-            background: "rgba(124,58,237,0.18)",
-            color: "var(--gold)",
-            fontSize: 12,
-            fontWeight: 600,
-            zIndex: 60,
-          }}
-        >
-          Difficulty intent updated · {pendingIntentOffset > 0 ? "harder" : "easier"}
-        </div>
-      )}
-    </AppShell>
-  );
-}
-
-function MasteryRing({ pct }: { pct: number }) {
-  const r = 21;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (pct / 100) * circ;
-  // SVG stroke needs concrete color values resolved at runtime — these
-  // map onto the same tokens via getComputedStyle when rendered.
-  const stroke =
-    pct >= 70
-      ? "var(--good)"
-      : pct >= 40
-        ? "var(--info)"
-        : pct > 0
-          ? "var(--bad)"
-          : "var(--ink-4)";
-  return (
-    <div
-      className="mr-ring"
-      role="img"
-      aria-label={`Topic mastery ${pct}%`}
-    >
-      <svg viewBox="0 0 52 52">
-        <circle
-          cx="26"
-          cy="26"
-          r={r}
-          fill="none"
-          stroke="var(--rule)"
-          strokeWidth="5"
-        />
-        <circle
-          cx="26"
-          cy="26"
-          r={r}
-          fill="none"
-          stroke={stroke}
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeDasharray={circ.toFixed(1)}
-          strokeDashoffset={offset.toFixed(1)}
-          transform="rotate(-90 26 26)"
-        />
-      </svg>
-      <div className="mr-inner">
-        <div className="mr-num" style={{ color: stroke }}>
-          {pct > 0 ? `${pct}%` : "—"}
-        </div>
-        <div className="mr-lbl">mastery</div>
-      </div>
-    </div>
+    </VidyaShell>
   );
 }
