@@ -3745,3 +3745,18 @@
   color: var(--ink);
 }
 .vidya-next__meta { font-size: 13px; color: var(--ink-3); }
+
+/* "+ Add exam / course" sidebar affordance — dashed accent border */
+.vidya-shell__nav-item--add {
+  border: 1px dashed var(--rule-2);
+  color: var(--accent);
+  margin: 4px 0;
+}
+.vidya-shell__nav-item--add:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.vidya-shell__nav-item--add .vidya-shell__nav-icon {
+  color: var(--accent);
+  opacity: 1;
+}

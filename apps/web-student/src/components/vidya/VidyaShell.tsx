@@ -8,8 +8,9 @@
 // migrated page-by-page without breaking the routes that still
 // expect the Aurora sidebar + topbar.
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { auth } from "../../lib/api";
 import { useAuth } from "../../lib/auth-provider";
 
 export interface VidyaShellProps {
@@ -38,6 +39,8 @@ interface NavItem {
   kbd?: string;
   /** Numeric badge (e.g. unread mocks). */
   badge?: number;
+  /** When true, render with the +Add affordance style (dashed border, accent text). */
+  add?: boolean;
 }
 
 interface NavGroup {
@@ -45,37 +48,70 @@ interface NavGroup {
   items: NavItem[];
 }
 
-const NAV: NavGroup[] = [
-  {
-    heading: "Learn",
-    items: [
-      { href: "/home", label: "Dashboard", icon: <IconHome />, kbd: "⌘1" },
-      {
-        href: "/exams/current",
-        label: "Exam · NEET 2027",
-        icon: <IconExam />,
-        kbd: "⌘2",
-      },
-      { href: "/study-map", label: "Study map", icon: <IconMap /> },
-      { href: "/practice", label: "AI practice", icon: <IconBolt /> },
-      { href: "/mocks", label: "Mock tests", icon: <IconTarget />, badge: 3 },
-    ],
-  },
-  {
-    heading: "Insight",
-    items: [
-      { href: "/analysis", label: "My analysis", icon: <IconChart /> },
-      { href: "/rank", label: "Leaderboard", icon: <IconTrophy /> },
-    ],
-  },
-  {
-    heading: "Support",
-    items: [
-      { href: "/experts", label: "Expert help", icon: <IconChat />, badge: 2 },
-      { href: "/updates", label: "Updates", icon: <IconBell /> },
-    ],
-  },
-];
+interface ExamMeta {
+  id: string;
+  code: string;
+  name: string;
+}
+
+interface ProfileResponse {
+  exams?: Array<{ examId: string; targetDate: string | null }> | null;
+}
+
+/**
+ * Build the sidebar nav. The Learn group expands to one item per
+ * exam the user is enrolled in, plus a "+ Add exam/course" entry
+ * that routes to /exams/add. Other groups are static.
+ */
+function buildNav(enrolledExams: ExamMeta[]): NavGroup[] {
+  const examItems: NavItem[] = enrolledExams.map((ex, i) => ({
+    href: `/exams/${ex.id}`,
+    label: `Exam · ${ex.code || ex.name}`,
+    icon: <IconExam />,
+    kbd: i === 0 ? "⌘2" : i === 1 ? "⌘3" : i === 2 ? "⌘4" : undefined,
+  }));
+
+  return [
+    {
+      heading: "Learn",
+      items: [
+        { href: "/home", label: "Dashboard", icon: <IconHome />, kbd: "⌘1" },
+        ...examItems,
+        {
+          href: "/exams/add",
+          label: "Add exam / course",
+          icon: <IconPlus />,
+          add: true,
+        },
+        ...(enrolledExams.length > 1
+          ? [
+              {
+                href: "/tracks",
+                label: "All tracks",
+                icon: <IconMap />,
+              } as NavItem,
+            ]
+          : []),
+        { href: "/practice", label: "AI practice", icon: <IconBolt /> },
+        { href: "/mocks", label: "Mock tests", icon: <IconTarget />, badge: 3 },
+      ],
+    },
+    {
+      heading: "Insight",
+      items: [
+        { href: "/analysis", label: "My analysis", icon: <IconChart /> },
+        { href: "/rank", label: "Leaderboard", icon: <IconTrophy /> },
+      ],
+    },
+    {
+      heading: "Support",
+      items: [
+        { href: "/experts", label: "Expert help", icon: <IconChat />, badge: 2 },
+        { href: "/updates", label: "Updates", icon: <IconBell /> },
+      ],
+    },
+  ];
+}
 
 export function VidyaShell({
   crumbs,
@@ -95,6 +131,46 @@ export function VidyaShell({
   ).toUpperCase() || "·";
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Learner";
 
+  // Sidebar nav is data-driven. We pull the user's enrolled exams from
+  // /profile/me, then fetch /catalog/exams once to map examId → exam
+  // code (e.g. "NEET 2027"). Failures fall back to a sidebar with no
+  // exam items + the "Add exam / course" affordance, so a fresh user
+  // (or an offline boot) still has a way in.
+  const [enrolledExams, setEnrolledExams] = useState<ExamMeta[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [profileRes, examsRes] = await Promise.all([
+          auth.fetch("/api/v1/profile/me"),
+          auth.fetch("/api/v1/catalog/exams"),
+        ]);
+        if (!alive || !profileRes.ok || !examsRes.ok) return;
+        const profile = (await profileRes.json()) as ProfileResponse;
+        const examsBody = (await examsRes.json()) as {
+          exams?: ExamMeta[] | null;
+        };
+        const enrolledIds = new Set(
+          (Array.isArray(profile.exams) ? profile.exams : []).map(
+            (e) => e.examId,
+          ),
+        );
+        const catalog = Array.isArray(examsBody.exams) ? examsBody.exams : [];
+        if (alive) {
+          setEnrolledExams(catalog.filter((e) => enrolledIds.has(e.id)));
+        }
+      } catch {
+        /* offline — sidebar still renders the Add affordance */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const nav = buildNav(enrolledExams);
+
   return (
     <div className="vidya-shell">
       <aside className="vidya-shell__sidebar" aria-label="Primary navigation">
@@ -109,17 +185,21 @@ export function VidyaShell({
         </Link>
 
         <nav className="vidya-shell__nav">
-          {NAV.map((group) => (
+          {nav.map((group) => (
             <div key={group.heading} className="vidya-shell__nav-group">
               <div className="vidya-shell__nav-heading">{group.heading}</div>
               {group.items.map((item) => {
-                const active = location.pathname === item.href ||
+                const active =
+                  location.pathname === item.href ||
                   location.pathname.startsWith(item.href + "/");
                 return (
                   <Link
                     key={item.href}
                     to={item.href}
-                    className="vidya-shell__nav-item"
+                    className={
+                      "vidya-shell__nav-item" +
+                      (item.add ? " vidya-shell__nav-item--add" : "")
+                    }
                     aria-current={active ? "page" : undefined}
                   >
                     <span className="vidya-shell__nav-icon" aria-hidden>
@@ -296,6 +376,13 @@ function IconBell() {
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
       <path d="M4 11V7a4 4 0 118 0v4l1 1.5H3z" strokeLinejoin="round" />
       <path d="M7 13.5a1.5 1.5 0 003 0" />
+    </svg>
+  );
+}
+function IconPlus() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M8 3v10M3 8h10" strokeLinecap="round" />
     </svg>
   );
 }
