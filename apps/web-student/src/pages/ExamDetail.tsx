@@ -98,8 +98,9 @@ export function ExamDetail() {
       try {
         const r = await auth.fetch("/api/v1/catalog/exams");
         if (r.ok && alive) {
-          const data = (await r.json()) as { exams: ExamMeta[] };
-          setExam(data.exams.find((e) => e.id === examId) ?? null);
+          const data = (await r.json()) as { exams?: ExamMeta[] | null };
+          const list = Array.isArray(data.exams) ? data.exams : [];
+          setExam(list.find((e) => e.id === examId) ?? null);
         }
       } catch { /* offline */ }
     })();
@@ -114,7 +115,8 @@ export function ExamDetail() {
         const r = await auth.fetch("/api/v1/profile/me");
         if (r.ok && alive) {
           const data = (await r.json()) as ProfileResponse;
-          const ex = data.exams.find((e) => e.examId === examId);
+          const list = Array.isArray(data.exams) ? data.exams : [];
+          const ex = list.find((e) => e.examId === examId);
           setTargetDate(ex?.targetDate ?? null);
         }
       } catch { /* offline */ }
@@ -130,14 +132,16 @@ export function ExamDetail() {
       try {
         const subRes = await auth.fetch(`/api/v1/catalog/exams/${examId}/subjects`);
         if (!subRes.ok || !alive) return;
-        const subList = ((await subRes.json()) as { subjects: Subject[] }).subjects;
+        const subBody = (await subRes.json()) as { subjects?: Subject[] | null };
+        const subList = Array.isArray(subBody.subjects) ? subBody.subjects : [];
         if (alive) setSubjects(subList);
 
         const mRes = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
         if (!mRes.ok || !alive) return;
         const masteryByTopic = new Map<string, { ewa: number; n: number }>();
         const data = (await mRes.json()) as MasteryListResponse;
-        for (const t of data.topics) masteryByTopic.set(t.topicId, t);
+        const masteryTopics = Array.isArray(data.topics) ? data.topics : [];
+        for (const t of masteryTopics) masteryByTopic.set(t.topicId, t);
 
         const all: TopicCard[] = [];
         await Promise.all(
@@ -145,8 +149,9 @@ export function ExamDetail() {
             try {
               const tr = await auth.fetch(`/api/v1/catalog/subjects/${s.id}/topics`);
               if (tr.ok) {
-                const td = (await tr.json()) as { topics: Array<{ id: string; title: string }> };
-                for (const t of td.topics) {
+                const td = (await tr.json()) as { topics?: Array<{ id: string; title: string }> | null };
+                const ts = Array.isArray(td.topics) ? td.topics : [];
+                for (const t of ts) {
                   const m = masteryByTopic.get(t.id);
                   all.push({
                     id: t.id,

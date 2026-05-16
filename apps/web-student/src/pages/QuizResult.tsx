@@ -98,7 +98,8 @@ export function QuizResult() {
         const r = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
         if (r.ok && alive) {
           const data = (await r.json()) as MasteryListResponse;
-          const m = data.topics.find((t) => t.topicId === session.topicId);
+          const ts = Array.isArray(data.topics) ? data.topics : [];
+          const m = ts.find((t) => t.topicId === session.topicId);
           if (m) setMastery({ ewa: m.ewa, n: m.n });
         }
       } catch { /* offline */ }

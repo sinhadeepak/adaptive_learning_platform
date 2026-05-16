@@ -141,15 +141,18 @@ export function Home() {
       const [r, s, a] = await Promise.all([
         safe<ReadinessResponse>(`/api/v1/analytics/readiness/${user.id}`),
         safe<StreakResponse>(`/api/v1/analytics/streak/${user.id}`),
-        safe<{ days: DailyActivity[] }>(`/api/v1/analytics/daily-activity/${user.id}?days=84`),
+        // Engagement returns {userId, days: <int window>, activity: DailyActivity[]}.
+        // The `days` field is the integer query param echo, NOT the records.
+        safe<{ days: number; activity: DailyActivity[] | null }>(
+          `/api/v1/analytics/daily-activity/${user.id}?days=84`,
+        ),
       ]);
       if (!alive) return;
       setReadiness(r);
       setStreak(s);
-      setWeekActivity(a?.days?.slice(-7) ?? []);
-      const days = a?.days ?? [];
-      const norm = days.map((d) => Math.min(1, d.questions / 50));
-      setHeatmap(norm);
+      const records = Array.isArray(a?.activity) ? a!.activity : [];
+      setWeekActivity(records.slice(-7));
+      setHeatmap(records.map((d) => Math.min(1, (d.questions ?? 0) / 50)));
     })();
     return () => { alive = false; };
   }, [user?.id]);
@@ -162,9 +165,12 @@ export function Home() {
       try {
         const r = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
         if (r.ok && alive) {
-          const data = (await r.json()) as { topics: Array<{ topicId: string; ewa: number; n: number }> };
+          const data = (await r.json()) as { topics?: Array<{ topicId: string; ewa: number; n: number }> | null };
+          // Empty mastery (freshly-seeded user) returns {topics: null}
+          // or omits the field entirely; treat both as no rows.
+          const topicsList = Array.isArray(data.topics) ? data.topics : [];
           const cards = await Promise.all(
-            data.topics.slice(0, 50).map(async (t) => {
+            topicsList.slice(0, 50).map(async (t) => {
               try {
                 const tr = await auth.fetch(`/api/v1/catalog/topics/${t.topicId}`);
                 if (tr.ok) {

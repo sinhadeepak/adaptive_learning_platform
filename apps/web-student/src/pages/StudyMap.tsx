@@ -76,8 +76,8 @@ export function StudyMap() {
       try {
         const r = await auth.fetch(`/api/v1/catalog/exams/${examId}/subjects`);
         if (r.ok && alive) {
-          const data = (await r.json()) as { subjects: Subject[] };
-          setSubjects(data.subjects);
+          const data = (await r.json()) as { subjects?: Subject[] | null };
+          setSubjects(Array.isArray(data.subjects) ? data.subjects : []);
         }
       } catch { /* offline */ }
     })();
@@ -95,8 +95,8 @@ export function StudyMap() {
       try {
         const r = await auth.fetch(`/api/v1/catalog/subjects/${activeSubjectId}/topics`);
         if (r.ok && alive) {
-          const data = (await r.json()) as { topics: Topic[] };
-          setTopics(data.topics);
+          const data = (await r.json()) as { topics?: Topic[] | null };
+          setTopics(Array.isArray(data.topics) ? data.topics : []);
         }
       } catch { /* offline */ }
     })();
@@ -113,7 +113,8 @@ export function StudyMap() {
         if (r.ok && alive) {
           const data = (await r.json()) as MasteryListResponse;
           const m = new Map<string, { ewa: number; n: number }>();
-          for (const t of data.topics) m.set(t.topicId, t);
+          const ts = Array.isArray(data.topics) ? data.topics : [];
+          for (const t of ts) m.set(t.topicId, t);
           setMastery(m);
         }
       } catch { /* offline */ }

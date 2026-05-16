@@ -158,8 +158,9 @@ export function Quiz() {
       try {
         const m = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
         if (m.ok && alive) {
-          const data = (await m.json()) as { topics: Array<{ topicId: string; ewa: number; n: number }> };
-          const found = data.topics.find((t) => t.topicId === session.topicId);
+          const data = (await m.json()) as { topics?: Array<{ topicId: string; ewa: number; n: number }> | null };
+          const ts = Array.isArray(data.topics) ? data.topics : [];
+          const found = ts.find((t) => t.topicId === session.topicId);
           if (found) setAbility({ ewa: found.ewa, n: found.n });
         }
       } catch { /* offline */ }
