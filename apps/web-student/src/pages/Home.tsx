@@ -25,6 +25,11 @@ import { useAuth } from "../lib/auth-provider";
 import { VidyaShell } from "../components/vidya/VidyaShell";
 import { ActivityHeatmap } from "../components/vidya/dashboardParts";
 import { Sparkline } from "@alp/ui";
+import {
+  MultiTrackBody,
+  buildTracksFromExams,
+  type ExamMeta as MultiExamMeta,
+} from "./MultiTrack";
 
 interface Profile {
   user: { firstName: string };
@@ -101,25 +106,49 @@ export function Home() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [exam, setExam] = useState<ExamMeta | null>(null);
+  const [enrolledCatalog, setEnrolledCatalog] = useState<MultiExamMeta[]>([]);
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
   const [streak, setStreak] = useState<StreakResponse | null>(null);
   const [mastery, setMastery] = useState<TopicCard[]>([]);
   const [weekActivity, setWeekActivity] = useState<DailyActivity[]>([]);
   const [heatmap, setHeatmap] = useState<number[]>([]);
 
-  // Profile + exam meta
+  // Profile + full enrolled-exam catalog (used for the multi-exam fork)
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const r = await auth.fetch("/api/v1/profile/me");
-        if (r.ok && alive) {
-          const data = (await r.json()) as Profile;
+        const [profileRes, examsRes] = await Promise.all([
+          auth.fetch("/api/v1/profile/me"),
+          auth.fetch("/api/v1/catalog/exams"),
+        ]);
+        if (!alive) return;
+        if (profileRes.ok) {
+          const data = (await profileRes.json()) as Profile;
           setProfile(data);
-          const examId = data.exams[0]?.examId;
+          const examId = data.exams?.[0]?.examId;
           if (examId) {
             const ex = await auth.fetch(`/api/v1/catalog/exams/${examId}`);
             if (ex.ok && alive) setExam((await ex.json()) as ExamMeta);
+          }
+        }
+        if (profileRes.ok && examsRes.ok) {
+          const profileData = (await profileRes.clone().json()) as Profile;
+          const examsBody = (await examsRes.json()) as
+            | MultiExamMeta[]
+            | { exams?: MultiExamMeta[] | null };
+          const catalog: MultiExamMeta[] = Array.isArray(examsBody)
+            ? examsBody
+            : Array.isArray(examsBody.exams)
+              ? examsBody.exams
+              : [];
+          const enrolledIds = new Set(
+            (Array.isArray(profileData.exams) ? profileData.exams : []).map(
+              (e) => e.examId,
+            ),
+          );
+          if (alive) {
+            setEnrolledCatalog(catalog.filter((c) => enrolledIds.has(c.id)));
           }
         }
       } catch { /* offline */ }
@@ -234,6 +263,31 @@ export function Home() {
   const examShort = exam?.code ?? "NEET";
   const score = readiness?.score ?? 0;
   const readinessScaled = Math.round(score * 900);
+
+  // Multi-exam fork: the same /home route renders the "Three pursuits
+  // in motion" surface when the user has 2+ enrolled exams. Drops back
+  // to the single-exam Master Dashboard for 0-1 exams.
+  if (enrolledCatalog.length >= 2) {
+    const tracks = buildTracksFromExams(enrolledCatalog);
+    const trackCount = tracks.length;
+    return (
+      <VidyaShell
+        crumbs="All tracks · overview"
+        title={`${trackCount} pursuits in motion.`}
+        subtitle={
+          tracks.map((t) => t.code).join(" + ") +
+          ". AI re-allocates time daily."
+        }
+        actions={
+          <button className="vidya-shell__primary">
+            ⚡ Auto-balance plan
+          </button>
+        }
+      >
+        <MultiTrackBody tracks={tracks} />
+      </VidyaShell>
+    );
+  }
 
   return (
     <VidyaShell

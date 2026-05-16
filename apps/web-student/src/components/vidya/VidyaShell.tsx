@@ -148,15 +148,22 @@ export function VidyaShell({
         ]);
         if (!alive || !profileRes.ok || !examsRes.ok) return;
         const profile = (await profileRes.json()) as ProfileResponse;
-        const examsBody = (await examsRes.json()) as {
-          exams?: ExamMeta[] | null;
-        };
+        const examsBody = (await examsRes.json()) as
+          | ExamMeta[]
+          | { exams?: ExamMeta[] | null };
+        // /catalog/exams returns either a bare array OR {exams: [...]}.
+        // Tolerate both shapes — a single typed wrapper would be cleaner
+        // but we don't own that endpoint yet.
+        const catalog: ExamMeta[] = Array.isArray(examsBody)
+          ? examsBody
+          : Array.isArray(examsBody.exams)
+            ? examsBody.exams
+            : [];
         const enrolledIds = new Set(
           (Array.isArray(profile.exams) ? profile.exams : []).map(
             (e) => e.examId,
           ),
         );
-        const catalog = Array.isArray(examsBody.exams) ? examsBody.exams : [];
         if (alive) {
           setEnrolledExams(catalog.filter((e) => enrolledIds.has(e.id)));
         }
