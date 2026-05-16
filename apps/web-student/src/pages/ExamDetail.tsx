@@ -27,6 +27,7 @@ import { Link, useParams } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { VidyaShell } from "../components/vidya/VidyaShell";
+import { QuickActions } from "../components/vidya/QuickActions";
 import {
   GoalBar,
   MockTestSparkline,
@@ -348,6 +349,11 @@ export function ExamDetail() {
           </button>
         </section>
       </div>
+
+      <QuickActions
+        firstExamId={examId}
+        nextBestTopicId={topics.find((t) => t.ewa >= 0 && t.ewa < 0.7)?.id}
+      />
 
       <div className="vidya-grid-2">
         {/* Mock test history */}

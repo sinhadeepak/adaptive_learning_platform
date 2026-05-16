@@ -23,6 +23,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { VidyaShell } from "../components/vidya/VidyaShell";
@@ -305,7 +309,9 @@ export function Quiz() {
           </div>
 
           {item ? (
-            <p className="vidya-question__stem">{item.stem}</p>
+            <div className="vidya-question__stem">
+              <MathText text={item.stem} />
+            </div>
           ) : (
             <p className="vidya-question__stem" style={{ color: "var(--ink-3)" }}>
               Loading next question…
@@ -333,7 +339,9 @@ export function Quiz() {
                     onClick={() => setSelectedIdx(i)}
                   >
                     <span className="vidya-question__choice-letter">{letter}</span>
-                    <span className="vidya-question__choice-text">{choice}</span>
+                    <span className="vidya-question__choice-text">
+                      <MathText text={choice} inline />
+                    </span>
                   </button>
                 </li>
               );
@@ -446,5 +454,39 @@ export function Quiz() {
         </aside>
       </div>
     </VidyaShell>
+  );
+}
+
+/* ── Math-aware text renderer ─────────────────────────────────
+   The question bank ships LaTeX-formatted stems and choices like
+   "T_1 = 600 K" or "$\\eta = 1 - T_2/T_1$". We feed them through
+   react-markdown + remark-math + rehype-katex so subscripts /
+   superscripts / fractions render as the mockup intends. Plain
+   text passes through unchanged. */
+
+function MathText({ text, inline = false }: { text: string; inline?: boolean }) {
+  // Auto-detect LaTeX-style markers the question bank uses without
+  // dollar-signs (e.g. "T_1 = 600 K"). If the stem contains an
+  // underscore or caret outside of $...$, wrap the whole thing in
+  // inline-math so KaTeX picks up the formatting.
+  const looksLikeMath = /\$[^$]+\$|\\[a-zA-Z]+|_\{?[a-zA-Z0-9]|\^\{?[a-zA-Z0-9]/.test(text);
+  const source = looksLikeMath && !text.includes("$") ? `$${text}$` : text;
+  if (inline) {
+    return (
+      <ReactMarkdown
+        remarkPlugins={[remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={{
+          p: ({ children }) => <span>{children}</span>,
+        }}
+      >
+        {source}
+      </ReactMarkdown>
+    );
+  }
+  return (
+    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+      {source}
+    </ReactMarkdown>
   );
 }
