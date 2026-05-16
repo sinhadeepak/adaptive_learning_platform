@@ -1,18 +1,21 @@
-// ForgotPassword — Aurora redesign (split-screen).
+// ForgotPassword — Vidya v1 redesign (split-screen, black rail + editorial form).
 //
-// Spec: docs/02-design/design-system-v2-aurora.md §8.2.1
+// Spec: docs/02-design/design-system/04_components.md
+//       + the 10-screen mockup set delivered with Vidya v1.
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
+//
+// Sends a 6-digit one-time code (email or SMS depending on identifier
+// shape) and routes to /verify?kind=reset for the next step.
 
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
-import { Button, FormField, Input } from "@alp/ui";
+import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../lib/api";
-import { Banner } from "../components/dashboard";
-import "@alp/design-system/shell.css";
+import { VidyaAuthRail } from "./Login";
 
 export function ForgotPassword() {
-  const [email, setEmail] = useState("");
+  const navigate = useNavigate();
+  const [identifier, setIdentifier] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(event: FormEvent) {
@@ -20,127 +23,74 @@ export function ForgotPassword() {
     setError(null);
     setSubmitting(true);
     try {
-      await auth.forgotPassword(email);
-      setSubmitted(true);
+      await auth.forgotPassword(identifier);
+      const params = new URLSearchParams({
+        email: identifier,
+        kind: "reset",
+      });
+      navigate(`/verify?${params.toString()}`);
     } catch {
-      setError("We couldn't send the reset link. Try again in a moment.");
+      setError("We couldn't send the code. Try again in a moment.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="alp-authpage">
-      <aside className="alp-authpage__illustration" aria-hidden>
-        <div className="alp-authpage__brand">
-          <span className="alp-authpage__brand-mark">A</span>
-          AdaptiveLearn
-        </div>
-        <div>
-          <div className="alp-authpage__tagline">Locked out? No worries.</div>
-          <div className="alp-authpage__tagline-sub">
-            We'll email you a fresh reset link — valid for 30 minutes.
-          </div>
-        </div>
-        <div />
-      </aside>
+    <div className="vidya-auth">
+      <VidyaAuthRail />
 
-      <main className="alp-authpage__panel">
-        {submitted ? (
-          <div className="alp-authpage__form" aria-live="polite">
-            <div className="alp-authpage__mobile-brand">
-              <span className="alp-authpage__brand-mark">A</span>
-              AdaptiveLearn
-            </div>
-            <header>
-              <h1 className="alp-authpage__title">Check your inbox</h1>
-              <p className="alp-authpage__subtitle">
-                If an account exists for <strong>{email}</strong>, we've sent a
-                password-reset link. The link is valid for 30 minutes.
-              </p>
-            </header>
-            <p style={{ color: "var(--ink-3)", fontSize: 13, margin: 0 }}>
-              Didn't get one? Check your spam folder, or{" "}
-              <button
-                type="button"
-                onClick={() => setSubmitted(false)}
-                style={{
-                  background: "none",
-                  border: 0,
-                  padding: 0,
-                  color: "var(--accent)",
-                  cursor: "pointer",
-                  textDecoration: "underline",
-                  fontWeight: 600,
-                }}
-              >
-                try a different email
-              </button>
-              .
-            </p>
-            <p style={{ margin: 0, textAlign: "center" }}>
-              <Link
-                to="/login"
-                style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
-              >
-                ← Back to log in
-              </Link>
-            </p>
+      <main className="vidya-auth__panel">
+        <form
+          onSubmit={onSubmit}
+          className="vidya-auth__form"
+          aria-label="Forgot password"
+        >
+          <div className="vidya-auth__mobile-brand">
+            v<em>⌑</em>dya
           </div>
-        ) : (
-          <form
-            onSubmit={onSubmit}
-            className="alp-authpage__form"
-            aria-label="Forgot password"
+
+          <header>
+            <p className="vidya-auth__eyebrow">Forgot password · Step 1 of 3</p>
+            <h1 className="vidya-auth__title">
+              Let's get you <em>back in</em>.
+            </h1>
+            <p className="vidya-auth__subtitle">
+              Enter the email or mobile you signed up with. We'll send a
+              one-time code.
+            </p>
+          </header>
+
+          {error ? (
+            <div className="vidya-auth__error" role="alert">
+              <span>{error}</span>
+            </div>
+          ) : null}
+
+          <label className="vidya-auth__field">
+            <span className="vidya-auth__field-label">Email or mobile</span>
+            <input
+              className="vidya-auth__field-input"
+              type="text"
+              autoComplete="username"
+              value={identifier}
+              required
+              onChange={(e) => setIdentifier(e.target.value)}
+            />
+          </label>
+
+          <button
+            type="submit"
+            className="vidya-auth__cta"
+            disabled={submitting || identifier.length < 3}
           >
-            <div className="alp-authpage__mobile-brand">
-              <span className="alp-authpage__brand-mark">A</span>
-              AdaptiveLearn
-            </div>
-            <header>
-              <h1 className="alp-authpage__title">Forgot your password?</h1>
-              <p className="alp-authpage__subtitle">
-                Enter the email you signed up with and we'll send you a reset link.
-              </p>
-            </header>
+            {submitting ? "Sending…" : "Send code →"}
+          </button>
 
-            {error ? (
-              <Banner tone="danger" role="alert">
-                {error}
-              </Banner>
-            ) : null}
-
-            <FormField label="Email" required>
-              <Input
-                type="email"
-                autoComplete="email"
-                value={email}
-                required
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </FormField>
-
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              fullWidth
-              loading={submitting}
-              disabled={submitting}
-            >
-              {submitting ? "Sending…" : "Send reset link"}
-            </Button>
-
-            <p style={{ margin: 0, textAlign: "center" }}>
-              <Link
-                to="/login"
-                style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
-              >
-                ← Back to log in
-              </Link>
-            </p>
-          </form>
-        )}
+          <p className="vidya-auth__footer">
+            <Link to="/login">← Back to log in</Link>
+          </p>
+        </form>
       </main>
     </div>
   );

@@ -1,14 +1,18 @@
-// Register — Aurora redesign (split-screen).
+// Register — Vidya v1 redesign (split-screen, black rail + editorial form).
 //
-// Spec: docs/02-design/design-system-v2-aurora.md §8.2.1
-// ADR:  docs/adr/0028-design-system-v2-aurora.md (S8 deliverable)
+// Spec: docs/02-design/design-system/04_components.md
+//       + the 10-screen mockup set delivered with Vidya v1.
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
+//
+// Step indicator reads "SIGN UP · STEP 1 OF 3" — the post-create
+// flow lands on /verify (step 2) and onboarding/exam (step 3).
+// The mobile number prefix is fixed to +91 (India launch per
+// CLAUDE.md Phase 1 scope).
 
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button, Checkbox, FormField, Input } from "@alp/ui";
 import { auth } from "../lib/api";
-import { Banner } from "../components/dashboard";
-import "@alp/design-system/shell.css";
+import { VidyaAuthRail } from "./Login";
 
 interface ApiProblem {
   code?: string;
@@ -23,7 +27,8 @@ export function Register() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [tos, setTos] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [tos, setTos] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -32,7 +37,7 @@ export function Register() {
     firstName.length >= 1 &&
     lastName.length >= 1 &&
     email.includes("@") &&
-    password.length >= 12 &&
+    password.length >= 8 &&
     tos &&
     !submitting;
 
@@ -46,10 +51,14 @@ export function Register() {
         lastName,
         email,
         password,
-        phone: phone || undefined,
+        phone: phone ? `+91${phone.replace(/\D/g, "")}` : undefined,
         locale: "en-IN",
       });
-      const params = new URLSearchParams({ userId: result.userId, email, kind: "email" });
+      const params = new URLSearchParams({
+        userId: result.userId,
+        email,
+        kind: "email",
+      });
       navigate(`/verify?${params.toString()}`, { replace: true });
     } catch (err) {
       setError(friendlyError(err));
@@ -59,163 +68,145 @@ export function Register() {
   }
 
   return (
-    <div className="alp-authpage">
-      <aside className="alp-authpage__illustration" aria-hidden>
-        <div className="alp-authpage__brand">
-          <span className="alp-authpage__brand-mark">A</span>
-          AdaptiveLearn
-        </div>
-        <div>
-          <div className="alp-authpage__tagline">
-            Join the AI-coached generation.
-          </div>
-          <div className="alp-authpage__tagline-sub">
-            Set your exam target. Take a 5-minute diagnostic. We build your plan
-            from there.
-          </div>
-        </div>
-        <div style={{ opacity: 0.8, fontSize: 13 }}>
-          ✦ Free to start · upgrade anytime
-        </div>
-      </aside>
+    <div className="vidya-auth">
+      <VidyaAuthRail />
 
-      <main className="alp-authpage__panel">
+      <main className="vidya-auth__panel">
         <form
           onSubmit={onSubmit}
-          className="alp-authpage__form"
+          className="vidya-auth__form"
           aria-label="Create account"
         >
-          <div className="alp-authpage__mobile-brand">
-            <span className="alp-authpage__brand-mark">A</span>
-            AdaptiveLearn
+          <div className="vidya-auth__mobile-brand">
+            v<em>⌑</em>dya
           </div>
+
           <header>
-            <h1 className="alp-authpage__title">Create account</h1>
-            <p className="alp-authpage__subtitle">
-              Takes 30 seconds. We'll send a verification code next.
+            <p className="vidya-auth__eyebrow">Sign up · Step 1 of 3</p>
+            <h1 className="vidya-auth__title">
+              Begin your <em>preparation</em>.
+            </h1>
+            <p className="vidya-auth__subtitle">
+              30-second sign-up. No card needed. Choose your exam next.
             </p>
           </header>
 
           {error ? (
-            <Banner tone="danger" role="alert">
-              {error}
-            </Banner>
+            <div className="vidya-auth__error" role="alert">
+              <span>{error}</span>
+            </div>
           ) : null}
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <FormField label="First name" required>
-              <Input
+          <div className="vidya-auth__fields-row">
+            <label className="vidya-auth__field">
+              <span className="vidya-auth__field-label">First name</span>
+              <input
+                className="vidya-auth__field-input"
                 value={firstName}
                 required
                 onChange={(e) => setFirstName(e.target.value)}
               />
-            </FormField>
-            <FormField label="Last name" required>
-              <Input
+            </label>
+            <label className="vidya-auth__field">
+              <span className="vidya-auth__field-label">Last name</span>
+              <input
+                className="vidya-auth__field-input"
                 value={lastName}
                 required
                 onChange={(e) => setLastName(e.target.value)}
               />
-            </FormField>
+            </label>
           </div>
 
-          <FormField label="Email">
-            <Input
+          <label className="vidya-auth__field">
+            <span className="vidya-auth__field-label">Email</span>
+            <input
+              className="vidya-auth__field-input"
               type="email"
               autoComplete="email"
               value={email}
               required
               onChange={(e) => setEmail(e.target.value)}
             />
-          </FormField>
+          </label>
 
-          <FormField label="Phone (optional — for SMS OTP)">
-            <Input
+          <label className="vidya-auth__field">
+            <span className="vidya-auth__field-label">Mobile (+91)</span>
+            <input
+              className="vidya-auth__field-input"
               type="tel"
+              inputMode="numeric"
               value={phone}
-              placeholder="+91 ..."
+              placeholder="98••• 21430"
+              maxLength={11}
               onChange={(e) => setPhone(e.target.value)}
             />
-          </FormField>
+          </label>
 
-          <FormField label="Password" required helper="At least 12 characters.">
-            <Input
-              type="password"
+          <label className="vidya-auth__field">
+            <span className="vidya-auth__field-label">
+              Password · min 8 chars
+            </span>
+            <input
+              className="vidya-auth__field-input"
+              type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               value={password}
+              minLength={8}
               required
               onChange={(e) => setPassword(e.target.value)}
             />
-          </FormField>
+            <button
+              type="button"
+              className="vidya-auth__field-suffix"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </label>
           {password ? (
             <StrengthMeter score={strength.score} label={strength.label} />
           ) : null}
 
-          <label
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 8,
-              fontSize: 13,
-              color: "var(--ink-2)",
-            }}
-          >
-            <Checkbox
+          <label className="vidya-auth__tos">
+            <input
+              type="checkbox"
               checked={tos}
               onChange={(e) => setTos(e.target.checked)}
               required
             />
             <span>
               I agree to the{" "}
-              <a
-                href="/terms"
-                style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
-              >
-                Terms
+              <a href="/terms" target="_blank" rel="noreferrer">
+                Terms of service
               </a>{" "}
               and{" "}
-              <a
-                href="/privacy"
-                style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
-              >
-                Privacy
+              <a href="/privacy" target="_blank" rel="noreferrer">
+                Privacy policy
               </a>
-              .
+              . I'm 13+.
             </span>
           </label>
 
-          <Button
+          <button
             type="submit"
-            variant="primary"
-            size="lg"
-            fullWidth
-            loading={submitting}
+            className="vidya-auth__cta"
             disabled={!canSubmit}
           >
-            {submitting ? "Creating account…" : "Create account"}
-          </Button>
+            {submitting ? "Creating account…" : "Create account →"}
+          </button>
 
-          <p
-            style={{
-              textAlign: "center",
-              margin: 0,
-              color: "var(--ink-3)",
-              fontSize: 14,
-            }}
-          >
-            Have an account?{" "}
-            <Link
-              to="/login"
-              style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
-            >
-              Log in
-            </Link>
+          <p className="vidya-auth__footer">
+            Already have an account? <Link to="/login">Log in</Link>
           </p>
         </form>
       </main>
     </div>
   );
 }
+
+/* ── Password strength meter ─────────────────────────────────── */
 
 interface StrengthResult {
   score: 0 | 1 | 2 | 3 | 4;
@@ -224,8 +215,8 @@ interface StrengthResult {
 
 function passwordStrength(pw: string): StrengthResult {
   let score = 0;
+  if (pw.length >= 8) score++;
   if (pw.length >= 12) score++;
-  if (pw.length >= 16) score++;
   if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw) && /\d/.test(pw)) score++;
   const clamped = Math.min(score, 4) as StrengthResult["score"];
@@ -238,8 +229,8 @@ function StrengthMeter({ score, label }: StrengthResult) {
   const segmentColor = (i: number): string => {
     if (i >= score) return "var(--rule-2)";
     if (score <= 1) return "var(--bad)";
-    if (score === 2) return "var(--developing-500)";
-    return "var(--success-500)";
+    if (score === 2) return "var(--warn)";
+    return "var(--good)";
   };
   return (
     <div
@@ -268,8 +259,10 @@ function StrengthMeter({ score, label }: StrengthResult) {
 function friendlyError(err: unknown): string {
   if (err && typeof err === "object" && "status" in err) {
     const status = (err as { status?: number }).status;
-    if (status === 409) return "Email is already registered. Try logging in instead.";
-    if (status === 429) return "Too many sign-up attempts. Try again in a moment.";
+    if (status === 409)
+      return "Email is already registered. Try logging in instead.";
+    if (status === 429)
+      return "Too many sign-up attempts. Try again in a moment.";
   }
   if (err && typeof err === "object" && "message" in err) {
     const msg = (err as ApiProblem).message;

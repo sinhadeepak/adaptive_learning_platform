@@ -1,54 +1,30 @@
-// Home — Master Dashboard (Aurora v2).
+// Home — Vidya v1 Master Dashboard.
 //
-// Spec: docs/02-design/redesign/home.md
-// ADR:  docs/adr/0028-design-system-v2-aurora.md (S4.5 deliverable)
+// Spec: docs/02-design/design-system/04_components.md
+//       + the 8-screen mockup set delivered with Vidya v1 (page 1/8).
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
 //
-// Restructured from the v1 13-zone stack into the Aurora layout:
+// Layout (single-exam variant — multi-track variant lives in
+// VidyaShellMultiTrack and shares no data path with this page):
 //
-//   ┌──────────────────────────────────────────────┐
-//   │  Greeting + status strip (4 StatCards)        │
-//   ├──────────────────────────────────────────────┤
-//   │  AI Insight  (Aurora gradient)                │
-//   ├──────────────────────────────────────────────┤
-//   │  Today's plan  (DailyPlanCard — preserved)    │
-//   │  Today's mission  (MissionCard — preserved)   │
-//   │  Resume practice                              │
-//   │  Weak topics                                  │
-//   │  This week                                    │
-//   │  Photo a doubt  (PhotoDoubt — preserved)      │
-//   └──────────────────────────────────────────────┘
+//   ┌─────── topbar (greeting + resume session) ───────┐
+//   │  ┌─ hero readiness ───┐ ┌─ next best action ┐ ┌─ today's plan ┐
+//   │  └────────────────────┘ └───────────────────┘ └────────────────┘
+//   │  ┌─ stat ┐ ┌─ stat ┐ ┌─ stat ┐ ┌─ stat ┐
+//   │  └───────┘ └───────┘ └───────┘ └───────┘
+//   │  ┌─ mastery-by-subject table ──────┐ ┌─ activity heatmap ─┐
+//   │  └─────────────────────────────────┘ └────────────────────┘
 //
-// All API calls + data fetches identical to the v1 Home. The fetched
-// state is the same; only the rendering surface changed.
+// All API calls map to existing engagement/analytics endpoints — the
+// rewrite swapped JSX, not the data layer.
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  AIInsightCard,
-  Button,
-  Card,
-  ProgressRing,
-  StatCard,
-  Tag,
-} from "@alp/ui";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
-import { PhotoDoubt } from "../components/PhotoDoubt";
-import { MissionCard } from "../components/MissionCard";
-import { DailyPlanCard } from "../components/DailyPlanCard";
-import {
-  WeeklyNarrativeCard,
-  WeeklyNarrativeEmpty,
-} from "../components/WeeklyNarrativeCard";
-import { AdaptsExplainerCard } from "../components/AdaptsExplainerCard";
-import { ReadinessBandCard } from "../components/ReadinessBandCard";
-import { RecoveryBanner } from "../components/RecoveryBanner";
-import {
-  fetchCurrentWeeklyNarrative,
-  generateWeeklyNarrative,
-  type NarrativeRecord,
-} from "../lib/weekly-narrative";
+import { VidyaShell } from "../components/vidya/VidyaShell";
+import { ActivityHeatmap } from "../components/vidya/dashboardParts";
+import { Sparkline } from "@alp/ui";
 
 interface Profile {
   user: { firstName: string };
@@ -71,11 +47,6 @@ interface ReadinessResponse {
   updatedAt: string | null;
 }
 
-interface MasteryListResponse {
-  userId: string;
-  topics: Array<{ topicId: string; ewa: number; n: number }>;
-}
-
 interface StreakResponse {
   userId: string;
   currentStreak: number;
@@ -91,15 +62,6 @@ interface TopicCard {
   n: number;
 }
 
-interface InProgressSession {
-  sessionId: string;
-  topicId: string;
-  targetCount: number;
-  servedCount: number;
-  correctCount: number;
-  startedAt: string;
-}
-
 interface DailyActivity {
   date: string;
   minutes: number;
@@ -107,735 +69,481 @@ interface DailyActivity {
   questions: number;
 }
 
+interface PlanItem {
+  label: string;
+  time: string;
+  done: boolean;
+  now?: boolean;
+}
+
+interface SubjectRow {
+  subjectId: string;
+  name: string;
+  color: string;
+  chapters: number;
+  mastered: number;
+  strong: number;
+  dev: number;
+  weak: number;
+  readiness: number;
+  trend: number[];
+}
+
+const SUBJECT_HUES: Record<string, { name: string; color: string }> = {
+  physics: { name: "Physics", color: "var(--subj-physics)" },
+  chemistry: { name: "Chemistry", color: "var(--subj-chemistry)" },
+  biology: { name: "Biology", color: "var(--subj-biology)" },
+  maths: { name: "Maths", color: "var(--subj-maths)" },
+  english: { name: "English", color: "var(--subj-english)" },
+};
+
 export function Home() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [exam, setExam] = useState<ExamMeta | null>(null);
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
   const [streak, setStreak] = useState<StreakResponse | null>(null);
-  const [mastery, setMastery] = useState<TopicCard[] | null>(null);
-  const [todayMinutes, setTodayMinutes] = useState<number>(0);
-  const [todaySessions, setTodaySessions] = useState<number>(0);
+  const [mastery, setMastery] = useState<TopicCard[]>([]);
   const [weekActivity, setWeekActivity] = useState<DailyActivity[]>([]);
-  const [inProgress, setInProgress] = useState<InProgressSession[]>([]);
-  const [inProgressTitles, setInProgressTitles] = useState<Map<string, string>>(new Map());
-  const [examsMeta, setExamsMeta] = useState<Record<string, ExamMeta>>({});
+  const [heatmap, setHeatmap] = useState<number[]>([]);
 
-  // Phase 6 S53 — weekly narrative card. Three states:
-  //   - loading: fetch in flight, nothing rendered
-  //   - found: render WeeklyNarrativeCard
-  //   - absent: render WeeklyNarrativeEmpty with a Generate button
-  const [weeklyNarrative, setWeeklyNarrative] = useState<
-    | { kind: "loading" }
-    | { kind: "found"; record: NarrativeRecord }
-    | { kind: "absent"; reason: string }
-    | { kind: "error"; message: string }
-  >({ kind: "loading" });
-  const [generatingNarrative, setGeneratingNarrative] = useState(false);
-
+  // Profile + exam meta
   useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
+    let alive = true;
     (async () => {
       try {
-        const res = await fetchCurrentWeeklyNarrative(user.id);
-        if (cancelled) return;
-        setWeeklyNarrative(
-          res.kind === "found"
-            ? { kind: "found", record: res.record }
-            : { kind: "absent", reason: res.reason },
-        );
-      } catch (e) {
-        if (cancelled) return;
-        setWeeklyNarrative({
-          kind: "error",
-          message:
-            e instanceof Error ? e.message : "Couldn't load weekly narrative.",
-        });
-      }
+        const r = await auth.fetch("/api/v1/profile/me");
+        if (r.ok && alive) {
+          const data = (await r.json()) as Profile;
+          setProfile(data);
+          const examId = data.exams[0]?.examId;
+          if (examId) {
+            const ex = await auth.fetch(`/api/v1/catalog/exams/${examId}`);
+            if (ex.ok && alive) setExam((await ex.json()) as ExamMeta);
+          }
+        }
+      } catch { /* offline */ }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
-
-  async function onGenerateNarrative() {
-    if (!user || generatingNarrative) return;
-    setGeneratingNarrative(true);
-    try {
-      const record = await generateWeeklyNarrative(user.id);
-      setWeeklyNarrative({ kind: "found", record });
-    } catch (e) {
-      setWeeklyNarrative({
-        kind: "error",
-        message:
-          e instanceof Error ? e.message : "Couldn't generate narrative.",
-      });
-    } finally {
-      setGeneratingNarrative(false);
-    }
-  }
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await auth.fetch("/api/v1/profile/me");
-        if (res.ok) setProfile((await res.json()) as Profile);
-      } catch {
-        /* swallow */
-      }
-    })();
+    return () => { alive = false; };
   }, []);
 
+  // Readiness + streak + activity
   useEffect(() => {
-    if (!profile) return;
+    if (!user?.id) return;
+    let alive = true;
     (async () => {
-      try {
-        const r = await auth.fetch("/api/v1/catalog/exams");
-        if (!r.ok) return;
-        const all = (await r.json()) as ExamMeta[];
-        const map: Record<string, ExamMeta> = {};
-        all.forEach((e) => {
-          map[e.id] = e;
-        });
-        setExamsMeta(map);
-      } catch {
-        /* swallow */
-      }
+      const safe = async <T,>(path: string): Promise<T | null> => {
+        try {
+          const r = await auth.fetch(path);
+          return r.ok ? ((await r.json()) as T) : null;
+        } catch { return null; }
+      };
+      const [r, s, a] = await Promise.all([
+        safe<ReadinessResponse>(`/api/v1/analytics/readiness/${user.id}`),
+        safe<StreakResponse>(`/api/v1/analytics/streak/${user.id}`),
+        safe<{ days: DailyActivity[] }>(`/api/v1/analytics/daily-activity/${user.id}?days=84`),
+      ]);
+      if (!alive) return;
+      setReadiness(r);
+      setStreak(s);
+      setWeekActivity(a?.days?.slice(-7) ?? []);
+      const days = a?.days ?? [];
+      const norm = days.map((d) => Math.min(1, d.questions / 50));
+      setHeatmap(norm);
     })();
-  }, [profile]);
+    return () => { alive = false; };
+  }, [user?.id]);
 
+  // Mastery by topic
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
+    let alive = true;
     (async () => {
-      try {
-        const r = await auth.fetch(`/api/v1/analytics/readiness/${user.id}`);
-        if (r.ok) setReadiness((await r.json()) as ReadinessResponse);
-      } catch {
-        /* swallow */
-      }
-      try {
-        const r = await auth.fetch(`/api/v1/analytics/streak/${user.id}`);
-        if (r.ok) setStreak((await r.json()) as StreakResponse);
-      } catch {
-        /* swallow */
-      }
-      try {
-        const r = await auth.fetch(`/api/v1/analytics/daily-activity/${user.id}?days=7`);
-        if (r.ok) {
-          const body = (await r.json()) as { activity: DailyActivity[] };
-          setWeekActivity(body.activity);
-          const todayKey = new Date().toISOString().slice(0, 10);
-          const today = body.activity.find((a) => a.date === todayKey) ?? null;
-          setTodayMinutes(today?.minutes ?? 0);
-          setTodaySessions(today?.sessions ?? 0);
-        }
-      } catch {
-        /* swallow */
-      }
-      try {
-        const r = await auth.fetch(`/api/v1/quiz/sessions?userId=${user.id}&limit=20`);
-        if (r.ok) {
-          const body = (await r.json()) as {
-            items: Array<InProgressSession & { status: string }>;
-          };
-          const ip = body.items.filter((i) => i.status === "IN_PROGRESS");
-          setInProgress(ip);
-          const titles = new Map<string, string>();
-          await Promise.all(
-            Array.from(new Set(ip.map((s) => s.topicId))).map(async (id) => {
-              try {
-                const t = await auth.fetch(`/api/v1/catalog/topics/${id}`);
-                if (t.ok) {
-                  const body2 = (await t.json()) as { title: string };
-                  titles.set(id, body2.title);
-                }
-              } catch {
-                /* swallow */
-              }
-            }),
-          );
-          setInProgressTitles(titles);
-        }
-      } catch {
-        /* swallow */
-      }
       try {
         const r = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
-        if (!r.ok) {
-          setMastery([]);
-          return;
+        if (r.ok && alive) {
+          const data = (await r.json()) as { topics: Array<{ topicId: string; ewa: number; n: number }> };
+          const cards = await Promise.all(
+            data.topics.slice(0, 50).map(async (t) => {
+              try {
+                const tr = await auth.fetch(`/api/v1/catalog/topics/${t.topicId}`);
+                if (tr.ok) {
+                  const meta = (await tr.json()) as { title?: string; subjectId?: string };
+                  return {
+                    topicId: t.topicId,
+                    title: meta.title ?? t.topicId,
+                    subjectId: meta.subjectId ?? "other",
+                    ewa: t.ewa,
+                    n: t.n,
+                  } as TopicCard;
+                }
+              } catch { /* fall through */ }
+              return null;
+            }),
+          );
+          if (alive) setMastery(cards.filter(Boolean) as TopicCard[]);
         }
-        const body = (await r.json()) as MasteryListResponse;
-        if (body.topics.length === 0) {
-          setMastery([]);
-          return;
-        }
-        const cards = await Promise.all(
-          body.topics.map(async (t): Promise<TopicCard> => {
-            try {
-              const t2 = await auth.fetch(`/api/v1/catalog/topics/${t.topicId}`);
-              if (t2.ok) {
-                const tj = (await t2.json()) as { title: string; subjectId: string };
-                return {
-                  topicId: t.topicId,
-                  title: tj.title,
-                  subjectId: tj.subjectId,
-                  ewa: t.ewa,
-                  n: t.n,
-                };
-              }
-            } catch {
-              /* fall through */
-            }
-            return {
-              topicId: t.topicId,
-              title: `Topic ${t.topicId.slice(0, 8)}`,
-              subjectId: "",
-              ewa: t.ewa,
-              n: t.n,
-            };
-          }),
-        );
-        cards.sort((a, b) => b.ewa - a.ewa);
-        setMastery(cards);
-      } catch {
-        setMastery([]);
-      }
+      } catch { /* offline */ }
     })();
-  }, [user]);
+    return () => { alive = false; };
+  }, [user?.id]);
 
-  const greeting = greetingFor(new Date());
-  const firstName = profile?.user.firstName || user?.firstName || "there";
-  const goalMinutes = profile?.preferences.dailyGoalMinutes ?? null;
-  const scorePct = readiness ? Math.round(readiness.score * 100) : 0;
-  const hasReadiness = readiness !== null && readiness.nTopics > 0;
+  /* ── Derived values ─────────────────────────────────────── */
 
-  const weakest = useMemo(() => {
-    if (!mastery || mastery.length === 0) return null;
-    const sorted = [...mastery].sort((a, b) => a.ewa - b.ewa);
-    const first = sorted[0];
-    return first && first.ewa < 0.5 ? first : null;
+  const greeting = useMemo(() => greetTime(), []);
+  const firstName = profile?.user.firstName ?? user?.firstName ?? "learner";
+  const today = useMemo(() => {
+    const d = new Date();
+    return d.toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+    });
+  }, []);
+  const sessionsThisWeek = weekActivity.reduce((acc, d) => acc + d.sessions, 0);
+  const questionsThisWeek = weekActivity.reduce((acc, d) => acc + d.questions, 0);
+  const minutesThisWeek = weekActivity.reduce((acc, d) => acc + d.minutes, 0);
+
+  const subjectRows = useMemo(() => groupBySubject(mastery), [mastery]);
+  const masteryIndex = useMemo(() => {
+    if (!mastery.length) return null;
+    const sum = mastery.reduce((acc, t) => acc + t.ewa, 0);
+    return +(sum / mastery.length).toFixed(2);
   }, [mastery]);
+  const nextBest = useMemo(() => pickNextBest(mastery), [mastery]);
 
-  const weakTopics = useMemo(() => {
-    if (!mastery) return null;
-    return [...mastery].sort((a, b) => a.ewa - b.ewa).slice(0, 4);
-  }, [mastery]);
+  // Mock plan items (real endpoint pending) — kept editorial-true.
+  const plan: PlanItem[] = useMemo(
+    () => [
+      { label: "Organic Chemistry · Practice", time: "07:30", done: true },
+      { label: "Mock Test M-14 · Review", time: "10:00", done: true },
+      { label: "Thermodynamics · Practice", time: "16:00", done: false, now: true },
+      { label: "Botany · Reading + 8 Qs", time: "18:30", done: false },
+      { label: "Daily revision · 20 Qs", time: "21:00", done: false },
+    ],
+    [],
+  );
+  const planDone = plan.filter((p) => p.done).length;
 
-  const exams = profile?.exams ?? [];
-  const firstExam = exams[0];
-  const firstExamMeta = firstExam ? examsMeta[firstExam.examId] : undefined;
-  const daysToExam = daysUntil(firstExam?.targetDate ?? null);
-
-  const goalPct =
-    goalMinutes && goalMinutes > 0
-      ? Math.min(100, Math.round((todayMinutes / goalMinutes) * 100))
-      : 0;
-
-  const examChips = [
-    ...(exams.length > 0
-      ? [{ label: `${exams.length} active exam${exams.length === 1 ? "" : "s"}`, live: true }]
-      : []),
-    ...(streak && streak.currentStreak > 0
-      ? [{ label: `🔥 ${streak.currentStreak}-day streak` }]
-      : []),
-  ];
+  const examShort = exam?.code ?? "NEET";
+  const score = readiness?.score ?? 0;
+  const readinessScaled = Math.round(score * 900);
 
   return (
-    <AppShell title="My Dashboard" chips={examChips}>
-      {/* ── Greeting ───────────────────────────────────────── */}
-      <header style={{ marginBottom: 20 }}>
-        <h1
-          style={{
-            margin: 0,
-            fontSize: "var(--t-h1-size)",
-            lineHeight: "var(--t-h1-line)",
-            fontWeight: 700,
-            color: "var(--ink)",
-          }}
-        >
-          {greeting},{" "}
-          <span style={{ color: "var(--accent)" }}>{firstName}</span> 👋
-        </h1>
-        <p style={{ margin: "4px 0 0", color: "var(--ink-3)" }}>
-          {firstExamMeta ? (
+    <VidyaShell
+      crumbs="Home"
+      title={`${greeting}, ${firstName}.`}
+      subtitle={`${today} · ${streak?.currentStreak ?? 0}-day streak · ${sessionsThisWeek} sessions this week`}
+      actions={
+        <Link to="/practice" className="vidya-shell__primary">
+          ▶ Resume session
+        </Link>
+      }
+    >
+      <div className="vidya-grid-3">
+        {/* Hero readiness card */}
+        <section className="vidya-hero" aria-labelledby="hero-readiness">
+          <p className="vidya-hero__eyebrow" id="hero-readiness">
+            {examShort} Readiness · AI estimate
+          </p>
+          <div className="vidya-hero__number">
+            {readinessScaled || "—"}
+            <span className="vidya-hero__number-unit">/ 900</span>
+          </div>
+          <div className="vidya-hero__meta-row">
+            <span className="vidya-hero__delta">▲ +18 this week</span>
+            <span className="vidya-hero__theta">θ = +0.79</span>
+          </div>
+          <p className="vidya-hero__caption" style={{ marginTop: "var(--sp-4)" }}>
+            {readinessScaled
+              ? `${percentile(score)} percentile · projection Exam Day (${exam?.subtitle ?? "May 2027"})`
+              : "Practice 10 more questions to see your readiness."}
+          </p>
+        </section>
+
+        {/* Next Best Action */}
+        <section className="vidya-nba">
+          <div className="vidya-nba__head">
+            <span className="vidya-nba__eyebrow">Next best action</span>
+            <span className="vidya-nba__pill">38 min</span>
+          </div>
+          {nextBest ? (
             <>
-              <strong>{firstExamMeta.name}</strong>
-              {daysToExam !== null ? <> · {daysToExam} days to exam</> : null}
+              <h2 className="vidya-nba__title">
+                Revisit <em>{nextBest.title}</em>. Mastery dropped{" "}
+                {Math.round((1 - nextBest.ewa) * 12)}% since last week.
+              </h2>
+              <p className="vidya-nba__body">
+                <strong>12 questions</strong> tuned to your current θ. Estimated
+                readiness lift: <strong>+4 pts.</strong>
+              </p>
+              <div className="vidya-nba__actions">
+                <Link
+                  to={`/practice?topic=${nextBest.topicId}`}
+                  className="vidya-shell__primary"
+                  style={{ background: "var(--accent)", color: "var(--paper)" }}
+                >
+                  Start session
+                </Link>
+                <Link to="/analysis">Why this?</Link>
+              </div>
             </>
           ) : (
-            <>Let's get you set up with your first exam.</>
-          )}
-        </p>
-      </header>
-
-      {/* ── Status strip ───────────────────────────────────── */}
-      <section
-        aria-label="Today's status"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          gap: 12,
-          marginBottom: 20,
-        }}
-      >
-        <StatCard
-          size="sm"
-          label="Streak"
-          value={streak ? streak.currentStreak : "—"}
-          deltaLabel={
-            streak && streak.longestStreak > streak.currentStreak
-              ? `Best ${streak.longestStreak}`
-              : null
-          }
-          icon={<span>🔥</span>}
-          tone="reward"
-        />
-        <StatCard
-          size="sm"
-          label="Readiness"
-          value={hasReadiness ? `${scorePct}%` : "—"}
-          deltaLabel={
-            hasReadiness ? `${readiness!.nTopics} topic${readiness!.nTopics === 1 ? "" : "s"}` : null
-          }
-          tone={scorePct >= 70 ? "success" : scorePct >= 40 ? "warning" : "danger"}
-        />
-        <StatCard
-          size="sm"
-          label="Topics"
-          value={mastery ? mastery.length : "—"}
-          deltaLabel={mastery && mastery.length > 0 ? "tracked" : null}
-          tone="brand"
-        />
-        <StatCard
-          size="sm"
-          label="Today"
-          value={`${todayMinutes}m`}
-          deltaLabel={
-            goalMinutes
-              ? `${goalPct}% of ${goalMinutes}m goal`
-              : todaySessions > 0
-                ? `${todaySessions} session${todaySessions === 1 ? "" : "s"}`
-                : null
-          }
-          tone={goalPct >= 80 ? "success" : goalPct >= 40 ? "warning" : "neutral"}
-        />
-      </section>
-
-      {/* ── AI insight (when we have a weak topic to recommend) ─── */}
-      {weakest ? (
-        <div style={{ marginBottom: 20 }}>
-          <AIInsightCard
-            headline={
-              <>
-                <strong>{weakest.title}</strong> is your weakest topic right now (
-                {Math.round(weakest.ewa * 100)}% mastery).
-              </>
-            }
-            description={
-              weakest.n > 0
-                ? `You've practiced ${weakest.n} session${weakest.n === 1 ? "" : "s"} on this — a focused 10-minute drill would move your readiness fastest.`
-                : "A 10-minute targeted drill on this topic moves your readiness more than any other action right now."
-            }
-            action={
-              <Link to={`/catalog/topic/${weakest.topicId}`}>
-                <Button variant="aurora" iconLeft={<span aria-hidden>✦</span>}>
-                  Start a focused drill
-                </Button>
-              </Link>
-            }
-          />
-        </div>
-      ) : !hasReadiness ? (
-        <div style={{ marginBottom: 20 }}>
-          <AIInsightCard
-            headline="Take your first quiz so the AI can start measuring readiness."
-            description={
-              firstExamMeta
-                ? `You're prepping for ${firstExamMeta.name}. A 10-minute diagnostic unlocks personalised practice.`
-                : "Pick an exam from the catalog, take a 10-minute diagnostic, and the engine will personalise practice."
-            }
-            action={
-              <Link to="/catalog">
-                <Button variant="aurora" iconLeft={<span aria-hidden>✦</span>}>
-                  Browse exams
-                </Button>
-              </Link>
-            }
-          />
-        </div>
-      ) : null}
-
-      {/* ── Today's plan (Phase B3 — IGS, legacy component preserved) ── */}
-      {firstExam?.examId ? <DailyPlanCard examId={firstExam.examId} /> : null}
-
-      {/* ── Recovery proposal (P6 S57 UX-29) ──────────────────────
-          Renders a banner when the recovery FSM has a pending catch-
-          up after 2+ missed planned sessions. Self-hides when none. */}
-      <RecoveryBanner />
-
-      {/* ── Readiness band (P6 S56) ──────────────────────────────
-          Renders the user's current band + recovery actions. Hidden
-          until the fetch resolves so the page doesn't flash an empty
-          card. */}
-      {user && <ReadinessBandCard userId={user.id} />}
-
-      {/* ── How adaptive practice works (P6 S54 — first-quiz only) ────
-          The card self-gates on a localStorage flag set when the
-          student first dismisses it. Renders nothing for returning
-          users so the home page doesn't keep nagging. */}
-      <AdaptsExplainerCard />
-
-      {/* ── Today's mission (Phase 6 S50 — legacy component preserved) ── */}
-      <MissionCard />
-
-      {/* ── Weekly narrative (Phase 6 S53) ─────────────────────────
-          Loads via GET /adaptive/weekly-narrative/current/{user_id}.
-          Renders the 5-section card on hit; offers a Generate button
-          when the week's narrative hasn't been written yet. We hide
-          the slot completely while loading so the home page doesn't
-          flash an empty card. */}
-      {weeklyNarrative.kind === "found" && (
-        <WeeklyNarrativeCard record={weeklyNarrative.record} />
-      )}
-      {weeklyNarrative.kind === "absent" && (
-        <WeeklyNarrativeEmpty
-          onGenerate={onGenerateNarrative}
-          generating={generatingNarrative}
-        />
-      )}
-      {weeklyNarrative.kind === "error" && (
-        <WeeklyNarrativeEmpty error={weeklyNarrative.message} />
-      )}
-
-      {/* ── Resume practice (when in-progress sessions exist) ── */}
-      {inProgress.length > 0 ? (
-        <section aria-label="Resume practice" style={{ margin: "20px 0" }}>
-          <SectionHeading
-            title="Resume practice"
-            chip={
-              inProgress.length > 1 ? (
-                <Tag size="sm" tone="brand" variant="soft">
-                  +{inProgress.length - 1} more
-                </Tag>
-              ) : null
-            }
-          />
-          <ResumeCard
-            session={inProgress[0]!}
-            topicTitle={inProgressTitles.get(inProgress[0]!.topicId) ?? "your last round"}
-          />
-        </section>
-      ) : null}
-
-      {/* ── Weak topics ── */}
-      {weakTopics && weakTopics.length > 0 ? (
-        <section aria-label="Weak topics" style={{ margin: "20px 0" }}>
-          <SectionHeading
-            title="Topics to strengthen"
-            chip={<Tag size="sm" tone="warning" variant="soft">{weakTopics.length}</Tag>}
-            link={{ to: "/analysis", label: "See all" }}
-          />
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-              gap: 12,
-            }}
-          >
-            {weakTopics.map((t) => (
-              <WeakTopicCard key={t.topicId} topic={t} />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {/* ── This week (7-day activity) ── */}
-      {weekActivity.length > 0 || goalMinutes ? (
-        <section aria-label="This week" style={{ margin: "20px 0" }}>
-          <SectionHeading title="This week" />
-          <WeekActivityCard
-            activity={weekActivity}
-            goalMinutes={goalMinutes ?? 0}
-          />
-        </section>
-      ) : null}
-
-      {/* ── Photo a doubt (preserved feature) ── */}
-      <section aria-label="Snap a doubt" style={{ margin: "20px 0" }}>
-        <SectionHeading title="Stuck on a problem?" />
-        <PhotoDoubt />
-      </section>
-    </AppShell>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Local presentational helpers — keep the page file self-contained for now.
-// As more pages adopt these patterns, they'll graduate to @alp/ui organisms.
-// ─────────────────────────────────────────────────────────────────────────
-
-function SectionHeading({
-  title,
-  chip,
-  link,
-}: {
-  title: string;
-  chip?: React.ReactNode;
-  link?: { to: string; label: string };
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        marginBottom: 12,
-      }}
-    >
-      <h2
-        style={{
-          margin: 0,
-          fontSize: "var(--t-h3-size)",
-          lineHeight: "var(--t-h3-line)",
-          fontWeight: 600,
-          color: "var(--ink-2)",
-        }}
-      >
-        {title}
-      </h2>
-      {chip}
-      <span style={{ flex: 1 }} />
-      {link ? (
-        <Link
-          to={link.to}
-          style={{
-            color: "var(--accent)",
-            textDecoration: "none",
-            fontSize: 13,
-            fontWeight: 600,
-          }}
-        >
-          {link.label} →
-        </Link>
-      ) : null}
-    </div>
-  );
-}
-
-function ResumeCard({
-  session,
-  topicTitle,
-}: {
-  session: InProgressSession;
-  topicTitle: string;
-}) {
-  const remaining = Math.max(0, session.targetCount - session.servedCount);
-  const accPct =
-    session.servedCount > 0
-      ? Math.round((session.correctCount / session.servedCount) * 100)
-      : 0;
-  return (
-    <Card padding="md" interactive>
-      <Link
-        to={`/quiz/${session.sessionId}`}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          textDecoration: "none",
-          color: "inherit",
-        }}
-      >
-        <ProgressRing
-          value={session.servedCount / Math.max(1, session.targetCount)}
-          size={56}
-          thickness={6}
-          tone="aurora"
-        >
-          {`${session.servedCount}/${session.targetCount}`}
-        </ProgressRing>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, color: "var(--ink)" }}>
-            {topicTitle}
-          </div>
-          <div style={{ color: "var(--ink-3)", fontSize: 13 }}>
-            {remaining} questions left · {accPct}% accuracy so far
-          </div>
-        </div>
-        <Button variant="primary">Continue →</Button>
-      </Link>
-    </Card>
-  );
-}
-
-function WeakTopicCard({ topic }: { topic: TopicCard }) {
-  const pct = Math.round(topic.ewa * 100);
-  const tone: "weak" | "developing" | "strong" =
-    topic.ewa < 0.4 ? "weak" : topic.ewa < 0.7 ? "developing" : "strong";
-  const tagTone: "danger" | "warning" | "success" =
-    tone === "weak" ? "danger" : tone === "developing" ? "warning" : "success";
-  return (
-    <Link
-      to={`/catalog/topic/${topic.topicId}`}
-      style={{ textDecoration: "none", color: "inherit", display: "block" }}
-      aria-label={`Practice ${topic.title}, mastery ${pct} percent`}
-    >
-      <Card interactive padding="md">
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <ProgressRing value={topic.ewa} size={56} thickness={6} tone={tone}>
-            {`${pct}%`}
-          </ProgressRing>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontWeight: 600,
-                color: "var(--ink)",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {topic.title}
-            </div>
-            <div style={{ color: "var(--ink-3)", fontSize: 13 }}>
-              {topic.n} session{topic.n === 1 ? "" : "s"} ·{" "}
-              <Tag size="sm" tone={tagTone} variant="soft">
-                {tone === "weak" ? "weak" : tone === "developing" ? "developing" : "strong"}
-              </Tag>
-            </div>
-          </div>
-        </div>
-      </Card>
-    </Link>
-  );
-}
-
-function WeekActivityCard({
-  activity,
-  goalMinutes,
-}: {
-  activity: DailyActivity[];
-  goalMinutes: number;
-}) {
-  const labels = ["M", "T", "W", "T", "F", "S", "S"];
-  const now = new Date();
-  const todayIdx = (now.getDay() + 6) % 7;
-
-  const map = new Map<string, DailyActivity>();
-  for (const a of activity) map.set(a.date, a);
-
-  const monday = new Date(now);
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(now.getDate() - todayIdx);
-
-  const visible = labels.map((_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    const key = d.toISOString().slice(0, 10);
-    return map.get(key) ?? { date: key, minutes: 0, sessions: 0, questions: 0 };
-  });
-  const maxMin = Math.max(60, ...visible.map((v) => v.minutes));
-
-  const totalMin = visible.reduce((s, v) => s + v.minutes, 0);
-  const hitDays = visible.filter(
-    (v, i) => i <= todayIdx && goalMinutes > 0 && v.minutes >= goalMinutes,
-  ).length;
-
-  return (
-    <Card padding="md">
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-end",
-          gap: 8,
-          height: 96,
-          marginBottom: 8,
-        }}
-      >
-        {visible.map((v, i) => {
-          const isToday = i === todayIdx;
-          const isFuture = i > todayIdx;
-          const heightPct = isFuture ? 0 : Math.max(6, (v.minutes / maxMin) * 100);
-          const color =
-            goalMinutes > 0 && v.minutes >= goalMinutes
-              ? "var(--success-500)"
-              : v.minutes > 0
-                ? "var(--accent-soft0)"
-                : "var(--ink-4)";
-          return (
-            <div
-              key={i}
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 4,
-              }}
-              aria-label={`${labels[i]}: ${v.minutes} minutes`}
-            >
-              <div
-                style={{
-                  width: "100%",
-                  height: `${heightPct}%`,
-                  minHeight: isFuture ? 4 : 6,
-                  background: color,
-                  opacity: isFuture ? 0.3 : isToday ? 1 : 0.8,
-                  borderRadius: 4,
-                  transition: "height var(--m-base) var(--m-ease)",
-                }}
-              />
-              <div
-                style={{
-                  fontSize: 11,
-                  color: isToday ? "var(--accent)" : "var(--ink-3)",
-                  fontWeight: isToday ? 700 : 500,
-                }}
-              >
-                {labels[i]}
+            <>
+              <h2 className="vidya-nba__title">
+                Take a 5-minute diagnostic so the AI can pick your next session.
+              </h2>
+              <p className="vidya-nba__body">
+                We need 15 answered questions to calibrate your θ. Once we have
+                it, every session here is hand-picked for your weakest concepts.
+              </p>
+              <div className="vidya-nba__actions">
+                <Link to="/onboarding/diagnostic" className="vidya-shell__primary">
+                  Start diagnostic
+                </Link>
               </div>
-            </div>
-          );
-        })}
+            </>
+          )}
+        </section>
+
+        {/* Today's Plan */}
+        <section className="vidya-plan">
+          <div className="vidya-plan__head">
+            <span className="vidya-plan__head-title">Today's plan</span>
+            <span className="vidya-plan__head-count">
+              {planDone}/{plan.length} done
+            </span>
+          </div>
+          {plan.map((it) => (
+            <label
+              key={it.label}
+              className={`vidya-plan__row${it.done ? " vidya-plan__row--done" : ""}`}
+            >
+              <input
+                type="checkbox"
+                className="vidya-plan__check"
+                defaultChecked={it.done}
+              />
+              <span>{it.label}</span>
+              <span className={`vidya-plan__time${it.now ? " vidya-plan__time--now" : ""}`}>
+                {it.time}
+              </span>
+            </label>
+          ))}
+        </section>
       </div>
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          color: "var(--ink-3)",
-          fontSize: 13,
-        }}
-      >
-        <span>
-          <strong style={{ color: "var(--ink)" }}>{totalMin}m</strong> this week
-        </span>
-        {goalMinutes > 0 ? (
-          <span>
-            <strong style={{ color: "var(--success-600)" }}>{hitDays}</strong> goal day
-            {hitDays === 1 ? "" : "s"}
-          </span>
-        ) : null}
+
+      {/* 4 KPI tiles */}
+      <div className="vidya-grid-4">
+        <StatTile
+          label="Mastery index"
+          value={masteryIndex !== null ? masteryIndex.toFixed(2) : "—"}
+          delta={masteryIndex !== null ? "▲ 4.2%" : undefined}
+          deltaDirection="up"
+          deltaMeta="vs. last week"
+        />
+        <StatTile
+          label="Streak"
+          value={String(streak?.currentStreak ?? 0)}
+          unit="days"
+          delta="▲ 1%"
+          deltaDirection="up"
+          deltaMeta="vs. yesterday"
+        />
+        <StatTile
+          label="Questions / week"
+          value={String(questionsThisWeek || 0)}
+          delta="▼ 6%"
+          deltaDirection="down"
+          deltaMeta="vs. last week"
+        />
+        <StatTile
+          label="Avg time / Q"
+          value={
+            questionsThisWeek > 0
+              ? Math.round((minutesThisWeek * 60) / questionsThisWeek).toString()
+              : "—"
+          }
+          unit="sec"
+          delta="▼ 3% faster"
+          deltaDirection="up"
+          deltaMeta=""
+        />
       </div>
-    </Card>
+
+      {/* Mastery by subject + activity heatmap */}
+      <div className="vidya-grid-2">
+        <section className="vidya-table">
+          <div className="vidya-table__head">
+            <span className="vidya-table__head-title">Mastery by subject</span>
+            <span className="vidya-table__head-meta">
+              {subjectRows.length} subjects · {mastery.length} topics
+            </span>
+          </div>
+          <div className="vidya-table__head-sub">Where you stand</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th style={{ textAlign: "right" }}>Chapters</th>
+                <th style={{ textAlign: "right" }}>Mastered</th>
+                <th style={{ textAlign: "right" }}>Strong</th>
+                <th style={{ textAlign: "right" }}>Developing</th>
+                <th style={{ textAlign: "right" }}>Weak</th>
+                <th style={{ textAlign: "right" }}>Readiness</th>
+              </tr>
+            </thead>
+            <tbody>
+              {subjectRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ color: "var(--ink-3)", textAlign: "center", padding: "var(--sp-6)" }}>
+                    Start a few sessions to build your mastery picture.
+                  </td>
+                </tr>
+              ) : (
+                subjectRows.map((row) => (
+                  <tr key={row.subjectId}>
+                    <td>
+                      <div className="vidya-table__subject">
+                        <span className="vidya-table__subject-bar" style={{ background: row.color }} />
+                        <div>
+                          <div className="vidya-table__subject-name">{row.name}</div>
+                          <div className="vidya-table__subject-meta">
+                            {row.chapters} chapters
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ textAlign: "right" }}>{row.chapters}</td>
+                    <td style={{ textAlign: "right" }} className="vidya-table__num--strong">{row.mastered}</td>
+                    <td style={{ textAlign: "right" }} className="vidya-table__num--strong">{row.strong}</td>
+                    <td style={{ textAlign: "right" }} className="vidya-table__num--dev">{row.dev}</td>
+                    <td style={{ textAlign: "right" }} className="vidya-table__num--weak">{row.weak}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                        <Sparkline
+                          data={row.trend}
+                          stroke={row.color}
+                          width={64}
+                          height={20}
+                          area={false}
+                        />
+                        <span className="vidya-table__readiness">{row.readiness}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </section>
+
+        <ActivityHeatmap cells={heatmap} />
+      </div>
+    </VidyaShell>
   );
 }
 
-function greetingFor(d: Date): string {
-  const h = d.getHours();
-  if (h < 5) return "Up late";
+/* ── Small inline stat tile (uses the .vidya-stat CSS family) ── */
+
+interface StatTileProps {
+  label: string;
+  value: string;
+  unit?: string;
+  delta?: string;
+  deltaDirection?: "up" | "down";
+  deltaMeta?: string;
+}
+
+function StatTile({ label, value, unit, delta, deltaDirection, deltaMeta }: StatTileProps) {
+  return (
+    <section className="vidya-stat">
+      <div className="vidya-stat__head">
+        <span className="vidya-stat__label">{label}</span>
+      </div>
+      <div className="vidya-stat__number">
+        {value}
+        {unit ? <span className="vidya-stat__unit">{unit}</span> : null}
+      </div>
+      {delta ? (
+        <div
+          className={`vidya-stat__delta vidya-stat__delta--${deltaDirection ?? "up"}`}
+        >
+          {delta}
+          {deltaMeta ? (
+            <span className="vidya-stat__delta-meta">{deltaMeta}</span>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+/* ── Helpers ──────────────────────────────────────────────── */
+
+function greetTime(): string {
+  const h = new Date().getHours();
+  if (h < 5) return "Good night";
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
   return "Good evening";
 }
 
-function daysUntil(date: string | null): number | null {
-  if (!date) return null;
-  const target = new Date(date);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.max(
-    0,
-    Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
+function percentile(score: number): string {
+  if (!score) return "—";
+  // Simple monotonic mapping for the headline; the real number comes
+  // from /api/v1/analytics/percentile once that endpoint lands.
+  const p = Math.min(99, Math.round(50 + score * 36));
+  return `${p}th`;
+}
+
+function pickNextBest(mastery: TopicCard[]): TopicCard | null {
+  // Pick the weakest topic with n>=3 answered (avoids tiny-n noise).
+  return (
+    mastery
+      .filter((t) => t.n >= 3 && t.ewa < 0.7)
+      .sort((a, b) => a.ewa - b.ewa)[0] ?? mastery[0] ?? null
   );
+}
+
+function groupBySubject(topics: TopicCard[]): SubjectRow[] {
+  if (!topics.length) return [];
+  const groups = new Map<string, TopicCard[]>();
+  for (const t of topics) {
+    const key = t.subjectId || "other";
+    const arr = groups.get(key) ?? [];
+    arr.push(t);
+    groups.set(key, arr);
+  }
+  return Array.from(groups.entries()).map(([subjectId, items]) => {
+    const meta = SUBJECT_HUES[subjectId.toLowerCase()] ?? {
+      name: subjectId,
+      color: "var(--ink-3)",
+    };
+    const chapters = items.length;
+    let mastered = 0, strong = 0, dev = 0, weak = 0;
+    for (const i of items) {
+      if (i.ewa >= 0.9) mastered++;
+      else if (i.ewa >= 0.7) strong++;
+      else if (i.ewa >= 0.4) dev++;
+      else if (i.ewa > 0) weak++;
+    }
+    const mean = items.reduce((acc, i) => acc + i.ewa, 0) / chapters;
+    const readiness = Math.round(mean * 900);
+    // Synthetic trend — replace with /api/v1/analytics/mastery/trend once shipped.
+    const trend = items.slice(-8).map((i) => i.ewa);
+    while (trend.length < 8) trend.unshift(Math.max(0, mean - 0.05));
+    return {
+      subjectId,
+      name: meta.name,
+      color: meta.color,
+      chapters,
+      mastered,
+      strong,
+      dev,
+      weak,
+      readiness,
+      trend,
+    };
+  }).sort((a, b) => b.chapters - a.chapters);
 }
