@@ -4365,3 +4365,95 @@
   font-size: 16px;
 }
 .vidya-experts__composer-attach button:hover { background: var(--paper-2); color: var(--ink); }
+
+/* ─────────────────────────────────────────────────────────────
+   VIDYA · QuickActions — dashboard entry-point row
+   ───────────────────────────────────────────────────────────── */
+
+.vidya-quick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.vidya-quick__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+.vidya-quick__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.vidya-quick__sub { font-size: 12.5px; color: var(--ink-3); }
+
+.vidya-quick__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-4);
+}
+@media (max-width: 1100px) { .vidya-quick__grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 680px)  { .vidya-quick__grid { grid-template-columns: 1fr; } }
+
+.vidya-quick__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-5);
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    border-color var(--m-fast) var(--m-ease),
+    transform var(--m-fast) var(--m-ease),
+    box-shadow var(--m-fast) var(--m-ease);
+  min-height: 168px;
+}
+.vidya-quick__card:hover {
+  border-color: var(--ink-4);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.vidya-quick__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+}
+.vidya-quick__icon--accent { background: var(--accent-soft); color: var(--accent); }
+.vidya-quick__icon--gold   { background: var(--gold-soft);   color: var(--gold-2); }
+.vidya-quick__icon--info   { background: var(--info-soft);   color: var(--info); }
+.vidya-quick__icon--warn   { background: var(--warn-soft);   color: var(--warn); }
+
+.vidya-quick__title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+  color: var(--ink);
+  margin-top: var(--sp-1);
+}
+.vidya-quick__body {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  line-height: 1.55;
+  flex: 1;
+}
+.vidya-quick__cta {
+  margin-top: var(--sp-2);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+}
+.vidya-quick__card:hover .vidya-quick__cta { color: var(--accent-2); }

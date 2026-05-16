@@ -24,6 +24,7 @@ import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { VidyaShell } from "../components/vidya/VidyaShell";
 import { ActivityHeatmap } from "../components/vidya/dashboardParts";
+import { QuickActions } from "../components/vidya/QuickActions";
 import { Sparkline } from "@alp/ui";
 import {
   MultiTrackBody,
@@ -284,6 +285,10 @@ export function Home() {
           </button>
         }
       >
+        <QuickActions
+          firstExamId={enrolledCatalog[0]?.id}
+          nextBestTopicId={nextBest?.topicId}
+        />
         <MultiTrackBody tracks={tracks} />
       </VidyaShell>
     );
@@ -392,6 +397,11 @@ export function Home() {
           ))}
         </section>
       </div>
+
+      <QuickActions
+        firstExamId={profile?.exams?.[0]?.examId}
+        nextBestTopicId={nextBest?.topicId}
+      />
 
       {/* 4 KPI tiles */}
       <div className="vidya-grid-4">
