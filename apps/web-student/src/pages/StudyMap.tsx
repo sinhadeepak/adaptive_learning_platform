@@ -1,32 +1,27 @@
+// StudyMap — Vidya v1 (mockup 3/8).
+//
+// Spec: docs/02-design/design-system/04_components.md
+//       + Vidya v1 mockup 3/8 (Study map).
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
+//
+// Per-subject chapter map. Layout:
+//   ┌──────── chapter list ─────────┐ ┌── recommended next ──┐
+//   │  01  Physical World ▮▮▮▮▮▮▮▮  │ │  Ch 08 · Thermo      │
+//   │  02  Kinematics    ▮▮▮▮▮▮▮▮   │ │  weakest active      │
+//   │  03  Laws of Motion ▮▮▮▮▮▮    │ │  [Start session]     │
+//   │  ...                          │ ├──────────────────────┤
+//   └───────────────────────────────┘ │  Mock test · Class 11│
+//                                     └──────────────────────┘
+//
+// When no subjectId is provided in the URL, the page picks the first
+// subject from /api/v1/catalog/exams/{examId}/subjects. Subject
+// chips along the top let users swap.
+
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
-import { Banner, SkeletonRows } from "../components/dashboard";
-
-// ─────────────────────────────────────────────────────────────────────────
-// Study Map — React port of docs/ui/01_StudentPortal_Web/07_study-map.html.
-// Reached from a subject row on /exams/:examId. Two-column layout:
-//   • Left subject-nav panel (220px) with AI coach summary + subject list.
-//   • Main content with the selected subject's topic list (sorted by AI
-//     priority — weak/decaying first), then mock-tests section.
-//
-// Route: /study/:examId/:subjectId
-//
-// Data wiring:
-//   • Real: catalog/exams/{id}/subjects, catalog/subjects/{id}/topics,
-//     analytics/mastery (filter to topics in the active subject).
-//   • Synthesised (placeholder until backend lands): topic decay flag, "last
-//     practiced" copy, mock tests (upcoming + past 5 + AI analysis).
-// ─────────────────────────────────────────────────────────────────────────
-
-interface ExamMeta {
-  id: string;
-  code: string;
-  name: string;
-  subtitle?: string | null;
-}
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface Subject {
   id: string;
@@ -44,513 +39,340 @@ interface Topic {
 }
 
 interface MasteryListResponse {
-  userId: string;
   topics: Array<{ topicId: string; ewa: number; n: number }>;
 }
 
-interface TopicCard {
+interface ChapterRow {
   id: string;
+  index: number;
   title: string;
-  ewa: number; // -1 = not started
-  n: number;
+  ewa: number;          // -1 = not started, 0..1 = mastery
+  qsDone: number;
+  questionCount: number;
+  tier: "FREE" | "PREMIUM";
+  locked: boolean;
+  isFocus: boolean;
+  hasDecay: boolean;
 }
-
-interface SubjectWithMastery {
-  id: string;
-  name: string;
-  ewa: number; // 0..1
-  nTracked: number;
-  totalTopics: number;
-}
-
-const SUBJECT_EMOJI: Record<string, string> = {
-  Biology: "🔬",
-  Chemistry: "⚗️",
-  Physics: "⚛️",
-  Mathematics: "📐",
-  Maths: "📐",
-  English: "📖",
-  History: "📜",
-  Geography: "🌍",
-};
 
 export function StudyMap() {
-  const { examId = "", subjectId = "" } = useParams<{
+  const { examId = "", subjectId: routeSubjectId } = useParams<{
     examId: string;
-    subjectId: string;
+    subjectId?: string;
   }>();
-  const navigate = useNavigate();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const [exam, setExam] = useState<ExamMeta | null>(null);
-  const [subjects, setSubjects] = useState<Subject[] | null>(null);
-  const [allTopics, setAllTopics] = useState<Record<string, TopicCard[]>>({});
-  const [error, setError] = useState<string | null>(null);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [mastery, setMastery] = useState<Map<string, { ewa: number; n: number }>>(new Map());
+  const [classFilter, setClassFilter] = useState<"all" | "11" | "12">("all");
 
-  // Fetch exam meta.
+  // Subjects
   useEffect(() => {
     if (!examId) return;
+    let alive = true;
     (async () => {
       try {
-        const r = await auth.fetch("/api/v1/catalog/exams");
-        if (r.ok) {
-          const all = (await r.json()) as ExamMeta[];
-          const match = all.find((e) => e.id === examId);
-          if (match) setExam(match);
-          else setError("Exam not found.");
+        const r = await auth.fetch(`/api/v1/catalog/exams/${examId}/subjects`);
+        if (r.ok && alive) {
+          const data = (await r.json()) as { subjects: Subject[] };
+          setSubjects(data.subjects);
         }
-      } catch {
-        setError("We couldn't load this exam.");
-      }
+      } catch { /* offline */ }
     })();
+    return () => { alive = false; };
   }, [examId]);
 
-  // Fetch subjects + topics + mastery, then join.
+  const activeSubjectId = routeSubjectId ?? subjects[0]?.id ?? "";
+  const activeSubject = subjects.find((s) => s.id === activeSubjectId);
+
+  // Topics for the active subject
   useEffect(() => {
-    if (!examId || !user) return;
+    if (!activeSubjectId) return;
+    let alive = true;
     (async () => {
       try {
-        const subRes = await auth.fetch(`/api/v1/catalog/exams/${examId}/subjects`);
-        if (!subRes.ok) {
-          setSubjects([]);
-          setAllTopics({});
-          return;
+        const r = await auth.fetch(`/api/v1/catalog/subjects/${activeSubjectId}/topics`);
+        if (r.ok && alive) {
+          const data = (await r.json()) as { topics: Topic[] };
+          setTopics(data.topics);
         }
-        const subs = (await subRes.json()) as Subject[];
-        setSubjects(subs);
-
-        let masteryMap = new Map<string, { ewa: number; n: number }>();
-        try {
-          const mRes = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
-          if (mRes.ok) {
-            const body = (await mRes.json()) as MasteryListResponse;
-            body.topics.forEach((t) => {
-              masteryMap.set(t.topicId, { ewa: t.ewa, n: t.n });
-            });
-          }
-        } catch {
-          /* empty mastery */
-        }
-
-        const topicsBySubject: Record<string, TopicCard[]> = {};
-        await Promise.all(
-          subs.map(async (s) => {
-            try {
-              const tr = await auth.fetch(`/api/v1/catalog/subjects/${s.id}/topics`);
-              if (!tr.ok) {
-                topicsBySubject[s.id] = [];
-                return;
-              }
-              const list = (await tr.json()) as Topic[];
-              topicsBySubject[s.id] = list.map((t) => {
-                const m = masteryMap.get(t.id);
-                return {
-                  id: t.id,
-                  title: t.title,
-                  ewa: m ? m.ewa : -1,
-                  n: m ? m.n : 0,
-                };
-              });
-            } catch {
-              topicsBySubject[s.id] = [];
-            }
-          }),
-        );
-        setAllTopics(topicsBySubject);
-      } catch {
-        setError("We couldn't load this exam's content.");
-      }
+      } catch { /* offline */ }
     })();
-  }, [examId, user]);
+    return () => { alive = false; };
+  }, [activeSubjectId]);
 
-  // ── Default-subject redirect ──
+  // Mastery
   useEffect(() => {
-    if (!subjects || subjects.length === 0) return;
-    const known = subjects.find((s) => s.id === subjectId);
-    if (!known) {
-      navigate(`/study/${examId}/${subjects[0].id}`, { replace: true });
-    }
-  }, [subjects, subjectId, examId, navigate]);
+    if (!user?.id) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
+        if (r.ok && alive) {
+          const data = (await r.json()) as MasteryListResponse;
+          const m = new Map<string, { ewa: number; n: number }>();
+          for (const t of data.topics) m.set(t.topicId, t);
+          setMastery(m);
+        }
+      } catch { /* offline */ }
+    })();
+    return () => { alive = false; };
+  }, [user?.id]);
 
-  // ── Derivations ──
-  const subjectsWithMastery = useMemo<SubjectWithMastery[]>(() => {
-    if (!subjects) return [];
-    return subjects.map((s) => {
-      const ts = allTopics[s.id] ?? [];
-      const tracked = ts.filter((t) => t.ewa >= 0);
-      const ewa =
-        tracked.length > 0
-          ? tracked.reduce((sum, t) => sum + t.ewa, 0) / tracked.length
-          : 0;
+  /* ── Build chapter rows ──────────────────────────────────── */
+
+  const chapters: ChapterRow[] = useMemo(() => {
+    if (!topics.length) return [];
+    return topics.map((t, i) => {
+      const m = mastery.get(t.id);
+      const ewa = m?.ewa ?? -1;
+      // Stub flags — replace with real planner output when available.
+      const isFocus = ewa >= 0 && ewa >= 0.4 && ewa < 0.7 && i % 3 === 1;
+      const hasDecay = m ? ewa > 0 && ewa < 0.4 && m.n > 3 : false;
+      const locked = ewa < 0 && i >= 9 && i % 3 === 0;
       return {
-        id: s.id,
-        name: s.name,
+        id: t.id,
+        index: i + 1,
+        title: t.title,
         ewa,
-        nTracked: tracked.length,
-        totalTopics: ts.length,
+        qsDone: m?.n ?? 0,
+        questionCount: t.questionCount,
+        tier: t.tier,
+        locked,
+        isFocus,
+        hasDecay,
       };
     });
-  }, [subjects, allTopics]);
+  }, [topics, mastery]);
 
-  const activeSubject = subjects?.find((s) => s.id === subjectId);
+  const filteredChapters = useMemo(() => {
+    if (classFilter === "all") return chapters;
+    const half = Math.ceil(chapters.length / 2);
+    return classFilter === "11" ? chapters.slice(0, half) : chapters.slice(half);
+  }, [chapters, classFilter]);
 
-  // Sort by AI priority: weak first, then developing, then strong, then new.
-  // Within each bucket, lower-EWA first.
-  const sortedTopics = useMemo(() => {
-    const activeTopics = subjectId ? allTopics[subjectId] ?? [] : [];
-    return [...activeTopics].sort((a, b) => {
-      const score = (t: TopicCard) => {
-        if (t.ewa < 0) return 4; // not started → bottom
-        if (t.ewa < 0.4) return 0; // weak
-        if (t.ewa < 0.7) return 1; // developing
-        return 2; // strong
-      };
-      const sa = score(a);
-      const sb = score(b);
-      if (sa !== sb) return sa - sb;
-      return a.ewa - b.ewa;
-    });
-  }, [allTopics, subjectId]);
+  // Weakest active chapter (recommended next)
+  const recommended = useMemo(() => {
+    const active = chapters.filter((c) => !c.locked && c.ewa >= 0 && c.ewa < 0.7);
+    return [...active].sort((a, b) => a.ewa - b.ewa)[0] ?? null;
+  }, [chapters]);
 
-  const aiPickTopic = useMemo(() => {
-    const weak = sortedTopics.find((t) => t.ewa >= 0 && t.ewa < 0.4);
-    return weak ?? null;
-  }, [sortedTopics]);
-
-  // Build the AI coach summary lines from across-all-subjects data.
-  const coachLines = useMemo(() => {
-    if (!subjectsWithMastery.length) return [];
-    const tracked = subjectsWithMastery.filter((s) => s.nTracked > 0);
-    if (tracked.length === 0) {
-      return [
-        {
-          tone: "ai" as const,
-          text: "Take your first quiz to start the recommendation engine.",
-        },
-      ];
-    }
-    const lines: Array<{ tone: "weak" | "strong" | "warn" | "ai"; text: string }> = [];
-    const weakest = [...tracked].sort((a, b) => a.ewa - b.ewa)[0];
-    if (weakest && weakest.ewa < 0.5) {
-      lines.push({
-        tone: "weak",
-        text: `Fix first: ${weakest.name} ${Math.round(weakest.ewa * 100)}%`,
-      });
-    }
-    const strongest = [...tracked].sort((a, b) => b.ewa - a.ewa)[0];
-    if (strongest && strongest.ewa >= 0.6) {
-      lines.push({
-        tone: "strong",
-        text: `Strongest: ${strongest.name} ${Math.round(strongest.ewa * 100)}%`,
-      });
-    }
-    const decaying = Object.values(allTopics)
-      .flat()
-      .filter((t) => t.ewa >= 0 && t.ewa < 0.5).length;
-    if (decaying > 0) {
-      lines.push({
-        tone: "warn",
-        text: `${decaying} weak topic${decaying === 1 ? "" : "s"} across this exam`,
-      });
-    }
-    return lines.slice(0, 3);
-  }, [subjectsWithMastery, allTopics]);
-
-  if (error) {
-    return (
-      <AppShell title="Study Map">
-        <Banner tone="danger" role="alert">
-          {error}
-        </Banner>
-        <Link to="/home" className="btn btn-ghost" style={{ marginTop: "var(--sp-3)" }}>
-          ← Back to dashboard
-        </Link>
-      </AppShell>
-    );
-  }
-
-  if (!exam || !subjects) {
-    return (
-      <AppShell title="Study Map">
-        <SkeletonRows count={5} />
-      </AppShell>
-    );
-  }
+  const subjectShort = activeSubject?.name ?? "Subject";
 
   return (
-    <AppShell
-      title="Study Map"
-      chips={[
-        { label: exam.name },
-        ...(coachLines.find((l) => l.tone === "warn")
-          ? [{ label: `⚠ ${coachLines.find((l) => l.tone === "warn")!.text}` }]
-          : []),
-      ]}
+    <VidyaShell
+      crumbs={`Study map · ${subjectShort}`}
+      title="Study map"
+      subtitle={`Every chapter, every topic — your path through the ${(activeSubject?.examId ?? examId).toUpperCase()} syllabus`}
+      chips={
+        <>
+          {subjects.map((s) => (
+            <Link
+              key={s.id}
+              to={`/study/${examId}/${s.id}`}
+              className={`vidya-shell__chip${s.id === activeSubjectId ? " vidya-shell__chip--on" : ""}`}
+            >
+              {s.name}
+            </Link>
+          ))}
+        </>
+      }
       actions={
-        <Link
-          to={`/exams/${examId}`}
-          className="topbar-back"
-          aria-label="Back to exam dashboard"
+        <button
+          className="vidya-shell__primary"
+          onClick={() => {
+            if (recommended) navigate(`/practice?topic=${recommended.id}`);
+            else navigate("/practice");
+          }}
         >
-          ← {exam.name}
-        </Link>
+          ⚡ AI choose for me
+        </button>
       }
     >
-      <div
-        className="studymap-body"
-        style={{
-          // Override AppShell main padding so the two-column grid has full width.
-          margin: "calc(-1 * var(--sp-6))",
-          height: "calc(100vh - 56px)",
-        }}
-      >
-        {/* ── Left subject-nav panel ────────────────────────────── */}
-        <aside className="studymap-left" aria-label="Subjects">
-          {coachLines.length > 0 ? (
-            <div className="ai-coach">
-              <div className="ac-eyebrow">◈ AI COACH · TODAY</div>
-              {coachLines.map((line, i) => (
-                <div key={i} className="ac-item">
-                  <div
-                    className="ac-dot"
-                    style={{
-                      background:
-                        line.tone === "weak"
-                          ? "var(--bad)"
-                          : line.tone === "strong"
-                            ? "var(--good)"
-                            : line.tone === "warn"
-                              ? "var(--warn)"
-                              : "var(--gold)",
-                    }}
-                  />
-                  <div className="ac-text">{line.text}</div>
-                </div>
-              ))}
+      <div className="vidya-grid-2">
+        {/* Chapter list */}
+        <section className="vidya-chapters">
+          <div className="vidya-chapters__head">
+            <div>
+              <div className="vidya-chapters__eyebrow">
+                {subjectShort} · {chapters.length} chapters
+              </div>
+              <div className="vidya-chapters__title">
+                Class 11 <span aria-hidden>→</span> 12 path
+              </div>
             </div>
+            <div className="vidya-chapters__filters">
+              <button className="vidya-shell__chip">▽ Filter</button>
+              <button
+                className={`vidya-shell__chip${classFilter === "11" ? " vidya-shell__chip--on" : ""}`}
+                onClick={() => setClassFilter(classFilter === "11" ? "all" : "11")}
+              >
+                Class 11
+              </button>
+              <button
+                className={`vidya-shell__chip${classFilter === "12" ? " vidya-shell__chip--on" : ""}`}
+                onClick={() => setClassFilter(classFilter === "12" ? "all" : "12")}
+              >
+                Class 12
+              </button>
+            </div>
+          </div>
+
+          <ol className="vidya-chapters__list">
+            {filteredChapters.length === 0 ? (
+              <li style={{ color: "var(--ink-3)", textAlign: "center", padding: "var(--sp-8) 0" }}>
+                No chapters for this subject yet.
+              </li>
+            ) : (
+              filteredChapters.map((c) => <ChapterRowView key={c.id} c={c} />)
+            )}
+          </ol>
+        </section>
+
+        {/* Right rail */}
+        <div className="vidya-chapters__rail">
+          {recommended ? (
+            <section className="vidya-rec">
+              <div className="vidya-rec__eyebrow">Recommended next</div>
+              <div className="vidya-rec__title">
+                Ch {String(recommended.index).padStart(2, "0")} · {recommended.title}
+              </div>
+              <p className="vidya-rec__body">
+                Your weakest active chapter. {recommended.questionCount} high-yield
+                questions queued.
+              </p>
+              <div className="vidya-rec__stats">
+                <div>
+                  <div className="vidya-rec__stat-label">Mastery</div>
+                  <div
+                    className="vidya-rec__stat-value"
+                    style={{ color: "var(--bad)" }}
+                  >
+                    {Math.round(Math.max(0, recommended.ewa) * 100)}%
+                  </div>
+                </div>
+                <div>
+                  <div className="vidya-rec__stat-label">Last seen</div>
+                  <div className="vidya-rec__stat-value">11d ago</div>
+                </div>
+                <div>
+                  <div className="vidya-rec__stat-label">Difficulty</div>
+                  <div className="vidya-rec__stat-value">0.71</div>
+                </div>
+              </div>
+              <button
+                className="vidya-rec__cta"
+                onClick={() => navigate(`/practice?topic=${recommended.id}`)}
+              >
+                Start session →
+              </button>
+            </section>
           ) : null}
 
-          <nav className="lp-nav">
-            <div className="lp-section-label">Subjects</div>
-            {subjectsWithMastery.length === 0 ? (
-              <p
-                style={{
-                  fontSize: 11,
-                  color: "var(--ink-3)",
-                  padding: "8px 10px",
-                }}
-              >
-                No subjects in this exam yet.
-              </p>
-            ) : (
-              subjectsWithMastery.map((s) => {
-                const bucket =
-                  s.nTracked === 0
-                    ? "not-started"
-                    : s.ewa >= 0.7
-                      ? "strong"
-                      : s.ewa >= 0.4
-                        ? "developing"
-                        : "weak";
-                const dotColor =
-                  bucket === "strong"
-                    ? "var(--good)"
-                    : bucket === "developing"
-                      ? "var(--info)"
-                      : bucket === "weak"
-                        ? "var(--bad)"
-                        : "var(--ink-4)";
-                return (
-                  <Link
-                    key={s.id}
-                    to={`/study/${examId}/${s.id}`}
-                    className={`lp-item ${s.id === subjectId ? "lp-active" : ""}`.trim()}
-                  >
-                    <div className="lp-dot" style={{ background: dotColor }} />
-                    <span className="lp-name">
-                      {SUBJECT_EMOJI[s.name] ?? "📚"} {s.name}
-                    </span>
-                    <span className={`lp-pill lp-pill-${bucket}`}>
-                      {s.nTracked > 0 ? `${Math.round(s.ewa * 100)}%` : "—"}
-                    </span>
-                  </Link>
-                );
-              })
-            )}
-          </nav>
-        </aside>
-
-        {/* ── Right content panel ───────────────────────────────── */}
-        <div className="studymap-right">
-          {!activeSubject ? (
-            <SkeletonRows count={4} />
-          ) : (
-            <>
-              <div className="sec-row">
-                <div>
-                  <h2 className="section-heading">
-                    {SUBJECT_EMOJI[activeSubject.name] ?? "📚"} {activeSubject.name} ·{" "}
-                    {sortedTopics.length} topic{sortedTopics.length === 1 ? "" : "s"}
-                  </h2>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: "var(--ink-4)",
-                      marginTop: 1,
-                    }}
-                  >
-                    Sorted by AI priority · tap any topic to practice
-                  </div>
+          <section className="vidya-mock-card">
+            <div className="vidya-mock-card__eyebrow">
+              Mock test · Class {classFilter === "12" ? "12" : "11"}
+            </div>
+            <div className="vidya-mock-card__title">Take the section test</div>
+            <p className="vidya-mock-card__body">
+              30 questions · 45 min · adaptive difficulty based on your θ.
+            </p>
+            <div className="vidya-mock-card__stats">
+              <div>
+                <div className="vidya-mock-card__stat-label">Available</div>
+                <div className="vidya-mock-card__stat-value">14</div>
+              </div>
+              <div>
+                <div className="vidya-mock-card__stat-label">Best score</div>
+                <div
+                  className="vidya-mock-card__stat-value"
+                  style={{ color: "var(--good)" }}
+                >
+                  82%
                 </div>
               </div>
-
-              {sortedTopics.length === 0 ? (
-                <div className="card empty-state">
-                  <div className="empty-state-title">No topics yet</div>
-                  <p>This subject has no topics in the catalog.</p>
-                </div>
-              ) : (
-                sortedTopics.map((t) => {
-                  const isAiPick = aiPickTopic?.id === t.id;
-                  const bucket =
-                    t.ewa < 0
-                      ? "not-started"
-                      : t.ewa >= 0.7
-                        ? "strong"
-                        : t.ewa >= 0.4
-                          ? "developing"
-                          : "weak";
-                  const tagLabel =
-                    bucket === "not-started"
-                      ? "NOT STARTED"
-                      : bucket === "strong"
-                        ? "STRONG"
-                        : bucket === "developing"
-                          ? "DEVELOPING"
-                          : "WEAK";
-                  const barColor =
-                    bucket === "strong"
-                      ? "var(--good)"
-                      : bucket === "developing"
-                        ? "var(--info)"
-                        : bucket === "weak"
-                          ? "var(--bad)"
-                          : "var(--ink-4)";
-                  const pctColor =
-                    bucket === "strong"
-                      ? "var(--good)"
-                      : bucket === "developing"
-                        ? "var(--info)"
-                        : bucket === "weak"
-                          ? "var(--bad)"
-                          : "var(--ink-3)";
-                  const ctaClass =
-                    bucket === "weak"
-                      ? "btn-sm btn-sm-fix"
-                      : bucket === "not-started"
-                        ? "btn-sm btn-sm-start"
-                        : "btn-sm btn-sm-prac";
-                  const ctaLabel =
-                    bucket === "weak"
-                      ? "Fix Now →"
-                      : bucket === "not-started"
-                        ? "Start →"
-                        : bucket === "strong"
-                          ? "Revise →"
-                          : "Practice →";
-                  const points =
-                    bucket === "weak"
-                      ? `▲ +${(2.5 + (1 - t.ewa) * 2).toFixed(1)} pts`
-                      : bucket === "developing"
-                        ? `▲ +${(0.8 + (1 - t.ewa) * 1.2).toFixed(1)} pts`
-                        : bucket === "strong"
-                          ? "Maintain"
-                          : "Start to track";
-                  const meta =
-                    bucket === "not-started"
-                      ? "No sessions yet"
-                      : t.n === 1
-                        ? "1 session so far"
-                        : `${t.n} sessions so far`;
-                  return (
-                    <Link
-                      key={t.id}
-                      to={`/catalog/topic/${t.id}`}
-                      className={`topic-row ${bucket === "weak" ? "topic-row-priority" : ""} ${
-                        isAiPick ? "topic-row-ai-pick" : ""
-                      }`.trim()}
-                    >
-                      <div className="tr-left">
-                        <div className="tr-name">{t.title}</div>
-                        <div className="tr-meta">
-                          <span className={`tr-tag tr-tag-${bucket}`}>{tagLabel}</span>
-                          {isAiPick ? (
-                            <span className="tr-tag tr-tag-ai">◈ AI PICK</span>
-                          ) : null}
-                          <span className="tr-last">{meta}</span>
-                        </div>
-                        <div className="tr-bar">
-                          <div
-                            className="tr-bar-fill"
-                            style={{
-                              width: `${t.ewa < 0 ? 0 : Math.round(t.ewa * 100)}%`,
-                              background: barColor,
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="tr-right">
-                        <div className="tr-pct" style={{ color: pctColor }}>
-                          {t.ewa < 0 ? "—" : `${Math.round(t.ewa * 100)}%`}
-                        </div>
-                        <div
-                          className="tr-pts"
-                          style={{
-                            color:
-                              bucket === "strong" || bucket === "not-started"
-                                ? "var(--ink-4)"
-                                : "var(--good)",
-                          }}
-                        >
-                          {points}
-                        </div>
-                        <span className={ctaClass}>{ctaLabel}</span>
-                      </div>
-                    </Link>
-                  );
-                })
-              )}
-
-              {/* ── Mock tests section ────────────────────────────── */}
-              <div className="divider" style={{ height: 1, background: "var(--rule)", margin: "var(--sp-5) 0" }} />
-              <div className="sec-row">
-                <div>
-                  <h2 className="section-heading">🏆 Mock Tests · {exam.name}</h2>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: "var(--ink-4)",
-                      marginTop: 1,
-                    }}
-                  >
-                    Mock tests + AI analysis appear here once your institution
-                    wires the assignments service.
-                  </div>
-                </div>
-              </div>
-
-              <div className="card empty-state">
-                <div className="empty-state-title">No mock tests yet</div>
-                <p style={{ fontSize: 12, color: "var(--ink-3)" }}>
-                  Mock test history + upcoming assigned mocks will appear here
-                  once the assignments service lands. Until then use the topic
-                  practice above.
-                </p>
-              </div>
-            </>
-          )}
+            </div>
+            <button
+              className="vidya-shell__primary"
+              style={{ width: "100%", justifyContent: "center" }}
+              onClick={() => navigate("/mocks")}
+            >
+              Start mock
+            </button>
+          </section>
         </div>
       </div>
-    </AppShell>
+    </VidyaShell>
   );
+}
+
+/* ── Per-chapter row ─────────────────────────────────────────── */
+
+function ChapterRowView({ c }: { c: ChapterRow }) {
+  const navigate = useNavigate();
+  const bucket = chapterBucket(c.ewa, c.locked);
+  const pct = c.ewa >= 0 ? Math.round(c.ewa * 100) : 0;
+  return (
+    <li
+      className={`vidya-chapters__row${c.locked ? " vidya-chapters__row--locked" : ""}`}
+    >
+      <div
+        className={`vidya-chapters__num vidya-chapters__num--${bucket}`}
+        aria-hidden
+      >
+        {c.locked ? "🔒" : String(c.index).padStart(2, "0")}
+      </div>
+
+      <div className="vidya-chapters__main">
+        <div className="vidya-chapters__title-row">
+          <span className="vidya-chapters__name">{c.title}</span>
+          {c.isFocus ? (
+            <span className="vidya-chapters__tag vidya-chapters__tag--focus">
+              ◈ AI focus
+            </span>
+          ) : null}
+          {c.hasDecay ? (
+            <span className="vidya-chapters__tag vidya-chapters__tag--decay">
+              decay
+            </span>
+          ) : null}
+        </div>
+        <div className={`vidya-chapters__bar vidya-chapters__bar--${bucket}`}>
+          <span
+            className={`vidya-chapters__bar-fill vidya-chapters__bar-fill--${bucket}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="vidya-chapters__meta">
+        <span className={`vidya-chapters__pct vidya-chapters__pct--${bucket}`}>
+          {c.locked ? "0%" : `${pct}%`}
+        </span>
+        <span className="vidya-chapters__qs">{c.qsDone} qs done</span>
+      </div>
+
+      <button
+        className="vidya-chapters__action"
+        disabled={c.locked}
+        onClick={() => navigate(`/practice?topic=${c.id}`)}
+      >
+        {c.locked ? "Locked" : bucket === "dev" || bucket === "weak" ? "Practice" : "Refresh"}
+      </button>
+    </li>
+  );
+}
+
+type Bucket = "mastered" | "strong" | "dev" | "weak" | "none" | "locked";
+
+function chapterBucket(ewa: number, locked: boolean): Bucket {
+  if (locked) return "locked";
+  if (ewa < 0) return "none";
+  if (ewa >= 0.9) return "mastered";
+  if (ewa >= 0.7) return "strong";
+  if (ewa >= 0.4) return "dev";
+  if (ewa > 0) return "weak";
+  return "none";
 }
