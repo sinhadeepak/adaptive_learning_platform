@@ -135,7 +135,7 @@ seed-hindi: ## Seed 15 Hindi MCQs through Content API → bridge → Quiz bank.
 	@cd services/learning && uv run python -m learning.content.seed.seed_hindi
 
 .PHONY: seed-restore
-seed-restore: ## Restore the local seed bank (auth users + 480 real exam-prep questions in Learning + Quiz).
+seed-restore: ## Restore the local seed bank (auth users + 480 real exam-prep questions in Learning + Quiz + educator scope).
 	@echo "→ restoring identity (auth) seed (4 test users)"
 	@cd services/identity && AUTH_SEED_LOCAL=1 \
 	  DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:35432/identity \
@@ -146,6 +146,8 @@ seed-restore: ## Restore the local seed bank (auth users + 480 real exam-prep qu
 	  uv run python -m learning.content.scripts.restore_seed
 	@echo "→ restoring quiz seed (mirrors learning question bank)"
 	@cd services/learning && uv run python ../quiz/scripts/restore_seed.py
+	@echo "→ assigning seeded educators (teacher + moderator) to every published exam"
+	@bash scripts/assign_seeded_educators.sh
 
 .PHONY: engagement-backfill
 engagement-backfill: ## Replay Quiz SUBMITTED sessions Engagement missed (analytics + notification). SINCE=ISO-8601 (default 36h).
