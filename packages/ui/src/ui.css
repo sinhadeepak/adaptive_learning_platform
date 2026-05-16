@@ -2815,3 +2815,191 @@
 }
 .vidya-cross-list__bar { width: 3px; border-radius: 2px; }
 .vidya-cross-list strong { color: var(--ink); font-weight: 500; }
+
+/* ─────────────────────────────────────────────────────────────
+   VIDYA EXAM DASHBOARD — readiness ring + goals + weekly plan
+   ───────────────────────────────────────────────────────────── */
+
+.vidya-ring-card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  display: flex;
+  justify-content: center;
+}
+.vidya-ring {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.vidya-ring svg { display: block; }
+.vidya-ring__center {
+  position: absolute;
+  top: 92px;
+  text-align: center;
+  pointer-events: none;
+}
+.vidya-ring__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.vidya-ring__value {
+  font-family: var(--font-display);
+  font-size: 56px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 4px 0;
+}
+.vidya-ring__sub {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.vidya-ring__delta { color: var(--good); margin-left: 4px; }
+.vidya-ring__footer {
+  margin-top: var(--sp-3);
+  text-align: center;
+  border-top: 1px solid var(--rule);
+  padding-top: var(--sp-3);
+  width: 100%;
+}
+.vidya-ring__footer-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.vidya-ring__footer-value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.vidya-ring__footer-delta {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--good);
+  margin-top: 2px;
+}
+
+/* Goals card */
+.vidya-goals {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.vidya-goals__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.vidya-goals__title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.vidya-goals__edit {
+  background: var(--paper-2);
+  border: 0;
+  color: var(--ink-2);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+}
+.vidya-goals__edit:hover { background: var(--rule); }
+.vidya-goals__headline {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.vidya-goals__bars { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+/* AI Weekly Plan */
+.vidya-weekly-plan {
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in oklch, var(--accent) 18%, var(--paper));
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.vidya-weekly-plan__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.vidya-weekly-plan__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.vidya-weekly-plan__eyebrow::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--gold);
+}
+.vidya-weekly-plan__headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+  color: var(--ink);
+}
+.vidya-weekly-plan__headline em {
+  font-style: normal;
+  color: var(--accent);
+}
+.vidya-weekly-plan__breakdown {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-top: 1px solid color-mix(in oklch, var(--accent) 15%, var(--paper));
+  border-bottom: 1px solid color-mix(in oklch, var(--accent) 15%, var(--paper));
+}
+.vidya-weekly-plan__slot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.vidya-weekly-plan__slot-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.vidya-weekly-plan__slot-val {
+  font-family: var(--font-display);
+  font-size: 28px;
+  letter-spacing: -0.015em;
+}
+.vidya-weekly-plan__cta {
+  align-self: flex-start;
+}
