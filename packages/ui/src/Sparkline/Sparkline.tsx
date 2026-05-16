@@ -63,11 +63,13 @@ export const Sparkline = forwardRef<SVGSVGElement, SparklineProps>(
       });
       const segments = pts.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`);
       const pathD = segments.join(" ");
+      // pts.length ≥ 1 since data.length > 0 reached this branch — refs are safe.
+      const last = pts[pts.length - 1]!;
+      const first = pts[0]!;
       const areaD = data.length > 1
-        ? `${pathD} L${pts[pts.length - 1][0].toFixed(2)} ${(height - padding).toFixed(2)} L${pts[0][0].toFixed(2)} ${(height - padding).toFixed(2)} Z`
+        ? `${pathD} L${last[0].toFixed(2)} ${(height - padding).toFixed(2)} L${first[0].toFixed(2)} ${(height - padding).toFixed(2)} Z`
         : "";
-      const [lx, ly] = pts[pts.length - 1];
-      return { pathD, areaD, lastX: lx, lastY: ly, hasData: true };
+      return { pathD, areaD, lastX: last[0], lastY: last[1], hasData: true };
     }, [data, width, height]);
 
     if (!hasData) {
