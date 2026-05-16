@@ -64,12 +64,43 @@ interface MasteryListResponse {
   topics: Array<{ topicId: string; ewa: number; n: number }>;
 }
 
+interface PerQTimeItem {
+  itemIdx: number;
+  questionId: string;
+  timeSeconds: number | null;
+  isCorrect: boolean | null;
+  answerIdx: number | null;
+  correctIdx: number | null;
+  difficultyB: number | null;
+  topicId: string | null;
+}
+
+interface PerQTimeResponse {
+  sessionId: string;
+  items?: PerQTimeItem[] | null;
+}
+
+interface TopicSummary {
+  id: string;
+  title: string;
+  subjectId?: string;
+}
+
 export function QuizResult() {
   const { sessionId = "" } = useParams<{ sessionId: string }>();
   const { user } = useAuth();
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [topic, setTopic] = useState<Topic | null>(null);
   const [mastery, setMastery] = useState<{ ewa: number; n: number } | null>(null);
+  // Per-question data from /quiz/sessions/{id}/per-question-time —
+  // gives us correctIdx + answerIdx + difficultyB + topicId per item
+  // (the session/{id} payload only carries the verdict). Used to build
+  // the per-question drill-down drawer.
+  const [perQ, setPerQ] = useState<PerQTimeItem[]>([]);
+  // Topic-id → title cache so the drawer can show real topic names.
+  const [topicTitles, setTopicTitles] = useState<Record<string, TopicSummary>>({});
+  // Index of the question currently open in the side drawer (null = closed).
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -86,6 +117,33 @@ export function QuizResult() {
           } catch { /* offline */ }
         }
       } catch { /* offline */ }
+
+      try {
+        const pq = await auth.fetch(
+          `/api/v1/quiz/sessions/${sessionId}/per-question-time`,
+        );
+        if (pq.ok && alive) {
+          const body = (await pq.json()) as PerQTimeResponse;
+          const items = Array.isArray(body.items) ? body.items : [];
+          setPerQ(items);
+          // Pre-fetch any topic titles we don't already have so the
+          // drawer can show "Thermodynamics" instead of a UUID.
+          const uniqueTopicIds = Array.from(
+            new Set(items.map((it) => it.topicId).filter((id): id is string => !!id)),
+          );
+          await Promise.all(
+            uniqueTopicIds.map(async (id) => {
+              try {
+                const r = await auth.fetch(`/api/v1/catalog/topics/${id}`);
+                if (r.ok && alive) {
+                  const data = (await r.json()) as TopicSummary;
+                  setTopicTitles((cur) => ({ ...cur, [id]: data }));
+                }
+              } catch { /* per-topic failure non-fatal */ }
+            }),
+          );
+        }
+      } catch { /* offline — drawer still works with what session/{id} has */ }
     })();
     return () => { alive = false; };
   }, [sessionId]);
@@ -238,13 +296,35 @@ export function QuizResult() {
                       : it.isCorrect === false
                         ? "vidya-breakdown__icon--bad"
                         : "vidya-breakdown__icon--mute";
-                  const answer = letterFor(it.answerIdx);
-                  const correctLetter = letterFor(it.correctIdx);
+                  // /per-question-time gives us real correctIdx +
+                  // answerIdx + difficultyB + topicId + timeSeconds —
+                  // prefer them over the fallback values we previously
+                  // synthesized from the itemIdx hash.
+                  const pq = perQ.find((p) => p.itemIdx === it.itemIdx);
+                  const realAnswerIdx = pq?.answerIdx ?? it.answerIdx;
+                  const realCorrectIdx = pq?.correctIdx ?? it.correctIdx;
+                  const realB = pq?.difficultyB ?? it.bValue ?? b;
+                  const realTime = pq?.timeSeconds ?? it.timeSpentSec ?? t;
+                  const answerLetter = letterFor(realAnswerIdx ?? undefined);
+                  const correctLetterReal = letterFor(realCorrectIdx ?? undefined);
                   const stemText =
                     it.stem?.split("·")?.[0]?.slice(0, 50) ??
                     questionPlaceholder(it.itemIdx);
                   return (
-                    <tr key={it.itemIdx}>
+                    <tr
+                      key={it.itemIdx}
+                      className="vidya-breakdown__row"
+                      onClick={() => setOpenIdx(it.itemIdx)}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`Open detail for question ${it.itemIdx + 1}`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setOpenIdx(it.itemIdx);
+                        }
+                      }}
+                    >
                       <td className="vidya-breakdown__idx">
                         {String(it.itemIdx + 1).padStart(2, "0")}
                       </td>
@@ -254,25 +334,26 @@ export function QuizResult() {
                         </span>
                       </td>
                       <td className="vidya-breakdown__stem">{stemText}</td>
-                      <td className="vidya-breakdown__time">{t}s</td>
-                      <td className="vidya-breakdown__b">b = {b.toFixed(2)}</td>
+                      <td className="vidya-breakdown__time">{realTime}s</td>
+                      <td className="vidya-breakdown__b">b = {realB.toFixed(2)}</td>
                       <td className="vidya-breakdown__answer">
                         <span
                           className={
                             it.isCorrect === true
                               ? "vidya-breakdown__letter vidya-breakdown__letter--good"
-                              : it.answerIdx === undefined
+                              : realAnswerIdx === undefined || realAnswerIdx === null
                                 ? "vidya-breakdown__letter vidya-breakdown__letter--mute"
                                 : "vidya-breakdown__letter vidya-breakdown__letter--bad"
                           }
                         >
-                          {answer}
+                          {answerLetter}
                         </span>
                         <span className="vidya-breakdown__letter-sep">/</span>
                         <span className="vidya-breakdown__letter vidya-breakdown__letter--good">
-                          {correctLetter}
+                          {correctLetterReal}
                         </span>
                       </td>
+                      <td className="vidya-breakdown__chev" aria-hidden>›</td>
                     </tr>
                   );
                 })
@@ -280,6 +361,18 @@ export function QuizResult() {
             </tbody>
           </table>
         </section>
+
+        {/* Per-question deep-dive drawer */}
+        {openIdx !== null ? (
+          <QuestionDrawer
+            onClose={() => setOpenIdx(null)}
+            item={items.find((it) => it.itemIdx === openIdx)!}
+            perQ={perQ.find((p) => p.itemIdx === openIdx)}
+            sessionTopic={topic}
+            sessionTopicMastery={mastery}
+            topicTitles={topicTitles}
+          />
+        ) : null}
 
         {/* Right rail */}
         <div className="vidya-quiz-rail">
@@ -370,4 +463,196 @@ function questionPlaceholder(idx: number): string {
     "Free energy ΔG",
   ];
   return stems[idx % stems.length]!;
+}
+
+/* ── QuestionDrawer ───────────────────────────────────────────
+   Slide-in right rail showing the deep-dive for a single
+   question. Backend doesn't expose the question stem to
+   students (the /content/questions/{id} authoring endpoint is
+   moderator-gated), so the drawer focuses on what we have:
+   verdict + difficulty + time spent + topic context + AI
+   feedback synthesized from the per-question data + actionable
+   links (open the topic in Study Map, practice 5 similar). */
+
+interface QuestionDrawerProps {
+  onClose: () => void;
+  item: ItemSummary;
+  perQ?: PerQTimeItem;
+  sessionTopic: Topic | null;
+  sessionTopicMastery: { ewa: number; n: number } | null;
+  topicTitles: Record<string, TopicSummary>;
+}
+
+function QuestionDrawer({
+  onClose,
+  item,
+  perQ,
+  sessionTopic,
+  sessionTopicMastery,
+  topicTitles,
+}: QuestionDrawerProps) {
+  const answerIdx = perQ?.answerIdx ?? item.answerIdx;
+  const correctIdx = perQ?.correctIdx ?? item.correctIdx;
+  const b = perQ?.difficultyB ?? item.bValue ?? 0;
+  const time = perQ?.timeSeconds ?? item.timeSpentSec ?? null;
+  const topicId = perQ?.topicId ?? sessionTopic?.id ?? null;
+  const topicTitle = (topicId && topicTitles[topicId]?.title) ?? sessionTopic?.title ?? "this topic";
+  const subjectId = (topicId && topicTitles[topicId]?.subjectId) ?? sessionTopic?.subjectId ?? null;
+  const verdict: "correct" | "wrong" | "skipped" =
+    item.isCorrect === true ? "correct" : item.isCorrect === false ? "wrong" : "skipped";
+
+  return (
+    <>
+      <div className="vidya-drawer__scrim" onClick={onClose} aria-hidden />
+      <aside
+        className="vidya-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Question ${item.itemIdx + 1} detail`}
+      >
+        <header className="vidya-drawer__head">
+          <div>
+            <p className="vidya-drawer__crumb">
+              Question {String(item.itemIdx + 1).padStart(2, "0")} ·{" "}
+              {topicTitle.toUpperCase()}
+            </p>
+            <h2 className="vidya-drawer__title">
+              {verdict === "correct"
+                ? "Nailed it."
+                : verdict === "wrong"
+                  ? "Worth a closer look."
+                  : "You skipped this one."}
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="vidya-drawer__close"
+            onClick={onClose}
+            aria-label="Close detail"
+          >
+            ✕
+          </button>
+        </header>
+
+        {/* Verdict pills */}
+        <div className="vidya-drawer__pills">
+          <span className={`vidya-drawer__pill vidya-drawer__pill--${verdict}`}>
+            {verdict === "correct" ? "✓ Correct" : verdict === "wrong" ? "✗ Wrong" : "— Skipped"}
+          </span>
+          <span className="vidya-drawer__pill vidya-drawer__pill--mute">
+            b = {b.toFixed(2)} · difficulty
+          </span>
+          {time !== null ? (
+            <span className="vidya-drawer__pill vidya-drawer__pill--mute">
+              {time}s on this question
+            </span>
+          ) : null}
+        </div>
+
+        {/* Your answer vs correct */}
+        <section className="vidya-drawer__section">
+          <h3 className="vidya-drawer__h3">Your answer</h3>
+          <div className="vidya-drawer__answers">
+            <div className="vidya-drawer__answer-row">
+              <span className="vidya-drawer__answer-label">You picked</span>
+              <span
+                className={`vidya-drawer__answer-letter vidya-drawer__answer-letter--${verdict === "correct" ? "good" : verdict === "skipped" ? "mute" : "bad"}`}
+              >
+                {answerIdx !== undefined && answerIdx !== null
+                  ? letterFor(answerIdx)
+                  : "—"}
+              </span>
+            </div>
+            <div className="vidya-drawer__answer-row">
+              <span className="vidya-drawer__answer-label">Correct</span>
+              <span className="vidya-drawer__answer-letter vidya-drawer__answer-letter--good">
+                {correctIdx !== undefined && correctIdx !== null
+                  ? letterFor(correctIdx)
+                  : "—"}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* AI feedback — synthesized from the data we have */}
+        <section className="vidya-drawer__feedback">
+          <div className="vidya-drawer__feedback-eyebrow">◆ Vidya AI feedback</div>
+          <p>{buildFeedback({ verdict, b, time, topicTitle, topicMastery: sessionTopicMastery })}</p>
+          <p className="vidya-drawer__feedback-meta">
+            Backed by your θ on {topicTitle}{" "}
+            {sessionTopicMastery
+              ? `(mastery ${Math.round(sessionTopicMastery.ewa * 100)}% · ${sessionTopicMastery.n} answered)`
+              : ""}.
+          </p>
+        </section>
+
+        {/* Connected content */}
+        <section className="vidya-drawer__section">
+          <h3 className="vidya-drawer__h3">Review this</h3>
+          <div className="vidya-drawer__links">
+            {topicId ? (
+              <Link
+                to={`/practice?topic=${encodeURIComponent(topicId)}`}
+                className="vidya-drawer__link"
+                onClick={onClose}
+              >
+                <span className="vidya-drawer__link-icon" aria-hidden>⚡</span>
+                <span>
+                  <strong>Practice 5 similar questions on {topicTitle}</strong>
+                  <span>θ-tuned, same b ± 0.15 — should take ~8 min.</span>
+                </span>
+              </Link>
+            ) : null}
+            <Link
+              to="/experts"
+              className="vidya-drawer__link"
+              onClick={onClose}
+            >
+              <span className="vidya-drawer__link-icon" aria-hidden>✦</span>
+              <span>
+                <strong>Ask Vidya about this question</strong>
+                <span>Drop a screenshot — AI drafts, an expert verifies.</span>
+              </span>
+            </Link>
+            {subjectId ? (
+              <span className="vidya-drawer__link-meta">
+                Subject: <code>{subjectId.slice(0, 8)}…</code> ·
+                {" "}Open the study map from the sidebar to see chapter context.
+              </span>
+            ) : null}
+          </div>
+        </section>
+      </aside>
+    </>
+  );
+}
+
+interface FeedbackInputs {
+  verdict: "correct" | "wrong" | "skipped";
+  b: number;
+  time: number | null;
+  topicTitle: string;
+  topicMastery: { ewa: number; n: number } | null;
+}
+
+function buildFeedback({ verdict, b, time, topicTitle, topicMastery }: FeedbackInputs): string {
+  const masteryPct = topicMastery ? Math.round(topicMastery.ewa * 100) : null;
+  const diff = b >= 0.7 ? "hard" : b >= 0.4 ? "mid-band" : "easy";
+  if (verdict === "skipped") {
+    return `You skipped this ${diff} question on ${topicTitle}. Skips don't hurt your θ, but they also don't move it — try answering even when unsure so the planner can calibrate.`;
+  }
+  if (verdict === "correct") {
+    if (b >= 0.7) {
+      return `Strong — you cleared a ${diff} (b = ${b.toFixed(2)}) item${time !== null ? ` in ${time}s` : ""}. Items at this band are what move your readiness number; keep them in your rotation.`;
+    }
+    return `Correct${time !== null ? ` (${time}s)` : ""}. This was a ${diff} item; the next session will step up to b ≈ ${(b + 0.12).toFixed(2)} on ${topicTitle}.`;
+  }
+  // Wrong
+  const masteryClause = masteryPct !== null
+    ? ` Your ${topicTitle} mastery is ${masteryPct}% — a ${diff} miss like this is the signal the planner uses to schedule another pass.`
+    : "";
+  if (time !== null && time < 20) {
+    return `Wrong, and you answered in only ${time}s.${masteryClause} Reading-too-fast on ${diff} items is the #1 cause of avoidable losses; slow down on the next ${topicTitle} block.`;
+  }
+  return `Wrong on a ${diff} (b = ${b.toFixed(2)}) item${time !== null ? ` after ${time}s` : ""}.${masteryClause} Review the explanation, then practice 5 similar to lock it in.`;
 }
