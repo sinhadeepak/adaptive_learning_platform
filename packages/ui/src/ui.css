@@ -3760,3 +3760,104 @@
   color: var(--accent);
   opacity: 1;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   VIDYA ADD-EXAM GRID
+   ───────────────────────────────────────────────────────────── */
+
+.vidya-exam-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-4);
+}
+@media (max-width: 1100px) { .vidya-exam-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px)  { .vidya-exam-grid { grid-template-columns: 1fr; } }
+
+.vidya-exam-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--sp-3);
+  padding: var(--sp-6) var(--sp-5);
+  background: var(--card);
+  border: 1.5px solid var(--rule);
+  border-radius: var(--r-lg);
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color var(--m-fast) var(--m-ease),
+    background var(--m-fast) var(--m-ease),
+    transform var(--m-fast) var(--m-ease);
+  min-height: 220px;
+}
+.vidya-exam-card:hover:not(:disabled):not(.vidya-exam-card--disabled) {
+  border-color: var(--ink-4);
+  transform: translateY(-1px);
+}
+.vidya-exam-card--selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.vidya-exam-card--disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.vidya-exam-card__check {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--paper);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+.vidya-exam-card__icon {
+  font-size: 28px;
+  line-height: 1;
+  margin-bottom: var(--sp-2);
+}
+.vidya-exam-card__name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+  color: var(--ink);
+}
+.vidya-exam-card__sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  line-height: 1.5;
+  max-width: 28ch;
+}
+.vidya-exam-card__pill {
+  margin-top: auto;
+  padding: 4px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  border-radius: var(--r-pill);
+}
+.vidya-exam-card__pill--good   { background: var(--good-soft);   color: var(--good); }
+.vidya-exam-card__pill--warn   { background: var(--warn-soft);   color: var(--warn); }
+.vidya-exam-card__pill--accent { background: var(--accent-soft); color: var(--accent); }
+.vidya-exam-card__pill--ai     { background: var(--gold-soft);   color: var(--gold-2); }
+.vidya-exam-card__pill--mute   { background: var(--paper-2);     color: var(--ink-3); }
+
+.vidya-exam-actions {
+  display: flex;
+  gap: var(--sp-3);
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--rule);
+}
