@@ -1,427 +1,214 @@
-// Sprint 10 S10-C — Institution Core admin UI. Lists all tenants with
-// counts up top; lookup-by-id + create flows live in modal popups.
+// Tenants — Vidya v1 admin Institutions list (mockups 3+4/29).
+//
+// Spec: docs/02-design/design-system/04_components.md
+//       + Vidya v1 admin mockups 3/29 (list) + 4/29 (create modal).
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
 
-import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
+import { tenants, type AdminTenantListEntry } from "../lib/api";
+import { AdminShell } from "../components/AdminShell";
 
-import { AppShell } from "../components/AppShell";
-import {
-  tenants,
-  type AdminTenant,
-  type AdminTenantListEntry,
-} from "../lib/api";
+type Kind = "SCHOOL" | "COACHING_CENTER" | "UNIVERSITY" | "OTHER";
+
+const KIND_LABEL: Record<Kind, string> = {
+  SCHOOL: "School",
+  COACHING_CENTER: "Coaching center",
+  UNIVERSITY: "University",
+  OTHER: "Other",
+};
 
 export function Tenants() {
-  const [params, setParams] = useSearchParams();
-  const lookupId = params.get("id") ?? "";
-  const [tenant, setTenant] = useState<AdminTenant | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState<AdminTenantListEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const [list, setList] = useState<AdminTenantListEntry[] | null>(null);
-  const [listError, setListError] = useState<string | null>(null);
-
+  const [lookupId, setLookupId] = useState("");
   const [showCreate, setShowCreate] = useState(false);
-  const [showLookup, setShowLookup] = useState(false);
-
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [kind, setKind] = useState<AdminTenant["kind"]>("COACHING_CENTER");
-  const [seatLimit, setSeatLimit] = useState<string>("");
+  const [kind, setKind] = useState<Kind>("COACHING_CENTER");
+  const [seatLimit, setSeatLimit] = useState("");
   const [creating, setCreating] = useState(false);
-  const [created, setCreated] = useState<AdminTenant | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await tenants.list({ limit: 100 });
-        if (!cancelled) setList(r.items);
-      } catch (e) {
-        if (!cancelled) setListError((e as Error).message);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [created]);
+  async function refresh() {
+    try {
+      const r = await tenants.list({ limit: 100 });
+      setItems(r.items);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load tenants");
+    }
+  }
+  useEffect(() => { void refresh(); }, []);
 
-  async function lookup() {
-    setLoading(true);
-    setError(null);
-    setTenant(null);
+  async function onLookup(e: FormEvent) {
+    e.preventDefault();
+    if (!lookupId.trim()) return;
     try {
       const t = await tenants.get(lookupId.trim());
-      setTenant(t);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
+      if (t) setItems([t as unknown as AdminTenantListEntry]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Lookup failed");
     }
   }
 
-  async function create(e: React.FormEvent) {
+  async function onCreate(e: FormEvent) {
     e.preventDefault();
+    if (!name.trim()) return;
     setCreating(true);
     setError(null);
     try {
-      const t = await tenants.create({
-        name,
+      await tenants.create({
+        name: name.trim(),
+        slug: slug.trim() || undefined,
         kind,
-        slug: slug || undefined,
         seatLimit: seatLimit ? Number(seatLimit) : null,
       });
-      setCreated(t);
-      // Reset form + close modal
-      setName("");
-      setSlug("");
-      setSeatLimit("");
-      setKind("COACHING_CENTER");
       setShowCreate(false);
+      setName(""); setSlug(""); setKind("COACHING_CENTER"); setSeatLimit("");
+      await refresh();
     } catch (err) {
-      setError((err as Error).message);
+      setError(err instanceof Error ? err.message : "Create failed");
     } finally {
       setCreating(false);
     }
   }
 
   return (
-    <AppShell title="Institutions">
-      <div style={{ padding: "16px 24px 32px" }}>
-        {error && <p className="banner banner-error">{error}</p>}
-        {created && (
-          <p className="banner banner-success">
-            Created tenant {created.slug} (id {created.id.slice(0, 8)}…)
-          </p>
-        )}
+    <AdminShell crumbs="Tenants · institutions" title="Institutions">
+      {error ? (
+        <div className="vidya-auth__error" role="alert">
+          <span>{error}</span>
+        </div>
+      ) : null}
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 16,
-          }}
-        >
-          <h2 style={{ margin: 0 }}>All tenants</h2>
-          <div style={{ display: "flex", gap: 8 }}>
+      <section className="admin-table">
+        <header className="admin-table__head">
+          <div className="admin-table__title">All tenants</div>
+          <form className="admin-table__head-actions" onSubmit={onLookup}>
+            <input
+              type="text"
+              placeholder="Tenant UUID…"
+              className="admin-input"
+              value={lookupId}
+              onChange={(e) => setLookupId(e.target.value)}
+            />
+            <button type="submit" className="admin-btn">Lookup by ID</button>
             <button
               type="button"
-              onClick={() => setShowLookup(true)}
-              style={btnSecondary}
-            >
-              Lookup by ID
-            </button>
-            <button
-              type="button"
+              className="vidya-shell__primary"
               onClick={() => setShowCreate(true)}
-              style={btnPrimary}
             >
               + New tenant
             </button>
-          </div>
-        </div>
-
-        {listError && <p className="banner banner-error">{listError}</p>}
-        {list === null && !listError && (
-          <p style={{ color: "var(--ink-3)" }}>Loading…</p>
-        )}
-        {list !== null && list.length === 0 && (
-          <p style={{ color: "var(--ink-3)" }}>No tenants yet.</p>
-        )}
-        {list !== null && list.length > 0 && (
-          <div
-            style={{
-              background: "var(--paper-2)",
-              border: "1px solid var(--rule)",
-              borderRadius: 8,
-              overflow: "hidden",
-            }}
-          >
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: 13,
-              }}
-            >
-              <thead>
-                <tr
-                  style={{
-                    background: "var(--card)",
-                    color: "var(--ink-3)",
-                    borderBottom: "1px solid var(--rule)",
-                    textAlign: "left",
-                  }}
-                >
-                  {["Name", "Slug", "Kind", "Cohorts", "Teachers", "Students", ""].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        style={{
-                          padding: "10px 12px",
-                          fontSize: 11,
-                          textTransform: "uppercase",
-                          letterSpacing: 0.04,
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ),
-                  )}
+          </form>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Slug</th>
+              <th>Kind</th>
+              <th style={{ textAlign: "right" }}>Cohorts</th>
+              <th style={{ textAlign: "right" }}>Teachers</th>
+              <th style={{ textAlign: "right" }}>Students</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {items === null ? (
+              <tr><td colSpan={7} className="admin-table__empty">Loading…</td></tr>
+            ) : items.length === 0 ? (
+              <tr><td colSpan={7} className="admin-table__empty">No tenants yet.</td></tr>
+            ) : (
+              items.map((t) => (
+                <tr key={t.id}>
+                  <td className="admin-cell-strong">{t.name}</td>
+                  <td className="admin-mono-sm">{t.slug}</td>
+                  <td className="admin-mono-sm">{KIND_LABEL[t.kind as Kind] ?? t.kind}</td>
+                  <td style={{ textAlign: "right" }} className="admin-mono">{t.cohortCount}</td>
+                  <td style={{ textAlign: "right" }} className="admin-mono">{t.teacherCount}</td>
+                  <td style={{ textAlign: "right" }} className="admin-mono">{t.studentCount}</td>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    <Link to={`/institutions/${t.id}/cohorts`} className="admin-link">Cohorts →</Link>
+                    <span style={{ display: "inline-block", width: 12 }} />
+                    <Link to={`/institutes/${t.id}/analytics`} className="admin-link">Analytics →</Link>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {list.map((t) => (
-                  <tr
-                    key={t.id}
-                    style={{
-                      borderBottom: "1px solid var(--rule)",
-                      color: "var(--ink)",
-                    }}
-                  >
-                    <td style={{ padding: "10px 12px", fontWeight: 600 }}>
-                      {t.name}
-                    </td>
-                    <td
-                      style={{
-                        padding: "10px 12px",
-                        fontFamily: "var(--font-mono, monospace)",
-                        color: "var(--ink-2)",
-                      }}
-                    >
-                      {t.slug}
-                    </td>
-                    <td
-                      style={{
-                        padding: "10px 12px",
-                        color: "var(--ink-2)",
-                      }}
-                    >
-                      {t.kind}
-                    </td>
-                    <td style={{ padding: "10px 12px" }}>{t.cohortCount}</td>
-                    <td style={{ padding: "10px 12px" }}>{t.teacherCount}</td>
-                    <td style={{ padding: "10px 12px" }}>{t.studentCount}</td>
-                    <td style={{ padding: "10px 12px", display: "flex", gap: 12 }}>
-                      <Link to={`/institutions/${t.id}/cohorts`}>Cohorts →</Link>
-                      <Link
-                        to={`/institutes/${t.id}/analytics`}
-                        style={{ color: "var(--gold)" }}
-                      >
-                        Analytics →
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              ))
+            )}
+          </tbody>
+        </table>
+      </section>
 
-      {showLookup && (
-        <Modal title="Lookup tenant by ID" onClose={() => setShowLookup(false)}>
-          <input
-            value={lookupId}
-            onChange={(e) => setParams({ id: e.currentTarget.value })}
-            placeholder="UUID"
-            style={inputStyle}
-          />
-          <button
-            onClick={lookup}
-            disabled={!lookupId || loading}
-            style={{ ...btnPrimary, marginTop: 12 }}
-          >
-            {loading ? "Loading…" : "Look up"}
-          </button>
-          {tenant && (
-            <div style={{ marginTop: 16, fontSize: 13 }}>
-              <strong style={{ fontSize: 15 }}>{tenant.name}</strong>
-              <p style={{ margin: "4px 0", color: "var(--ink-3)" }}>
-                {tenant.kind} · slug: <code>{tenant.slug}</code>
-                {tenant.seatLimit != null && ` · ${tenant.seatLimit} seats`}
-              </p>
-              <Link
-                to={`/institutions/${tenant.id}/cohorts`}
-                onClick={() => setShowLookup(false)}
-              >
-                View cohorts & members →
-              </Link>
-            </div>
-          )}
-        </Modal>
-      )}
-
-      {showCreate && (
-        <Modal title="Create new tenant" onClose={() => setShowCreate(false)}>
-          <form onSubmit={create} style={{ display: "grid", gap: 12 }}>
-            <label style={labelStyle}>
-              Name
-              <input
-                required
-                value={name}
-                onChange={(e) => setName(e.currentTarget.value)}
-                style={inputStyle}
-                autoFocus
-              />
-            </label>
-            <label style={labelStyle}>
-              Slug
-              <input
-                value={slug}
-                onChange={(e) => setSlug(e.currentTarget.value)}
-                placeholder="optional — derived from name if blank"
-                style={inputStyle}
-              />
-            </label>
-            <label style={labelStyle}>
-              Kind
-              <select
-                value={kind}
-                onChange={(e) =>
-                  setKind(e.currentTarget.value as AdminTenant["kind"])
-                }
-                style={inputStyle}
-              >
-                <option value="COACHING_CENTER">Coaching center</option>
-                <option value="SCHOOL">School</option>
-                <option value="UNIVERSITY">University</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </label>
-            <label style={labelStyle}>
-              Seat limit
-              <input
-                type="number"
-                min={1}
-                max={100000}
-                value={seatLimit}
-                placeholder="optional"
-                onChange={(e) => setSeatLimit(e.currentTarget.value)}
-                style={inputStyle}
-              />
-            </label>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
+      {showCreate ? (
+        <>
+          <div className="vidya-drawer__scrim" onClick={() => setShowCreate(false)} aria-hidden />
+          <div className="admin-modal" role="dialog" aria-modal="true" aria-label="Create new tenant">
+            <header className="admin-modal__head">
+              <h2 className="admin-modal__title">Create new tenant</h2>
               <button
                 type="button"
+                className="vidya-drawer__close"
                 onClick={() => setShowCreate(false)}
-                style={btnSecondary}
+                aria-label="Close"
               >
-                Cancel
+                ✕
               </button>
-              <button type="submit" disabled={creating} style={btnPrimary}>
-                {creating ? "Creating…" : "Create tenant"}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-    </AppShell>
+            </header>
+            <form className="admin-modal__form" onSubmit={onCreate}>
+              <label className="vidya-auth__field">
+                <span className="vidya-auth__field-label">Name</span>
+                <input
+                  className="vidya-auth__field-input"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </label>
+              <label className="vidya-auth__field">
+                <span className="vidya-auth__field-label">Slug</span>
+                <input
+                  className="vidya-auth__field-input"
+                  value={slug}
+                  placeholder="optional — derived from name if blank"
+                  onChange={(e) => setSlug(e.target.value)}
+                />
+              </label>
+              <label className="vidya-auth__field">
+                <span className="vidya-auth__field-label">Kind</span>
+                <select
+                  className="vidya-auth__field-input"
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value as Kind)}
+                >
+                  {(Object.keys(KIND_LABEL) as Kind[]).map((k) => (
+                    <option key={k} value={k}>{KIND_LABEL[k]}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="vidya-auth__field">
+                <span className="vidya-auth__field-label">Seat limit</span>
+                <input
+                  className="vidya-auth__field-input"
+                  type="number"
+                  inputMode="numeric"
+                  value={seatLimit}
+                  placeholder="optional"
+                  onChange={(e) => setSeatLimit(e.target.value)}
+                />
+              </label>
+              <div className="admin-modal__actions">
+                <button type="button" className="admin-btn" onClick={() => setShowCreate(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="vidya-shell__primary" disabled={creating || !name.trim()}>
+                  {creating ? "Creating…" : "Create tenant"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
+      ) : null}
+    </AdminShell>
   );
 }
-
-function Modal({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.6)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 100,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "var(--paper-2)",
-          border: "1px solid var(--rule)",
-          borderRadius: 10,
-          padding: 24,
-          minWidth: 420,
-          maxWidth: "90vw",
-          maxHeight: "85vh",
-          overflowY: "auto",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 16,
-          }}
-        >
-          <h3 style={{ margin: 0, color: "var(--ink)" }}>{title}</h3>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              background: "none",
-              border: "none",
-              color: "var(--ink-3)",
-              fontSize: 20,
-              cursor: "pointer",
-              padding: "0 4px",
-            }}
-          >
-            ×
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 10px",
-  background: "var(--paper-2)",
-  color: "var(--ink)",
-  border: "1px solid var(--rule)",
-  borderRadius: 4,
-  fontSize: 13,
-  marginTop: 4,
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 12,
-  color: "var(--ink-3)",
-};
-
-const btnPrimary: React.CSSProperties = {
-  padding: "8px 16px",
-  background: "var(--info)",
-  color: "white",
-  border: "none",
-  borderRadius: 4,
-  cursor: "pointer",
-  fontSize: 13,
-  fontWeight: 600,
-};
-
-const btnSecondary: React.CSSProperties = {
-  padding: "8px 16px",
-  background: "var(--card)",
-  color: "var(--ink)",
-  border: "1px solid var(--rule)",
-  borderRadius: 4,
-  cursor: "pointer",
-  fontSize: 13,
-};

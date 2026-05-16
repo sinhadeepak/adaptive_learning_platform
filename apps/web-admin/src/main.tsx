@@ -7,6 +7,11 @@ import "@alp/design-system/vidya/tokens.css";
 import "@alp/design-system/vidya/density-scalars.css";
 import "@alp/design-system/vidya/fonts.css";
 
+// @alp/ui carries the vidya-shell / vidya-card CSS family the admin
+// pages share with the student app. Imported after vidya/tokens.css so
+// the custom-properties cascade resolves.
+import "@alp/ui/ui.css";
+
 import { App } from "./App";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

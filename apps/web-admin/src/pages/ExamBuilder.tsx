@@ -16,7 +16,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { auth } from "../lib/api";
 
 type Step = "basics" | "review" | "saved";
@@ -232,7 +232,10 @@ export function ExamBuilder() {
   }
 
   return (
-    <AppShell title={isEditMode ? "Edit exam" : "Add new exam"}>
+    <AdminShell
+      crumbs={isEditMode ? "Exams · edit" : "Exams · new"}
+      title={isEditMode ? "Edit exam" : "Add new exam"}
+    >
       <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1100 }}>
         {!isEditMode && <Stepper step={step} />}
         {isEditMode && busy && !proposal && (
@@ -302,7 +305,7 @@ export function ExamBuilder() {
           />
         )}
       </div>
-    </AppShell>
+    </AdminShell>
   );
 }
 

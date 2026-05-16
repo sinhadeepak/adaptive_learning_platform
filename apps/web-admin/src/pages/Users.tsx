@@ -1,17 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
-import { AppShell } from "../components/AppShell";
-import { Banner, Pill } from "../components/primitives";
+// Users — Vidya v1 admin user directory (mockup 7/29).
+//
+// Spec: docs/02-design/design-system/04_components.md
+//       + Vidya v1 admin mockup 7/29.
+//
+// Read-only directory of every user (students, teachers, moderators,
+// institution + platform admins). Wraps GET /auth/admin/users —
+// server-side search + role-filter + pagination.
+
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { AdminShell } from "../components/AdminShell";
 import { auth } from "../lib/api";
 import { env } from "../lib/env";
-
-// ─────────────────────────────────────────────────────────────────────────
-// Admin Users page.
-//
-// Wraps GET /auth/admin/users (PLATFORM_ADMIN only). Server-side
-// pagination + role filter + email/name substring search. Suspend /
-// ban / impersonate are deferred to a follow-up — this iteration is
-// the read-only directory the spec asked for.
-// ─────────────────────────────────────────────────────────────────────────
 
 interface UserInstitution {
   id: string;
@@ -31,11 +30,11 @@ interface UserRow {
 }
 
 interface UserList {
-  items: UserRow[];
-  total: number;
+  items?: UserRow[] | null;
+  total?: number;
 }
 
-const ROLE_OPTIONS: { code: string; label: string }[] = [
+const ROLE_OPTIONS: Array<{ code: string; label: string }> = [
   { code: "STUDENT", label: "Student" },
   { code: "TEACHER", label: "Teacher" },
   { code: "MODERATOR", label: "Moderator" },
@@ -45,32 +44,32 @@ const ROLE_OPTIONS: { code: string; label: string }[] = [
 
 const PAGE_SIZE = 25;
 
-function roleTone(role: string): "muted" | "info" | "warning" | "danger" | "success" {
+function rolePill(role: string): "bad" | "warn" | "info" | "good" | "mute" {
   switch (role) {
     case "PLATFORM_ADMIN":
-      return "danger";
+      return "bad";
     case "INSTITUTION_ADMIN":
-      return "warning";
+      return "warn";
     case "MODERATOR":
       return "info";
     case "TEACHER":
-      return "success";
+      return "good";
     default:
-      return "muted";
+      return "mute";
   }
 }
 
-function statusTone(status: string): "muted" | "warning" | "success" | "danger" {
+function statusPill(status: string): "bad" | "warn" | "good" | "mute" {
   switch (status) {
     case "ACTIVE":
-      return "success";
+      return "good";
     case "SUSPENDED":
     case "BANNED":
-      return "danger";
+      return "bad";
     case "PENDING_VERIFICATION":
-      return "warning";
+      return "warn";
     default:
-      return "muted";
+      return "mute";
   }
 }
 
@@ -107,8 +106,8 @@ export function Users() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const body = (await r.json()) as UserList;
         if (cancelled) return;
-        setRows(body.items);
-        setTotal(body.total);
+        setRows(Array.isArray(body.items) ? body.items : []);
+        setTotal(typeof body.total === "number" ? body.total : 0);
       } catch (e) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : "Couldn't load users");
@@ -116,17 +115,16 @@ export function Users() {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [queryString]);
 
-  function applySearch(): void {
+  function applySearch(e?: FormEvent) {
+    e?.preventDefault();
     setSearch(pendingSearch);
     setPage(0);
   }
 
-  function toggleRole(role: string): void {
+  function toggleRole(role: string) {
     const next = new Set(roleFilter);
     if (next.has(role)) next.delete(role);
     else next.add(role);
@@ -134,260 +132,139 @@ export function Users() {
     setPage(0);
   }
 
-  return (
-    <AppShell title="Users" chips={[{ label: "Admin" }]}>
-      <Banner tone="info">
-        Read-only directory of all users — students, teachers, moderators, and
-        admins. Suspend / ban / impersonate land in a follow-up; until then this
-        is the source-of-truth view backed by{" "}
-        <code>/auth/admin/users</code>.
-      </Banner>
+  const from = total === 0 ? 0 : offset + 1;
+  const to = Math.min(offset + rows.length, total);
 
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          flexWrap: "wrap",
-          alignItems: "center",
-          marginTop: 16,
-          marginBottom: 12,
-        }}
-      >
+  return (
+    <AdminShell
+      crumbs="Users · directory"
+      title="Users"
+      chips={<span className="vidya-shell__chip">Admin</span>}
+    >
+      <p className="admin-lede">
+        Read-only directory of all users — students, teachers, moderators,
+        and admins. Suspend / ban / impersonate land in a follow-up; until
+        then this is the source-of-truth view backed by{" "}
+        <code>/auth/admin/users</code>.
+      </p>
+
+      {error ? (
+        <div className="vidya-auth__error" role="alert"><span>{error}</span></div>
+      ) : null}
+
+      <form className="admin-search" onSubmit={applySearch}>
         <input
           type="search"
+          className="admin-search__input"
           placeholder="Search by email or name…"
           value={pendingSearch}
           onChange={(e) => setPendingSearch(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && applySearch()}
-          style={{
-            flex: "1 1 320px",
-            minWidth: 240,
-            padding: "6px 10px",
-            background: "var(--paper-2)",
-            color: "var(--ink)",
-            border: "1px solid var(--rule)",
-            borderRadius: 4,
-            fontSize: 13,
-          }}
         />
-        <button
-          onClick={applySearch}
-          style={{
-            padding: "6px 16px",
-            background: "var(--info)",
-            color: "white",
-            border: "1px solid var(--rule)",
-            borderRadius: 4,
-            cursor: "pointer",
-            fontWeight: 600,
-          }}
-        >
+        <button type="submit" className="vidya-shell__primary">
           Search
         </button>
-      </div>
+      </form>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 6,
-          flexWrap: "wrap",
-          alignItems: "center",
-          marginBottom: 16,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 11,
-            color: "var(--ink-3)",
-            textTransform: "uppercase",
-            letterSpacing: 0.04,
-            marginRight: 4,
-          }}
-        >
-          Role:
-        </span>
-        {ROLE_OPTIONS.map((r) => {
-          const on = roleFilter.has(r.code);
+      <div className="admin-filter-row">
+        <span className="admin-filter-label">Role:</span>
+        {ROLE_OPTIONS.map((opt) => {
+          const on = roleFilter.has(opt.code);
           return (
             <button
-              key={r.code}
-              onClick={() => toggleRole(r.code)}
-              style={{
-                padding: "4px 10px",
-                background: on ? "var(--info)" : "var(--card)",
-                color: on ? "white" : "var(--ink)",
-                border: "1px solid var(--rule)",
-                borderRadius: 4,
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: 600,
-              }}
+              key={opt.code}
+              type="button"
+              className={`vidya-shell__chip${on ? " vidya-shell__chip--on" : ""}`}
+              onClick={() => toggleRole(opt.code)}
             >
-              {r.label}
+              {opt.label}
             </button>
           );
         })}
-        {roleFilter.size > 0 && (
-          <button
-            onClick={() => setRoleFilter(new Set())}
-            style={{
-              padding: "4px 10px",
-              background: "transparent",
-              color: "var(--ink-3)",
-              border: "1px dashed var(--rule)",
-              borderRadius: 4,
-              cursor: "pointer",
-              fontSize: 12,
-            }}
-          >
-            Clear
-          </button>
-        )}
       </div>
 
-      {error && <Banner tone="danger">{error}</Banner>}
-
-      <div
-        style={{
-          background: "var(--paper-2)",
-          border: "1px solid var(--rule)",
-          borderRadius: 8,
-          overflow: "hidden",
-        }}
-      >
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+      <section className="admin-table">
+        <table>
           <thead>
-            <tr
-              style={{
-                background: "var(--card)",
-                color: "var(--ink-3)",
-                borderBottom: "1px solid var(--rule)",
-                textAlign: "left",
-              }}
-            >
-              {["Email", "Name", "Institution", "Role", "Admin level", "Status"].map((h) => (
-                <th
-                  key={h}
-                  style={{
-                    padding: "10px 12px",
-                    fontSize: 11,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.04,
-                  }}
-                >
-                  {h}
-                </th>
-              ))}
+            <tr>
+              <th>Email</th>
+              <th>Name</th>
+              <th>Institution</th>
+              <th>Role</th>
+              <th>Admin level</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
-            {loading && rows.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--ink-3)" }}>
-                  Loading…
-                </td>
-              </tr>
+            {loading && rows.length === 0 ? (
+              <tr><td colSpan={6} className="admin-table__empty">Loading…</td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={6} className="admin-table__empty">No users match this filter.</td></tr>
+            ) : (
+              rows.map((u) => (
+                <tr key={u.id}>
+                  <td><span className="admin-link">{u.email}</span></td>
+                  <td className="admin-cell-strong">{u.fullName || "—"}</td>
+                  <td className="admin-mono-sm">{u.institution?.name ?? "—"}</td>
+                  <td>
+                    <span className={`admin-pill admin-pill--${rolePill(u.role)}`}>
+                      {u.role}
+                    </span>
+                  </td>
+                  <td className="admin-mono-sm">{u.adminAccessLevel}</td>
+                  <td>
+                    <span className={`admin-pill admin-pill--${statusPill(u.accountStatus)}`}>
+                      {u.accountStatus}
+                    </span>
+                  </td>
+                </tr>
+              ))
             )}
-            {!loading && rows.length === 0 && !error && (
-              <tr>
-                <td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--ink-3)" }}>
-                  No users match this filter.
-                </td>
-              </tr>
-            )}
-            {rows.map((u) => (
-              <tr
-                key={u.id}
-                style={{
-                  borderBottom: "1px solid var(--rule)",
-                  color: "var(--ink)",
-                }}
-              >
-                <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono, monospace)" }}>
-                  {u.email}
-                </td>
-                <td style={{ padding: "10px 12px", color: "var(--ink-2)" }}>
-                  {u.fullName || <span style={{ color: "var(--ink-4)" }}>—</span>}
-                </td>
-                <td style={{ padding: "10px 12px", color: "var(--ink-2)" }}>
-                  {u.institution ? (
-                    u.institution.name
-                  ) : (
-                    <span style={{ color: "var(--ink-4)" }}>—</span>
-                  )}
-                </td>
-                <td style={{ padding: "10px 12px" }}>
-                  <Pill tone={roleTone(u.role)}>{u.role}</Pill>
-                </td>
-                <td style={{ padding: "10px 12px", color: "var(--ink-2)" }}>
-                  {u.adminAccessLevel}
-                </td>
-                <td style={{ padding: "10px 12px" }}>
-                  <Pill tone={statusTone(u.accountStatus)}>{u.accountStatus}</Pill>
-                </td>
-              </tr>
-            ))}
           </tbody>
         </table>
-      </div>
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginTop: 12,
-          fontSize: 13,
-          color: "var(--ink-3)",
-        }}
-      >
-        <span>
-          {total === 0
-            ? "0 users"
-            : `Showing ${offset + 1}–${Math.min(offset + rows.length, total)} of ${total}`}
-        </span>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => setPage(0)} disabled={page === 0} style={pageBtn(page === 0)}>
-            ‹‹
-          </button>
-          <button
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-            style={pageBtn(page === 0)}
-          >
-            ‹ Prev
-          </button>
-          <span style={{ alignSelf: "center", padding: "0 8px" }}>
-            Page {page + 1} of {totalPages}
+        <footer className="admin-table__footer">
+          <span className="admin-table__count">
+            Showing {from}–{to} of {total}
           </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-            disabled={page >= totalPages - 1}
-            style={pageBtn(page >= totalPages - 1)}
-          >
-            Next ›
-          </button>
-          <button
-            onClick={() => setPage(totalPages - 1)}
-            disabled={page >= totalPages - 1}
-            style={pageBtn(page >= totalPages - 1)}
-          >
-            ››
-          </button>
-        </div>
-      </div>
-    </AppShell>
+          <div className="admin-pager">
+            <button
+              type="button"
+              className="admin-btn"
+              onClick={() => setPage(0)}
+              disabled={page === 0}
+            >
+              «
+            </button>
+            <button
+              type="button"
+              className="admin-btn"
+              onClick={() => setPage(Math.max(0, page - 1))}
+              disabled={page === 0}
+            >
+              ‹ Prev
+            </button>
+            <span className="admin-pager__pos">
+              Page {page + 1} of {totalPages}
+            </span>
+            <button
+              type="button"
+              className="admin-btn"
+              onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
+              disabled={page + 1 >= totalPages}
+            >
+              Next ›
+            </button>
+            <button
+              type="button"
+              className="admin-btn"
+              onClick={() => setPage(totalPages - 1)}
+              disabled={page + 1 >= totalPages}
+            >
+              »
+            </button>
+          </div>
+        </footer>
+      </section>
+    </AdminShell>
   );
-}
-
-function pageBtn(disabled: boolean): React.CSSProperties {
-  return {
-    padding: "4px 10px",
-    background: "var(--card)",
-    color: disabled ? "var(--ink-4)" : "var(--ink)",
-    border: "1px solid var(--rule)",
-    borderRadius: 4,
-    cursor: disabled ? "not-allowed" : "pointer",
-    fontSize: 12,
-  };
 }

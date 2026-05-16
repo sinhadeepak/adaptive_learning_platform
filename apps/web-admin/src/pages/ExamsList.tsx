@@ -1,15 +1,11 @@
-/**
- * ExamsList — admin landing for the exam catalogue.
- *
- * Lists every exam (including retired ones) with row-level counts so
- * admins can spot gaps. Each row has Edit / Open buttons; the page-
- * level "+ Add new exam" button kicks off the AI-assisted wizard.
- */
+// ExamsList — Vidya v1 admin exam catalog (mockup 5/29).
+//
+// Spec: docs/02-design/design-system/04_components.md
+//       + Vidya v1 admin mockup 5/29.
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { auth } from "../lib/api";
 
 interface ExamListEntry {
@@ -23,23 +19,27 @@ interface ExamListEntry {
   topic_count: number;
 }
 
+type Filter = "all" | "published" | "retired";
+
 export function ExamsList() {
   const [exams, setExams] = useState<ExamListEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "published" | "retired">("published");
+  const [filter, setFilter] = useState<Filter>("published");
 
   useEffect(() => {
     (async () => {
       try {
         const res = await auth.fetch("/api/v1/admin/exam-builder/exams");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setExams((await res.json()) as ExamListEntry[]);
+        const body = await res.json();
+        setExams(Array.isArray(body) ? (body as ExamListEntry[]) : []);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load exams");
       }
     })();
   }, []);
 
+  const total = exams?.length ?? 0;
   const visible = (exams ?? []).filter((e) => {
     if (filter === "published") return e.is_published;
     if (filter === "retired") return !e.is_published;
@@ -47,141 +47,90 @@ export function ExamsList() {
   });
 
   return (
-    <AppShell
+    <AdminShell
+      crumbs="Exams · catalog"
       title="Exams"
       actions={
-        <Link to="/exams/new" className="btn btn-primary" style={{ padding: "8px 14px" }}>
+        <Link to="/exams/new" className="vidya-shell__primary">
           + Add new exam
         </Link>
       }
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {error && (
-          <div
-            role="alert"
-            style={{
-              padding: 10,
-              border: "1px solid var(--bad, #f43f5e)",
-              borderRadius: 6,
-              color: "var(--bad, #f43f5e)",
-              fontSize: 13,
-            }}
-          >
-            {error}
-          </div>
-        )}
+      {error ? (
+        <div className="vidya-auth__error" role="alert"><span>{error}</span></div>
+      ) : null}
 
-        <div
-          className="card"
-          style={{ padding: 14, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}
+      <div className="admin-tabs">
+        <button
+          className={`admin-tabs__tab${filter === "published" ? " admin-tabs__tab--on" : ""}`}
+          onClick={() => setFilter("published")}
         >
-          <div style={{ display: "flex", gap: 4 }}>
-            {(["published", "retired", "all"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={filter === f ? "btn btn-primary" : "btn btn-ghost"}
-                style={{ padding: "4px 10px", fontSize: 12, textTransform: "capitalize" }}
-                aria-pressed={filter === f}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-          <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
-            {visible.length} of {exams?.length ?? 0} exam{exams?.length === 1 ? "" : "s"}
-          </span>
-        </div>
-
-        {exams === null ? (
-          <div className="card" style={{ padding: 20, fontSize: 13 }}>
-            Loading exams…
-          </div>
-        ) : visible.length === 0 ? (
-          <div className="card" style={{ padding: 20, fontSize: 13, color: "var(--ink-3)" }}>
-            No {filter !== "all" ? filter : ""} exams yet.{" "}
-            <Link to="/exams/new" style={{ color: "var(--info)" }}>
-              Add the first one →
-            </Link>
-          </div>
-        ) : (
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead style={{ background: "var(--paper-2)" }}>
-                <tr style={{ textAlign: "left", color: "var(--ink-3)", fontSize: 11 }}>
-                  <th style={th}>Name</th>
-                  <th style={th}>Code</th>
-                  <th style={{ ...th, textAlign: "right" }}>Subjects</th>
-                  <th style={{ ...th, textAlign: "right" }}>Pools</th>
-                  <th style={{ ...th, textAlign: "right" }}>Topics</th>
-                  <th style={th}>Status</th>
-                  <th style={th}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((e) => (
-                  <tr key={e.id} style={{ borderTop: "1px solid var(--rule)" }}>
-                    <td style={td}>
-                      <div style={{ fontWeight: 600 }}>{e.name}</div>
-                      {e.subtitle && (
-                        <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
-                          {e.subtitle}
-                        </div>
-                      )}
-                    </td>
-                    <td style={td}>
-                      <code style={{ fontSize: 11, color: "var(--gold)" }}>{e.code}</code>
-                    </td>
-                    <td style={{ ...td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                      {e.subject_count}
-                    </td>
-                    <td style={{ ...td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                      {e.pool_count > 0 ? e.pool_count : "—"}
-                    </td>
-                    <td style={{ ...td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                      {e.topic_count}
-                    </td>
-                    <td style={td}>
-                      <span
-                        style={{
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                          fontSize: 11,
-                          background: e.is_published ? "rgba(16,196,122,0.15)" : "rgba(244,63,94,0.15)",
-                          color: e.is_published ? "var(--good)" : "var(--bad)",
-                        }}
-                      >
-                        {e.is_published ? "Published" : "Retired"}
-                      </span>
-                    </td>
-                    <td style={{ ...td, textAlign: "right" }}>
-                      <Link
-                        to={`/exams/edit/${e.id}`}
-                        className="btn btn-ghost"
-                        style={{ padding: "4px 10px", fontSize: 12 }}
-                      >
-                        Edit →
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+          Published
+        </button>
+        <button
+          className={`admin-tabs__tab${filter === "retired" ? " admin-tabs__tab--on" : ""}`}
+          onClick={() => setFilter("retired")}
+        >
+          Retired
+        </button>
+        <button
+          className={`admin-tabs__tab${filter === "all" ? " admin-tabs__tab--on" : ""}`}
+          onClick={() => setFilter("all")}
+        >
+          All
+        </button>
+        <span className="admin-tabs__meta">
+          {visible.length} of {total} exams
+        </span>
       </div>
-    </AppShell>
+
+      <section className="admin-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Code</th>
+              <th style={{ textAlign: "right" }}>Subjects</th>
+              <th style={{ textAlign: "right" }}>Pools</th>
+              <th style={{ textAlign: "right" }}>Topics</th>
+              <th>Status</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {exams === null ? (
+              <tr><td colSpan={7} className="admin-table__empty">Loading…</td></tr>
+            ) : visible.length === 0 ? (
+              <tr><td colSpan={7} className="admin-table__empty">No exams match this filter.</td></tr>
+            ) : (
+              visible.map((e) => (
+                <tr key={e.id}>
+                  <td>
+                    <div className="admin-cell-strong">{e.name}</div>
+                    {e.subtitle ? (
+                      <div className="admin-cell-meta">{e.subtitle}</div>
+                    ) : null}
+                  </td>
+                  <td className="admin-mono-sm" style={{ color: "var(--accent)" }}>{e.code}</td>
+                  <td style={{ textAlign: "right" }} className="admin-mono">{e.subject_count}</td>
+                  <td style={{ textAlign: "right" }} className="admin-mono">{e.pool_count || "—"}</td>
+                  <td style={{ textAlign: "right" }} className="admin-mono">{e.topic_count}</td>
+                  <td>
+                    <span className={`admin-pill ${e.is_published ? "admin-pill--good" : "admin-pill--mute"}`}>
+                      {e.is_published ? "Published" : "Retired"}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <Link to={`/exams/edit/${e.id}`} className="admin-btn admin-btn--link">
+                      Edit →
+                    </Link>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </section>
+    </AdminShell>
   );
 }
-
-const th: React.CSSProperties = {
-  padding: "8px 14px",
-  fontWeight: 600,
-  textTransform: "uppercase",
-  letterSpacing: 0.4,
-};
-
-const td: React.CSSProperties = {
-  padding: "10px 14px",
-  verticalAlign: "top",
-};
