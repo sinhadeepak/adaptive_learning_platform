@@ -8,7 +8,7 @@
 // migrated page-by-page without breaking the routes that still
 // expect the Aurora sidebar + topbar.
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { auth } from "../../lib/api";
 import { useAuth } from "../../lib/auth-provider";
@@ -71,43 +71,60 @@ function buildNav(enrolledExams: ExamMeta[]): NavGroup[] {
     kbd: i === 0 ? "⌘2" : i === 1 ? "⌘3" : i === 2 ? "⌘4" : undefined,
   }));
 
+  // Study map needs an exam in the URL; pick the first enrolled or
+  // graceful-fallback to the Add affordance for fresh users.
+  const studyMapHref = enrolledExams[0]
+    ? `/study/${enrolledExams[0].id}`
+    : "/exams/add";
+
   return [
     {
       heading: "Learn",
       items: [
         { href: "/home", label: "Dashboard", icon: <IconHome />, kbd: "⌘1" },
         ...examItems,
+        { href: studyMapHref, label: "Study map", icon: <IconMap /> },
+        { href: "/catalog", label: "Catalog", icon: <IconBook /> },
         {
           href: "/exams/add",
           label: "Add exam / course",
           icon: <IconPlus />,
           add: true,
         },
-        ...(enrolledExams.length > 1
-          ? [
-              {
-                href: "/tracks",
-                label: "All tracks",
-                icon: <IconMap />,
-              } as NavItem,
-            ]
-          : []),
+        { href: "/library", label: "Library", icon: <IconLibrary /> },
+        { href: "/experts", label: "AI Tutor", icon: <IconChat /> },
+        { href: "/doubts", label: "Doubts", icon: <IconQuestion /> },
+      ],
+    },
+    {
+      heading: "Practice",
+      items: [
         { href: "/practice", label: "AI practice", icon: <IconBolt /> },
+        { href: "/plan", label: "Plan", icon: <IconCalendar /> },
         { href: "/mocks", label: "Mock tests", icon: <IconTarget />, badge: 3 },
+        { href: "/battle", label: "Battle", icon: <IconSwords /> },
+      ],
+    },
+    {
+      heading: "Compete",
+      items: [
+        { href: "/leaderboards", label: "Leaderboards", icon: <IconMedal /> },
+        { href: "/rank", label: "Rank", icon: <IconTrophy /> },
+        { href: "/friends", label: "Friends", icon: <IconUsers /> },
+        { href: "/clans", label: "Clans", icon: <IconCastle /> },
       ],
     },
     {
       heading: "Insight",
       items: [
         { href: "/analysis", label: "My analysis", icon: <IconChart /> },
-        { href: "/rank", label: "Leaderboard", icon: <IconTrophy /> },
+        { href: "/insights", label: "Insights", icon: <IconSparkles /> },
       ],
     },
     {
-      heading: "Support",
+      heading: "Marketplace",
       items: [
-        { href: "/experts", label: "Expert help", icon: <IconChat />, badge: 2 },
-        { href: "/updates", label: "Updates", icon: <IconBell /> },
+        { href: "/marketplace", label: "Marketplace", icon: <IconCap /> },
       ],
     },
   ];
@@ -130,6 +147,35 @@ export function VidyaShell({
     (user?.firstName?.[0] ?? "") + (user?.lastName?.[0] ?? "")
   ).toUpperCase() || "·";
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Learner";
+
+  // User-avatar dropdown state.
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userBlockRef = useRef<HTMLDivElement>(null);
+
+  // Close on click-outside.
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    function handleMouseDown(e: MouseEvent) {
+      if (
+        userBlockRef.current &&
+        !userBlockRef.current.contains(e.target as Node)
+      ) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [userMenuOpen]);
+
+  // Close on ESC.
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setUserMenuOpen(false);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [userMenuOpen]);
 
   // Sidebar nav is data-driven. We pull the user's enrolled exams from
   // /profile/me, then fetch /catalog/exams once to map examId → exam
@@ -225,22 +271,113 @@ export function VidyaShell({
           ))}
         </nav>
 
-        <div className="vidya-shell__user">
-          <div className="vidya-shell__user-avatar">{initials}</div>
-          <div>
-            <div className="vidya-shell__user-name">{fullName}</div>
-            <div className="vidya-shell__user-meta">
-              {user?.role === "STUDENT" ? "Pro · NEET 2027" : (user?.role ?? "")}
+        {/* User block + dropdown */}
+        <div ref={userBlockRef} style={{ position: "relative" }}>
+          {/* Dropdown menu — opens ABOVE the user row */}
+          {userMenuOpen && (
+            <div
+              role="menu"
+              aria-label="User menu"
+              style={{
+                position: "absolute",
+                bottom: "calc(100% + var(--sp-2, 8px))",
+                left: 0,
+                right: 0,
+                background: "var(--paper)",
+                border: "1px solid var(--rule)",
+                borderRadius: "var(--radius, 8px)",
+                padding: "var(--sp-1, 4px) 0",
+                zIndex: 200,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+              }}
+            >
+              {(
+                [
+                  { href: "/search",    label: "Search",   icon: <IconSearch /> },
+                  { href: "/bookmarks", label: "Saved",    icon: <IconStar /> },
+                  { href: "/history",   label: "History",  icon: <IconClock /> },
+                  { href: "/profile",   label: "Profile",  icon: <IconUser /> },
+                  { href: "/settings",  label: "Settings", icon: <IconCog /> },
+                ] as const
+              ).map(({ href, label, icon }) => (
+                <Link
+                  key={href}
+                  to={href}
+                  role="menuitem"
+                  onClick={() => setUserMenuOpen(false)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "var(--sp-2, 8px)",
+                    padding: "var(--sp-2, 8px) var(--sp-3, 12px)",
+                    color: "var(--ink)",
+                    textDecoration: "none",
+                    fontSize: 13,
+                  }}
+                >
+                  <span style={{ width: 16, height: 16, flexShrink: 0 }} aria-hidden>
+                    {icon}
+                  </span>
+                  {label}
+                </Link>
+              ))}
+              <div
+                style={{
+                  borderTop: "1px solid var(--rule)",
+                  margin: "var(--sp-1, 4px) 0",
+                }}
+              />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { toggleTheme(); setUserMenuOpen(false); }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "var(--sp-2, 8px)",
+                  width: "100%",
+                  padding: "var(--sp-2, 8px) var(--sp-3, 12px)",
+                  background: "none",
+                  border: "none",
+                  color: "var(--ink)",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  textAlign: "left",
+                }}
+              >
+                <span style={{ width: 16, flexShrink: 0 }} aria-hidden>☀</span>
+                Toggle theme
+              </button>
             </div>
-          </div>
-          <button
-            className="vidya-shell__theme-toggle"
-            aria-label="Toggle theme"
-            onClick={toggleTheme}
-            title="Toggle theme"
+          )}
+
+          {/* Clickable user row */}
+          <div
+            className="vidya-shell__user"
+            role="button"
+            tabIndex={0}
+            aria-haspopup="menu"
+            aria-expanded={userMenuOpen}
+            onClick={() => setUserMenuOpen((v) => !v)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setUserMenuOpen((v) => !v);
+              }
+            }}
+            style={{ cursor: "pointer" }}
           >
-            ☀
-          </button>
+            <div className="vidya-shell__user-avatar">{initials}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="vidya-shell__user-name">{fullName}</div>
+              <div className="vidya-shell__user-meta">
+                {user?.role === "STUDENT" ? "Pro · NEET 2027" : (user?.role ?? "")}
+              </div>
+            </div>
+            <span aria-hidden style={{ fontSize: 10, flexShrink: 0, opacity: 0.6 }}>
+              {userMenuOpen ? "▴" : "▾"}
+            </span>
+          </div>
         </div>
       </aside>
 
@@ -378,18 +515,135 @@ function IconChat() {
     </svg>
   );
 }
-function IconBell() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <path d="M4 11V7a4 4 0 118 0v4l1 1.5H3z" strokeLinejoin="round" />
-      <path d="M7 13.5a1.5 1.5 0 003 0" />
-    </svg>
-  );
-}
 function IconPlus() {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
       <path d="M8 3v10M3 8h10" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconBook() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M3 3h4a2 2 0 012 2v8a2 2 0 00-2-2H3z" strokeLinejoin="round" />
+      <path d="M13 3H9a2 2 0 00-2 2v8a2 2 0 012-2h4z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconLibrary() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M2 13V5l3-2 3 2 3-2 3 2v8" strokeLinejoin="round" />
+      <path d="M2 13h12" strokeLinecap="round" />
+      <path d="M8 5v8" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconQuestion() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M6.5 6.5a1.5 1.5 0 013 .5c0 1-1.5 1.5-1.5 2.5" strokeLinecap="round" />
+      <circle cx="8" cy="11.5" r=".5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+function IconCalendar() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <rect x="2.5" y="3.5" width="11" height="10" rx="1.5" />
+      <path d="M5 2v3M11 2v3M2.5 7h11" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconSwords() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M3 13L13 3M5 3h5M3 11v-5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13 5L3 15M11 13h-5M13 7v5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconUsers() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="6" cy="6" r="2.5" />
+      <path d="M1.5 14c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" strokeLinecap="round" />
+      <circle cx="11.5" cy="5.5" r="2" />
+      <path d="M14.5 13.5c0-2-1.5-3.5-3-3.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconCastle() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M3 13V8H2V5h3V3h1v2h4V3h1v2h3v3h-1v5z" strokeLinejoin="round" />
+      <path d="M6 13V9h4v4" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconMedal() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="8" cy="9.5" r="4" />
+      <path d="M5.5 5.5L4 2h8L10.5 5.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconSparkles() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M8 2v2M8 12v2M14 8h-2M4 8H2" strokeLinecap="round" />
+      <path d="M8 5l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconUser() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="8" cy="6" r="3" />
+      <path d="M2 14c0-3 2.5-5 6-5s6 2 6 5" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconCap() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M8 4L2 7l6 3 6-3z" strokeLinejoin="round" />
+      <path d="M4.5 8.5v3c0 1 1.5 2 3.5 2s3.5-1 3.5-2v-3" strokeLinecap="round" />
+      <path d="M13 7v4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconSearch() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="7" cy="7" r="4" />
+      <path d="M10 10l3 3" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconStar() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M8 2l1.5 3.5 3.5.5-2.5 2.5.5 3.5L8 10.5 5 12.5l.5-3.5L3 6.5l3.5-.5z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconClock() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 5v3l2 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconCog() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="8" cy="8" r="2.5" />
+      <path d="M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14M3.5 3.5l1 1M11.5 11.5l1 1M12.5 3.5l-1 1M4.5 11.5l-1 1" strokeLinecap="round" />
     </svg>
   );
 }

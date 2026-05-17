@@ -68,6 +68,7 @@ import { Diagnostic as OnboardingDiagnostic } from "./pages/onboarding/Diagnosti
 import { ExamSelect } from "./pages/onboarding/ExamSelect";
 import { Language } from "./pages/onboarding/Language";
 import { TargetDate } from "./pages/onboarding/TargetDate";
+import { Marketplace } from "./pages/Marketplace";
 import { Tutors } from "./pages/Tutors";
 import { TutorDetail } from "./pages/TutorDetail";
 import { MyBookings } from "./pages/MyBookings";
@@ -610,6 +611,16 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <League />
+      </ProtectedRoute>
+    ),
+  },
+
+  // Marketplace hub — single sidebar entry linking to all four sub-pages.
+  {
+    path: "/marketplace",
+    element: (
+      <ProtectedRoute>
+        <Marketplace />
       </ProtectedRoute>
     ),
   },
