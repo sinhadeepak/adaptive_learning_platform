@@ -1,9 +1,10 @@
-// Phase 1D-9 — League standings page.
+// Phase 1D-9 — League standings page (Vidya rewrite).
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
+import { Link } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface XpStatus {
   user_id: string;
@@ -22,12 +23,14 @@ interface StandingsEntry {
 }
 
 const LEAGUES = ["BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND"];
-const COLORS: Record<string, string> = {
-  BRONZE: "#CD7F32",
-  SILVER: "#C0C0C0",
-  GOLD: "#FFD700",
-  PLATINUM: "#E5E4E2",
-  DIAMOND: "#B9F2FF",
+
+// Tier colour tokens — no hex literals; map to CSS colour tokens.
+const TIER_TOKEN: Record<string, string> = {
+  BRONZE: "var(--ink-3)",
+  SILVER: "var(--ink-3)",
+  GOLD: "var(--gold)",
+  PLATINUM: "var(--info)",
+  DIAMOND: "var(--accent)",
 };
 
 export function League() {
@@ -62,129 +65,238 @@ export function League() {
     };
   }, [status]);
 
+  const tierToken = TIER_TOKEN[status?.current_league ?? ""] ?? "var(--ink-3)";
+  const xpPct = status
+    ? Math.min(100, (status.total_xp / Math.max(1, status.next_level_xp)) * 100)
+    : 0;
+
+  // Promotion / demotion thresholds (top 10% promote, bottom 20% drop).
+  const total = standings.length;
+  const promotionCutoff = Math.ceil(total * 0.1);
+  const demotionCutoff = Math.floor(total * 0.8);
+
+  const leagueIdx = LEAGUES.indexOf(status?.current_league ?? "BRONZE");
+  const promoteTo = LEAGUES[Math.min(4, leagueIdx + 1)];
+  const demoteTo = LEAGUES[Math.max(0, leagueIdx - 1)];
+
   return (
-    <AppShell title="League">
-      <main className="page" style={{ padding: 24, maxWidth: 800 }}>
-        {status && (
-          <section
+    <VidyaShell
+      crumbs="COMPETE · LEAGUE"
+      title="Weekly league"
+      subtitle="Promotes Sunday 23:59 IST"
+    >
+      {/* STATUS card */}
+      <section className="vidya-heat-card">
+        <div className="vidya-heat-card__head">
+          <div>
+            <div className="vidya-heat-card__eyebrow">
+              Current tier · {status?.current_league ?? "—"}
+            </div>
+            <div className="vidya-heat-card__title">
+              {status?.weekly_xp ?? 0} XP this week
+            </div>
+          </div>
+          {/* Tier badge */}
+          <div
+            aria-hidden
             style={{
-              padding: 24,
-              background: "var(--paper-2)",
-              border: "1px solid var(--rule)",
-              borderRadius: 12,
-              marginBottom: 24,
+              width: 56,
+              height: 56,
+              borderRadius: "50%",
+              background: tierToken,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 22,
+              fontWeight: 800,
+              color: "var(--paper)",
+              flexShrink: 0,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
-              <div
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: "50%",
-                  background: COLORS[status.current_league] ?? "#888",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 28,
-                  fontWeight: 800,
-                  color: "#000",
-                }}
-              >
-                {status.current_level}
-              </div>
-              <div>
-                <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase" }}>
-                  {status.current_league} League
-                </div>
-                <div style={{ fontSize: 22, fontWeight: 700 }}>
-                  Level {status.current_level}
-                </div>
-                <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
-                  {status.total_xp} XP total · {status.weekly_xp} this week
-                </div>
-              </div>
-            </div>
+            {status?.current_level ?? "—"}
+          </div>
+        </div>
+
+        {/* Progress bar toward next level */}
+        {status && (
+          <div style={{ marginTop: "var(--sp-4)" }}>
             <div
+              role="progressbar"
+              aria-valuenow={Math.round(xpPct)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`${status.total_xp} of ${status.next_level_xp} XP to next level`}
               style={{
                 height: 8,
-                background: "var(--card)",
+                background: "var(--rule)",
                 borderRadius: 4,
                 overflow: "hidden",
               }}
             >
               <div
                 style={{
-                  width: `${Math.min(100, (status.total_xp / Math.max(1, status.next_level_xp)) * 100)}%`,
+                  width: `${xpPct}%`,
                   height: "100%",
                   background: "var(--gold)",
+                  borderRadius: 4,
                 }}
               />
             </div>
-            <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>
+            <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: "var(--sp-1)" }}>
               {status.total_xp} / {status.next_level_xp} XP to next level
-            </div>
-          </section>
+            </p>
+          </div>
         )}
 
-        <h2 style={{ marginTop: 0 }}>League standings — this week</h2>
+        {/* Promotion / demotion legend */}
+        {total > 0 && (
+          <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: "var(--sp-2)" }}>
+            Top 10% promote to {promoteTo} · bottom 20% drop to {demoteTo}
+          </p>
+        )}
+      </section>
+
+      {/* STANDINGS card */}
+      <section className="vidya-card-block" aria-label="League standings">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">League standings — this week</h2>
+        </div>
+
         {standings.length === 0 ? (
-          <p style={{ color: "var(--ink-3)" }}>
+          <p style={{ color: "var(--ink-3)", marginTop: "var(--sp-3)" }}>
             No standings yet — earn XP from quizzes, flashcards, and streaks to enter the leaderboard.
           </p>
         ) : (
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {standings.map((s) => (
+          <ul
+            style={{ listStyle: "none", padding: 0, margin: "var(--sp-3) 0 0" }}
+          >
+            {/* Promotion-line marker */}
+            {promotionCutoff > 0 && (
               <li
-                key={s.userId}
+                aria-hidden
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: 12,
-                  background:
-                    user?.id === s.userId ? "var(--gold-soft, rgba(167,139,250,0.15))" : "var(--paper-2)",
-                  border: "1px solid var(--rule)",
-                  borderRadius: 8,
-                  marginBottom: 6,
+                  fontSize: 10,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "var(--good)",
+                  padding: "2px 0 4px",
                 }}
               >
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: "50%",
-                    background: s.rank <= 3 ? COLORS[status?.current_league ?? "BRONZE"] : "var(--card)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: 700,
-                    color: s.rank <= 3 ? "#000" : "var(--ink)",
-                  }}
-                >
-                  {s.rank}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <code style={{ fontSize: 13 }}>{s.userId.slice(0, 8)}</code>
-                  {user?.id === s.userId && (
-                    <span style={{ marginLeft: 8, color: "var(--gold)", fontSize: 11 }}>
-                      (you)
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontWeight: 700, color: "var(--gold)" }}>
-                  {s.weeklyXp} XP
-                </div>
+                ▲ Promotion zone
               </li>
-            ))}
+            )}
+
+            {standings.map((s, idx) => {
+              const isMe = user?.id === s.userId;
+              const isPromotionBoundary = s.rank === promotionCutoff;
+              const isDemotionBoundary = s.rank === demotionCutoff + 1;
+
+              return (
+                <Fragment key={s.userId}>
+                  {isPromotionBoundary && promotionCutoff < total && (
+                    <li
+                      aria-hidden
+                      style={{
+                        height: 2,
+                        background: "var(--good)",
+                        margin: "4px 0",
+                        borderRadius: 1,
+                      }}
+                    />
+                  )}
+                  {isDemotionBoundary && (
+                    <li
+                      aria-hidden
+                      style={{
+                        height: 2,
+                        background: "var(--bad)",
+                        margin: "4px 0",
+                        borderRadius: 1,
+                      }}
+                    />
+                  )}
+                  <li
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "10px 12px",
+                      background: isMe ? "color-mix(in srgb, var(--accent) 12%, transparent)" : "var(--paper-2)",
+                      border: `1px solid ${isMe ? "var(--accent)" : "var(--rule)"}`,
+                      borderRadius: 8,
+                      marginBottom: 6,
+                    }}
+                    aria-current={isMe ? "true" : undefined}
+                  >
+                    {/* Rank badge */}
+                    <div
+                      aria-hidden
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        background:
+                          idx < 3 ? tierToken : "var(--paper)",
+                        border: `1px solid ${idx < 3 ? "transparent" : "var(--rule)"}`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 700,
+                        fontSize: 13,
+                        color: idx < 3 ? "var(--paper)" : "var(--ink)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {s.rank}
+                    </div>
+
+                    {/* User ID */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <code style={{ fontSize: 13, color: "var(--ink)" }}>
+                        {s.userId.slice(0, 8)}
+                      </code>
+                      {isMe && (
+                        <span
+                          style={{
+                            marginLeft: 8,
+                            color: "var(--accent)",
+                            fontSize: 11,
+                            fontWeight: 600,
+                          }}
+                        >
+                          (you)
+                        </span>
+                      )}
+                    </div>
+
+                    {/* XP */}
+                    <div style={{ fontWeight: 700, color: "var(--gold)", flexShrink: 0 }}>
+                      {s.weeklyXp} XP
+                    </div>
+                  </li>
+                </Fragment>
+              );
+            })}
+
+            {/* Demotion-zone label */}
+            {demotionCutoff < total && (
+              <li
+                aria-hidden
+                style={{
+                  fontSize: 10,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "var(--bad)",
+                  padding: "4px 0 2px",
+                }}
+              >
+                ▼ Demotion zone
+              </li>
+            )}
           </ul>
         )}
-
-        <p style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 16 }}>
-          Top 10% promote to {LEAGUES[Math.min(4, LEAGUES.indexOf(status?.current_league ?? "BRONZE") + 1)]} ·
-          bottom 20% drop to {LEAGUES[Math.max(0, LEAGUES.indexOf(status?.current_league ?? "BRONZE") - 1)]}.
-        </p>
-      </main>
-    </AppShell>
+      </section>
+    </VidyaShell>
   );
 }
 
@@ -210,9 +322,12 @@ export function XPHeader() {
   }, [user]);
 
   if (!status) return null;
+
+  const tierToken = TIER_TOKEN[status.current_league] ?? "var(--ink-3)";
+
   return (
-    <a
-      href="/league"
+    <Link
+      to="/league"
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -232,8 +347,8 @@ export function XPHeader() {
           width: 22,
           height: 22,
           borderRadius: "50%",
-          background: COLORS[status.current_league] ?? "#888",
-          color: "#000",
+          background: tierToken,
+          color: "var(--paper)",
           fontWeight: 800,
           display: "flex",
           alignItems: "center",
@@ -244,6 +359,6 @@ export function XPHeader() {
       </span>
       <span style={{ fontWeight: 700 }}>{status.weekly_xp} XP</span>
       <span style={{ color: "var(--ink-3)" }}>{status.current_league}</span>
-    </a>
+    </Link>
   );
 }

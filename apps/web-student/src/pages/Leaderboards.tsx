@@ -1,32 +1,25 @@
-// Leaderboards — Aurora redesign (F8b).
+// Leaderboards — Vidya v1 redesign (mockup 05).
 //
 // Spec: docs/02-design/redesign/leaderboards.md
-// ADR:  docs/adr/0028-design-system-v2-aurora.md (S7 deliverable)
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
 //
 // Data: GET /api/v1/social/leaderboards/{boardId} (rows of {userId, rank, score})
 // refreshed every 15 min by engagement service.
 //
-// Aurora restructure:
-//   * Tabs replace the legacy `.pg-tabs` button row
-//   * PodiumCard for top-3 (gold/silver/bronze rings + scores + names)
-//   * Card-styled rows for the remaining ranks
-//   * EmptyState when board is empty
-//   * Skeleton rows while loading
+// Vidya layout:
+//   * VidyaShell with COMPETE · LEADERBOARDS crumbs
+//   * Board chips (Global XP / Weekly wins) in topbar
+//   * Hero card: selected board name + your standing
+//   * Top-20 standings table (current user row highlighted)
+//   * Other rankings links (/league, /rank, /clans)
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import {
-  Avatar,
-  Button,
-  Card,
-  EmptyState,
-  Skeleton,
-  Tag,
-} from "@alp/ui";
-import { AppShell } from "../components/AppShell";
-import { Banner } from "../components/dashboard";
+import { Avatar } from "@alp/ui";
+import { useAuth } from "../lib/auth-provider";
 import { useUserDirectory, formatUser } from "../lib/user_directory";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface Row {
   userId: string;
@@ -66,289 +59,274 @@ export function Leaderboards() {
     void load();
   }, [load]);
 
-  const board = BOARDS.find((b) => b.id === boardId);
+  const { user } = useAuth();
   const ids = useMemo(() => (rows ?? []).map((r) => r.userId), [rows]);
   const dir = useUserDirectory(ids);
 
-  const top3 = rows ? rows.slice(0, 3) : [];
-  const rest = rows ? rows.slice(3) : [];
+  // Top 20 for the standings table
+  const top20 = rows ? rows.slice(0, 20) : [];
+
+  // Current user's row (for hero standing)
+  const myRow = rows?.find((r) => r.userId === user?.id) ?? null;
 
   return (
-    <AppShell
+    <VidyaShell
+      crumbs="COMPETE · LEADERBOARDS"
       title="Leaderboards"
-      actions={
-        <Link to="/clans" style={{ textDecoration: "none" }}>
-          <Button variant="ghost" size="sm">Clans →</Button>
-        </Link>
-      }
-    >
-      {error ? <Banner tone="danger">{error}</Banner> : null}
-
-      <header style={{ marginBottom: 20 }}>
-        <h1
-          style={{
-            margin: 0,
-            fontSize: "var(--t-h1-size)",
-            lineHeight: "var(--t-h1-line)",
-            fontWeight: 700,
-            color: "var(--ink)",
-          }}
-        >
-          Leaderboards
-        </h1>
-        <p style={{ margin: "4px 0 0", color: "var(--ink-3)" }}>
-          Rankings refresh every 15 minutes. New battles need ~1 cycle before
-          they affect the boards.
-        </p>
-      </header>
-
-      {/* ── Board picker — segmented-style tabs ── */}
-      <div
-        role="tablist"
-        aria-label="Leaderboard"
-        style={{
-          display: "inline-flex",
-          gap: 0,
-          backgroundColor: "var(--rule)",
-          borderRadius: "var(--r-pill)",
-          padding: 2,
-          marginBottom: 12,
-        }}
-      >
-        {BOARDS.map((b) => {
-          const active = boardId === b.id;
-          return (
+      chips={
+        <>
+          {BOARDS.map((b) => (
             <button
               key={b.id}
               type="button"
-              role="tab"
-              aria-selected={active}
+              className={`vidya-shell__chip${b.id === boardId ? " vidya-shell__chip--on" : ""}`}
               onClick={() => setBoardId(b.id)}
-              style={{
-                appearance: "none",
-                border: 0,
-                background: active ? "var(--paper)" : "transparent",
-                color: active ? "var(--ink)" : "var(--ink-3)",
-                fontFamily: "var(--font-ui)",
-                fontSize: 13,
-                fontWeight: active ? 700 : 500,
-                padding: "6px 16px",
-                borderRadius: "var(--r-pill)",
-                cursor: "pointer",
-                boxShadow: active ? "var(--shadow-sm)" : "none",
-                transition: "all 120ms var(--m-ease)",
-              }}
             >
               {b.label}
             </button>
-          );
-        })}
-      </div>
-      {board ? (
-        <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 20 }}>
-          {board.hint}
+          ))}
+        </>
+      }
+      actions={
+        <button type="button" className="vidya-shell__chip" onClick={() => { void load(); }}>
+          Refresh
+        </button>
+      }
+    >
+      {/* Error banner */}
+      {error ? (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            padding: "var(--sp-3) var(--sp-4)",
+            marginBottom: "var(--sp-4)",
+            background: "var(--bad)",
+            color: "var(--paper)",
+            borderRadius: "var(--r-md)",
+            fontSize: 13,
+          }}
+        >
+          {error}
         </div>
       ) : null}
 
-      {/* ── Loading skeletons ── */}
-      {rows === null ? (
-        <>
+      {/* HERO — selected board name + your standing */}
+      <section className="vidya-heat-card">
+        <div className="vidya-heat-card__head">
+          <div>
+            <div className="vidya-heat-card__eyebrow">
+              {BOARDS.find((b) => b.id === boardId)?.label}
+            </div>
+            <div className="vidya-heat-card__title">Your standing</div>
+          </div>
+        </div>
+
+        {rows === null ? (
+          <p style={{ color: "var(--ink-3)", fontSize: 13 }}>Loading…</p>
+        ) : myRow ? (
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 12,
-              marginBottom: 20,
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--sp-6)",
+              marginTop: "var(--sp-4)",
             }}
           >
-            {[0, 1, 2].map((i) => (
-              <Card key={i} padding="md">
-                <div style={{ height: 96 }}>
-                  <Skeleton shape="circle" width={56} height={56} />
-                </div>
-              </Card>
-            ))}
+            <div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Rank
+              </div>
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 36,
+                  fontWeight: 700,
+                  color: "var(--accent)",
+                  fontFeatureSettings: '"tnum"',
+                  lineHeight: 1,
+                }}
+              >
+                #{myRow.rank}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                {boardId === "xp:global" ? "XP" : "Wins"}
+              </div>
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 36,
+                  fontWeight: 700,
+                  color: "var(--ink)",
+                  fontFeatureSettings: '"tnum"',
+                  lineHeight: 1,
+                }}
+              >
+                {Math.round(myRow.score).toLocaleString()}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Name
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>
+                {formatUser(myRow.userId, dir[myRow.userId])}
+              </div>
+            </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {[0, 1, 2, 3, 4].map((i) => (
-              <Card key={i} padding="sm">
-                <Skeleton shape="text" width="60%" />
-              </Card>
-            ))}
-          </div>
-        </>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          illustration={<span aria-hidden style={{ fontSize: 40 }}>🏅</span>}
-          title="No entries yet"
-          description="The first refresh will populate the board — practice or battle to earn your spot."
-          actions={
-            <Link to="/catalog" style={{ textDecoration: "none" }}>
-              <Button variant="aurora" iconLeft={<span aria-hidden>✦</span>}>
-                Start practice
-              </Button>
-            </Link>
-          }
-        />
-      ) : (
-        <>
-          {/* ── Podium for top 3 ── */}
-          {top3.length > 0 ? (
-            <section
-              aria-label="Top 3"
-              style={{
-                display: "grid",
-                gridTemplateColumns: `repeat(${Math.min(3, top3.length)}, 1fr)`,
-                gap: 12,
-                marginBottom: 20,
-              }}
-            >
-              {top3.map((r) => {
-                const medal = r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : "🥉";
-                const ring =
-                  r.rank === 1
-                    ? "var(--reward-500)"
-                    : r.rank === 2
-                      ? "var(--ink-4)"
-                      : "#A16207";
-                return (
-                  <Card key={r.userId} padding="md">
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 8,
-                        textAlign: "center",
-                      }}
-                    >
-                      <div style={{ fontSize: 32, lineHeight: 1 }} aria-hidden>
-                        {medal}
-                      </div>
-                      <span
-                        style={{
-                          padding: 3,
-                          borderRadius: "50%",
-                          background: ring,
-                          display: "inline-block",
-                        }}
-                      >
-                        <Avatar
-                          name={formatUser(r.userId, dir[r.userId])}
-                          size="lg"
-                        />
-                      </span>
-                      <div
-                        style={{
-                          fontWeight: 600,
-                          color: "var(--ink)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          maxWidth: "100%",
-                          fontSize: 13,
-                        }}
-                      >
-                        {formatUser(r.userId, dir[r.userId])}
-                      </div>
-                      <div
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          fontSize: 20,
-                          fontWeight: 700,
-                          color: "var(--ink)",
-                          fontFeatureSettings: '"tnum"',
-                        }}
-                      >
-                        {Math.round(r.score).toLocaleString()}
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
-            </section>
-          ) : null}
+        ) : rows.length === 0 ? (
+          <p style={{ color: "var(--ink-3)", fontSize: 13, marginTop: "var(--sp-3)" }}>
+            No entries yet — practice or battle to earn your spot.
+          </p>
+        ) : (
+          <p style={{ color: "var(--ink-3)", fontSize: 13, marginTop: "var(--sp-3)" }}>
+            {/* TODO(leaderboards): show "not ranked yet" delta once /me endpoint returns rank */}
+            You are not yet ranked on this board. Keep practising!
+          </p>
+        )}
+      </section>
 
-          {/* ── Remaining ranks ── */}
-          {rest.length > 0 ? (
-            <section aria-label="Other rankings">
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <h2
+      {/* STANDINGS table */}
+      <section className="vidya-card-block" aria-label="Top players">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">Top 20</h2>
+        </div>
+
+        {rows === null ? (
+          <p style={{ color: "var(--ink-3)", fontSize: 13, padding: "var(--sp-3) 0" }}>Loading…</p>
+        ) : top20.length === 0 ? (
+          <p style={{ color: "var(--ink-3)", fontSize: 13, padding: "var(--sp-3) 0" }}>
+            No entries yet. Rankings refresh every 15 minutes.
+          </p>
+        ) : (
+          <ol style={{ margin: 0, padding: 0, listStyle: "none" }}>
+            {top20.map((r, idx) => {
+              const isMe = r.userId === user?.id;
+              return (
+                <li
+                  key={r.userId}
                   style={{
-                    margin: 0,
-                    fontSize: "var(--t-h3-size)",
-                    lineHeight: "var(--t-h3-line)",
-                    fontWeight: 600,
-                    color: "var(--ink-2)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "var(--sp-3)",
+                    padding: "var(--sp-3) var(--sp-2)",
+                    borderTop: idx === 0 ? "none" : "1px solid var(--rule-2)",
+                    background: isMe ? "var(--accent)" : "transparent",
+                    borderRadius: isMe ? "var(--r-md)" : 0,
+                    color: isMe ? "var(--paper)" : "var(--ink)",
                   }}
                 >
-                  All rankings
-                </h2>
-                <Tag size="sm" tone="neutral" variant="soft">
-                  {rows.length}
-                </Tag>
-              </div>
-              <Card padding="sm">
-                <ol style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                  {rest.map((r, idx) => (
-                    <li
-                      key={r.userId}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: "10px 8px",
-                        borderTop:
-                          idx === 0 ? "none" : "1px solid var(--rule-2)",
-                      }}
-                    >
-                      <span
-                        style={{
-                          minWidth: 32,
-                          fontFamily: "var(--font-mono)",
-                          fontWeight: 700,
-                          color: "var(--ink-2)",
-                          fontFeatureSettings: '"tnum"',
-                          textAlign: "right",
-                        }}
-                      >
-                        {r.rank}
-                      </span>
-                      <Avatar
-                        name={formatUser(r.userId, dir[r.userId])}
-                        size="sm"
-                      />
-                      <span
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          color: "var(--ink)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          fontSize: 13,
-                        }}
-                      >
-                        {formatUser(r.userId, dir[r.userId])}
-                      </span>
-                      <span
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          fontWeight: 600,
-                          color: "var(--ink-2)",
-                          fontFeatureSettings: '"tnum"',
-                        }}
-                      >
-                        {Math.round(r.score).toLocaleString()}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </Card>
-            </section>
-          ) : null}
-        </>
-      )}
-    </AppShell>
+                  <span
+                    style={{
+                      minWidth: 28,
+                      fontFamily: "var(--font-mono)",
+                      fontWeight: 700,
+                      fontFeatureSettings: '"tnum"',
+                      textAlign: "right",
+                      color: isMe ? "var(--paper)" : "var(--ink-2)",
+                    }}
+                  >
+                    {r.rank}
+                  </span>
+                  <Avatar
+                    name={formatUser(r.userId, dir[r.userId])}
+                    size="sm"
+                  />
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      fontSize: 13,
+                      fontWeight: isMe ? 700 : 500,
+                    }}
+                  >
+                    {formatUser(r.userId, dir[r.userId])}
+                    {isMe ? " (you)" : ""}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontWeight: 600,
+                      fontFeatureSettings: '"tnum"',
+                      color: isMe ? "var(--paper)" : "var(--ink-2)",
+                    }}
+                  >
+                    {Math.round(r.score).toLocaleString()}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
+
+      {/* OTHER RANKINGS */}
+      <section className="vidya-card-block" aria-label="Other rankings">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">Other rankings</h2>
+        </div>
+        <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "var(--sp-2)" }}>
+          <li>
+            <Link
+              to="/league"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--sp-3)",
+                padding: "var(--sp-3) var(--sp-2)",
+                color: "var(--accent)",
+                textDecoration: "none",
+                fontSize: 14,
+                fontWeight: 600,
+                borderRadius: "var(--r-md)",
+              }}
+            >
+              League table →
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/rank"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--sp-3)",
+                padding: "var(--sp-3) var(--sp-2)",
+                color: "var(--accent)",
+                textDecoration: "none",
+                fontSize: 14,
+                fontWeight: 600,
+                borderRadius: "var(--r-md)",
+              }}
+            >
+              National rank →
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/clans"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--sp-3)",
+                padding: "var(--sp-3) var(--sp-2)",
+                color: "var(--accent)",
+                textDecoration: "none",
+                fontSize: 14,
+                fontWeight: 600,
+                borderRadius: "var(--r-md)",
+              }}
+            >
+              Clans →
+            </Link>
+          </li>
+        </ul>
+      </section>
+    </VidyaShell>
   );
 }
