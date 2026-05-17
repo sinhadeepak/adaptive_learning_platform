@@ -1,22 +1,26 @@
-// Profile — production-grade redesign (2026-05-11).
+// Profile — Vidya v1 rewrite (2026-05-17).
 //
-// Layout: pg-shell → identity hero (avatar + name + actions) →
-// pg-stat-strip (streak / exams / topics / language) → pg-2col with
-// main column carrying Account + Preferences (pg-section + pg-fields)
-// and aside column carrying My exams + achievements/heatmap. The dense
-// two-column grid replaces the previous full-width stack which left
-// huge empty bands of background.
+// Spec: docs/02-design/design-system/04_components.md §04.a
+//       + Vidya v1 mockup — Account · Profile.
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
+//
+// Layout:
+//   ┌─ topbar: ACCOUNT · PROFILE / "Your profile" / ... ─────────┐
+//   │  ┌── hero card: identity (avatar, name, email, actions) ───┐
+//   │  └──────────────────────────────────────────────────────────┘
+//   │  ┌── exams card ──────────┐ ┌── stats card ───────────────┐
+//   │  └────────────────────────┘ └────────────────────────────┘
+//   │  ┌── achievements card ─────────────────────────────────────┐
+//   │  └──────────────────────────────────────────────────────────┘
+//   │  ┌── account + preferences card ───────────────────────────┐
+//   │  └──────────────────────────────────────────────────────────┘
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { ActivityHeatmap } from "../components/ActivityHeatmap";
-import { AppShell } from "../components/AppShell";
 import { setCachedAvatar } from "../lib/avatar";
-import { Banner, SkeletonRows } from "../components/dashboard";
-import { LeaderboardOptIn } from "../components/LeaderboardOptIn";
-import { RealExamReport } from "../components/RealExamReport";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface User {
   id: string;
@@ -192,21 +196,35 @@ export function Profile() {
 
   if (error) {
     return (
-      <AppShell title="Profile">
-        <div className="pg-shell">
-          <Banner tone="danger" role="alert">{error}</Banner>
-        </div>
-      </AppShell>
+      <VidyaShell
+        crumbs="ACCOUNT · PROFILE"
+        title="Your profile"
+        subtitle="Snapshot of who you are on ALP"
+      >
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <span className="vidya-card-block__title">Error</span>
+          </div>
+          <p style={{ color: "var(--bad)", margin: 0 }}>{error}</p>
+        </section>
+      </VidyaShell>
     );
   }
 
   if (!profile) {
     return (
-      <AppShell title="Profile">
-        <div className="pg-shell">
-          <SkeletonRows count={3} />
-        </div>
-      </AppShell>
+      <VidyaShell
+        crumbs="ACCOUNT · PROFILE"
+        title="Your profile"
+        subtitle="Snapshot of who you are on ALP"
+      >
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <span className="vidya-card-block__title">Loading…</span>
+          </div>
+          <p style={{ color: "var(--ink-3)", margin: 0 }}>Fetching your profile…</p>
+        </section>
+      </VidyaShell>
     );
   }
 
@@ -216,26 +234,61 @@ export function Profile() {
   const verified = !!user.emailVerifiedAt;
 
   return (
-    <AppShell title="Profile">
-      <div className="pg-shell">
-        {/* ── Identity strip ────────────────────────────────────── */}
-        <header
+    <VidyaShell
+      crumbs="ACCOUNT · PROFILE"
+      title="Your profile"
+      subtitle="Snapshot of who you are on ALP"
+      actions={
+        <button
+          type="button"
+          className="vidya-shell__chip"
+          onClick={() => void logout()}
+        >
+          Sign out
+        </button>
+      }
+    >
+      {/* ── HERO card — identity, avatar, upload/remove ──────────── */}
+      <section className="vidya-card-block">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">Identity</h2>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link to="/settings" className="vidya-shell__chip">⚙ Settings</Link>
+            {!verified && (
+              <button
+                type="button"
+                className="vidya-shell__chip"
+                onClick={async () => {
+                  try {
+                    await auth.fetch("/api/v1/auth/resend-verification", { method: "POST" });
+                    alert("Verification email resent.");
+                  } catch {
+                    alert("Couldn't send right now.");
+                  }
+                }}
+              >
+                Resend verification
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 18,
-            paddingBottom: 22,
-            marginBottom: 22,
-            borderBottom: "1px solid var(--rule)",
+            gap: 20,
+            flexWrap: "wrap",
           }}
         >
+          {/* Avatar with upload affordance */}
           <label
             htmlFor="avatar-input"
             title={profile.avatarUrl ? "Replace avatar" : "Upload avatar"}
             style={{
               position: "relative",
-              width: 82,
-              height: 82,
+              width: 80,
+              height: 80,
               borderRadius: "50%",
               background: profile.avatarUrl
                 ? `center/cover url(${profile.avatarUrl})`
@@ -243,9 +296,9 @@ export function Profile() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 34,
+              fontSize: 32,
               fontWeight: 800,
-              color: "#fff",
+              color: "var(--paper)",
               fontFamily: "var(--font-display)",
               cursor: avatarBusy ? "wait" : "pointer",
               overflow: "hidden",
@@ -271,11 +324,11 @@ export function Profile() {
                 bottom: -2,
                 right: -2,
                 background: "var(--info)",
-                color: "#fff",
-                width: 26,
-                height: 26,
+                color: "var(--paper)",
+                width: 24,
+                height: 24,
                 borderRadius: "50%",
-                fontSize: 13,
+                fontSize: 12,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -286,19 +339,21 @@ export function Profile() {
               {avatarBusy ? "…" : "✎"}
             </span>
           </label>
+
+          {/* Name / email / verification / role */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h1
+            <div
               style={{
-                margin: 0,
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: 700,
                 color: "var(--ink)",
                 letterSpacing: "-0.01em",
+                marginBottom: 4,
               }}
             >
               {fullName}
-            </h1>
-            <p style={{ margin: "4px 0 8px", fontSize: 13, color: "var(--ink-3)" }}>
+            </div>
+            <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 8 }}>
               {user.email}
               {user.phone ? ` · ${user.phone}` : ""}
               {" · "}
@@ -307,354 +362,342 @@ export function Profile() {
               ) : (
                 <span style={{ color: "var(--warn)" }}>Email pending</span>
               )}
-            </p>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <Link to="/settings" className="pg-btn pg-btn-subtle pg-btn-sm">
-                ⚙ Settings
-              </Link>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: 0.5,
+                  textTransform: "uppercase",
+                  background: "var(--accent)",
+                  color: "var(--paper)",
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                }}
+              >
+                {user.role ?? "STUDENT"}
+              </span>
               {profile.avatarUrl && (
                 <button
                   type="button"
                   onClick={removeAvatar}
                   disabled={avatarBusy}
-                  className="pg-btn pg-btn-ghost pg-btn-sm"
+                  className="vidya-shell__chip"
                 >
                   Remove avatar
                 </button>
               )}
-              <button
-                type="button"
-                className="pg-btn pg-btn-ghost pg-btn-sm"
-                onClick={() => void logout()}
-              >
-                Sign out
-              </button>
             </div>
           </div>
-        </header>
 
-        {/* ── KPI strip ─────────────────────────────────────────── */}
-        <div className="pg-stat-strip">
-          <div className="pg-stat">
-            <div className="pg-stat-label">Current streak</div>
-            <div className="pg-stat-value" style={{ color: "var(--warn)" }}>
-              {streak?.currentStreak ?? 0}🔥
-            </div>
-            <div className="pg-stat-delta">
-              best {streak?.longestStreak ?? 0} day{streak?.longestStreak === 1 ? "" : "s"}
-            </div>
-          </div>
-          <div className="pg-stat">
-            <div className="pg-stat-label">Active exams</div>
-            <div className="pg-stat-value" style={{ color: "var(--info)" }}>
-              {profile.exams.length}
-            </div>
-            <div className="pg-stat-delta">
-              {profile.exams.length === 0 ? "pick one to get started" : "tracked below"}
-            </div>
-          </div>
-          <div className="pg-stat">
-            <div className="pg-stat-label">Topics in motion</div>
-            <div className="pg-stat-value" style={{ color: "var(--good)" }}>
-              {topicsTracked ?? 0}
-            </div>
-            <div className="pg-stat-delta">analytics-tracked</div>
-          </div>
-          <div className="pg-stat">
-            <div className="pg-stat-label">Achievements</div>
-            <div className="pg-stat-value" style={{ color: "var(--accent)" }}>
-              {achievements.length}
-            </div>
-            <div className="pg-stat-delta">
-              {achievements.length === 0 ? "earn your first badge" : "unlocked"}
-            </div>
-          </div>
         </div>
+      </section>
 
-        {/* ── Two-column body ───────────────────────────────────── */}
-        <div className="pg-2col">
-          <div>
-            <section className="pg-section">
-              <h2 className="pg-section-title">
-                Account
-                {!verified && (
-                  <button
-                    type="button"
-                    className="pg-btn pg-btn-subtle pg-btn-sm"
-                    onClick={async () => {
-                      try {
-                        await auth.fetch("/api/v1/auth/resend-verification", {
-                          method: "POST",
-                        });
-                        alert("Verification email resent.");
-                      } catch {
-                        alert("Couldn't send right now.");
-                      }
-                    }}
-                  >
-                    Resend verification
-                  </button>
-                )}
-              </h2>
-              <div className="pg-fields">
-                <div>
-                  <div className="pg-field-label">Full name</div>
-                  <div className="pg-field-value">{fullName}</div>
-                </div>
-                <div>
-                  <div className="pg-field-label">Email</div>
-                  <div className="pg-field-value">{user.email}</div>
-                </div>
-                <div>
-                  <div className="pg-field-label">Phone</div>
-                  <div className={user.phone ? "pg-field-value" : "pg-field-value pg-field-value-empty"}>
-                    {user.phone ?? "Not set"}
-                  </div>
-                </div>
-                <div>
-                  <div className="pg-field-label">Locale</div>
-                  <div className={user.locale ? "pg-field-value" : "pg-field-value pg-field-value-empty"}>
-                    {user.locale ?? "Not set"}
-                  </div>
-                </div>
-                <div>
-                  <div className="pg-field-label">Member since</div>
-                  <div className={user.createdAt ? "pg-field-value" : "pg-field-value pg-field-value-empty"}>
-                    {user.createdAt
-                      ? new Date(user.createdAt).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        })
-                      : "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="pg-field-label">Email verified</div>
-                  <div className="pg-field-value">
-                    {verified ? (
-                      <span style={{ color: "var(--good)" }}>✓ Verified</span>
-                    ) : (
-                      <span style={{ color: "var(--warn)" }}>Pending</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="pg-section">
-              <h2 className="pg-section-title">
-                Preferences
-                <Link to="/settings" className="pg-btn pg-btn-subtle pg-btn-sm">
-                  Edit
-                </Link>
-              </h2>
-              <div className="pg-fields">
-                <div>
-                  <div className="pg-field-label">Language</div>
-                  <div className="pg-field-value">
-                    {LANG_NAME[profile.preferences.language] ??
-                      profile.preferences.language}
-                  </div>
-                </div>
-                <div>
-                  <div className="pg-field-label">Daily goal</div>
-                  <div
-                    className={
-                      profile.preferences.dailyGoalMinutes
-                        ? "pg-field-value"
-                        : "pg-field-value pg-field-value-empty"
-                    }
-                  >
-                    {profile.preferences.dailyGoalMinutes
-                      ? `${profile.preferences.dailyGoalMinutes} min/day`
-                      : "Not set"}
-                  </div>
-                </div>
-                <div>
-                  <div className="pg-field-label">Onboarding</div>
-                  <div className="pg-field-value">
-                    {user.onboardingState === "ONBOARDED" ? (
-                      <span style={{ color: "var(--good)" }}>✓ Complete</span>
-                    ) : user.onboardingState === "EXAM_SELECTED" ? (
-                      <span style={{ color: "var(--warn)" }}>In progress</span>
-                    ) : (
-                      <span style={{ color: "var(--ink-3)" }}>New</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="pg-section">
-              <h2 className="pg-section-title">
-                Activity
-                <span className="pg-section-title-sub">last 30 days</span>
-              </h2>
-              <ActivityHeatmap />
-            </section>
-
-            <LeaderboardOptIn />
-            <RealExamReport />
+      {/* ── EXAMS + STATS row ────────────────────────────────────── */}
+      <div className="vidya-grid-2">
+        {/* Exams card */}
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <h2 className="vidya-card-block__title">My exams</h2>
+            <Link to="/onboarding/exam" className="vidya-shell__chip">
+              + Add
+            </Link>
           </div>
-
-          <div>
-            <section className="pg-section">
-              <h2 className="pg-section-title">
-                My exams
-                <Link to="/onboarding/exam" className="pg-btn pg-btn-subtle pg-btn-sm">
-                  Edit
-                </Link>
-              </h2>
-              {profile.exams.length === 0 ? (
-                <div style={{ padding: "8px 0" }}>
-                  <p
+          {profile.exams.length === 0 ? (
+            <div>
+              <p style={{ fontSize: 13, color: "var(--ink-3)", margin: "0 0 12px", lineHeight: 1.5 }}>
+                Pick an exam to lock in your prep target.
+              </p>
+              <Link to="/onboarding/exam" className="vidya-shell__chip vidya-shell__chip--on">
+                Pick an exam →
+              </Link>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {profile.exams.map((e) => {
+                const meta = examsMeta[e.examId];
+                const cd = daysUntil(e.targetDate);
+                const toneColor =
+                  cd.tone === "danger" ? "var(--bad)"
+                  : cd.tone === "warn" ? "var(--warn)"
+                  : cd.tone === "info" ? "var(--info)"
+                  : "var(--ink-3)";
+                return (
+                  <Link
+                    key={e.examId}
+                    to={`/exams/${e.examId}`}
                     style={{
-                      fontSize: 13,
-                      color: "var(--ink-3)",
-                      margin: "0 0 12px",
-                      lineHeight: 1.5,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 0",
+                      borderBottom: "1px solid var(--rule)",
+                      textDecoration: "none",
+                      color: "var(--ink)",
                     }}
                   >
-                    Pick an exam to lock in your prep target — we'll surface
-                    syllabus coverage, weak areas, and mock tests tailored to it.
-                  </p>
-                  <Link to="/onboarding/exam" className="pg-btn pg-btn-primary pg-btn-sm">
-                    Pick an exam →
-                  </Link>
-                </div>
-              ) : (
-                <div className="pg-list">
-                  {profile.exams.map((e) => {
-                    const meta = examsMeta[e.examId];
-                    const cd = daysUntil(e.targetDate);
-                    return (
-                      <Link
-                        key={e.examId}
-                        to={`/exams/${e.examId}`}
-                        className="pg-row"
-                        style={{ padding: "10px 12px" }}
-                      >
-                        <div className="pg-row-main">
-                          <p className="pg-row-title" style={{ fontSize: 13 }}>
-                            {meta?.name ?? "Exam"}
-                          </p>
-                          <div className="pg-row-meta">
-                            <span>{meta?.subtitle ?? "Prep target"}</span>
-                            {e.targetDate && (
-                              <>
-                                <span className="pg-row-meta-dot">·</span>
-                                <span>
-                                  {new Date(e.targetDate).toLocaleDateString("en-IN", {
-                                    day: "numeric",
-                                    month: "short",
-                                    year: "numeric",
-                                  })}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <span className={`pg-pill pg-pill-${cd.tone}`}>{cd.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            <section className="pg-section">
-              <h2 className="pg-section-title">
-                Achievements
-                <span className="pg-section-title-sub">{achievements.length} earned</span>
-              </h2>
-              {achievements.length > 0 ? (
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 8,
-                    marginBottom: achievements.length > 0 ? 12 : 0,
-                  }}
-                >
-                  {achievements.map((a) => {
-                    const meta = badgeFor(a);
-                    return (
-                      <div
-                        key={a.id}
-                        title={`${meta.label} · ${new Date(a.awardedAt).toLocaleDateString()}`}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "6px 10px",
-                          borderRadius: 999,
-                          background: meta.bg,
-                          border: `1px solid ${meta.border}`,
-                        }}
-                      >
-                        <span style={{ fontSize: 16 }}>{meta.icon}</span>
-                        <span style={{ color: "var(--ink)", fontSize: 12, fontWeight: 600 }}>
-                          {meta.label}
-                        </span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>
+                        {meta?.name ?? e.examName ?? "Exam"}
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p style={{ fontSize: 13, color: "var(--ink-3)", margin: "0 0 12px", lineHeight: 1.5 }}>
-                  No badges yet — start practicing to unlock the first one.
-                </p>
-              )}
-              {(() => {
-                const earned = new Set(achievements.map((a) => a.kind));
-                const locked = ALL_BADGE_KINDS.filter((k) => !earned.has(k.kind)).slice(0, 3);
-                if (locked.length === 0) return null;
-                return (
-                  <div>
-                    <div
+                      {meta?.subtitle && (
+                        <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                          {meta.subtitle}
+                        </div>
+                      )}
+                      {e.targetDate && (
+                        <div style={{ fontSize: 11, color: "var(--ink-4)" }}>
+                          {new Date(e.targetDate).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <span
                       style={{
-                        fontSize: 10,
-                        color: "var(--ink-4)",
-                        fontWeight: 700,
-                        letterSpacing: 0.6,
-                        textTransform: "uppercase",
-                        marginBottom: 6,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: toneColor,
+                        whiteSpace: "nowrap",
+                        marginLeft: 8,
                       }}
                     >
-                      Up next
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {locked.map((meta) => (
-                        <div
-                          key={meta.kind}
-                          title="Keep going to unlock"
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            padding: "6px 10px",
-                            borderRadius: 999,
-                            background: "var(--paper-2)",
-                            border: "1px dashed var(--rule)",
-                            opacity: 0.55,
-                          }}
-                        >
-                          <span style={{ fontSize: 14, filter: "grayscale(0.8)" }}>{meta.icon}</span>
-                          <span style={{ color: "var(--ink-3)", fontSize: 12, fontWeight: 500 }}>
-                            {meta.label}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                      {cd.label}
+                    </span>
+                  </Link>
                 );
-              })()}
-            </section>
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Stats card */}
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <h2 className="vidya-card-block__title">Stats</h2>
           </div>
-        </div>
+          <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--warn)" }}>
+                {streak?.currentStreak ?? 0}🔥
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Current streak</div>
+              <div style={{ fontSize: 11, color: "var(--ink-4)" }}>
+                best {streak?.longestStreak ?? 0} day{streak?.longestStreak === 1 ? "" : "s"}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--info)" }}>
+                {profile.exams.length}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Active exams</div>
+              <div style={{ fontSize: 11, color: "var(--ink-4)" }}>
+                {profile.exams.length === 0 ? "pick one to get started" : "tracked above"}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--good)" }}>
+                {topicsTracked ?? 0}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Topics in motion</div>
+              <div style={{ fontSize: 11, color: "var(--ink-4)" }}>analytics-tracked</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--accent)" }}>
+                {achievements.length}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Achievements</div>
+              <div style={{ fontSize: 11, color: "var(--ink-4)" }}>
+                {achievements.length === 0 ? "earn your first badge" : "unlocked"}
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
-    </AppShell>
+
+      {/* ── ACHIEVEMENTS card ─────────────────────────────────────── */}
+      <section className="vidya-card-block">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">Achievements</h2>
+          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>{achievements.length} earned</span>
+        </div>
+
+        {achievements.length > 0 ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+            {achievements.map((a) => {
+              const meta = badgeFor(a);
+              return (
+                <div
+                  key={a.id}
+                  title={`${meta.label} · ${new Date(a.awardedAt).toLocaleDateString()}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    background: meta.bg,
+                    border: `1px solid ${meta.border}`,
+                  }}
+                >
+                  <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                  <span style={{ color: "var(--ink)", fontSize: 12, fontWeight: 600 }}>
+                    {meta.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: "var(--ink-3)", margin: "0 0 12px", lineHeight: 1.5 }}>
+            No badges yet — start practicing to unlock the first one.
+          </p>
+        )}
+
+        {(() => {
+          const earned = new Set(achievements.map((a) => a.kind));
+          const locked = ALL_BADGE_KINDS.filter((k) => !earned.has(k.kind)).slice(0, 3);
+          if (locked.length === 0) return null;
+          return (
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--ink-4)",
+                  fontWeight: 700,
+                  letterSpacing: 0.6,
+                  textTransform: "uppercase",
+                  marginBottom: 6,
+                }}
+              >
+                Up next
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {locked.map((meta) => (
+                  <div
+                    key={meta.kind}
+                    title="Keep going to unlock"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 10px",
+                      borderRadius: 999,
+                      background: "var(--paper-2)",
+                      border: "1px dashed var(--rule)",
+                      opacity: 0.55,
+                    }}
+                  >
+                    <span style={{ fontSize: 14, filter: "grayscale(0.8)" }}>{meta.icon}</span>
+                    <span style={{ color: "var(--ink-3)", fontSize: 12, fontWeight: 500 }}>
+                      {meta.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+      </section>
+
+      {/* ── ACCOUNT + PREFERENCES row ─────────────────────────────── */}
+      <div className="vidya-grid-2">
+        {/* Account details card */}
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <h2 className="vidya-card-block__title">Account</h2>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Full name</div>
+              <div style={{ fontSize: 13, color: "var(--ink)" }}>{fullName}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Email</div>
+              <div style={{ fontSize: 13, color: "var(--ink)" }}>{user.email}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Phone</div>
+              <div style={{ fontSize: 13, color: user.phone ? "var(--ink)" : "var(--ink-4)" }}>{user.phone ?? "Not set"}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Member since</div>
+              <div style={{ fontSize: 13, color: user.createdAt ? "var(--ink)" : "var(--ink-4)" }}>
+                {user.createdAt
+                  ? new Date(user.createdAt).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })
+                  : "—"}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Preferences card */}
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <h2 className="vidya-card-block__title">Preferences</h2>
+            <Link to="/settings" className="vidya-shell__chip">Edit</Link>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Language</div>
+              <div style={{ fontSize: 13, color: "var(--ink)" }}>
+                {LANG_NAME[profile.preferences.language] ?? profile.preferences.language}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Daily goal</div>
+              <div style={{ fontSize: 13, color: profile.preferences.dailyGoalMinutes ? "var(--ink)" : "var(--ink-4)" }}>
+                {profile.preferences.dailyGoalMinutes
+                  ? `${profile.preferences.dailyGoalMinutes} min/day`
+                  : "Not set"}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Onboarding</div>
+              <div style={{ fontSize: 13 }}>
+                {user.onboardingState === "ONBOARDED" ? (
+                  <span style={{ color: "var(--good)" }}>✓ Complete</span>
+                ) : user.onboardingState === "EXAM_SELECTED" ? (
+                  <span style={{ color: "var(--warn)" }}>In progress</span>
+                ) : (
+                  <span style={{ color: "var(--ink-3)" }}>New</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Locale</div>
+              <div style={{ fontSize: 13, color: user.locale ? "var(--ink)" : "var(--ink-4)" }}>
+                {user.locale ?? "Not set"}
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* TODO(profile): Recent Activity is currently an empty-state placeholder.
+          Wire to /api/v1/quiz/sessions?userId=<user.id>&limit=5 (or whichever
+          endpoint /history uses) in a follow-up. */}
+      {/* ── RECENT ACTIVITY card ──────────────────────────────────── */}
+      <section className="vidya-card-block">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">Recent activity</h2>
+          <Link to="/history" className="vidya-shell__chip">View all</Link>
+        </div>
+        <p style={{ fontSize: 13, color: "var(--ink-3)", margin: "0 0 12px", lineHeight: 1.5 }}>
+          Your recent quizzes will appear here once you start practising.
+        </p>
+        <Link to="/practice" className="vidya-shell__chip vidya-shell__chip--on">
+          Start practising →
+        </Link>
+      </section>
+    </VidyaShell>
   );
 }
 
@@ -673,6 +716,9 @@ const ALL_BADGE_KINDS: Array<{ kind: string; label: string; icon: string }> = [
   { kind: "streak_30", label: "30-day streak", icon: "🔥" },
 ];
 
+// TODO(design-system): badgeFor's rgba() literals predate the Vidya colour
+// token system. Migrate to var(--warn-tint) / var(--accent-tint) etc. when
+// those tokens land.
 function badgeFor(a: {
   kind: string;
   payload: Record<string, unknown>;
