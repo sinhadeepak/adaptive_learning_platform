@@ -41,7 +41,7 @@ import { DiagnosticPlacement } from "./pages/DiagnosticPlacement";
 import { TestBuilder } from "./pages/TestBuilder";
 import { MyTests } from "./pages/MyTests";
 import { SharedTestLanding } from "./pages/SharedTestLanding";
-import { AISuggestedTests } from "./pages/AISuggestedTests";
+// AISuggestedTests merged into MyTests as "AI suggestions" tab (merge 4/4 consolidation arc).
 import { Library } from "./pages/Library";
 import { Battle } from "./pages/Battle";
 import { Friends } from "./pages/Friends";
@@ -334,10 +334,11 @@ export const routes: RouteObject[] = [
     ),
   },
   {
+    // AISuggestedTests merged into MyTests as "AI suggestions" tab (merge 4/4).
     path: "/practice/ai-suggestions",
     element: (
       <ProtectedRoute>
-        <AISuggestedTests />
+        <Navigate to="/practice/my-tests?tab=ai-suggested" replace />
       </ProtectedRoute>
     ),
   },

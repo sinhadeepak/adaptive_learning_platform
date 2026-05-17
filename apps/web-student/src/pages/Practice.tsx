@@ -1093,9 +1093,9 @@ export function Practice() {
             </span>
           </Link>
 
-          {/* F5 — AI-suggested tests entry card */}
+          {/* F5 — AI-suggested tests entry card (merged into MyTests ?tab=ai-suggested) */}
           <Link
-            to="/practice/ai-suggestions"
+            to="/practice/my-tests?tab=ai-suggested"
             style={{
               display: "flex",
               alignItems: "center",
