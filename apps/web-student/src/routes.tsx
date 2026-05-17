@@ -36,7 +36,7 @@ import { Revision } from "./pages/Revision";
 import { SyllabusCoverage } from "./pages/SyllabusCoverage";
 import { Practice } from "./pages/Practice";
 import { StudyPortfolio } from "./pages/StudyPortfolio";
-import { MistakesPractice } from "./pages/MistakesPractice";
+// MistakesPractice merged into Practice as a tab (merge 2/4 consolidation arc).
 import { DiagnosticPlacement } from "./pages/DiagnosticPlacement";
 import { TestBuilder } from "./pages/TestBuilder";
 import { MyTests } from "./pages/MyTests";
@@ -292,10 +292,11 @@ export const routes: RouteObject[] = [
     ),
   },
   {
+    // MistakesPractice merged into Practice as a "Mistakes" tab (merge 2/4).
     path: "/practice/mistakes",
     element: (
       <ProtectedRoute>
-        <MistakesPractice />
+        <Navigate to="/practice?tab=mistakes" replace />
       </ProtectedRoute>
     ),
   },
