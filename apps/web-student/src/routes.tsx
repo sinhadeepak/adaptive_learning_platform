@@ -28,7 +28,7 @@ import { StudyMap } from "./pages/StudyMap";
 import { Login } from "./pages/Login";
 import { Placeholder } from "./pages/Placeholder";
 import { MockResult } from "./pages/MockResult";
-import { MockTest } from "./pages/MockTest";
+// MockTest merged into MockExam as no-blueprint fallback (merge 3/4 consolidation arc).
 import { MockExam } from "./pages/MockExam";
 import { Mocks } from "./pages/Mocks";
 import { PYQDrill } from "./pages/PYQDrill";
@@ -398,10 +398,11 @@ export const routes: RouteObject[] = [
     ),
   },
   {
+    // MockTest merged into MockExam (merge 3/4 consolidation arc).
     path: "/mock",
     element: (
       <ProtectedRoute>
-        <MockTest />
+        <Navigate to="/mock-exam" replace />
       </ProtectedRoute>
     ),
   },

@@ -374,7 +374,7 @@ export function History() {
                   scored, and ranked against the cohort. Try your first one
                   when you're ready.
                 </p>
-                <Link to="/mock" className="pg-btn pg-btn-primary">
+                <Link to="/mock-exam" className="pg-btn pg-btn-primary">
                   Browse mock tests
                 </Link>
               </div>
