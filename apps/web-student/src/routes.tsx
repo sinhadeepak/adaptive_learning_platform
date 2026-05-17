@@ -8,7 +8,6 @@ import { DiagnosticDeepDive } from "./pages/DiagnosticDeepDive";
 import { Insights } from "./pages/Insights";
 import { StudyPlanPage } from "./pages/StudyPlan";
 import { RevisionRitual } from "./pages/RevisionRitual";
-import { BandwidthSettings } from "./pages/BandwidthSettings";
 import { AssignmentDetail } from "./pages/AssignmentDetail";
 import { Assignments } from "./pages/Assignments";
 import { Billing } from "./pages/Billing";
@@ -672,11 +671,12 @@ export const routes: RouteObject[] = [
   },
 
   // Phase 6 S57 — Low-bandwidth preferences (UX-32).
+  // Merged into Settings as the "Bandwidth" card (merge 1/4 consolidation arc).
   {
     path: "/settings/bandwidth",
     element: (
       <ProtectedRoute>
-        <BandwidthSettings />
+        <Navigate to="/settings#bandwidth" replace />
       </ProtectedRoute>
     ),
   },

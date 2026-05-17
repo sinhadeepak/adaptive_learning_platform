@@ -27,6 +27,7 @@ import { useAuth } from "../lib/auth-provider";
 import { useTheme, type Theme } from "../lib/theme";
 import { useDensity, type Density } from "../lib/density";
 import { VidyaShell } from "../components/vidya/VidyaShell";
+import { LowBandwidthToggle } from "../components/LowBandwidthToggle";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Settings — manage preferences (language, daily goal) + account actions.
@@ -379,6 +380,27 @@ export function Settings() {
 
           {/* THEME & DENSITY */}
           <ThemeDensitySection />
+
+          {/* BANDWIDTH */}
+          <section className="vidya-card-block" id="bandwidth">
+            <div className="vidya-card-block__head">
+              <h2 className="vidya-card-block__title">Bandwidth</h2>
+            </div>
+            <LowBandwidthToggle />
+            <p
+              style={{
+                marginTop: 20,
+                fontSize: 12,
+                color: "var(--ink-4, #7A8BAD)",
+                maxWidth: 540,
+                lineHeight: 1.5,
+              }}
+            >
+              Preferences are saved on this device only. Animation reductions
+              respect your system-level "reduce motion" setting automatically —
+              the toggle is hidden when the OS is already requesting it.
+            </p>
+          </section>
 
           {/* ACCOUNT */}
           <section className="vidya-card-block">
