@@ -6,6 +6,7 @@ library alp_design_tokens;
 // VidyaRadius, VidyaMotion, VidyaDensity, VidyaPersona,
 // VidyaThemeData (ThemeExtension), VidyaTheme (Material factory).
 export 'src/vidya/tokens.dart';
+export 'src/vidya/widgets/widgets.dart';
 
 // ─── Aurora v2 + v1 (deprecated, migration window only) ───────
 // Re-exported so existing components keep compiling during the
