@@ -1,10 +1,10 @@
-// Phase 1D-1 — Post-test session analytics
+// Phase 1D-1 — Post-test session analytics. Vidya v1 redesign.
 //   Per-question time heatmap, section breakdown, time-vs-correctness scatter.
 
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { auth } from "../lib/api";
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface PerQuestionItem {
   itemIdx: number;
@@ -47,15 +47,28 @@ export function SessionDeepDive() {
   }, [sessionId]);
 
   if (!sessionId) return <div>Missing session id.</div>;
-  if (!loaded) return <AppShell title="Session deep-dive">Loading…</AppShell>;
+  if (!loaded)
+    return (
+      <VidyaShell
+        crumbs="INSIGHT · SESSION DEEP DIVE"
+        title="Session deep dive"
+        subtitle="Per-session breakdown — what worked, what slipped."
+      >
+        Loading…
+      </VidyaShell>
+    );
   if (!resp || resp.items.length === 0) {
     return (
-      <AppShell title="Session deep-dive">
+      <VidyaShell
+        crumbs="INSIGHT · SESSION DEEP DIVE"
+        title="Session deep dive"
+        subtitle="Per-session breakdown — what worked, what slipped."
+      >
         <main className="page" style={{ padding: 24 }}>
           <p>No items for this session yet.</p>
           <Link to="/history">← Back to history</Link>
         </main>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
@@ -90,7 +103,11 @@ export function SessionDeepDive() {
   const unattempted = items.length - answered.length;
 
   return (
-    <AppShell title="Session deep-dive">
+    <VidyaShell
+      crumbs="INSIGHT · SESSION DEEP DIVE"
+      title="Session deep dive"
+      subtitle="Per-session breakdown — what worked, what slipped."
+    >
       <main className="page" style={{ padding: 24, maxWidth: 1100 }}>
         <Link to="/history" style={{ color: "var(--ink-3)", fontSize: 12 }}>
           ← Back to history
@@ -241,7 +258,7 @@ export function SessionDeepDive() {
           </section>
         )}
       </main>
-    </AppShell>
+    </VidyaShell>
   );
 }
 
