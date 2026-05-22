@@ -1,6 +1,6 @@
 // Catalog — browse all exams.
 //
-// Aurora redesign per docs/02-design/redesign/catalog.md.
+// Vidya v1 redesign.
 //
 // The catalog API today returns flat exams without stream metadata.
 // We do a best-effort client-side grouping based on `code` + `name`
@@ -18,7 +18,7 @@ import {
   Tag,
 } from "@alp/ui";
 import { auth } from "../lib/api";
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface Exam {
   id: string;
@@ -206,24 +206,11 @@ export function Catalog() {
   );
 
   return (
-    <AppShell title="Catalog">
-      <header style={{ marginBottom: 24 }}>
-        <h1
-          style={{
-            fontSize: "var(--t-h1-size)",
-            lineHeight: "var(--t-h1-line)",
-            fontWeight: 700,
-            margin: 0,
-            color: "var(--ink)",
-          }}
-        >
-          Browse exams
-        </h1>
-        <p style={{ margin: "4px 0 0", color: "var(--ink-3)" }}>
-          Pick an exam to explore its subjects and topics.
-        </p>
-      </header>
-
+    <VidyaShell
+      crumbs="LEARN · CATALOG"
+      title="Catalog"
+      subtitle="Browse exam prep tracks. Enroll to add an exam to your dashboard."
+    >
       <div style={{ maxWidth: 480, marginBottom: 24 }}>
         <Input
           type="search"
@@ -237,9 +224,9 @@ export function Catalog() {
       </div>
 
       {error ? (
-        <Card tone="aurora-celebration" padding="sm" role="alert" style={{ marginBottom: 16 }}>
+        <div role="alert" style={{ marginBottom: 16 }}>
           {error}
-        </Card>
+        </div>
       ) : null}
 
       {filtered === null ? (
@@ -296,6 +283,6 @@ export function Catalog() {
           ))}
         </div>
       )}
-    </AppShell>
+    </VidyaShell>
   );
 }
