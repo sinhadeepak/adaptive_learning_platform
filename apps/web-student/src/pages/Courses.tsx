@@ -1,14 +1,15 @@
-// Courses marketplace — production-grade redesign (2026-05-11).
+// Courses marketplace — Vidya v1 redesign.
 //
-// Layout: pg-shell → pg-header → pg-filter-row → pg-grid of pg-cards.
-// Each course card uses a subject-themed gradient thumbnail (derived
-// from a hash of the course id) with the title initial laid over it —
-// matches the visual language of the Tutors page.
+// Layout: VidyaShell (crumbs + title + subtitle + price-bucket chips +
+// tutoring / my-purchases actions) → search/sort row → 3-col vidya-grid
+// of vidya-card-block course cards with cover-or-gradient thumb,
+// premium ribbon, description, self-paced + lifetime chips, price, and
+// rating.
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { type CourseListingItem, courseMarketplace } from "../lib/api";
 
 function paiseToRupees(p: number): string {
@@ -36,6 +37,14 @@ function initialFor(title: string): string {
 
 type SortKey = "newest" | "price-asc" | "price-desc" | "rating";
 type PriceBucket = "all" | "free" | "under-200" | "200-500" | "500-plus";
+
+const PRICE_BUCKETS: [PriceBucket, string][] = [
+  ["all", "All prices"],
+  ["free", "Free"],
+  ["under-200", "Under ₹200"],
+  ["200-500", "₹200–500"],
+  ["500-plus", "₹500+"],
+];
 
 export function Courses() {
   const [items, setItems] = useState<CourseListingItem[] | null>(null);
@@ -89,199 +98,291 @@ export function Courses() {
   }, [items, search, priceBucket, sort]);
 
   return (
-    <AppShell title="Self-paced courses">
-      <div className="pg-shell">
-        <header className="pg-header">
-          <div className="pg-header-main">
-            <h1 className="pg-header-title">Self-paced courses</h1>
-            <p className="pg-header-sub">
-              Asynchronous content authored by community creators. Work at
-              your own pace; rate the course after you finish.
-            </p>
-          </div>
-          <div className="pg-header-actions">
-            <Link to="/tutors" className="pg-btn pg-btn-ghost">
-              Live 1:1 tutoring →
-            </Link>
-            <Link to="/courses-mine" className="pg-btn pg-btn-subtle">
-              My purchases
-            </Link>
-          </div>
-        </header>
-
-        <div className="pg-filter-row">
-          <div className="pg-search">
-            <span className="pg-search-icon">⌕</span>
-            <input
-              className="pg-search-input"
-              placeholder="Search courses…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="pg-filter-chips">
-            {(
-              [
-                ["all", "All prices"],
-                ["free", "Free"],
-                ["under-200", "Under ₹200"],
-                ["200-500", "₹200–500"],
-                ["500-plus", "₹500+"],
-              ] as [PriceBucket, string][]
-            ).map(([k, label]) => (
-              <button
-                key={k}
-                type="button"
-                className={`pg-chip${priceBucket === k ? " on" : ""}`}
-                onClick={() => setPriceBucket(k)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="pg-filter-sort">
-            <span className="pg-filter-label">Sort</span>
-            <select
-              className="pg-filter-select"
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
+    <VidyaShell
+      crumbs="MARKETPLACE · COURSES"
+      title="Self-paced courses"
+      subtitle="Asynchronous content authored by community creators. Work at your own pace; rate the course after you finish."
+      chips={
+        <>
+          {PRICE_BUCKETS.map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              className={`vidya-shell__chip${priceBucket === k ? " vidya-shell__chip--on" : ""}`}
+              onClick={() => setPriceBucket(k)}
             >
-              <option value="newest">Newest first</option>
-              <option value="price-asc">Price · low to high</option>
-              <option value="price-desc">Price · high to low</option>
-              <option value="rating">Top rated</option>
-            </select>
-          </div>
+              {label}
+            </button>
+          ))}
+        </>
+      }
+      actions={
+        <>
+          <Link to="/tutors" className="vidya-shell__chip">
+            Live 1:1 tutoring →
+          </Link>
+          <Link to="/courses-mine" className="vidya-shell__chip">
+            My purchases
+          </Link>
+        </>
+      }
+    >
+      <div
+        style={{
+          display: "flex",
+          gap: "var(--sp-3)",
+          flexWrap: "wrap",
+          alignItems: "center",
+          marginBottom: "var(--sp-4)",
+        }}
+      >
+        <input
+          type="search"
+          placeholder="Search courses…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            flex: "1 1 240px",
+            minWidth: 200,
+            padding: "8px 12px",
+            background: "var(--paper)",
+            border: "1px solid var(--rule)",
+            borderRadius: 8,
+            color: "var(--ink)",
+            fontSize: 13,
+          }}
+        />
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 11,
+            color: "var(--ink-3)",
+          }}
+        >
+          <span>SORT</span>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            style={{
+              padding: "7px 10px",
+              background: "var(--paper)",
+              border: "1px solid var(--rule)",
+              borderRadius: 8,
+              color: "var(--ink)",
+              fontSize: 13,
+            }}
+          >
+            <option value="newest">Newest first</option>
+            <option value="price-asc">Price · low to high</option>
+            <option value="price-desc">Price · high to low</option>
+            <option value="rating">Top rated</option>
+          </select>
+        </label>
+      </div>
+
+      {error && (
+        <div
+          role="alert"
+          style={{
+            padding: "var(--sp-3) var(--sp-4)",
+            marginBottom: "var(--sp-4)",
+            background: "var(--bad)",
+            color: "var(--paper)",
+            borderRadius: 8,
+            fontSize: 13,
+          }}
+        >
+          {error}
         </div>
+      )}
 
-        {error && <p className="banner banner-error">{error}</p>}
+      {items === null && !error && (
+        <div className="vidya-grid-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="vidya-card-block"
+              style={{ minHeight: 280, opacity: 0.5 }}
+              aria-hidden
+            />
+          ))}
+        </div>
+      )}
 
-        {items === null && !error && (
-          <div className="pg-grid">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="pg-card"
-                style={{ minHeight: 280, opacity: 0.5 }}
-                aria-hidden
-              />
-            ))}
+      {filtered !== null && filtered.length === 0 && (
+        <section
+          style={{
+            textAlign: "center",
+            padding: "var(--sp-6) var(--sp-4)",
+            background: "var(--card)",
+            border: "1px solid var(--rule)",
+            borderRadius: 14,
+          }}
+        >
+          <div style={{ fontSize: 36, marginBottom: "var(--sp-2)" }} aria-hidden>
+            🎓
           </div>
-        )}
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--ink)" }}>
+            {items && items.length === 0
+              ? "No courses published yet"
+              : "Nothing matches these filters"}
+          </h2>
+          <p
+            style={{
+              margin: "var(--sp-2) auto var(--sp-3)",
+              maxWidth: 460,
+              fontSize: 13,
+              color: "var(--ink-2)",
+            }}
+          >
+            {items && items.length === 0
+              ? "New courses are added weekly. Check back soon, or try live 1:1 tutoring in the meantime."
+              : "Try clearing the search or widening the price range."}
+          </p>
+          {items && items.length === 0 ? (
+            <Link to="/tutors" className="vidya-shell__primary">
+              Browse tutors instead
+            </Link>
+          ) : (
+            <button
+              type="button"
+              className="vidya-shell__chip"
+              onClick={() => {
+                setSearch("");
+                setPriceBucket("all");
+              }}
+            >
+              Reset filters
+            </button>
+          )}
+        </section>
+      )}
 
-        {filtered !== null && filtered.length === 0 && (
-          <div className="pg-empty">
-            <div className="pg-empty-icon">🎓</div>
-            <h2 className="pg-empty-title">
-              {items && items.length === 0
-                ? "No courses published yet"
-                : "Nothing matches these filters"}
-            </h2>
-            <p className="pg-empty-body">
-              {items && items.length === 0
-                ? "New courses are added weekly. Check back soon, or try live 1:1 tutoring in the meantime."
-                : "Try clearing the search or widening the price range."}
-            </p>
-            {items && items.length === 0 ? (
-              <Link to="/tutors" className="pg-btn pg-btn-primary">
-                Browse tutors instead
-              </Link>
-            ) : (
-              <button
-                type="button"
-                className="pg-btn pg-btn-ghost"
-                onClick={() => {
-                  setSearch("");
-                  setPriceBucket("all");
+      {filtered !== null && filtered.length > 0 && (
+        <div className="vidya-grid-3">
+          {filtered.map((c) => {
+            const isPremium = c.tier === "PREMIUM";
+            return (
+              <Link
+                key={c.id}
+                to={`/courses/${c.id}`}
+                className="vidya-card-block"
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                  display: "flex",
+                  flexDirection: "column",
                 }}
               >
-                Reset filters
-              </button>
-            )}
-          </div>
-        )}
-
-        {filtered !== null && filtered.length > 0 && (
-          <div className="pg-grid">
-            {filtered.map((c) => {
-              const isPremium = c.tier === "PREMIUM";
-              return (
-                <Link key={c.id} to={`/courses/${c.id}`} className="pg-card">
-                  <div
-                    className="pg-card-thumb"
-                    style={{ background: c.coverImageUrl ? "none" : thumbFor(c.id) }}
-                  >
-                    {c.coverImageUrl ? (
-                      <img
-                        src={c.coverImageUrl}
-                        alt=""
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    ) : (
-                      <div className="pg-card-thumb-letter">{initialFor(c.title)}</div>
-                    )}
-                    {isPremium && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: 10,
-                          right: 10,
-                          padding: "3px 8px",
-                          background: "rgba(255,255,255,0.95)",
-                          color: "#000",
-                          fontSize: 10,
-                          fontWeight: 700,
-                          letterSpacing: 0.4,
-                          borderRadius: 999,
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        ★ Premium
-                      </div>
-                    )}
-                  </div>
-                  <div className="pg-card-body">
-                    <h2 className="pg-card-title">{c.title}</h2>
-                    {c.description && c.description.trim() && c.description !== "—" ? (
-                      <p className="pg-card-desc">{c.description}</p>
-                    ) : (
-                      <p className="pg-card-desc" style={{ fontStyle: "italic", color: "var(--ink-4)" }}>
-                        No description provided.
-                      </p>
-                    )}
-                    <div className="pg-card-meta">
-                      <span className="pg-card-meta-pill">
-                        ⌛ Self-paced
-                      </span>
-                      <span className="pg-card-meta-pill">
-                        📜 Lifetime access
-                      </span>
+                <div
+                  style={{
+                    position: "relative",
+                    height: 140,
+                    background: c.coverImageUrl ? "none" : thumbFor(c.id),
+                    borderRadius: "8px 8px 0 0",
+                    margin:
+                      "calc(-1 * var(--sp-4)) calc(-1 * var(--sp-4)) var(--sp-3)",
+                    overflow: "hidden",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {c.coverImageUrl ? (
+                    <img
+                      src={c.coverImageUrl}
+                      alt=""
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <div style={{ color: "#fff", fontSize: 48, fontWeight: 700 }}>
+                      {initialFor(c.title)}
                     </div>
-                  </div>
-                  <div className="pg-card-foot">
-                    <span className="pg-card-price">
-                      {c.pricePaise === 0 ? "Free" : paiseToRupees(c.pricePaise)}
+                  )}
+                  {isPremium && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 10,
+                        right: 10,
+                        padding: "3px 8px",
+                        background: "rgba(255,255,255,0.95)",
+                        color: "#000",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: 0.4,
+                        borderRadius: 999,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      ★ Premium
+                    </div>
+                  )}
+                </div>
+                <div className="vidya-card-block__head">
+                  <h3 className="vidya-card-block__title">{c.title}</h3>
+                </div>
+                {c.description && c.description.trim() && c.description !== "—" ? (
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: "var(--ink-2)",
+                      margin: "var(--sp-1) 0 var(--sp-2)",
+                    }}
+                  >
+                    {c.description}
+                  </p>
+                ) : (
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: "var(--ink-4)",
+                      fontStyle: "italic",
+                      margin: "var(--sp-1) 0 var(--sp-2)",
+                    }}
+                  >
+                    No description provided.
+                  </p>
+                )}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "var(--sp-2)",
+                    flexWrap: "wrap",
+                    marginBottom: "var(--sp-3)",
+                  }}
+                >
+                  <span className="vidya-shell__chip">⌛ Self-paced</span>
+                  <span className="vidya-shell__chip">📜 Lifetime access</span>
+                </div>
+                <div
+                  style={{
+                    marginTop: "auto",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                    paddingTop: "var(--sp-3)",
+                    borderTop: "1px solid var(--rule)",
+                  }}
+                >
+                  <strong style={{ fontSize: 18 }}>
+                    {c.pricePaise === 0 ? "Free" : paiseToRupees(c.pricePaise)}
+                  </strong>
+                  {(c.ratingCount ?? 0) > 0 ? (
+                    <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                      ★ {(c.ratingAvg ?? 0).toFixed(1)} ({c.ratingCount})
                     </span>
-                    {(c.ratingCount ?? 0) > 0 ? (
-                      <span className="pg-card-rating">
-                        <span className="pg-card-rating-star">★</span>
-                        {(c.ratingAvg ?? 0).toFixed(1)}
-                        <span style={{ color: "var(--ink-4)" }}>
-                          ({c.ratingCount})
-                        </span>
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
-                        New
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </AppShell>
+                  ) : (
+                    <span style={{ fontSize: 11, color: "var(--ink-3)" }}>New</span>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </VidyaShell>
   );
 }
