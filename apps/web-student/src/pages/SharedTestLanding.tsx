@@ -1,3 +1,5 @@
+// SharedTestLanding — Vidya v1 redesign.
+//
 // F4 — Receiver-facing landing for a shared blueprint.
 // URL: /t/:slug
 //
@@ -11,8 +13,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
-import { Banner } from "../components/dashboard";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface Section {
   section_id: string;
@@ -105,90 +106,127 @@ export function SharedTestLanding() {
     }
   }
 
+  const subtitle = bp
+    ? `${bp.name} — take it in one sitting; the result will be attributed to the link so the author can see how friends did. No identity beyond your own username is revealed.`
+    : "A test someone shared with you.";
+
   return (
-    <AppShell
-      title="Shared test"
+    <VidyaShell
+      crumbs="TAKE THIS TEST"
+      title="Take this test"
+      subtitle={subtitle}
       actions={
-        <Link to="/practice" className="pg-btn pg-btn-ghost">
+        <Link to="/practice" className="vidya-shell__chip" style={{ textDecoration: "none" }}>
           ← Practice
         </Link>
       }
     >
-      <div className="pg-shell" style={{ maxWidth: 820 }}>
-        {error && <Banner tone="danger">{error}</Banner>}
+      <div style={{ maxWidth: 820 }}>
+        {error && (
+          <div
+            role="alert"
+            style={{
+              padding: "var(--sp-3) var(--sp-4)",
+              marginBottom: "var(--sp-4)",
+              background: "var(--bad)",
+              color: "var(--paper)",
+              borderRadius: 8,
+              fontSize: 13,
+            }}
+          >
+            {error}
+          </div>
+        )}
 
         {loading && !bp && (
-          <div className="pg-section" style={{ minHeight: 200, opacity: 0.5 }}>
+          <div className="vidya-card-block" style={{ minHeight: 200, opacity: 0.5 }}>
             Loading shared test…
           </div>
         )}
 
         {bp && (
           <>
-            <header className="pg-header">
-              <div className="pg-header-main">
-                <h1 className="pg-header-title">{bp.name}</h1>
-                <p className="pg-header-sub">
-                  A test someone shared with you. Take it in one sitting; the
-                  result will be attributed to the link so the author can see
-                  how friends did. No identity beyond your own username is
-                  revealed.
-                </p>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: "var(--sp-3)",
+                marginBottom: "var(--sp-4)",
+              }}
+            >
+              <div className="vidya-card-block" style={{ padding: "var(--sp-3)" }}>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                  Questions
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 600, color: "var(--ink)", marginTop: 4 }}>
+                  {bp.totalQuestions}
+                </div>
               </div>
-            </header>
-
-            <div className="pg-stat-strip">
-              <div className="pg-stat">
-                <div className="pg-stat-label">Questions</div>
-                <div className="pg-stat-value">{bp.totalQuestions}</div>
+              <div className="vidya-card-block" style={{ padding: "var(--sp-3)" }}>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                  Time
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 600, color: "var(--ink)", marginTop: 4 }}>
+                  {bp.totalMinutes}m
+                </div>
               </div>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Time</div>
-                <div className="pg-stat-value">{bp.totalMinutes}m</div>
-              </div>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Marking</div>
-                <div className="pg-stat-value" style={{ fontSize: 16 }}>
+              <div className="vidya-card-block" style={{ padding: "var(--sp-3)" }}>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                  Marking
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "var(--ink)", marginTop: 4 }}>
                   +{bp.marksCorrect} / −{bp.marksNegative}
                 </div>
               </div>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Ratings</div>
-                <div
-                  className="pg-stat-value"
-                  style={{ fontSize: 16, color: "var(--warn)" }}
-                >
+              <div className="vidya-card-block" style={{ padding: "var(--sp-3)" }}>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                  Ratings
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "var(--warn)", marginTop: 4 }}>
                   {bp.ratings.count === 0
                     ? "—"
                     : `★ ${bp.ratings.avgStars?.toFixed(1)}`}
                 </div>
-                <div className="pg-stat-delta">
+                <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 2 }}>
                   {bp.ratings.count} rating
                   {bp.ratings.count === 1 ? "" : "s"}
                 </div>
               </div>
             </div>
 
-            <section className="pg-section">
-              <h2 className="pg-section-title">
-                Sections
-                <span className="pg-section-title-sub">
-                  {bp.sections.length} section
-                  {bp.sections.length === 1 ? "" : "s"}
-                </span>
-              </h2>
-              <div className="pg-list">
+            <section className="vidya-card-block" style={{ marginBottom: "var(--sp-4)" }}>
+              <div className="vidya-card-block__head">
+                <h2 className="vidya-card-block__title">
+                  Sections
+                  <span style={{ marginLeft: 8, fontSize: 12, color: "var(--ink-3)", fontWeight: 400 }}>
+                    {bp.sections.length} section
+                    {bp.sections.length === 1 ? "" : "s"}
+                  </span>
+                </h2>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-2)" }}>
                 {bp.sections.map((s, i) => (
-                  <div className="pg-row" key={s.section_id}>
-                    <div className="pg-row-main">
-                      <p className="pg-row-title">
+                  <div
+                    key={s.section_id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "var(--sp-3)",
+                      background: "var(--paper)",
+                      border: "1px solid var(--rule)",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <div>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
                         {s.name || `Section ${i + 1}`}
                       </p>
-                      <div className="pg-row-meta">
+                      <div style={{ display: "flex", gap: 6, marginTop: 4, fontSize: 12, color: "var(--ink-3)" }}>
                         <span>{s.n_questions} Q · {s.n_minutes} min</span>
                         {s.difficulty_band && (
                           <>
-                            <span className="pg-row-meta-dot">·</span>
+                            <span>·</span>
                             <span>
                               {s.difficulty_band === "mixed"
                                 ? "Mixed difficulty"
@@ -206,12 +244,12 @@ export function SharedTestLanding() {
             </section>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-              <Link to="/practice" className="pg-btn pg-btn-ghost">
+              <Link to="/practice" className="vidya-shell__chip" style={{ textDecoration: "none" }}>
                 Not now
               </Link>
               <button
                 type="button"
-                className="pg-btn pg-btn-primary"
+                className="vidya-shell__chip vidya-shell__chip--on"
                 onClick={start}
                 disabled={starting}
               >
@@ -221,6 +259,6 @@ export function SharedTestLanding() {
           </>
         )}
       </div>
-    </AppShell>
+    </VidyaShell>
   );
 }
