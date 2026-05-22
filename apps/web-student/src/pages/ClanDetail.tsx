@@ -1,11 +1,11 @@
-// F8b — Single clan detail.
+// ClanDetail — Vidya v1 redesign.
 // URL: /clans/:clanId
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
-import { Banner } from "../components/dashboard";
+import { Button, Card, Tag } from "@alp/ui";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { social } from "../lib/social";
 import { useAuth } from "../lib/auth-provider";
 import { useUserDirectory, formatUser } from "../lib/user_directory";
@@ -91,76 +91,136 @@ export function ClanDetailPage() {
     nav("/clans");
   }, [clanId, nav, authReady]);
 
+  const subtitle = clan
+    ? `${clan.memberCount} / ${clan.memberCap} members · ${clan.visibility}`
+    : undefined;
+
   return (
-    <AppShell
-      title="Clan"
+    <VidyaShell
+      crumbs={`COMPETE · CLAN${clan?.name ? ` · ${clan.name.toUpperCase()}` : ""}`}
+      title={clan?.name ?? "Clan"}
+      subtitle={subtitle}
       actions={
-        <Link to="/clans" className="pg-btn pg-btn-ghost">
+        <Link to="/clans" className="vidya-shell__chip">
           ← All clans
         </Link>
       }
     >
-      <div className="pg-shell" style={{ maxWidth: 880 }}>
-        {error && <Banner tone="danger">{error}</Banner>}
-        {clan && (
-          <>
-            <header className="pg-header">
-              <div className="pg-header-main">
-                <h1 className="pg-header-title">{clan.name}</h1>
-                <p className="pg-header-sub">
+      {error ? (
+        <div
+          role="alert"
+          style={{
+            padding: "var(--sp-3) var(--sp-4)",
+            marginBottom: "var(--sp-4)",
+            background: "var(--bad)",
+            color: "var(--paper)",
+            borderRadius: 8,
+            fontSize: 13,
+          }}
+        >
+          {error}
+        </div>
+      ) : null}
+
+      {clan && (
+        <>
+          <Card padding="md">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 16,
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
                   {clan.description || "No description."}
-                </p>
+                </div>
               </div>
               <div>
                 {isMember ? (
-                  <button
-                    type="button"
-                    className="pg-btn pg-btn-ghost"
-                    onClick={leave}
-                  >
+                  <Button variant="ghost" onClick={leave}>
                     Leave clan
-                  </button>
+                  </Button>
                 ) : (
-                  <button
-                    type="button"
-                    className="pg-btn pg-btn-primary"
+                  <Button
+                    variant="primary"
                     onClick={join}
                     disabled={clan.memberCount >= clan.memberCap || !authReady}
                   >
                     {clan.memberCount >= clan.memberCap ? "Clan is full" : "Join clan"}
-                  </button>
+                  </Button>
                 )}
               </div>
-            </header>
-
-            <div className="pg-stat-strip">
-              <div className="pg-stat">
-                <div className="pg-stat-label">Members</div>
-                <div className="pg-stat-value">
-                  {clan.memberCount} / {clan.memberCap}
-                </div>
-              </div>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Visibility</div>
-                <div className="pg-stat-value" style={{ fontSize: 16 }}>
-                  {clan.visibility}
-                </div>
-              </div>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Founded</div>
-                <div className="pg-stat-value" style={{ fontSize: 14 }}>
-                  {new Date(clan.createdAt).toLocaleDateString()}
-                </div>
-              </div>
             </div>
+          </Card>
 
-            <section className="pg-section">
-              <h2 className="pg-section-title">Members</h2>
-              <div className="pg-list">
-                {clan.members.map((m) => (
-                  <div className="pg-row" key={m.userId}>
-                    <div className="pg-row-main">
-                      <p className="pg-row-title">
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: 12,
+              marginTop: 16,
+              marginBottom: 20,
+            }}
+          >
+            <Card padding="md">
+              <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase" }}>
+                Members
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "var(--ink)" }}>
+                {clan.memberCount} / {clan.memberCap}
+              </div>
+            </Card>
+            <Card padding="md">
+              <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase" }}>
+                Visibility
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "var(--ink)" }}>
+                {clan.visibility}
+              </div>
+            </Card>
+            <Card padding="md">
+              <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase" }}>
+                Founded
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
+                {new Date(clan.createdAt).toLocaleDateString()}
+              </div>
+            </Card>
+          </div>
+
+          <section aria-label="Members">
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: "var(--t-h3-size)",
+                  lineHeight: "var(--t-h3-line)",
+                  fontWeight: 600,
+                  color: "var(--ink-2)",
+                }}
+              >
+                Members
+              </h2>
+              <Tag size="sm" tone="neutral" variant="soft">
+                {clan.members.length}
+              </Tag>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {clan.members.map((m) => (
+                <Card key={m.userId} padding="md">
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                      <div style={{ fontWeight: 600, color: "var(--ink)" }}>
                         {m.role === "OWNER" ? "👑 " : m.role === "OFFICER" ? "⭐ " : ""}
                         {formatUser(m.userId, dir[m.userId])}
                         {m.userId === me && (
@@ -168,22 +228,21 @@ export function ClanDetailPage() {
                             you
                           </span>
                         )}
-                      </p>
-                      <div className="pg-row-meta">
-                        <span>{m.role}</span>
-                        <span className="pg-row-meta-dot">·</span>
-                        <span>
-                          Joined {new Date(m.joinedAt).toLocaleDateString()}
-                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>
+                        Joined {new Date(m.joinedAt).toLocaleDateString()}
                       </div>
                     </div>
+                    <Tag size="sm" tone="neutral" variant="soft">
+                      {m.role}
+                    </Tag>
                   </div>
-                ))}
-              </div>
-            </section>
-          </>
-        )}
-      </div>
-    </AppShell>
+                </Card>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+    </VidyaShell>
   );
 }
