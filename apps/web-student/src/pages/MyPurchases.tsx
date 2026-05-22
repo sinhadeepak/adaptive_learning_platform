@@ -1,14 +1,16 @@
-// MyPurchases — production-grade redesign (2026-05-11).
+// MyPurchases — Vidya v1 redesign.
 //
-// Layout: pg-shell → pg-header → pg-tabs (Active / Refunded / Pending)
-// → pg-list of rich rows with real course title fetched via
-// courseMarketplace.get(courseId). Replaces window.prompt() with a
-// proper modal for ratings.
+// Layout: VidyaShell (crumbs + title + subtitle + Active/Pending/Refunded
+// tabs + Browse-courses primary action) → vertical list of vidya-card-block
+// rows. Each row: course thumb + title + meta (price, purchased date,
+// description) + status chip + Resume / Rate actions. Inline modal for
+// rating submission (replaces the legacy Aurora modal CSS).
 
+import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { type Purchase, courseMarketplace } from "../lib/api";
 
 interface CourseInfo {
@@ -39,6 +41,17 @@ function paiseToRupees(p: number): string {
   return `₹${(p / 100).toLocaleString("en-IN")}`;
 }
 
+function statusChipStyle(tone: "success" | "info" | "warn" | "danger" | "muted"): CSSProperties {
+  const tones = {
+    success: { background: "var(--good-soft)", color: "var(--good)" },
+    info:    { background: "var(--info-soft)", color: "var(--info)" },
+    warn:    { background: "var(--warn-soft)", color: "var(--warn)" },
+    danger:  { background: "var(--bad-soft)",  color: "var(--bad)"  },
+    muted:   { background: "var(--paper-2)",   color: "var(--ink-3)" },
+  };
+  return tones[tone];
+}
+
 type Tab = "active" | "pending" | "refunded";
 
 const STATUS_INFO: Record<
@@ -48,6 +61,12 @@ const STATUS_INFO: Record<
   PAID: { label: "Active", tone: "success" },
   PENDING_PAYMENT: { label: "Payment pending", tone: "warn" },
   REFUNDED: { label: "Refunded", tone: "muted" },
+};
+
+const TAB_LABELS: Record<Tab, string> = {
+  active: "Active",
+  pending: "Pending",
+  refunded: "Refunded",
 };
 
 function tabFor(p: Purchase): Tab {
@@ -134,178 +153,240 @@ export function MyPurchases() {
   const visible = grouped[tab];
 
   return (
-    <AppShell title="My purchases">
-      <div className="pg-shell">
-        <header className="pg-header">
-          <div className="pg-header-main">
-            <h1 className="pg-header-title">My purchases</h1>
-            <p className="pg-header-sub">
-              Every self-paced course you own. Open a course to resume, or
-              leave a rating to help other learners pick.
-            </p>
-          </div>
-          <div className="pg-header-actions">
-            <Link to="/courses" className="pg-btn pg-btn-primary">
-              ＋ Browse courses
-            </Link>
-          </div>
-        </header>
-
-        <div className="pg-tabs" role="tablist">
-          {(
-            [
-              ["active", "Active"],
-              ["pending", "Pending"],
-              ["refunded", "Refunded"],
-            ] as [Tab, string][]
-          ).map(([k, label]) => (
+    <VidyaShell
+      crumbs="MARKETPLACE · MY PURCHASES"
+      title="My purchases"
+      subtitle="Every self-paced course you own. Open a course to resume, or leave a rating to help other learners pick."
+      chips={
+        <>
+          {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
             <button
-              key={k}
+              key={t}
               type="button"
               role="tab"
-              aria-selected={tab === k}
-              className={`pg-tab${tab === k ? " on" : ""}`}
-              onClick={() => setTab(k)}
+              aria-selected={tab === t}
+              className={`vidya-shell__chip${tab === t ? " vidya-shell__chip--on" : ""}`}
+              onClick={() => setTab(t)}
             >
-              {label}
-              <span className="pg-tab-count">{grouped[k].length}</span>
+              {TAB_LABELS[t]} · {grouped[t].length}
             </button>
           ))}
+        </>
+      }
+      actions={
+        <Link to="/courses" className="vidya-shell__primary">
+          ＋ Browse courses
+        </Link>
+      }
+    >
+      {error && (
+        <p
+          role="alert"
+          style={{
+            background: "var(--bad)",
+            color: "var(--paper)",
+            padding: "var(--sp-3)",
+            borderRadius: "var(--radius-2)",
+            margin: 0,
+          }}
+        >
+          {error}
+        </p>
+      )}
+
+      {items === null && !error && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="vidya-card-block"
+              style={{ opacity: 0.5, minHeight: 80 }}
+              aria-hidden
+            />
+          ))}
         </div>
+      )}
 
-        {error && <p className="banner banner-error">{error}</p>}
-
-        {items === null && !error && (
-          <div className="pg-list">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="pg-row" style={{ opacity: 0.5, minHeight: 80 }} aria-hidden />
-            ))}
+      {items !== null && visible.length === 0 && (
+        <section
+          className="vidya-card-block"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "var(--sp-3)",
+            padding: "var(--sp-5)",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ fontSize: 40 }} aria-hidden>
+            {tab === "active" ? "📚" : tab === "pending" ? "⏳" : "↩"}
           </div>
-        )}
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--ink)" }}>
+            {tab === "active"
+              ? "No active courses yet"
+              : tab === "pending"
+                ? "No pending purchases"
+                : "No refunds"}
+          </h2>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--ink-2)", maxWidth: 480 }}>
+            {tab === "active"
+              ? "Pick up a self-paced course to start learning at your own rhythm."
+              : tab === "pending"
+                ? "Once you complete checkout, your courses land here."
+                : "Refunded purchases will appear here for your records."}
+          </p>
+          {tab === "active" && (
+            <Link to="/courses" className="vidya-shell__primary">
+              Browse courses
+            </Link>
+          )}
+        </section>
+      )}
 
-        {items !== null && visible.length === 0 && (
-          <div className="pg-empty">
-            <div className="pg-empty-icon">
-              {tab === "active" ? "📚" : tab === "pending" ? "⏳" : "↩"}
-            </div>
-            <h2 className="pg-empty-title">
-              {tab === "active"
-                ? "No active courses yet"
-                : tab === "pending"
-                  ? "No pending purchases"
-                  : "No refunds"}
-            </h2>
-            <p className="pg-empty-body">
-              {tab === "active"
-                ? "Pick up a self-paced course to start learning at your own rhythm."
-                : tab === "pending"
-                  ? "Once you complete checkout, your courses land here."
-                  : "Refunded purchases will appear here for your records."}
-            </p>
-            {tab === "active" && (
-              <Link to="/courses" className="pg-btn pg-btn-primary">
-                Browse courses
-              </Link>
-            )}
-          </div>
-        )}
-
-        {items !== null && visible.length > 0 && (
-          <div className="pg-list">
-            {visible.map((p) => {
-              const info = courses[p.courseId];
-              const title = info?.title ?? "Loading…";
-              const status = STATUS_INFO[p.status];
-              return (
-                <div key={p.id} className="pg-row">
+      {items !== null && visible.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
+          {visible.map((p) => {
+            const info = courses[p.courseId];
+            const title = info?.title ?? "Loading…";
+            const status = STATUS_INFO[p.status];
+            return (
+              <div
+                key={p.id}
+                className="vidya-card-block"
+                style={{ display: "flex", alignItems: "center", gap: "var(--sp-3)" }}
+              >
+                <div
+                  aria-hidden
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 8,
+                    background: info?.coverImageUrl
+                      ? `center/cover url(${info.coverImageUrl})`
+                      : thumbFor(p.courseId),
+                    color: "#fff",
+                    fontSize: 24,
+                    fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  {!info?.coverImageUrl && initialFor(title)}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{title}</p>
                   <div
-                    className="pg-avatar pg-avatar-lg"
                     style={{
-                      background: info?.coverImageUrl
-                        ? `center/cover url(${info.coverImageUrl})`
-                        : thumbFor(p.courseId),
-                      borderRadius: 8,
-                      width: 64,
-                      height: 64,
-                      fontSize: 24,
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 6,
+                      marginTop: 4,
+                      fontSize: 12,
+                      color: "var(--ink-2)",
                     }}
-                    aria-hidden
                   >
-                    {!info?.coverImageUrl && initialFor(title)}
-                  </div>
-                  <div className="pg-row-main">
-                    <p className="pg-row-title">{title}</p>
-                    <div className="pg-row-meta">
-                      <span>{paiseToRupees(p.pricePaise)}</span>
-                      {p.purchasedAt && (
-                        <>
-                          <span className="pg-row-meta-dot">·</span>
-                          <span>
-                            Purchased {new Date(p.purchasedAt).toLocaleDateString("en-IN", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </>
-                      )}
-                      {info?.description && (
-                        <>
-                          <span className="pg-row-meta-dot">·</span>
-                          <span
-                            style={{
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              maxWidth: 260,
-                              display: "inline-block",
-                            }}
-                          >
-                            {info.description}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div className="pg-row-aside">
-                    <span className={`pg-pill pg-pill-${status.tone}`}>
-                      {status.label}
-                    </span>
-                    {p.status === "PAID" && (
+                    <span>{paiseToRupees(p.pricePaise)}</span>
+                    {p.purchasedAt && (
                       <>
-                        <Link
-                          to={`/courses/${p.courseId}/read`}
-                          className="pg-btn pg-btn-primary pg-btn-sm"
+                        <span style={{ color: "var(--ink-4)" }}>·</span>
+                        <span>
+                          Purchased {new Date(p.purchasedAt).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </>
+                    )}
+                    {info?.description && (
+                      <>
+                        <span style={{ color: "var(--ink-4)" }}>·</span>
+                        <span
+                          style={{
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            maxWidth: 260,
+                            display: "inline-block",
+                          }}
                         >
-                          Resume →
-                        </Link>
-                        <button
-                          type="button"
-                          className="pg-btn pg-btn-ghost pg-btn-sm"
-                          onClick={() => setRating({ purchase: p, stars: 5, comment: "" })}
-                        >
-                          ★ Rate
-                        </button>
+                          {info.description}
+                        </span>
                       </>
                     )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-end",
+                    gap: "var(--sp-2)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <span className="vidya-shell__chip" style={statusChipStyle(status.tone)}>
+                    {status.label}
+                  </span>
+                  {p.status === "PAID" && (
+                    <>
+                      <Link to={`/courses/${p.courseId}/read`} className="vidya-shell__primary">
+                        Resume →
+                      </Link>
+                      <button
+                        type="button"
+                        className="vidya-shell__chip"
+                        onClick={() => setRating({ purchase: p, stars: 5, comment: "" })}
+                      >
+                        ★ Rate
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Rating modal — replaces the old window.prompt() UX. */}
       {rating && (
-        <div className="pg-modal-overlay" onClick={() => setRating(null)}>
-          <div className="pg-modal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="pg-modal-title">
+        <div
+          onClick={() => setRating(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+            padding: "var(--sp-4)",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            style={{
+              background: "var(--paper)",
+              color: "var(--ink)",
+              border: "1px solid var(--rule)",
+              borderRadius: 12,
+              padding: "var(--sp-5)",
+              width: "100%",
+              maxWidth: 480,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.30)",
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
               Rate &ldquo;{courses[rating.purchase.courseId]?.title ?? "this course"}&rdquo;
             </h3>
-            <p className="pg-modal-body">
-              Your rating is public to other learners — be honest and specific.
-              Comment is optional.
+            <p style={{ margin: "var(--sp-2) 0 var(--sp-3)", fontSize: 13, color: "var(--ink-2)" }}>
+              Your rating is public to other learners — be honest and specific. Comment is optional.
             </p>
             <div
               style={{
@@ -341,17 +422,17 @@ export function MyPurchases() {
                 background: "var(--paper-2)",
                 color: "var(--ink)",
                 border: "1px solid var(--rule)",
-                borderRadius: 6,
+                borderRadius: 8,
                 fontFamily: "inherit",
                 fontSize: 13,
                 resize: "vertical",
                 marginBottom: 14,
               }}
             />
-            <div className="pg-modal-actions">
+            <div style={{ display: "flex", gap: "var(--sp-2)", justifyContent: "flex-end" }}>
               <button
                 type="button"
-                className="pg-btn pg-btn-ghost"
+                className="vidya-shell__chip"
                 onClick={() => setRating(null)}
                 disabled={submitting}
               >
@@ -359,7 +440,7 @@ export function MyPurchases() {
               </button>
               <button
                 type="button"
-                className="pg-btn pg-btn-primary"
+                className="vidya-shell__primary"
                 onClick={submitRating}
                 disabled={submitting || rating.stars < 1}
               >
@@ -369,6 +450,6 @@ export function MyPurchases() {
           </div>
         </div>
       )}
-    </AppShell>
+    </VidyaShell>
   );
 }
