@@ -1,8 +1,15 @@
+// Practice — Vidya v1 redesign.
+//
+// Layout: VidyaShell (crumbs + title + Practice/Mistakes tab chips) →
+// either the AI-driven hero + recommended-next composition (uses custom
+// ai-* classes for page-specific design language) or the
+// MistakesPracticePanel (mistakes drill picker with vidya-card-block
+// sections and chip toggles).
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { Banner, Pill, strengthFor } from "../components/dashboard";
 // Phase 1B — wire existing analytics primitives.
 import { MasteryBar } from "../components/stats";
@@ -134,19 +141,17 @@ function MistakesPracticePanel() {
   }
 
   return (
-    <div className="pg-shell">
-      <header className="pg-header">
-        <div className="pg-header-main">
-          <h1 className="pg-header-title">Drill your mistakes</h1>
-          <p className="pg-header-sub">
-            Re-attempt the questions you got wrong. The session pre-loads
-            your most recent mistakes — filter by recency or by a single
-            topic, then pick how many items you want to drill.
-          </p>
-        </div>
-      </header>
+    <div>
+      <section style={{ marginBottom: "var(--sp-4)" }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--ink)" }}>
+          Drill your mistakes
+        </h2>
+        <p style={{ margin: "var(--sp-1) 0 0", fontSize: 13, color: "var(--ink-2)", maxWidth: 580, lineHeight: 1.5 }}>
+          Re-attempt the questions you got wrong. The session pre-loads your most recent mistakes — filter by recency or by a single topic, then pick how many items you want to drill.
+        </p>
+      </section>
 
-      <div className="pg-tabs" role="tablist">
+      <div role="tablist" style={{ display: "flex", gap: "var(--sp-2)", marginBottom: "var(--sp-4)", flexWrap: "wrap" }}>
         {(
           [
             ["recent", "All recent"],
@@ -159,7 +164,7 @@ function MistakesPracticePanel() {
             type="button"
             role="tab"
             aria-selected={tab === t}
-            className={`pg-tab${tab === t ? " on" : ""}`}
+            className={`vidya-shell__chip${tab === t ? " vidya-shell__chip--on" : ""}`}
             onClick={() => setTab(t)}
           >
             {label}
@@ -169,13 +174,13 @@ function MistakesPracticePanel() {
 
       {/* By-topic chip-row — visible only on the topic tab. */}
       {tab === "topic" && (
-        <section className="pg-section" style={{ marginBottom: 16 }}>
-          <h2 className="pg-section-title">
+        <section className="vidya-card-block" style={{ marginBottom: 16 }}>
+          <h3 className="vidya-card-block__title" style={{ marginBottom: "var(--sp-2)" }}>
             Pick a topic
-            <span className="pg-section-title-sub">
+            <span style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 400, marginLeft: 8 }}>
               weakest first · mastery shown
             </span>
-          </h2>
+          </h3>
           {topics === null ? (
             <p style={{ fontSize: 13, color: "var(--ink-3)" }}>
               Loading topics…
@@ -193,7 +198,7 @@ function MistakesPracticePanel() {
                   <button
                     key={t.topicId}
                     type="button"
-                    className={`pg-chip${on ? " on" : ""}`}
+                    className={`vidya-shell__chip${on ? " vidya-shell__chip--on" : ""}`}
                     onClick={() => setTopicId(t.topicId)}
                     title={`${t.n} attempts · ${Math.round(t.ewa * 100)}% mastery`}
                   >
@@ -219,19 +224,19 @@ function MistakesPracticePanel() {
       )}
 
       {/* Length selector — always visible. */}
-      <section className="pg-section" style={{ marginBottom: 16 }}>
-        <h2 className="pg-section-title">
+      <section className="vidya-card-block" style={{ marginBottom: 16 }}>
+        <h3 className="vidya-card-block__title" style={{ marginBottom: "var(--sp-2)" }}>
           How many items?
-          <span className="pg-section-title-sub">
+          <span style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 400, marginLeft: 8 }}>
             capped at 30 per session
           </span>
-        </h2>
+        </h3>
         <div style={{ display: "flex", gap: 8 }}>
           {LIMIT_OPTIONS.map((n) => (
             <button
               key={n}
               type="button"
-              className={`pg-chip${limit === n ? " on" : ""}`}
+              className={`vidya-shell__chip${limit === n ? " vidya-shell__chip--on" : ""}`}
               onClick={() => setLimit(n)}
             >
               {n} items
@@ -290,7 +295,7 @@ function MistakesPracticePanel() {
         </div>
         <button
           type="button"
-          className="pg-btn pg-btn-primary"
+          className="vidya-shell__primary"
           onClick={start}
           disabled={!canStart}
         >
@@ -616,35 +621,33 @@ export function Practice() {
   const empty = mastery !== null && mastery.length === 0;
 
   return (
-    <AppShell title="Practice">
-      {/* ── Page-level tab switcher: Practice | Mistakes ─────────────────── */}
-      <div
-        style={{
-          display: "flex",
-          gap: 4,
-          marginBottom: "var(--sp-3)",
-          borderBottom: "1px solid var(--rule)",
-          paddingBottom: 0,
-        }}
-      >
-        <button
-          type="button"
-          className={`pg-tab${pageTab !== "mistakes" ? " on" : ""}`}
-          aria-selected={pageTab !== "mistakes"}
-          onClick={() => setSearchParams({}, { replace: true })}
-        >
-          Practice
-        </button>
-        <button
-          type="button"
-          className={`pg-tab${pageTab === "mistakes" ? " on" : ""}`}
-          aria-selected={pageTab === "mistakes"}
-          onClick={() => setSearchParams({ tab: "mistakes" }, { replace: true })}
-        >
-          🎯 Mistakes
-        </button>
-      </div>
-
+    <VidyaShell
+      crumbs="PRACTICE · WORKOUT"
+      title="Practice"
+      subtitle="Drill weak topics with AI-picked sessions, or replay your recent mistakes."
+      chips={
+        <>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={pageTab !== "mistakes"}
+            className={`vidya-shell__chip${pageTab !== "mistakes" ? " vidya-shell__chip--on" : ""}`}
+            onClick={() => setSearchParams({}, { replace: true })}
+          >
+            Practice
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={pageTab === "mistakes"}
+            className={`vidya-shell__chip${pageTab === "mistakes" ? " vidya-shell__chip--on" : ""}`}
+            onClick={() => setSearchParams({ tab: "mistakes" }, { replace: true })}
+          >
+            🎯 Mistakes
+          </button>
+        </>
+      }
+    >
       {/* ── Mistakes tab ─────────────────────────────────────────────────── */}
       {pageTab === "mistakes" ? (
         <MistakesPracticePanel />
@@ -730,14 +733,14 @@ export function Practice() {
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button
                 type="button"
-                className="pg-btn pg-btn-ghost"
+                className="vidya-shell__chip"
                 onClick={dismissDiagnostic}
               >
                 Skip — start practice
               </button>
               <Link
                 to="/practice/diagnostic"
-                className="pg-btn pg-btn-primary"
+                className="vidya-shell__primary"
                 onClick={dismissDiagnostic}
               >
                 Calibrate (10 min) →
@@ -1343,6 +1346,6 @@ export function Practice() {
       </div>
       </>
       )}
-    </AppShell>
+    </VidyaShell>
   );
 }
