@@ -1,4 +1,4 @@
-// Insights — Phase 6 S52 hub re-IA over existing analytics surfaces.
+// Insights — Vidya v1 redesign
 //
 // Spec: docs/02_planning/55_Phase6_UXCoPilot_Evaluation_and_SprintPlan.md S52
 // ADR: docs/adr/0020-ux-copilot-scope-and-ia.md
@@ -14,7 +14,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { Banner, Pill, SkeletonRows } from "../components/dashboard";
 import { DecayArrow } from "../components/DecayArrow";
 import { ErrorPatternCoachingCard } from "../components/ErrorPatternCoachingCard";
@@ -31,6 +31,11 @@ import {
   type InsightsSnapshot,
   type ReadinessBand,
 } from "../lib/insights";
+
+const SHELL_CRUMBS = "INSIGHT · ANALYTICS";
+const SHELL_TITLE = "Insights";
+const SHELL_SUBTITLE =
+  "How you've been learning — accuracy trends, weak topics, and streaks.";
 
 export function Insights() {
   const { user } = useAuth();
@@ -83,41 +88,41 @@ export function Insights() {
 
   if (error) {
     return (
-      <AppShell title="Insights">
+      <VidyaShell crumbs={SHELL_CRUMBS} title={SHELL_TITLE} subtitle={SHELL_SUBTITLE}>
         <Banner tone="danger" role="alert">
           {error}
         </Banner>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
   if (!snap) {
     return (
-      <AppShell title="Insights">
+      <VidyaShell crumbs={SHELL_CRUMBS} title={SHELL_TITLE} subtitle={SHELL_SUBTITLE}>
         <SkeletonRows count={3} />
-      </AppShell>
+      </VidyaShell>
     );
   }
 
   return (
-    <AppShell title="Insights">
+    <VidyaShell crumbs={SHELL_CRUMBS} title={SHELL_TITLE} subtitle={SHELL_SUBTITLE}>
       <p className="insights-intro">
         A single read of where you are, what it means, and what to do next.
         Every tile links to the underlying signal — nothing is hidden.
       </p>
 
       {/* ── Zone 1: My State ────────────────────────────────────── */}
-      <section className="insights-zone" aria-labelledby="zone-my-state">
-        <header className="insights-zone-head">
-          <h2 id="zone-my-state" className="insights-zone-title">
+      <section className="vidya-card-block" aria-labelledby="zone-my-state" style={{ marginBottom: 16 }}>
+        <div className="vidya-card-block__head">
+          <div className="vidya-card-block__title" id="zone-my-state">
             My state
-          </h2>
+          </div>
           <p className="insights-zone-sub">
             Where you are right now — readiness band, fresh mastery, and the
             concepts that are starting to fade.
           </p>
-        </header>
-        <div className="insights-grid">
+        </div>
+        <div className="vidya-grid-3">
           <ReadinessTile band={snap.myState.readiness?.band ?? null} score={snap.myState.readiness?.score ?? null} />
           <ConceptMasteryTile rows={snap.myState.conceptMastery} />
           <DecayTile rows={snap.myState.topicDecay} />
@@ -126,19 +131,20 @@ export function Insights() {
 
       {/* ── Zone 2: What This Means ─────────────────────────────── */}
       <section
-        className="insights-zone"
+        className="vidya-card-block"
         aria-labelledby="zone-what-this-means"
+        style={{ marginBottom: 16 }}
       >
-        <header className="insights-zone-head">
-          <h2 id="zone-what-this-means" className="insights-zone-title">
+        <div className="vidya-card-block__head">
+          <div className="vidya-card-block__title" id="zone-what-this-means">
             What this means
-          </h2>
+          </div>
           <p className="insights-zone-sub">
             The pattern in your data — weak concepts the engine can act on
             and decay alerts that need a recovery round.
           </p>
-        </header>
-        <div className="insights-grid">
+        </div>
+        <div className="vidya-grid-3">
           <WeakConceptsTile rows={snap.whatThisMeans.weakConcepts} />
           <DecayAlertsTile rows={snap.whatThisMeans.decayAlerts} />
           <PatternsTile />
@@ -146,17 +152,17 @@ export function Insights() {
       </section>
 
       {/* ── Zone 3: What To Do ──────────────────────────────────── */}
-      <section className="insights-zone" aria-labelledby="zone-what-to-do">
-        <header className="insights-zone-head">
-          <h2 id="zone-what-to-do" className="insights-zone-title">
+      <section className="vidya-card-block" aria-labelledby="zone-what-to-do" style={{ marginBottom: 16 }}>
+        <div className="vidya-card-block__head">
+          <div className="vidya-card-block__title" id="zone-what-to-do">
             What to do
-          </h2>
+          </div>
           <p className="insights-zone-sub">
             Today's scaffolded path — mission, revision, and the week's plan.
             Pick one and start.
           </p>
-        </header>
-        <div className="insights-grid">
+        </div>
+        <div className="vidya-grid-3">
           <MissionTile pending={snap.whatToDo.missionsTodayPending} />
           <RevisionTile dueToday={snap.whatToDo.revisionDueToday} />
           <PlanTile />
@@ -165,26 +171,26 @@ export function Insights() {
 
       {/* ── Phase 6 S58 — Coaching: ErrorPattern + Calibration ─────── */}
       <section
-        className="insights-zone"
+        className="vidya-card-block"
         aria-labelledby="zone-coaching"
       >
-        <header className="insights-zone-head">
-          <h2 id="zone-coaching" className="insights-zone-title">
+        <div className="vidya-card-block__head">
+          <div className="vidya-card-block__title" id="zone-coaching">
             Coaching
-          </h2>
+          </div>
           <p className="insights-zone-sub">
             The pattern beneath your top error tag + how your confidence
             tracks your real accuracy.
           </p>
-        </header>
-        <div className="insights-coaching-grid">
+        </div>
+        <div className="vidya-grid-2">
           <ErrorPatternCoachingCard rollup={errorRollup} />
           {/* Calibration card stays empty for v0 — wires to
               concept-profile's calibration rows when that fetch lands. */}
           <ConfidenceCalibrationCard rows={[]} />
         </div>
       </section>
-    </AppShell>
+    </VidyaShell>
   );
 }
 
