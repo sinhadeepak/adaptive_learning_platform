@@ -1,8 +1,9 @@
+// Search — Vidya v1 redesign.
+
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { auth } from "../lib/api";
-import { AppShell } from "../components/AppShell";
-import { Banner } from "../components/dashboard";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface SearchHit {
   type: "topic" | "lesson" | "question";
@@ -150,12 +151,11 @@ export function Search() {
   }
 
   return (
-    <AppShell title="Search">
-      <h1 className="page-greeting">Find a topic, exam, or lesson</h1>
-      <p className="page-subhead">
-        Bilingual search — type in English, Hindi (Devanagari), or Hinglish.
-      </p>
-
+    <VidyaShell
+      crumbs="ME · SEARCH"
+      title="Search"
+      subtitle="Find topics, questions, or notes."
+    >
       <div style={{ position: "relative" }}>
         <input
           ref={inputRef}
@@ -195,10 +195,17 @@ export function Search() {
       </div>
 
       {error ? (
-        <div style={{ marginTop: "var(--sp-3)" }}>
-          <Banner tone="danger" role="alert">
-            {error}
-          </Banner>
+        <div
+          role="alert"
+          style={{
+            background: "var(--bad)",
+            color: "var(--paper)",
+            padding: "var(--sp-3)",
+            borderRadius: "var(--radius-2)",
+            margin: "var(--sp-3) 0 0 0",
+          }}
+        >
+          {error}
         </div>
       ) : null}
 
@@ -373,6 +380,6 @@ export function Search() {
           )}
         </section>
       ) : null}
-    </AppShell>
+    </VidyaShell>
   );
 }
