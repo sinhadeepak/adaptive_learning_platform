@@ -118,6 +118,7 @@ function buildNav(enrolledExams: ExamMeta[]): NavGroup[] {
       items: [
         { href: "/analysis", label: "My analysis", icon: <IconChart /> },
         { href: "/insights", label: "Insights", icon: <IconSparkles /> },
+        { href: "/syllabus", label: "Syllabus", icon: <IconLibrary /> },
         { href: "/rank", label: "Rank predictor", icon: <IconTrophy /> },
       ],
     },
