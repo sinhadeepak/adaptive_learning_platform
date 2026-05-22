@@ -1,16 +1,16 @@
-// Practice history — production-grade redesign (2026-05-11).
+// Practice history — Vidya v1 redesign.
 //
-// Layout: pg-shell → pg-header → pg-stat-strip (sessions / accuracy /
-// time / streak signal) → pg-tabs (Practice / Mock) → pg-filter-row
-// (status chips) → pg-list of rows. Each row shows mode, status,
+// Layout: VidyaShell (crumbs + title + subtitle) → 4-up stat strip
+// (sessions / accuracy / mocks / in-progress) → tabs (Practice / Mock)
+// → status chips → list of session rows. Each row shows mode, status,
 // accuracy, and a deep-dive link.
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
-import { Banner, SkeletonRows } from "../components/dashboard";
+import { VidyaShell } from "../components/vidya/VidyaShell";
+import { SkeletonRows } from "../components/dashboard";
 
 interface SessionRow {
   sessionId: string;
@@ -137,308 +137,503 @@ export function History() {
     return out;
   }, [rows, statusFilter]);
 
+  const actions = (
+    <Link to="/practice" className="vidya-shell__primary">
+      ＋ Start a session
+    </Link>
+  );
+
   return (
-    <AppShell title="Practice history">
-      <div className="pg-shell">
-        <header className="pg-header">
-          <div className="pg-header-main">
-            <h1 className="pg-header-title">Practice history</h1>
-            <p className="pg-header-sub">
-              Every quiz and mock test you've run. Tap any row to revisit the
-              result or resume an in-progress session.
-            </p>
-          </div>
-          <div className="pg-header-actions">
-            <Link to="/practice" className="pg-btn pg-btn-primary">
-              ＋ Start a session
-            </Link>
-          </div>
-        </header>
-
-        {stats && (
-          <div className="pg-stat-strip">
-            <div className="pg-stat">
-              <div className="pg-stat-label">Sessions</div>
-              <div className="pg-stat-value">{stats.total}</div>
-              <div className="pg-stat-delta">
-                {stats.submitted} submitted · {stats.inProgress} in progress
-              </div>
-            </div>
-            <div className="pg-stat">
-              <div className="pg-stat-label">Accuracy</div>
-              <div
-                className="pg-stat-value"
-                style={{
-                  color:
-                    stats.accuracy >= 75
-                      ? "var(--good)"
-                      : stats.accuracy >= 50
-                        ? "var(--info)"
-                        : "var(--bad)",
-                }}
-              >
-                {stats.accuracy}%
-              </div>
-              <div className="pg-stat-delta">
-                across {stats.totalAnswered.toLocaleString()} questions
-              </div>
-            </div>
-            <div className="pg-stat">
-              <div className="pg-stat-label">Mock tests</div>
-              <div className="pg-stat-value">{stats.mocks}</div>
-              <div className="pg-stat-delta">
-                {stats.mocks === 0 ? "try your first mock" : "exam-style runs"}
-              </div>
-            </div>
-            <div className="pg-stat">
-              <div className="pg-stat-label">In progress</div>
-              <div className="pg-stat-value" style={{ color: "var(--warn)" }}>
-                {stats.inProgress}
-              </div>
-              <div className="pg-stat-delta">
-                {stats.inProgress > 0 ? "resume below" : "all up to date"}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="pg-tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={section === "practice"}
-            className={`pg-tab${section === "practice" ? " on" : ""}`}
-            onClick={() => setSection("practice")}
+    <VidyaShell
+      crumbs="ME · HISTORY"
+      title="History"
+      subtitle="Your activity across sessions, tests, and tutoring."
+      actions={actions}
+    >
+      {stats && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+            gap: "var(--sp-3)",
+            marginBottom: "var(--sp-4)",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--paper)",
+              border: "1px solid var(--rule)",
+              borderRadius: 12,
+              padding: "var(--sp-3) var(--sp-4)",
+            }}
           >
-            Practice
-            <span className="pg-tab-count">{rows?.length ?? 0}</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={section === "mock"}
-            className={`pg-tab${section === "mock" ? " on" : ""}`}
-            onClick={() => setSection("mock")}
+            <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Sessions
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>{stats.total}</div>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>
+              {stats.submitted} submitted · {stats.inProgress} in progress
+            </div>
+          </div>
+          <div
+            style={{
+              background: "var(--paper)",
+              border: "1px solid var(--rule)",
+              borderRadius: 12,
+              padding: "var(--sp-3) var(--sp-4)",
+            }}
           >
-            Mock tests
-            <span className="pg-tab-count">{mocks?.length ?? 0}</span>
-          </button>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Accuracy
+            </div>
+            <div
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                marginTop: 2,
+                color:
+                  stats.accuracy >= 75
+                    ? "var(--good)"
+                    : stats.accuracy >= 50
+                      ? "var(--info)"
+                      : "var(--bad)",
+              }}
+            >
+              {stats.accuracy}%
+            </div>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>
+              across {stats.totalAnswered.toLocaleString()} questions
+            </div>
+          </div>
+          <div
+            style={{
+              background: "var(--paper)",
+              border: "1px solid var(--rule)",
+              borderRadius: 12,
+              padding: "var(--sp-3) var(--sp-4)",
+            }}
+          >
+            <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Mock tests
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>{stats.mocks}</div>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>
+              {stats.mocks === 0 ? "try your first mock" : "exam-style runs"}
+            </div>
+          </div>
+          <div
+            style={{
+              background: "var(--paper)",
+              border: "1px solid var(--rule)",
+              borderRadius: 12,
+              padding: "var(--sp-3) var(--sp-4)",
+            }}
+          >
+            <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              In progress
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2, color: "var(--warn)" }}>
+              {stats.inProgress}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>
+              {stats.inProgress > 0 ? "resume below" : "all up to date"}
+            </div>
+          </div>
         </div>
+      )}
 
-        {error && <Banner tone="danger" role="alert">{error}</Banner>}
-
-        {section === "practice" && (
-          <>
-            <div className="pg-filter-row">
-              <div className="pg-filter-chips">
-                {(["all", "submitted", "in-progress"] as StatusFilter[]).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    className={`pg-chip${statusFilter === f ? " on" : ""}`}
-                    onClick={() => setStatusFilter(f)}
-                  >
-                    {f === "in-progress" ? "In progress" : f.charAt(0).toUpperCase() + f.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {filteredPractice === null ? (
-              <SkeletonRows count={5} />
-            ) : filteredPractice.length === 0 ? (
-              <div className="pg-empty">
-                <div className="pg-empty-icon">📚</div>
-                <h2 className="pg-empty-title">
-                  {rows && rows.length === 0
-                    ? "No practice sessions yet"
-                    : "Nothing matches this filter"}
-                </h2>
-                <p className="pg-empty-body">
-                  {rows && rows.length === 0
-                    ? "Start your first practice run from the Practice tab — your sessions will show up here for review."
-                    : "Try switching the filter to 'All' to see everything."}
-                </p>
-                {rows && rows.length === 0 ? (
-                  <Link to="/practice" className="pg-btn pg-btn-primary">
-                    Start a practice session
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    className="pg-btn pg-btn-ghost"
-                    onClick={() => setStatusFilter("all")}
-                  >
-                    Show all sessions
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="pg-list">
-                {filteredPractice.map((r) => {
-                  const pct =
-                    r.servedCount > 0
-                      ? Math.round((r.correctCount / r.servedCount) * 100)
-                      : 0;
-                  const tone: "warn" | "muted" | "success" | "info" | "danger" =
-                    r.status === "IN_PROGRESS"
-                      ? "warn"
-                      : r.status === "EXPIRED"
-                        ? "muted"
-                        : pct >= 80
-                          ? "success"
-                          : pct >= 50
-                            ? "info"
-                            : "danger";
-                  const title = topics.get(r.topicId) ?? `Topic #${r.topicId.slice(0, 8)}`;
-                  const onClick = () => {
-                    if (r.status === "IN_PROGRESS") navigate(`/quiz/${r.sessionId}`);
-                    else navigate(`/quiz/${r.sessionId}/result`);
-                  };
-                  const pillLabel =
-                    r.status === "IN_PROGRESS"
-                      ? "In progress"
-                      : r.status === "EXPIRED"
-                        ? "Expired"
-                        : `${pct}%`;
-                  return (
-                    <div
-                      key={r.sessionId}
-                      className="pg-row"
-                      onClick={onClick}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          onClick();
-                        }
-                      }}
-                      style={{ cursor: "pointer" }}
-                    >
-                      <div className="pg-row-main">
-                        <p className="pg-row-title">{title}</p>
-                        <div className="pg-row-meta">
-                          <span>{r.mode === "MOCK" ? "Mock" : "Practice"}</span>
-                          <span className="pg-row-meta-dot">·</span>
-                          <span>
-                            {r.correctCount} correct of {r.servedCount} answered
-                          </span>
-                          {r.targetCount > r.servedCount && r.status === "IN_PROGRESS" && (
-                            <>
-                              <span className="pg-row-meta-dot">·</span>
-                              <span style={{ color: "var(--warn)" }}>
-                                {r.targetCount - r.servedCount} remaining
-                              </span>
-                            </>
-                          )}
-                          <span className="pg-row-meta-dot">·</span>
-                          <span>{relative(r.startedAt)}</span>
-                        </div>
-                      </div>
-                      <div className="pg-row-aside">
-                        <span className={`pg-pill pg-pill-${tone}`}>{pillLabel}</span>
-                        {r.status !== "IN_PROGRESS" && r.servedCount > 0 && (
-                          <Link
-                            to={`/sessions/${r.sessionId}/deep-dive`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="pg-btn pg-btn-subtle pg-btn-sm"
-                          >
-                            Deep-dive →
-                          </Link>
-                        )}
-                        {r.status === "IN_PROGRESS" && (
-                          <span className="pg-btn pg-btn-primary pg-btn-sm">
-                            Resume →
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
-
-        {section === "mock" && (
-          <>
-            {mocks === null ? (
-              <SkeletonRows count={3} />
-            ) : mocks.length === 0 ? (
-              <div className="pg-empty">
-                <div className="pg-empty-icon">🎓</div>
-                <h2 className="pg-empty-title">No mock tests yet</h2>
-                <p className="pg-empty-body">
-                  Mock tests simulate the real exam environment — timed,
-                  scored, and ranked against the cohort. Try your first one
-                  when you're ready.
-                </p>
-                <Link to="/mock-exam" className="pg-btn pg-btn-primary">
-                  Browse mock tests
-                </Link>
-              </div>
-            ) : (
-              <div className="pg-list">
-                {mocks.map((m) => {
-                  const pct =
-                    m.maxMarks > 0 ? Math.round((m.rawScore / m.maxMarks) * 100) : 0;
-                  const tone: "success" | "info" | "danger" =
-                    pct >= 70 ? "success" : pct >= 40 ? "info" : "danger";
-                  return (
-                    <div
-                      key={m.id}
-                      className="pg-row"
-                      onClick={() => navigate(`/mock/result?attemptId=${m.id}`)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          navigate(`/mock/result?attemptId=${m.id}`);
-                        }
-                      }}
-                      style={{ cursor: "pointer" }}
-                    >
-                      <div className="pg-row-main">
-                        <p className="pg-row-title">
-                          {m.examName ?? m.examCode}
-                        </p>
-                        <div className="pg-row-meta">
-                          <span>
-                            {m.nCorrect} correct · {m.nWrong} wrong · {m.nUnanswered} unanswered
-                          </span>
-                          {m.percentile !== null && (
-                            <>
-                              <span className="pg-row-meta-dot">·</span>
-                              <span>{m.percentile.toFixed(1)} percentile</span>
-                            </>
-                          )}
-                          {m.projectedRank && (
-                            <>
-                              <span className="pg-row-meta-dot">·</span>
-                              <span>AIR ~{m.projectedRank.toLocaleString()}</span>
-                            </>
-                          )}
-                          <span className="pg-row-meta-dot">·</span>
-                          <span>{relative(m.createdAt)}</span>
-                        </div>
-                      </div>
-                      <div className="pg-row-aside">
-                        <span className={`pg-pill pg-pill-${tone}`}>
-                          {m.rawScore}/{m.maxMarks} · {pct}%
-                        </span>
-                        <span className="pg-btn pg-btn-subtle pg-btn-sm">View →</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
+      <div
+        role="tablist"
+        style={{
+          display: "flex",
+          gap: 4,
+          borderBottom: "1px solid var(--rule)",
+          marginBottom: "var(--sp-4)",
+        }}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === "practice"}
+          onClick={() => setSection("practice")}
+          style={{
+            padding: "8px 16px",
+            fontWeight: section === "practice" ? 700 : 400,
+            fontSize: 14,
+            background: "none",
+            border: "none",
+            borderBottom:
+              section === "practice"
+                ? "2px solid var(--accent)"
+                : "2px solid transparent",
+            color: section === "practice" ? "var(--accent)" : "inherit",
+            cursor: "pointer",
+            marginBottom: -1,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          Practice
+          <span style={{ fontSize: 11, color: "var(--ink-3)" }}>{rows?.length ?? 0}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === "mock"}
+          onClick={() => setSection("mock")}
+          style={{
+            padding: "8px 16px",
+            fontWeight: section === "mock" ? 700 : 400,
+            fontSize: 14,
+            background: "none",
+            border: "none",
+            borderBottom:
+              section === "mock"
+                ? "2px solid var(--accent)"
+                : "2px solid transparent",
+            color: section === "mock" ? "var(--accent)" : "inherit",
+            cursor: "pointer",
+            marginBottom: -1,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          Mock tests
+          <span style={{ fontSize: 11, color: "var(--ink-3)" }}>{mocks?.length ?? 0}</span>
+        </button>
       </div>
-    </AppShell>
+
+      {error && (
+        <div
+          role="alert"
+          style={{
+            background: "var(--paper)",
+            border: "1px solid var(--bad)",
+            color: "var(--bad)",
+            borderRadius: 12,
+            padding: "10px 12px",
+            marginBottom: "var(--sp-3)",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {section === "practice" && (
+        <>
+          <div style={{ display: "flex", gap: 8, marginBottom: "var(--sp-3)", flexWrap: "wrap" }}>
+            {(["all", "submitted", "in-progress"] as StatusFilter[]).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setStatusFilter(f)}
+                className={
+                  statusFilter === f
+                    ? "vidya-shell__chip vidya-shell__chip--on"
+                    : "vidya-shell__chip"
+                }
+              >
+                {f === "in-progress" ? "In progress" : f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {filteredPractice === null ? (
+            <SkeletonRows count={5} />
+          ) : filteredPractice.length === 0 ? (
+            <section
+              style={{
+                textAlign: "center",
+                padding: "var(--sp-6) var(--sp-4)",
+                background: "var(--paper)",
+                border: "1px dashed var(--rule)",
+                borderRadius: 14,
+              }}
+            >
+              <div style={{ fontSize: 40, marginBottom: "var(--sp-3)" }}>📚</div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, marginBottom: "var(--sp-2)" }}>
+                {rows && rows.length === 0
+                  ? "No practice sessions yet"
+                  : "Nothing matches this filter"}
+              </h2>
+              <p style={{ fontSize: 14, color: "var(--ink-3)", maxWidth: 520, margin: "0 auto var(--sp-4)" }}>
+                {rows && rows.length === 0
+                  ? "Start your first practice run from the Practice tab — your sessions will show up here for review."
+                  : "Try switching the filter to 'All' to see everything."}
+              </p>
+              {rows && rows.length === 0 ? (
+                <Link to="/practice" className="vidya-shell__primary">
+                  Start a practice session
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="vidya-shell__chip"
+                  onClick={() => setStatusFilter("all")}
+                >
+                  Show all sessions
+                </button>
+              )}
+            </section>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
+              {filteredPractice.map((r) => {
+                const pct =
+                  r.servedCount > 0
+                    ? Math.round((r.correctCount / r.servedCount) * 100)
+                    : 0;
+                const tone: "warn" | "muted" | "success" | "info" | "danger" =
+                  r.status === "IN_PROGRESS"
+                    ? "warn"
+                    : r.status === "EXPIRED"
+                      ? "muted"
+                      : pct >= 80
+                        ? "success"
+                        : pct >= 50
+                          ? "info"
+                          : "danger";
+                const toneColor: Record<typeof tone, string> = {
+                  warn: "var(--warn)",
+                  muted: "var(--ink-3)",
+                  success: "var(--good)",
+                  info: "var(--info)",
+                  danger: "var(--bad)",
+                };
+                const title = topics.get(r.topicId) ?? `Topic #${r.topicId.slice(0, 8)}`;
+                const onClick = () => {
+                  if (r.status === "IN_PROGRESS") navigate(`/quiz/${r.sessionId}`);
+                  else navigate(`/quiz/${r.sessionId}/result`);
+                };
+                const pillLabel =
+                  r.status === "IN_PROGRESS"
+                    ? "In progress"
+                    : r.status === "EXPIRED"
+                      ? "Expired"
+                      : `${pct}%`;
+                return (
+                  <div
+                    key={r.sessionId}
+                    onClick={onClick}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onClick();
+                      }
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "var(--sp-3)",
+                      padding: "var(--sp-3) var(--sp-4)",
+                      background: "var(--paper)",
+                      border: "1px solid var(--rule)",
+                      borderRadius: 10,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>{title}</p>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--ink-3)",
+                          marginTop: 2,
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 4,
+                        }}
+                      >
+                        <span>{r.mode === "MOCK" ? "Mock" : "Practice"}</span>
+                        <span>·</span>
+                        <span>
+                          {r.correctCount} correct of {r.servedCount} answered
+                        </span>
+                        {r.targetCount > r.servedCount && r.status === "IN_PROGRESS" && (
+                          <>
+                            <span>·</span>
+                            <span style={{ color: "var(--warn)" }}>
+                              {r.targetCount - r.servedCount} remaining
+                            </span>
+                          </>
+                        )}
+                        <span>·</span>
+                        <span>{relative(r.startedAt)}</span>
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "var(--sp-2)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          background: toneColor[tone],
+                          color: "var(--paper)",
+                        }}
+                      >
+                        {pillLabel}
+                      </span>
+                      {r.status !== "IN_PROGRESS" && r.servedCount > 0 && (
+                        <Link
+                          to={`/sessions/${r.sessionId}/deep-dive`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="vidya-shell__chip"
+                        >
+                          Deep-dive →
+                        </Link>
+                      )}
+                      {r.status === "IN_PROGRESS" && (
+                        <span className="vidya-shell__primary">
+                          Resume →
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {section === "mock" && (
+        <>
+          {mocks === null ? (
+            <SkeletonRows count={3} />
+          ) : mocks.length === 0 ? (
+            <section
+              style={{
+                textAlign: "center",
+                padding: "var(--sp-6) var(--sp-4)",
+                background: "var(--paper)",
+                border: "1px dashed var(--rule)",
+                borderRadius: 14,
+              }}
+            >
+              <div style={{ fontSize: 40, marginBottom: "var(--sp-3)" }}>🎓</div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, marginBottom: "var(--sp-2)" }}>
+                No mock tests yet
+              </h2>
+              <p style={{ fontSize: 14, color: "var(--ink-3)", maxWidth: 520, margin: "0 auto var(--sp-4)" }}>
+                Mock tests simulate the real exam environment — timed,
+                scored, and ranked against the cohort. Try your first one
+                when you're ready.
+              </p>
+              <Link to="/mock-exam" className="vidya-shell__primary">
+                Browse mock tests
+              </Link>
+            </section>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
+              {mocks.map((m) => {
+                const pct =
+                  m.maxMarks > 0 ? Math.round((m.rawScore / m.maxMarks) * 100) : 0;
+                const tone: "success" | "info" | "danger" =
+                  pct >= 70 ? "success" : pct >= 40 ? "info" : "danger";
+                const toneColor: Record<typeof tone, string> = {
+                  success: "var(--good)",
+                  info: "var(--info)",
+                  danger: "var(--bad)",
+                };
+                return (
+                  <div
+                    key={m.id}
+                    onClick={() => navigate(`/mock/result?attemptId=${m.id}`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(`/mock/result?attemptId=${m.id}`);
+                      }
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "var(--sp-3)",
+                      padding: "var(--sp-3) var(--sp-4)",
+                      background: "var(--paper)",
+                      border: "1px solid var(--rule)",
+                      borderRadius: 10,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>
+                        {m.examName ?? m.examCode}
+                      </p>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--ink-3)",
+                          marginTop: 2,
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 4,
+                        }}
+                      >
+                        <span>
+                          {m.nCorrect} correct · {m.nWrong} wrong · {m.nUnanswered} unanswered
+                        </span>
+                        {m.percentile !== null && (
+                          <>
+                            <span>·</span>
+                            <span>{m.percentile.toFixed(1)} percentile</span>
+                          </>
+                        )}
+                        {m.projectedRank && (
+                          <>
+                            <span>·</span>
+                            <span>AIR ~{m.projectedRank.toLocaleString()}</span>
+                          </>
+                        )}
+                        <span>·</span>
+                        <span>{relative(m.createdAt)}</span>
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "var(--sp-2)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          background: toneColor[tone],
+                          color: "var(--paper)",
+                        }}
+                      >
+                        {m.rawScore}/{m.maxMarks} · {pct}%
+                      </span>
+                      <span className="vidya-shell__chip">View →</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </VidyaShell>
   );
 }
 
