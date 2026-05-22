@@ -7,6 +7,23 @@
 // mirror, no-blueprint path). When ?blueprintId= is absent but ?exam= is
 // present the component falls back to the /adaptive/mock/plan → /adaptive/mock/score
 // flow. OMR palette + section tabs gracefully degrade (hidden) in that mode.
+//
+// Vidya v1 redesign — outer chrome is VidyaShell (crumbs + exam-name title +
+// section/status subtitle). The page renders 8 distinct shell returns across
+// two sub-players:
+//   MockTestFallback (no-blueprint path):
+//     1. error    — "Mock test" / "Something went wrong" (Banner)
+//     2. building — "Mock test" / "Building your mock paper…"
+//     3. main     — `${examName}` / `Section: ${sectionForIdx}` (timer + nav)
+//   MockExamInner (blueprint path):
+//     4. !blueprintId — "Mock exam" / missing-param Banner
+//     5. error        — "Mock exam" / error Banner
+//     6. !acceptedRules — pre-start landing with instructions + Start CTA
+//     7. !session     — "Composing your paper…"
+//     8. main         — `${blueprintName}` / progress + timer + palette
+// pg-* legacy classes are dropped in favour of Vidya tokens; inner question-
+// card composition (custom `card`/`btn-*`/`pill-*`) in the fallback path is
+// preserved verbatim per the migration rules.
 
 import { Component, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -14,7 +31,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { Banner } from "../components/dashboard";
 import { QuestionRenderer } from "../components/renderers";
 import {
@@ -219,18 +236,38 @@ function MockTestFallback({ examCode }: { examCode: string }) {
 
   if (error) {
     return (
-      <AppShell title="Mock Test">
-        <div className="card" style={{ padding: 20, color: "var(--bad)" }}>{error}</div>
-      </AppShell>
+      <VidyaShell
+        crumbs="PRACTICE · MOCK"
+        title="Mock test"
+        subtitle="Something went wrong while building this mock."
+      >
+        <div
+          role="alert"
+          style={{
+            padding: "var(--sp-3) var(--sp-4)",
+            marginBottom: "var(--sp-4)",
+            background: "var(--bad)",
+            color: "var(--paper)",
+            borderRadius: 8,
+            fontSize: 13,
+          }}
+        >
+          {error}
+        </div>
+      </VidyaShell>
     );
   }
   if (!plan || !current) {
     return (
-      <AppShell title="Mock Test">
+      <VidyaShell
+        crumbs="PRACTICE · MOCK"
+        title="Mock test"
+        subtitle="Building your mock paper…"
+      >
         <div className="card" style={{ padding: 20, color: "var(--ink-3)" }}>
           Building your mock paper…
         </div>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
@@ -240,7 +277,11 @@ function MockTestFallback({ examCode }: { examCode: string }) {
   const timerLow = remaining < 60;
 
   return (
-    <AppShell title={`${plan.examName} · ${sectionForIdx}`}>
+    <VidyaShell
+      crumbs="PRACTICE · MOCK · IN PROGRESS"
+      title={plan.examName}
+      subtitle={`Section: ${sectionForIdx}`}
+    >
       {/* Timer + progress */}
       <div
         style={{
@@ -397,7 +438,7 @@ function MockTestFallback({ examCode }: { examCode: string }) {
           </button>
         )}
       </div>
-    </AppShell>
+    </VidyaShell>
   );
 }
 
@@ -652,24 +693,32 @@ function MockExamInner({ blueprintId }: { blueprintId: string }) {
 
   if (!blueprintId) {
     return (
-      <AppShell title="Mock exam">
-        <div className="pg-shell" style={{ maxWidth: 720 }}>
+      <VidyaShell
+        crumbs="PRACTICE · MOCK"
+        title="Mock exam"
+        subtitle="Missing blueprint parameter."
+      >
+        <div style={{ maxWidth: 720 }}>
           <Banner tone="danger">
             Missing ?blueprintId= query parameter. To start a quick mock without a
             blueprint, use ?exam=&lt;code&gt; instead (e.g. ?exam=NEET).
           </Banner>
         </div>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
   if (error) {
     return (
-      <AppShell title="Mock exam">
-        <div className="pg-shell" style={{ maxWidth: 720 }}>
+      <VidyaShell
+        crumbs="PRACTICE · MOCK"
+        title="Mock exam"
+        subtitle="Something went wrong."
+      >
+        <div style={{ maxWidth: 720 }}>
           <Banner tone="danger">{error}</Banner>
         </div>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
@@ -702,20 +751,16 @@ function MockExamInner({ blueprintId }: { blueprintId: string }) {
       },
     ];
     return (
-      <AppShell title="Mock exam">
-        <div className="pg-shell" style={{ maxWidth: 820 }}>
-          <header className="pg-header">
-            <div className="pg-header-main">
-              <h1 className="pg-header-title">You're about to start a timed mock</h1>
-              <p className="pg-header-sub">
-                Read the rules below, then tap Start when you're ready. The
-                clock starts the moment you accept.
-              </p>
+      <VidyaShell
+        crumbs="PRACTICE · MOCK"
+        title="You're about to start a timed mock"
+        subtitle="Read the rules below, then tap Start when you're ready. The clock starts the moment you accept."
+      >
+        <div style={{ maxWidth: 820 }}>
+          <section className="vidya-card-block">
+            <div className="vidya-card-block__head">
+              <h3 className="vidya-card-block__title">Before you begin</h3>
             </div>
-          </header>
-
-          <section className="pg-section">
-            <h2 className="pg-section-title">Before you begin</h2>
             <div
               style={{
                 display: "grid",
@@ -759,14 +804,14 @@ function MockExamInner({ blueprintId }: { blueprintId: string }) {
           >
             <button
               type="button"
-              className="pg-btn pg-btn-ghost"
+              className="vidya-shell__chip"
               onClick={() => window.history.back()}
             >
               ← Back
             </button>
             <button
               type="button"
-              className="pg-btn pg-btn-primary"
+              className="vidya-shell__primary"
               onClick={() => setAcceptedRules(true)}
               style={{ minWidth: 220 }}
             >
@@ -774,22 +819,26 @@ function MockExamInner({ blueprintId }: { blueprintId: string }) {
             </button>
           </div>
         </div>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
   if (!session) {
     return (
-      <AppShell title="Mock exam">
-        <div className="pg-shell" style={{ maxWidth: 720 }}>
-          <div
-            className="pg-section"
+      <VidyaShell
+        crumbs="PRACTICE · MOCK"
+        title="Mock exam"
+        subtitle="Composing your paper…"
+      >
+        <div style={{ maxWidth: 720 }}>
+          <section
+            className="vidya-card-block"
             style={{ minHeight: 200, opacity: 0.7, textAlign: "center" }}
           >
             Composing your paper…
-          </div>
+          </section>
         </div>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
@@ -801,8 +850,12 @@ function MockExamInner({ blueprintId }: { blueprintId: string }) {
     !current?.questionType || current.questionType === "MCQ_SINGLE";
 
   return (
-    <AppShell title={session.blueprintName}>
-      <div className="pg-shell" style={{ maxWidth: 1280 }}>
+    <VidyaShell
+      crumbs="PRACTICE · MOCK · IN PROGRESS"
+      title={session.blueprintName}
+      subtitle={`${answeredCount} of ${totalCount} answered · ${formatRemaining(remaining)} remaining`}
+    >
+      <div style={{ maxWidth: 1280 }}>
         {/* Sticky timer + progress bar */}
         <div
           style={{
@@ -860,7 +913,16 @@ function MockExamInner({ blueprintId }: { blueprintId: string }) {
         )}
 
         {/* Section tabs */}
-        <div className="pg-tabs" role="tablist" style={{ marginBottom: 16, overflowX: "auto" }}>
+        <div
+          role="tablist"
+          style={{
+            display: "flex",
+            gap: "var(--sp-2)",
+            flexWrap: "wrap",
+            marginBottom: "var(--sp-4)",
+            overflowX: "auto",
+          }}
+        >
           {totals.map((t) => {
             const firstIdx = firstIdxOfSection(items, t.sectionId);
             const active = current?.sectionId === t.sectionId;
@@ -868,7 +930,7 @@ function MockExamInner({ blueprintId }: { blueprintId: string }) {
               <button
                 key={t.sectionId}
                 type="button"
-                className={"pg-tab" + (active ? " pg-tab-active" : "")}
+                className={`vidya-shell__chip${active ? " vidya-shell__chip--on" : ""}`}
                 onClick={() => firstIdx >= 0 && gotoIdx(firstIdx)}
                 disabled={firstIdx < 0}
                 style={{ whiteSpace: "nowrap" }}
@@ -900,7 +962,7 @@ function MockExamInner({ blueprintId }: { blueprintId: string }) {
           }}
         >
           {current ? (
-            <section className="pg-section">
+            <section className="vidya-card-block">
               <div
                 style={{
                   display: "flex",
@@ -928,7 +990,7 @@ function MockExamInner({ blueprintId }: { blueprintId: string }) {
                 </div>
                 <button
                   type="button"
-                  className="pg-btn pg-btn-ghost"
+                  className="vidya-shell__chip"
                   onClick={toggleMark}
                   style={{
                     color: marked.has(current.questionId)
@@ -1038,18 +1100,18 @@ function MockExamInner({ blueprintId }: { blueprintId: string }) {
               >
                 <button
                   type="button"
-                  className="pg-btn pg-btn-ghost"
+                  className="vidya-shell__chip"
                   onClick={() => gotoIdx(currentIdx - 1)}
                   disabled={currentIdx === 0}
                 >
                   ← Previous
                 </button>
-                <button type="button" className="pg-btn pg-btn-primary" onClick={next}>
+                <button type="button" className="vidya-shell__primary" onClick={next}>
                   Save & Next →
                 </button>
                 <button
                   type="button"
-                  className="pg-btn pg-btn-primary"
+                  className="vidya-shell__primary"
                   onClick={submit}
                   disabled={submitting}
                   style={{ marginLeft: "auto", background: "var(--good, #10C47A)" }}
@@ -1060,7 +1122,7 @@ function MockExamInner({ blueprintId }: { blueprintId: string }) {
             </section>
           ) : (
             <section
-              className="pg-section"
+              className="vidya-card-block"
               style={{ minHeight: 300, opacity: 0.6, textAlign: "center", paddingTop: 80 }}
             >
               Loading first question…
@@ -1160,17 +1222,28 @@ function MockExamInner({ blueprintId }: { blueprintId: string }) {
 
         {/* Flagged queue (only when something's flagged) */}
         {reviewQueue.length > 0 && (
-          <section className="pg-section">
-            <h2 className="pg-section-title">
-              Flagged for review
-              <span className="pg-section-title-sub">{reviewQueue.length}</span>
-            </h2>
+          <section className="vidya-card-block">
+            <div className="vidya-card-block__head">
+              <h3 className="vidya-card-block__title">
+                Flagged for review
+                <span
+                  style={{
+                    marginLeft: "var(--sp-2)",
+                    fontSize: 12,
+                    color: "var(--ink-3)",
+                    fontWeight: 500,
+                  }}
+                >
+                  {reviewQueue.length}
+                </span>
+              </h3>
+            </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {reviewQueue.map((q) => (
                 <button
                   key={q.questionId}
                   type="button"
-                  className="pg-chip"
+                  className="vidya-shell__chip"
                   onClick={() => gotoIdx(items.findIndex((i) => i.questionId === q.questionId))}
                 >
                   🚩 Q{q.itemIdx + 1}
@@ -1181,7 +1254,7 @@ function MockExamInner({ blueprintId }: { blueprintId: string }) {
           </section>
         )}
       </div>
-    </AppShell>
+    </VidyaShell>
   );
 }
 
