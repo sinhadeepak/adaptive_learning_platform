@@ -1,16 +1,18 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { auth } from "../lib/api";
-import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
-import { Banner, Pill, SkeletonRows } from "../components/dashboard";
-
+// Inbox — Vidya v1 redesign.
+//
 // In-app notification inbox. Sources from notification service:
 //   GET /notifications/inbox/{userId}     — list + unreadCount
 //   POST /notifications/{id}/read         — mark single
 //   POST /notifications/inbox/{userId}/mark-all-read — bulk
 // Backend `read_at` is the source of truth so unread state is consistent
 // across web + mobile. No localStorage shadow.
+
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { auth } from "../lib/api";
+import { useAuth } from "../lib/auth-provider";
+import { VidyaShell } from "../components/vidya/VidyaShell";
+import { Pill, SkeletonRows } from "../components/dashboard";
 
 interface NotificationItem {
   id: string;
@@ -84,52 +86,54 @@ export function Inbox() {
     }
   }
 
-  return (
-    <AppShell title={`Inbox${unread > 0 ? ` · ${unread} unread` : ""}`}>
-      {error ? <Banner tone="danger" role="alert">{error}</Banner> : null}
+  const chips = (
+    <>
+      {(["all", "unread"] as const).map((f) => (
+        <button
+          key={f}
+          type="button"
+          className={`vidya-shell__chip${filter === f ? " vidya-shell__chip--on" : ""}`}
+          onClick={() => setFilter(f)}
+        >
+          {f === "unread" ? `Unread${unread > 0 ? ` (${unread})` : ""}` : "All"}
+        </button>
+      ))}
+    </>
+  );
 
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          marginBottom: "var(--sp-3)",
-          flexWrap: "wrap",
-        }}
-      >
-        {(["all", "unread"] as const).map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => setFilter(f)}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 999,
-              border: `1px solid ${filter === f ? "var(--info)" : "var(--rule)"}`,
-              background: filter === f ? "var(--info)" : "transparent",
-              color: filter === f ? "#fff" : "var(--ink)",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              textTransform: "capitalize",
-            }}
-          >
-            {f === "unread" ? `Unread${unread > 0 ? ` (${unread})` : ""}` : "All"}
-          </button>
-        ))}
-        <span style={{ flex: 1 }} />
-        {unread > 0 ? (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={markAll}
-            disabled={busy}
-          >
-            {busy ? "Marking…" : "Mark all read"}
-          </button>
-        ) : null}
-      </div>
+  const actions = unread > 0 ? (
+    <button
+      type="button"
+      className="vidya-shell__primary"
+      onClick={markAll}
+      disabled={busy}
+    >
+      {busy ? "Marking…" : "Mark all read"}
+    </button>
+  ) : null;
+
+  return (
+    <VidyaShell
+      crumbs="ME · INBOX"
+      title="Inbox"
+      subtitle="Updates, alerts, and reminders."
+      chips={chips}
+      actions={actions}
+    >
+      {error ? (
+        <div
+          role="alert"
+          style={{
+            background: "var(--bad)",
+            color: "var(--paper)",
+            padding: "var(--sp-3)",
+            borderRadius: "var(--radius-2)",
+            margin: "0 0 var(--sp-3) 0",
+          }}
+        >
+          {error}
+        </div>
+      ) : null}
 
       {items === null ? (
         <SkeletonRows count={4} />
@@ -233,7 +237,7 @@ export function Inbox() {
           })}
         </ol>
       )}
-    </AppShell>
+    </VidyaShell>
   );
 }
 
