@@ -1,10 +1,14 @@
-// Phase 1D-3 — AI tutor chat history (list + transcript view).
+// TutorChatHistory — Vidya v1 redesign.
+//
+// AI tutor chat history (list + transcript view). Layout: VidyaShell
+// (crumbs + title + subtitle + back action) → search input + session
+// list, with a sibling transcript route for the per-session detail.
 
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface SessionSummary {
   id: string;
@@ -56,65 +60,74 @@ export function TutorChatHistory() {
     };
   }, [user, q]);
 
+  const backAction = (
+    <Link
+      to="/experts"
+      className="vidya-shell__chip"
+      style={{ textDecoration: "none" }}
+    >
+      ← Experts
+    </Link>
+  );
+
   return (
-    <AppShell title="Tutor history">
-      <main className="page" style={{ padding: 24, maxWidth: 900 }}>
-        <h1 style={{ marginTop: 0 }}>AI tutor history</h1>
+    <VidyaShell
+      crumbs="LEARN · AI TUTOR · HISTORY"
+      title="Chat history"
+      subtitle="Your past conversations with the AI tutor."
+      actions={backAction}
+    >
+      <input
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search by topic, keyword…"
+        style={{
+          padding: "10px 14px",
+          width: "100%",
+          maxWidth: 480,
+          background: "var(--paper-2)",
+          color: "var(--ink)",
+          border: "1px solid var(--rule)",
+          borderRadius: 8,
+          fontSize: 14,
+          marginBottom: 16,
+        }}
+      />
+      {!loaded && <p>Loading…</p>}
+      {loaded && sessions.length === 0 && (
         <p style={{ color: "var(--ink-3)" }}>
-          Search past conversations with your AI tutor.
+          No past chats. Start one from any topic page.
         </p>
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by topic, keyword…"
-          style={{
-            padding: "10px 14px",
-            width: "100%",
-            maxWidth: 480,
-            background: "var(--paper-2)",
-            color: "var(--ink)",
-            border: "1px solid var(--rule)",
-            borderRadius: 8,
-            fontSize: 14,
-            marginBottom: 16,
-          }}
-        />
-        {!loaded && <p>Loading…</p>}
-        {loaded && sessions.length === 0 && (
-          <p style={{ color: "var(--ink-3)" }}>
-            No past chats. Start one from any topic page.
-          </p>
-        )}
-        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {sessions.map((s) => (
-            <li
-              key={s.id}
-              style={{
-                padding: "12px 14px",
-                marginBottom: 8,
-                background: "var(--paper-2)",
-                border: "1px solid var(--rule)",
-                borderRadius: 8,
-              }}
+      )}
+      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+        {sessions.map((s) => (
+          <li
+            key={s.id}
+            style={{
+              padding: "12px 14px",
+              marginBottom: 8,
+              background: "var(--paper-2)",
+              border: "1px solid var(--rule)",
+              borderRadius: 8,
+            }}
+          >
+            <Link
+              to={`/tutor-history/${s.id}`}
+              style={{ color: "var(--ink)", textDecoration: "none" }}
             >
-              <Link
-                to={`/tutor-history/${s.id}`}
-                style={{ color: "var(--ink)", textDecoration: "none" }}
-              >
-                <div style={{ fontSize: 14, fontWeight: 600 }}>
-                  {s.title ?? "(untitled chat)"}
-                </div>
-                <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>
-                  {s.msgCount} message{s.msgCount === 1 ? "" : "s"} · last{" "}
-                  {new Date(s.lastMsgAt).toLocaleString()}
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </main>
-    </AppShell>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>
+                {s.title ?? "(untitled chat)"}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>
+                {s.msgCount} message{s.msgCount === 1 ? "" : "s"} · last{" "}
+                {new Date(s.lastMsgAt).toLocaleString()}
+              </div>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </VidyaShell>
   );
 }
 
@@ -139,60 +152,80 @@ export function TutorChatTranscript() {
     };
   }, [sessionId]);
 
-  if (!loaded) return <AppShell title="Tutor chat">Loading…</AppShell>;
-  if (!transcript)
+  const backAction = (
+    <Link
+      to="/tutor-history"
+      className="vidya-shell__chip"
+      style={{ textDecoration: "none" }}
+    >
+      ← History
+    </Link>
+  );
+
+  if (!loaded) {
     return (
-      <AppShell title="Tutor chat">
-        <main className="page" style={{ padding: 24 }}>
-          <p>Chat not found.</p>
-          <Link to="/tutor-history">← Back</Link>
-        </main>
-      </AppShell>
+      <VidyaShell
+        crumbs="LEARN · AI TUTOR · CHAT"
+        title="Tutor chat"
+        actions={backAction}
+      >
+        Loading…
+      </VidyaShell>
     );
+  }
+  if (!transcript) {
+    return (
+      <VidyaShell
+        crumbs="LEARN · AI TUTOR · CHAT"
+        title="Tutor chat"
+        actions={backAction}
+      >
+        <p>Chat not found.</p>
+      </VidyaShell>
+    );
+  }
+
+  const title = transcript.title ?? "Untitled chat";
+  const subtitle = `Started ${new Date(transcript.startedAt).toLocaleString()} · ${transcript.msgCount} messages`;
 
   return (
-    <AppShell title={transcript.title ?? "Tutor chat"}>
-      <main className="page" style={{ padding: 24, maxWidth: 800 }}>
-        <Link to="/tutor-history" style={{ color: "var(--ink-3)", fontSize: 12 }}>
-          ← Back to history
-        </Link>
-        <h1 style={{ marginTop: 8 }}>{transcript.title ?? "Untitled chat"}</h1>
-        <p style={{ fontSize: 12, color: "var(--ink-3)" }}>
-          Started {new Date(transcript.startedAt).toLocaleString()} ·{" "}
-          {transcript.msgCount} messages
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
-          {transcript.messages.map((m) => (
+    <VidyaShell
+      crumbs="LEARN · AI TUTOR · CHAT"
+      title={title}
+      subtitle={subtitle}
+      actions={backAction}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
+        {transcript.messages.map((m) => (
+          <div
+            key={m.idx}
+            style={{
+              padding: 12,
+              background:
+                m.role === "user"
+                  ? "var(--card, #1f1f1f)"
+                  : "var(--paper-2, #262626)",
+              border: "1px solid var(--rule)",
+              borderLeft: `3px solid ${m.role === "user" ? "var(--info, #4F87F6)" : "var(--gold, #A78BFA)"}`,
+              borderRadius: 6,
+            }}
+          >
             <div
-              key={m.idx}
               style={{
-                padding: 12,
-                background:
-                  m.role === "user"
-                    ? "var(--card, #1f1f1f)"
-                    : "var(--paper-2, #262626)",
-                border: "1px solid var(--rule)",
-                borderLeft: `3px solid ${m.role === "user" ? "var(--info, #4F87F6)" : "var(--gold, #A78BFA)"}`,
-                borderRadius: 6,
+                fontSize: 11,
+                color: "var(--ink-3)",
+                textTransform: "uppercase",
+                marginBottom: 6,
               }}
             >
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--ink-3)",
-                  textTransform: "uppercase",
-                  marginBottom: 6,
-                }}
-              >
-                {m.role}
-              </div>
-              <div style={{ whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.5 }}>
-                {m.contentMd}
-              </div>
+              {m.role}
             </div>
-          ))}
-        </div>
-      </main>
-    </AppShell>
+            <div style={{ whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.5 }}>
+              {m.contentMd}
+            </div>
+          </div>
+        ))}
+      </div>
+    </VidyaShell>
   );
 }
