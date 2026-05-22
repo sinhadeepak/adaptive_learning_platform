@@ -1,15 +1,16 @@
-// MyBookings — production-grade redesign (2026-05-11).
+// MyBookings — Vidya v1 redesign.
 //
-// Layout: pg-shell → pg-header → pg-tabs (Upcoming / Past / Cancelled)
-// → pg-list of richer cards. Each card surfaces tutor name + avatar
-// (fetched lazily from marketplace.getTutor), formatted slot time,
-// duration, price, status, and a prominent "Join session" / "Cancel"
-// action where appropriate.
+// Layout: VidyaShell (crumbs + title + subtitle + Upcoming/Past/Cancelled
+// tabs in chips + Book-a-tutor primary action) → vertical list of
+// vidya-card-block rows. Each row: tutor avatar + name + slot meta +
+// status chip (toned per booking state) + contextual action (Join /
+// Cancel / Rate).
 
+import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { type Booking, marketplace } from "../lib/api";
 
 interface TutorInfo {
@@ -35,6 +36,17 @@ function tintFor(seed: string): string {
   let h = 0;
   for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return AVATAR_TINTS[h % AVATAR_TINTS.length];
+}
+
+function statusChipStyle(tone: "success" | "info" | "warn" | "danger" | "muted"): CSSProperties {
+  const tones = {
+    success: { background: "var(--good-soft)", color: "var(--good)" },
+    info:    { background: "var(--info-soft)", color: "var(--info)" },
+    warn:    { background: "var(--warn-soft)", color: "var(--warn)" },
+    danger:  { background: "var(--bad-soft)",  color: "var(--bad)"  },
+    muted:   { background: "var(--paper-2)",   color: "var(--ink-3)" },
+  };
+  return tones[tone];
 }
 
 const STATUS_INFO: Record<
@@ -168,161 +180,199 @@ export function MyBookings() {
   const visible = grouped[tab];
 
   return (
-    <AppShell title="My bookings">
-      <div className="pg-shell">
-        <header className="pg-header">
-          <div className="pg-header-main">
-            <h1 className="pg-header-title">My bookings</h1>
-            <p className="pg-header-sub">
-              Your scheduled 1:1 tutor sessions. Join live sessions directly
-              from this page; cancellations up to 24h before the slot are
-              fully refundable.
-            </p>
-          </div>
-          <div className="pg-header-actions">
-            <Link to="/tutors" className="pg-btn pg-btn-primary">
-              ＋ Book a tutor
-            </Link>
-          </div>
-        </header>
-
-        <div className="pg-tabs" role="tablist">
+    <VidyaShell
+      crumbs="MARKETPLACE · MY BOOKINGS"
+      title="My bookings"
+      subtitle="Your scheduled 1:1 tutor sessions. Join live sessions directly from this page; cancellations up to 24h before the slot are fully refundable."
+      chips={
+        <>
           {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
             <button
               key={t}
               type="button"
               role="tab"
               aria-selected={tab === t}
-              className={`pg-tab${tab === t ? " on" : ""}`}
+              className={`vidya-shell__chip${tab === t ? " vidya-shell__chip--on" : ""}`}
               onClick={() => setTab(t)}
             >
-              {TAB_LABELS[t]}
-              <span className="pg-tab-count">{grouped[t].length}</span>
+              {TAB_LABELS[t]} · {grouped[t].length}
             </button>
           ))}
+        </>
+      }
+      actions={
+        <Link to="/tutors" className="vidya-shell__primary">
+          ＋ Book a tutor
+        </Link>
+      }
+    >
+      {error && (
+        <p
+          role="alert"
+          style={{
+            background: "var(--bad)",
+            color: "var(--paper)",
+            padding: "var(--sp-3)",
+            borderRadius: "var(--radius-2)",
+            margin: 0,
+          }}
+        >
+          {error}
+        </p>
+      )}
+
+      {bookings === null && !error && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="vidya-card-block"
+              style={{ opacity: 0.5, minHeight: 80 }}
+              aria-hidden
+            />
+          ))}
         </div>
+      )}
 
-        {error && <p className="banner banner-error">{error}</p>}
-
-        {bookings === null && !error && (
-          <div className="pg-list">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="pg-row" style={{ opacity: 0.5, minHeight: 80 }} aria-hidden />
-            ))}
+      {bookings !== null && visible.length === 0 && (
+        <section
+          className="vidya-card-block"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "var(--sp-3)",
+            padding: "var(--sp-5)",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ fontSize: 40 }} aria-hidden>
+            {tab === "upcoming" ? "📅" : tab === "past" ? "✓" : "✕"}
           </div>
-        )}
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--ink)" }}>
+            {tab === "upcoming"
+              ? "No upcoming sessions"
+              : tab === "past"
+                ? "No past sessions yet"
+                : "No cancellations"}
+          </h2>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--ink-2)", maxWidth: 480 }}>
+            {tab === "upcoming"
+              ? "Book a tutor to start a 1:1 session. Slots are available across all subjects."
+              : tab === "past"
+                ? "Your completed sessions will appear here for review."
+                : "Cancelled and no-show bookings will appear here."}
+          </p>
+          {tab === "upcoming" && (
+            <Link to="/tutors" className="vidya-shell__primary">
+              Browse tutors
+            </Link>
+          )}
+        </section>
+      )}
 
-        {bookings !== null && visible.length === 0 && (
-          <div className="pg-empty">
-            <div className="pg-empty-icon">
-              {tab === "upcoming" ? "📅" : tab === "past" ? "✓" : "✕"}
-            </div>
-            <h2 className="pg-empty-title">
-              {tab === "upcoming"
-                ? "No upcoming sessions"
-                : tab === "past"
-                  ? "No past sessions yet"
-                  : "No cancellations"}
-            </h2>
-            <p className="pg-empty-body">
-              {tab === "upcoming"
-                ? "Book a tutor to start a 1:1 session. Slots are available across all subjects."
-                : tab === "past"
-                  ? "Your completed sessions will appear here for review."
-                  : "Cancelled and no-show bookings will appear here."}
-            </p>
-            {tab === "upcoming" && (
-              <Link to="/tutors" className="pg-btn pg-btn-primary">
-                Browse tutors
-              </Link>
-            )}
-          </div>
-        )}
-
-        {bookings !== null && visible.length > 0 && (
-          <div className="pg-list">
-            {visible.map((b) => {
-              const slot = formatSlot(b.slotStart);
-              const dur = durationMinutes(b.slotStart, b.slotEnd);
-              const status = STATUS_INFO[b.status];
-              const tutor = tutors[b.tutorUserId];
-              const tutorName = tutor?.displayName ?? "Tutor";
-              const cd = b.status === "CONFIRMED" || b.status === "PENDING_PAYMENT"
-                ? countdown(b.slotStart)
-                : null;
-              const canJoin = b.status === "IN_PROGRESS" && b.dailyRoomUrl;
-              const canCancel =
-                b.status === "PENDING_PAYMENT" || b.status === "CONFIRMED";
-              return (
-                <div key={b.id} className="pg-row">
-                  <div
-                    className="pg-avatar pg-avatar-lg"
-                    style={{ background: tintFor(b.tutorUserId) }}
-                    aria-hidden
-                  >
-                    {initialFor(tutorName)}
-                  </div>
-                  <div className="pg-row-main">
-                    <p className="pg-row-title">
-                      {tutorName}
-                      <span style={{ fontWeight: 500, color: "var(--ink-3)", marginLeft: 8 }}>
-                        · {dur} min
-                      </span>
-                    </p>
-                    <div className="pg-row-meta">
-                      <span>📅 {slot.date}</span>
-                      <span className="pg-row-meta-dot">·</span>
-                      <span>🕒 {slot.time}</span>
-                      <span className="pg-row-meta-dot">·</span>
-                      <span>{paiseToRupees(b.pricePaise)}</span>
-                      {cd && (
-                        <>
-                          <span className="pg-row-meta-dot">·</span>
-                          <span style={{ color: "var(--info)", fontWeight: 600 }}>
-                            ⏱ {cd}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div className="pg-row-aside">
-                    <span className={`pg-pill pg-pill-${status.tone}`}>
-                      {status.label}
+      {bookings !== null && visible.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
+          {visible.map((b) => {
+            const slot = formatSlot(b.slotStart);
+            const dur = durationMinutes(b.slotStart, b.slotEnd);
+            const status = STATUS_INFO[b.status];
+            const tutor = tutors[b.tutorUserId];
+            const tutorName = tutor?.displayName ?? "Tutor";
+            const cd = b.status === "CONFIRMED" || b.status === "PENDING_PAYMENT"
+              ? countdown(b.slotStart)
+              : null;
+            const canJoin = b.status === "IN_PROGRESS" && b.dailyRoomUrl;
+            const canCancel =
+              b.status === "PENDING_PAYMENT" || b.status === "CONFIRMED";
+            return (
+              <div
+                key={b.id}
+                className="vidya-card-block"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "var(--sp-3)",
+                }}
+              >
+                <div
+                  aria-hidden
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: "9999px",
+                    background: tintFor(b.tutorUserId),
+                    color: "#fff",
+                    fontSize: 22,
+                    fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  {initialFor(tutorName)}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
+                    {tutorName}
+                    <span style={{ fontWeight: 500, color: "var(--ink-3)", marginLeft: 8 }}>
+                      · {dur} min
                     </span>
-                    {canJoin && (
-                      <a
-                        href={b.dailyRoomUrl!}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="pg-btn pg-btn-primary"
-                      >
-                        Join now →
-                      </a>
-                    )}
-                    {canCancel && !canJoin && (
-                      <button
-                        type="button"
-                        className="pg-btn pg-btn-ghost pg-btn-sm"
-                        onClick={() => cancel(b)}
-                      >
-                        Cancel
-                      </button>
-                    )}
-                    {b.status === "COMPLETED" && (
-                      <Link
-                        to={`/bookings/${b.id}/rate`}
-                        className="pg-btn pg-btn-subtle pg-btn-sm"
-                      >
-                        Rate tutor
-                      </Link>
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4, fontSize: 12, color: "var(--ink-2)" }}>
+                    <span>📅 {slot.date}</span>
+                    <span style={{ color: "var(--ink-4)" }}>·</span>
+                    <span>🕒 {slot.time}</span>
+                    <span style={{ color: "var(--ink-4)" }}>·</span>
+                    <span>{paiseToRupees(b.pricePaise)}</span>
+                    {cd && (
+                      <>
+                        <span style={{ color: "var(--ink-4)" }}>·</span>
+                        <span style={{ color: "var(--info)", fontWeight: 600 }}>⏱ {cd}</span>
+                      </>
                     )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </AppShell>
+                <div style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-end",
+                  gap: "var(--sp-2)",
+                  flexShrink: 0,
+                }}>
+                  <span
+                    className="vidya-shell__chip"
+                    style={statusChipStyle(status.tone)}
+                  >
+                    {status.label}
+                  </span>
+                  {canJoin && (
+                    <a
+                      href={b.dailyRoomUrl!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="vidya-shell__primary"
+                    >
+                      Join now →
+                    </a>
+                  )}
+                  {canCancel && !canJoin && (
+                    <button type="button" className="vidya-shell__chip" onClick={() => cancel(b)}>
+                      Cancel
+                    </button>
+                  )}
+                  {b.status === "COMPLETED" && (
+                    <Link to={`/bookings/${b.id}/rate`} className="vidya-shell__chip">
+                      Rate tutor
+                    </Link>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </VidyaShell>
   );
 }
