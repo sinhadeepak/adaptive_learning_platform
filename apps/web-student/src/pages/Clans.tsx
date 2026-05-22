@@ -1,4 +1,4 @@
-// Clans — Aurora redesign (F8b).
+// Clans — Vidya v1 redesign.
 //
 // Spec: docs/02-design/redesign/clans.md
 // ADR:  docs/adr/0028-design-system-v2-aurora.md (S7 deliverable)
@@ -17,8 +17,7 @@ import {
   Input,
   Tag,
 } from "@alp/ui";
-import { AppShell } from "../components/AppShell";
-import { Banner } from "../components/dashboard";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { social } from "../lib/social";
 import { useAuth } from "../lib/auth-provider";
 
@@ -121,33 +120,31 @@ export function Clans() {
   const authReady = !authLoading && !!user;
 
   return (
-    <AppShell
+    <VidyaShell
+      crumbs="COMPETE · CLANS"
       title="Clans"
+      subtitle="Study groups with shared goals — join one or start your own."
       actions={
-        <Link to="/leaderboards" style={{ textDecoration: "none" }}>
-          <Button variant="ghost" size="sm">Leaderboards →</Button>
+        <Link to="/leaderboards" className="vidya-shell__chip">
+          Leaderboards →
         </Link>
       }
     >
-      {error ? <Banner tone="danger">{error}</Banner> : null}
-
-      <header style={{ marginBottom: 20 }}>
-        <h1
+      {error ? (
+        <div
+          role="alert"
           style={{
-            margin: 0,
-            fontSize: "var(--t-h1-size)",
-            lineHeight: "var(--t-h1-line)",
-            fontWeight: 700,
-            color: "var(--ink)",
+            padding: "var(--sp-3) var(--sp-4)",
+            marginBottom: "var(--sp-4)",
+            background: "var(--bad)",
+            color: "var(--paper)",
+            borderRadius: 8,
+            fontSize: 13,
           }}
         >
-          Clans
-        </h1>
-        <p style={{ margin: "4px 0 0", color: "var(--ink-3)" }}>
-          Form a study group of up to 30 members. Compete in clan-vs-clan
-          battles and climb the clan leaderboard together.
-        </p>
-      </header>
+          {error}
+        </div>
+      ) : null}
 
       {/* ── Start your own — collapsible per redesign brief (browse-first IA) ── */}
       <section aria-label="Start your own clan" style={{ marginBottom: 20 }}>
@@ -317,6 +314,6 @@ export function Clans() {
           </div>
         )}
       </section>
-    </AppShell>
+    </VidyaShell>
   );
 }
