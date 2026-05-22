@@ -1,4 +1,4 @@
-// RevisionRitual — 5-question recall ritual (Phase 6 S56).
+// RevisionRitual — 5-question recall ritual (Phase 6 S56). Vidya v1 redesign.
 //
 // Spec: docs/02_planning/55_Phase6_UXCoPilot_Evaluation_and_SprintPlan.md S56
 //
@@ -15,7 +15,7 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 type Stage = "recall" | "set" | "delta" | "next";
 type Confidence = "low" | "mid" | "high";
@@ -43,7 +43,11 @@ export function RevisionRitual() {
   }
 
   return (
-    <AppShell title="Revision ritual">
+    <VidyaShell
+      crumbs="INSIGHT · REVISION RITUAL"
+      title="Revision ritual"
+      subtitle="Daily review of fading topics — spaced repetition that fits between sessions."
+    >
       <nav className="ritual-stepper" aria-label="Ritual stages">
         {STAGE_ORDER.map((s) => (
           <div
@@ -169,6 +173,6 @@ export function RevisionRitual() {
       <p className="ritual-footer">
         Concept ID: <code>{conceptId ?? "—"}</code>
       </p>
-    </AppShell>
+    </VidyaShell>
   );
 }
