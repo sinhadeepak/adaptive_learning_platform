@@ -1,12 +1,15 @@
-// Sprint 27 (P4-S27) — Daily revision queue view.
+// Revision — Vidya v1 redesign.
 //
-// Shows the top-N topics due today, ordered most-overdue-first. Sourced
-// from /analytics/revision/{userId}; mastery pill resolved from the
-// existing /analytics/mastery/{userId} endpoint.
+// Daily spaced-repetition queue (SM-2 with EWA tie-in). VidyaShell
+// (crumbs + title + subtitle) → vertical list of vidya-card-block
+// rows. Each row: topic title + mastery bucket chip + interval/attempt
+// meta + overdue badge + Practice-now primary CTA.
 
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import {
@@ -87,16 +90,20 @@ export function Revision() {
     }
   }
 
-  function bucketColour(bucket: string): string {
-    if (bucket === "STRONG") return "var(--good, #10C47A)";
-    if (bucket === "DEVELOPING") return "var(--info, #4F87F6)";
-    if (bucket === "WEAK") return "var(--bad, #F43F5E)";
-    return "var(--ink-3, #7A8BAD)";
+  function bucketChipStyle(bucket: string): CSSProperties {
+    if (bucket === "STRONG") return { background: "var(--good-soft)", color: "var(--good)" };
+    if (bucket === "DEVELOPING") return { background: "var(--info-soft)", color: "var(--info)" };
+    if (bucket === "WEAK") return { background: "var(--bad-soft)", color: "var(--bad)" };
+    return { background: "var(--paper-2)", color: "var(--ink-3)" };
   }
 
   if (error) {
     return (
-      <main className="page" style={{ padding: 24 }}>
+      <VidyaShell
+        crumbs="PRACTICE · QUICK REVISION"
+        title="Daily Revision"
+        subtitle="Spaced-repetition queue (SM-2 with EWA tie-in). Topics surface here before mastery decays — even 10 minutes a day counts."
+      >
         <div role="alert" style={{
           padding: "var(--sp-3) var(--sp-4)",
           marginBottom: "var(--sp-4)",
@@ -107,116 +114,98 @@ export function Revision() {
         }}>
           {error}
         </div>
-      </main>
+      </VidyaShell>
     );
   }
 
   return (
-    <main className="page" style={{ padding: 24, maxWidth: 800 }}>
-      <h1>Daily Revision</h1>
-      <p style={{ color: "var(--ink-3)" }}>
-        Spaced-repetition queue (SM-2 with EWA tie-in). Topics surface here
-        before mastery decays — even 10 minutes a day counts.
-      </p>
+    <VidyaShell
+      crumbs="PRACTICE · QUICK REVISION"
+      title="Daily Revision"
+      subtitle="Spaced-repetition queue (SM-2 with EWA tie-in). Topics surface here before mastery decays — even 10 minutes a day counts."
+    >
+      <div style={{ maxWidth: 800 }}>
+        {items === null && <p style={{ color: "var(--ink-3)" }}>Loading…</p>}
 
-      {items === null && <p>Loading…</p>}
-
-      {items !== null && items.length === 0 && (
-        <section
-          style={{
-            background: "var(--card-1, #fff)",
-            padding: 32,
-            borderRadius: 8,
-            marginTop: 24,
+        {items !== null && items.length === 0 && (
+          <section style={{
             textAlign: "center",
-          }}
-        >
-          <p style={{ fontSize: 18, margin: 0 }}>
-            ✓ Nothing due today — good time to explore a new topic.
-          </p>
-        </section>
-      )}
+            padding: "var(--sp-6) var(--sp-4)",
+            background: "var(--card)",
+            border: "1px solid var(--rule)",
+            borderRadius: 14,
+          }}>
+            <div style={{ fontSize: 36, marginBottom: "var(--sp-2)" }} aria-hidden>✓</div>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--ink)" }}>
+              Nothing due today
+            </h2>
+            <p style={{ margin: "var(--sp-2) auto 0", maxWidth: 460, fontSize: 13, color: "var(--ink-2)" }}>
+              Good time to explore a new topic — your spaced-repetition queue is clear.
+            </p>
+          </section>
+        )}
 
-      {items !== null && items.length > 0 && (
-        <>
-          <p
-            style={{
-              fontSize: 14,
-              color: "var(--ink-3)",
-              marginTop: 16,
-            }}
-          >
-            <strong>{items.length}</strong>{" "}
-            {items.length === 1 ? "topic" : "topics"} due for revision today.
-          </p>
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {rows.map(({ item, bucket, intervalLabel }) => (
-              <li
-                key={item.topicId}
-                style={{
-                  background: "var(--card-1, #fff)",
-                  padding: 16,
-                  borderRadius: 8,
-                  marginBottom: 12,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <strong style={{ fontSize: 16 }}>
-                    {item.topicTitle || item.topicId.slice(0, 8)}
-                  </strong>
-                  <p
-                    style={{
-                      margin: "4px 0",
-                      fontSize: 13,
-                      color: "var(--ink-3)",
-                    }}
+        {items !== null && items.length > 0 && (
+          <>
+            <p style={{ fontSize: 13, color: "var(--ink-3)", margin: "0 0 var(--sp-3)" }}>
+              <strong style={{ color: "var(--ink)" }}>{items.length}</strong>{" "}
+              {items.length === 1 ? "topic" : "topics"} due for revision today.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
+              {rows.map(({ item, bucket, intervalLabel }) => {
+                const bucketStyle = bucketChipStyle(bucket);
+                return (
+                  <div
+                    key={item.topicId}
+                    className="vidya-card-block"
+                    style={{ display: "flex", alignItems: "center", gap: "var(--sp-3)" }}
                   >
-                    <span
-                      className="pill"
-                      style={{
-                        padding: "2px 8px",
-                        borderRadius: 12,
-                        background: bucketColour(bucket),
-                        color: "#fff",
-                        fontSize: 11,
-                        marginRight: 8,
-                      }}
-                    >
-                      {bucket}
-                    </span>
-                    Interval {intervalLabel} · attempt {item.attempts}
-                    {item.overdueDays > 0 && (
-                      <>
-                        {" "}
-                        ·{" "}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>
+                        {item.topicTitle || item.topicId.slice(0, 8)}
+                      </p>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4, fontSize: 12, color: "var(--ink-2)" }}>
                         <span
                           style={{
-                            color: "var(--bad, #F43F5E)",
-                            fontWeight: 600,
+                            padding: "2px 8px",
+                            borderRadius: 9999,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            textTransform: "uppercase",
+                            letterSpacing: 0.4,
+                            ...bucketStyle,
                           }}
                         >
-                          {item.overdueDays}d overdue
+                          {bucket}
                         </span>
-                      </>
-                    )}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={starting === item.topicId}
-                  onClick={() => startTopic(item.topicId)}
-                >
-                  {starting === item.topicId ? "Starting…" : "Practice now →"}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </main>
+                        <span>Interval {intervalLabel}</span>
+                        <span style={{ color: "var(--ink-4)" }}>·</span>
+                        <span>attempt {item.attempts}</span>
+                        {item.overdueDays > 0 && (
+                          <>
+                            <span style={{ color: "var(--ink-4)" }}>·</span>
+                            <span style={{ color: "var(--bad)", fontWeight: 600 }}>
+                              {item.overdueDays}d overdue
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="vidya-shell__primary"
+                      disabled={starting === item.topicId}
+                      onClick={() => startTopic(item.topicId)}
+                    >
+                      {starting === item.topicId ? "Starting…" : "Practice now →"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </VidyaShell>
   );
 }
