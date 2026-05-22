@@ -71,54 +71,61 @@ function buildNav(enrolledExams: ExamMeta[]): NavGroup[] {
     kbd: i === 0 ? "⌘2" : i === 1 ? "⌘3" : i === 2 ? "⌘4" : undefined,
   }));
 
-  // Study map needs an exam in the URL; pick the first enrolled or
-  // graceful-fallback to the Add affordance for fresh users.
-  const studyMapHref = enrolledExams[0]
-    ? `/study/${enrolledExams[0].id}`
-    : "/exams/add";
-
+  // Sidebar reorganized 2026-05-22:
+  //   * AI Tutor + PYQ Hub promoted in LEARN (PYQ is the #1 organic
+  //     search query among Indian aspirants; the route already existed
+  //     at /pyq but wasn't surfaced).
+  //   * Battle dropped from PRACTICE — gamification noise for a serious
+  //     exam-prep persona. Route stays live for opt-in entry from
+  //     AI Practice.
+  //   * Quick revision (/revision) and Flashcards (/flashcards) promoted
+  //     to PRACTICE — both routes existed but were unreachable from nav.
+  //   * INSIGHT renamed to PROGRESS; Rank moved here from COMPETE so the
+  //     AIR predictor sits next to the analytics it depends on.
+  //   * COMPETE renamed to COMMUNITY and collapsed: Clans + Leaderboards
+  //     only. Friends folded into Clans (social-graph standalone doesn't
+  //     pull weight for exam-prep aspirants).
   return [
     {
       heading: "Learn",
       items: [
         { href: "/home", label: "Dashboard", icon: <IconHome />, kbd: "⌘1" },
         ...examItems,
-        { href: studyMapHref, label: "Study map", icon: <IconMap /> },
-        { href: "/catalog", label: "Catalog", icon: <IconBook /> },
+        { href: "/experts", label: "AI Tutor", icon: <IconChat /> },
+        { href: "/pyq", label: "PYQ Hub", icon: <IconArchive /> },
+        { href: "/library", label: "Library", icon: <IconLibrary /> },
+        { href: "/doubts", label: "Doubts", icon: <IconQuestion /> },
         {
           href: "/exams/add",
           label: "Add exam / course",
           icon: <IconPlus />,
           add: true,
         },
-        { href: "/library", label: "Library", icon: <IconLibrary /> },
-        { href: "/experts", label: "AI Tutor", icon: <IconChat /> },
-        { href: "/doubts", label: "Doubts", icon: <IconQuestion /> },
       ],
     },
     {
       heading: "Practice",
       items: [
         { href: "/practice", label: "AI practice", icon: <IconBolt /> },
-        { href: "/plan", label: "Plan", icon: <IconCalendar /> },
         { href: "/mocks", label: "Mock tests", icon: <IconTarget />, badge: 3 },
-        { href: "/battle", label: "Battle", icon: <IconSwords /> },
+        { href: "/revision", label: "Quick revision", icon: <IconRefresh /> },
+        { href: "/flashcards", label: "Flashcards", icon: <IconCards /> },
+        { href: "/plan", label: "Plan", icon: <IconCalendar /> },
       ],
     },
     {
-      heading: "Compete",
-      items: [
-        { href: "/leaderboards", label: "Leaderboards", icon: <IconMedal /> },
-        { href: "/rank", label: "Rank", icon: <IconTrophy /> },
-        { href: "/friends", label: "Friends", icon: <IconUsers /> },
-        { href: "/clans", label: "Clans", icon: <IconCastle /> },
-      ],
-    },
-    {
-      heading: "Insight",
+      heading: "Progress",
       items: [
         { href: "/analysis", label: "My analysis", icon: <IconChart /> },
         { href: "/insights", label: "Insights", icon: <IconSparkles /> },
+        { href: "/rank", label: "Rank predictor", icon: <IconTrophy /> },
+      ],
+    },
+    {
+      heading: "Community",
+      items: [
+        { href: "/clans", label: "Clans", icon: <IconCastle /> },
+        { href: "/leaderboards", label: "Leaderboards", icon: <IconMedal /> },
       ],
     },
     {
@@ -470,14 +477,6 @@ function IconExam() {
     </svg>
   );
 }
-function IconMap() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <path d="M3 4.5v8l3-1 4 1 3-1v-8l-3 1-4-1z" />
-      <path d="M6 3.5v8M10 4.5v8" />
-    </svg>
-  );
-}
 function IconBolt() {
   return (
     <svg viewBox="0 0 16 16" fill="currentColor">
@@ -522,14 +521,6 @@ function IconPlus() {
     </svg>
   );
 }
-function IconBook() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <path d="M3 3h4a2 2 0 012 2v8a2 2 0 00-2-2H3z" strokeLinejoin="round" />
-      <path d="M13 3H9a2 2 0 00-2 2v8a2 2 0 012-2h4z" strokeLinejoin="round" />
-    </svg>
-  );
-}
 function IconLibrary() {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
@@ -553,24 +544,6 @@ function IconCalendar() {
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
       <rect x="2.5" y="3.5" width="11" height="10" rx="1.5" />
       <path d="M5 2v3M11 2v3M2.5 7h11" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IconSwords() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <path d="M3 13L13 3M5 3h5M3 11v-5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M13 5L3 15M11 13h-5M13 7v5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-function IconUsers() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <circle cx="6" cy="6" r="2.5" />
-      <path d="M1.5 14c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" strokeLinecap="round" />
-      <circle cx="11.5" cy="5.5" r="2" />
-      <path d="M14.5 13.5c0-2-1.5-3.5-3-3.5" strokeLinecap="round" />
     </svg>
   );
 }
@@ -616,6 +589,36 @@ function IconCap() {
   );
 }
 
+function IconArchive() {
+  // PYQ Hub — drawer / archive of past years.
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <rect x="2" y="3" width="12" height="3" rx="0.5" />
+      <path d="M3 6v7h10V6" strokeLinejoin="round" />
+      <path d="M6.5 9h3" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconRefresh() {
+  // Quick revision — circular arrow for repeating/recall cycles.
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M3 8a5 5 0 019-3" strokeLinecap="round" />
+      <path d="M11 2v3h-3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13 8a5 5 0 01-9 3" strokeLinecap="round" />
+      <path d="M5 14v-3h3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconCards() {
+  // Flashcards — two slightly offset stacked cards.
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <rect x="3.5" y="4.5" width="8" height="8" rx="1" />
+      <path d="M5 3.5h8v8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 function IconSearch() {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
