@@ -1,4 +1,6 @@
 /**
+ * Vidya v1 redesign.
+ *
  * Catalog → Exam topic browser with full table affordances.
  *
  * Replaces the previous simple list-of-rows view with a real data
@@ -33,8 +35,8 @@ import { Link, useParams } from "react-router-dom";
 
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
-import { Banner, Pill, SkeletonRows } from "../components/dashboard";
+import { VidyaShell } from "../components/vidya/VidyaShell";
+import { Pill, SkeletonRows } from "../components/dashboard";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -565,27 +567,43 @@ export function CatalogExam() {
 
   // ── Render ──
   const headerTitle = meta?.name ?? "Exam";
+  const crumbs = `LEARN · CATALOG · ${
+    meta?.code?.toUpperCase() ?? meta?.name?.toUpperCase() ?? "EXAM"
+  }`;
+  const subtitle =
+    rows && rows.length > 0
+      ? `${subjectOptions.length} subject${subjectOptions.length === 1 ? "" : "s"} · ${rows.length} chapter${rows.length === 1 ? "" : "s"}`
+      : meta?.subtitle ?? "Browse subjects and chapters for this exam.";
 
   if (error) {
     return (
-      <AppShell title={headerTitle} actions={<BackLink />}>
-        <Banner tone="danger" role="alert">
+      <VidyaShell crumbs={crumbs} title={headerTitle} subtitle={subtitle} actions={<BackLink />}>
+        <div
+          role="alert"
+          style={{
+            padding: "var(--sp-3) var(--sp-4)",
+            background: "var(--bad)",
+            color: "var(--paper)",
+            borderRadius: 8,
+            fontSize: 13,
+          }}
+        >
           {error}
-        </Banner>
-      </AppShell>
+        </div>
+      </VidyaShell>
     );
   }
 
   if (rows === null) {
     return (
-      <AppShell title={headerTitle} actions={<BackLink />}>
+      <VidyaShell crumbs={crumbs} title={headerTitle} subtitle={subtitle} actions={<BackLink />}>
         <SkeletonRows count={5} />
-      </AppShell>
+      </VidyaShell>
     );
   }
 
   return (
-    <AppShell title={headerTitle} actions={<BackLink />}>
+    <VidyaShell crumbs={crumbs} title={headerTitle} subtitle={subtitle} actions={<BackLink />}>
       <ExamHeader
         meta={meta}
         enrolment={enrolment}
@@ -654,7 +672,7 @@ export function CatalogExam() {
         setPageSize={setPageSize}
         total={sorted.length}
       />
-    </AppShell>
+    </VidyaShell>
   );
 }
 
@@ -1111,15 +1129,47 @@ function thumbFor(seed: string): string {
 
 function CardGrid({ rows }: { rows: Row[] }) {
   return (
-    <div className="pg-grid">
+    <div className="vidya-grid-3">
       {rows.map((r) => {
         const isPremium = r.tier === "PREMIUM";
         const band = masteryBand(r.mastery);
         const initial = r.title.trim().slice(0, 1).toUpperCase() || "•";
         return (
-          <Link key={r.id} to={`/catalog/topic/${r.id}`} className="pg-card">
-            <div className="pg-card-thumb" style={{ background: thumbFor(r.id) }}>
-              <div className="pg-card-thumb-letter">{initial}</div>
+          <Link
+            key={r.id}
+            to={`/catalog/topic/${r.id}`}
+            className="vidya-card-block"
+            style={{
+              textDecoration: "none",
+              color: "inherit",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div
+              style={{
+                position: "relative",
+                height: 140,
+                background: thumbFor(r.id),
+                borderRadius: "8px 8px 0 0",
+                margin:
+                  "calc(-1 * var(--sp-4)) calc(-1 * var(--sp-4)) var(--sp-3)",
+                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 56,
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.92)",
+                  letterSpacing: -2,
+                }}
+              >
+                {initial}
+              </div>
               {isPremium && (
                 <div
                   style={{
@@ -1140,28 +1190,65 @@ function CardGrid({ rows }: { rows: Row[] }) {
                 </div>
               )}
             </div>
-            <div className="pg-card-body">
-              <div className="pg-card-eyebrow">{r.subjectName}</div>
-              <h2 className="pg-card-title">{r.title}</h2>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--sp-2)" }}>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: 0.6,
+                  color: "var(--ink-3)",
+                  textTransform: "uppercase",
+                }}
+              >
+                {r.subjectName}
+              </div>
+              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--ink)", lineHeight: 1.3 }}>
+                {r.title}
+              </h2>
               <MasteryBar value={r.mastery} attempts={r.attempts} />
-              <div className="pg-card-meta">
-                <span className="pg-card-meta-pill">📘 {r.questionCount} questions</span>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <span
-                  className="pg-card-meta-pill"
-                  style={{ color: band.color, borderColor: "currentColor" }}
+                  style={{
+                    padding: "3px 8px",
+                    fontSize: 11,
+                    color: "var(--ink-2)",
+                    border: "1px solid var(--rule)",
+                    borderRadius: 999,
+                  }}
+                >
+                  📘 {r.questionCount} questions
+                </span>
+                <span
+                  style={{
+                    padding: "3px 8px",
+                    fontSize: 11,
+                    color: band.color,
+                    border: "1px solid currentColor",
+                    borderRadius: 999,
+                  }}
                 >
                   ◉ {band.label}
                 </span>
               </div>
             </div>
-            <div className="pg-card-foot">
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                marginTop: "var(--sp-3)",
+                paddingTop: "var(--sp-3)",
+                borderTop: "1px solid var(--rule)",
+              }}
+            >
               <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
                 {r.attempts > 0 ? `${r.attempts} attempt${r.attempts === 1 ? "" : "s"}` : "Not started yet"}
               </span>
               <div style={{ display: "flex", gap: 6 }}>
                 <Link
                   to={`/practice?topicId=${r.id}`}
-                  className="btn btn-primary"
+                  className="vidya-shell__primary"
                   style={{ padding: "4px 12px", fontSize: 12 }}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -1299,7 +1386,7 @@ function PageBtn({
 
 function BackLink() {
   return (
-    <Link to="/catalog" className="btn btn-ghost">
+    <Link to="/catalog" className="vidya-shell__chip">
       ← All exams
     </Link>
   );
