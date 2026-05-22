@@ -1,4 +1,4 @@
-// Friends — Aurora redesign (F8a).
+// Friends — Vidya v1 redesign.
 //
 // Spec: docs/02-design/redesign/friends.md
 // ADR:  docs/adr/0028-design-system-v2-aurora.md (S7 deliverable)
@@ -19,8 +19,7 @@ import {
   Input,
   Tag,
 } from "@alp/ui";
-import { AppShell } from "../components/AppShell";
-import { Banner } from "../components/dashboard";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { social } from "../lib/social";
 import { useAuth } from "../lib/auth-provider";
 import { useUserDirectory, formatUser } from "../lib/user_directory";
@@ -170,33 +169,46 @@ export function Friends() {
   const isEmpty = friends.length === 0 && pending.length === 0;
 
   return (
-    <AppShell
+    <VidyaShell
+      crumbs="COMPETE · FRIENDS"
       title="Friends"
+      subtitle="Your friend list, pending invites, and friend search."
       actions={
         <Link to="/battle" style={{ textDecoration: "none" }}>
           <Button variant="ghost" size="sm">Battle →</Button>
         </Link>
       }
     >
-      {error ? <Banner tone="danger">{error}</Banner> : null}
-      {success ? <Banner tone="info">{success}</Banner> : null}
-
-      <header style={{ maxWidth: 880, marginBottom: 24 }}>
-        <h1
+      {error ? (
+        <div
+          role="alert"
           style={{
-            margin: 0,
-            fontSize: "var(--t-h1-size)",
-            lineHeight: "var(--t-h1-line)",
-            fontWeight: 700,
-            color: "var(--ink)",
+            padding: "var(--sp-3) var(--sp-4)",
+            marginBottom: "var(--sp-4)",
+            background: "var(--bad)",
+            color: "var(--paper)",
+            borderRadius: 8,
+            fontSize: 13,
           }}
         >
-          Friends
-        </h1>
-        <p style={{ margin: "4px 0 0", color: "var(--ink-3)" }}>
-          Add other students to challenge them to battles and compare progress.
-        </p>
-      </header>
+          {error}
+        </div>
+      ) : null}
+      {success ? (
+        <div
+          role="status"
+          style={{
+            padding: "var(--sp-3) var(--sp-4)",
+            marginBottom: "var(--sp-4)",
+            background: "var(--accent)",
+            color: "var(--paper)",
+            borderRadius: 8,
+            fontSize: 13,
+          }}
+        >
+          {success}
+        </div>
+      ) : null}
 
       {/* ── Empty hero — full illustrated EmptyState when nothing to show ── */}
       {isEmpty ? (
@@ -389,7 +401,7 @@ export function Friends() {
           </div>
         </section>
       ) : null}
-    </AppShell>
+    </VidyaShell>
   );
 }
 
