@@ -1,3 +1,13 @@
+// TopicDetail — Vidya v1 redesign.
+//
+// Layout: VidyaShell (crumbs + title + subtitle + back action) → Aurora
+// hero card with mastery ring, AI/tier/bucket chips, primary CTA row →
+// Watch & Learn shelf → 4-up stats strip → AI insight (weak only) →
+// Time-to-mastery + Prerequisite map + Video engagement → About /
+// Objectives / Prerequisites / Saved-here / Tutor chat / Recent
+// activity sections. Reached from study-map topic rows or catalog
+// drill-downs.
+
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -10,8 +20,7 @@ import {
 } from "@alp/ui";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
-import { Banner, SkeletonRows } from "../components/dashboard";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { AITutorChat } from "../components/AITutorChat";
 import { ResourceShelf } from "../components/ResourceShelf";
 import { blockedLabel, summariseGate, type GateResponse } from "../lib/prereq_gate";
@@ -24,19 +33,6 @@ import { TimeToMasteryCard, MistakeReplayButton } from "../components/phase1c";
 import { PrerequisiteMap } from "../components/PrerequisiteMap";
 // Phase 1D-6 — video engagement card.
 import { VideoEngagementCard } from "../components/phase1d";
-
-// ─────────────────────────────────────────────────────────────────────────
-// Topic Detail — AI Practice prep page.
-// Reached from study-map topic rows or catalog drill-downs. Aligns with
-// the AI-first dark-theme dashboards (master / exam / study-map).
-//
-// Layout:
-//   1. AI hero with topic name + AI pill + tier badge + CTA row
-//   2. Stats row — questions, sessions, mastery %, last practiced
-//   3. AI recommends banner if this is a weak topic
-//   4. About / Learning objectives / Prerequisites cards
-//   5. Recent activity (placeholder until per-topic attempt history exists)
-// ─────────────────────────────────────────────────────────────────────────
 
 interface Topic {
   id: string;
@@ -275,26 +271,56 @@ export function TopicDetail() {
   }
 
   const backAction = (
-    <Link to="/catalog" className="topbar-back">
+    <Link
+      to="/catalog"
+      className="vidya-shell__chip"
+      style={{ textDecoration: "none" }}
+    >
       ← Catalog
     </Link>
   );
 
   if (error && !topic) {
     return (
-      <AppShell title="Topic" actions={backAction}>
-        <Banner tone="danger" role="alert">
+      <VidyaShell
+        crumbs="LEARN · TOPIC"
+        title="Topic"
+        actions={backAction}
+      >
+        <div
+          role="alert"
+          style={{
+            background: "var(--bad)",
+            color: "var(--paper)",
+            padding: "var(--sp-3)",
+            borderRadius: "var(--radius-2)",
+            margin: "0 0 var(--sp-3) 0",
+          }}
+        >
           {error}
-        </Banner>
-      </AppShell>
+        </div>
+      </VidyaShell>
     );
   }
 
   if (!topic) {
     return (
-      <AppShell title="Topic" actions={backAction}>
-        <SkeletonRows count={3} />
-      </AppShell>
+      <VidyaShell
+        crumbs="LEARN · TOPIC"
+        title="Topic"
+        actions={backAction}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="vidya-card-block"
+              style={{ opacity: 0.5, minHeight: 72 }}
+              aria-hidden
+            />
+          ))}
+        </div>
+      </VidyaShell>
     );
   }
 
@@ -334,8 +360,19 @@ export function TopicDetail() {
         : "Maintain"
     : "—";
 
+  const crumbs = `LEARN · TOPIC · ${topic.title.toUpperCase()}`;
+  const masterySubtitle =
+    mastery !== null
+      ? `${bucketLabel} · Mastery ${masteryPct}% · ${mastery.n} session${mastery.n === 1 ? "" : "s"}`
+      : "Not started yet — your first session will set your baseline.";
+
   return (
-    <AppShell title={topic.title} actions={backAction}>
+    <VidyaShell
+      crumbs={crumbs}
+      title={topic.title}
+      subtitle={masterySubtitle}
+      actions={backAction}
+    >
       {/* ── Aurora hero — topic identity, mastery ring, primary CTA ── */}
       <Card padding="lg" style={{ marginBottom: 20 }}>
         <div
@@ -566,10 +603,18 @@ export function TopicDetail() {
       )}
 
       {error ? (
-        <div style={{ marginTop: "var(--sp-4)" }}>
-          <Banner tone="warning" role="alert">
-            {error}
-          </Banner>
+        <div
+          role="alert"
+          style={{
+            marginTop: "var(--sp-4)",
+            background: "var(--warn-soft)",
+            color: "var(--warn)",
+            padding: "var(--sp-3)",
+            borderRadius: "var(--radius-2)",
+            border: "1px solid var(--warn)",
+          }}
+        >
+          {error}
         </div>
       ) : null}
 
@@ -629,7 +674,7 @@ export function TopicDetail() {
             <button
               type="button"
               onClick={() => setNotesOpen(true)}
-              className="btn btn-ghost"
+              className="vidya-shell__chip"
               style={{ fontSize: 12, padding: "4px 12px" }}
               aria-label="Open notes for this topic"
             >
@@ -892,7 +937,7 @@ export function TopicDetail() {
           onClose={() => setDifficultyPickerOpen(false)}
         />
       )}
-    </AppShell>
+    </VidyaShell>
   );
 }
 
@@ -1100,7 +1145,7 @@ function DifficultyModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="btn btn-ghost"
+            className="vidya-shell__chip"
             style={{ padding: "4px 10px", fontSize: 14, lineHeight: 1 }}
           >
             ✕
@@ -1325,7 +1370,7 @@ function NotesModal({
               onClose();
             }}
             aria-label="Close notes"
-            className="btn btn-ghost"
+            className="vidya-shell__chip"
             style={{ padding: "4px 10px", fontSize: 14 }}
           >
             ✕
@@ -1374,7 +1419,7 @@ function NotesModal({
             </span>
             <button
               type="button"
-              className="btn btn-ghost"
+              className="vidya-shell__chip"
               style={{ fontSize: 12, padding: "4px 12px" }}
               onClick={() => {
                 if (dirty) onSave();
@@ -1385,7 +1430,7 @@ function NotesModal({
             </button>
             <button
               type="button"
-              className="btn btn-primary"
+              className="vidya-shell__primary"
               style={{ fontSize: 12, padding: "4px 14px" }}
               disabled={!dirty}
               onClick={onSave}
