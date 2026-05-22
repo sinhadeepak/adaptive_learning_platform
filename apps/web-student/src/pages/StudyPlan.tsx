@@ -3,10 +3,10 @@
 // Spec: docs/02_planning/55_Phase6_UXCoPilot_Evaluation_and_SprintPlan.md S55
 // ADR:  docs/adr/0023-constrained-plan-coediting.md
 //
-// Three states:
-//   - loading: SkeletonRows
-//   - absent : "no active plan" empty state + Generate button
-//   - active : grouped-by-day session list with per-row edit actions
+// Layout: VidyaShell (crumbs + Plan-editor title + week-summary subtitle
+// + Regenerate action) → grouped-by-day session list with per-row edit
+// actions. Three states: loading (SkeletonRows), error (Banner),
+// absent (plan-empty CTA), active (plan-days list).
 //
 // Constrained edits (per ADR-0023): the server enforces invariants
 // (required sessions can't be deleted; total minutes per day stays
@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from "react";
 
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { Banner, SkeletonRows } from "../components/dashboard";
 import {
   dayOffsetLabel,
@@ -63,16 +63,30 @@ export function StudyPlanPage() {
     refresh();
   }, []);
 
-  async function handleGenerate() {
+  async function handleGenerate(opts?: { regenerate?: boolean; dailyMinutesGoal?: number }) {
     setBusy(true);
     setError(null);
+    setFeedback(null);
     try {
-      const next = await generatePlan({ dailyMinutesGoal: 45 });
+      const next = await generatePlan({
+        dailyMinutesGoal: opts?.dailyMinutesGoal ?? 45,
+      });
       setPlan(next);
       setAbsent(false);
-      setFeedback({ kind: "info", message: "Plan generated for this week." });
+      setFeedback({
+        kind: "info",
+        message: opts?.regenerate
+          ? "Plan regenerated for this week."
+          : "Plan generated for this week.",
+      });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't generate a plan.");
+      setError(
+        e instanceof Error
+          ? e.message
+          : opts?.regenerate
+            ? "Couldn't regenerate the plan."
+            : "Couldn't generate a plan.",
+      );
     } finally {
       setBusy(false);
     }
@@ -117,25 +131,37 @@ export function StudyPlanPage() {
 
   if (loading) {
     return (
-      <AppShell title="Study plan">
+      <VidyaShell
+        crumbs="PRACTICE · PLAN"
+        title="Plan editor"
+        subtitle="Loading your weekly plan…"
+      >
         <SkeletonRows count={3} />
-      </AppShell>
+      </VidyaShell>
     );
   }
 
   if (error) {
     return (
-      <AppShell title="Study plan">
+      <VidyaShell
+        crumbs="PRACTICE · PLAN"
+        title="Plan editor"
+        subtitle="Couldn't load the plan."
+      >
         <Banner tone="danger" role="alert">
           {error}
         </Banner>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
   if (absent || !plan) {
     return (
-      <AppShell title="Study plan">
+      <VidyaShell
+        crumbs="PRACTICE · PLAN"
+        title="Plan editor"
+        subtitle="No active plan yet — generate one to start the week."
+      >
         <section className="plan-empty">
           <h2 className="plan-empty-title">No active plan yet</h2>
           <p className="plan-empty-copy">
@@ -146,13 +172,13 @@ export function StudyPlanPage() {
           <button
             type="button"
             className="plan-generate-btn"
-            onClick={handleGenerate}
+            onClick={() => handleGenerate()}
             disabled={busy}
           >
             {busy ? "Generating…" : "Generate a plan for this week"}
           </button>
         </section>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
@@ -169,25 +195,31 @@ export function StudyPlanPage() {
   const days = Array.from(byDay.keys()).sort((a, b) => a - b);
 
   return (
-    <AppShell title="Study plan">
-      <header className="plan-head">
-        <div>
-          <h1 className="plan-title">Plan editor</h1>
-          <p className="plan-sub">
-            Week of {plan.weekStart} · {plan.dailyMinutesGoal}m/day target ·
-            source: <code className="plan-source">{plan.source}</code>
-          </p>
-        </div>
+    <VidyaShell
+      crumbs="PRACTICE · PLAN"
+      title="Plan editor"
+      subtitle={
+        <>
+          Week of {plan.weekStart} · {plan.dailyMinutesGoal}m/day target · source:{" "}
+          <code className="plan-source">{plan.source}</code>
+        </>
+      }
+      actions={
         <button
           type="button"
           className="plan-regen-btn"
-          onClick={() => handleEdit("regenerate", plan.sessions[0])}
-          disabled={busy || plan.sessions.length === 0}
+          onClick={() =>
+            handleGenerate({
+              regenerate: true,
+              dailyMinutesGoal: plan.dailyMinutesGoal,
+            })
+          }
+          disabled={busy}
         >
           {busy ? "Working…" : "Regenerate"}
         </button>
-      </header>
-
+      }
+    >
       {feedback && (
         <Banner
           tone={feedback.kind === "danger" ? "danger" : "info"}
@@ -209,7 +241,7 @@ export function StudyPlanPage() {
           />
         ))}
       </div>
-    </AppShell>
+    </VidyaShell>
   );
 }
 
