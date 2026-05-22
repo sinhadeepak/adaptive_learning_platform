@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { useAuth } from "../lib/auth-provider";
 import {
   diagnostic,
@@ -9,7 +9,7 @@ import {
 } from "../lib/phase5-api";
 
 // ─────────────────────────────────────────────────────────────────────────
-// S46 — DiagnosticDeepDive.
+// S46 — DiagnosticDeepDive. Vidya v1 redesign.
 //
 // Visualises the root-cause walk per ADR-0017: a wrong answer is
 // caused by weakness in the deepest-prerequisite concept whose mastery
@@ -83,9 +83,19 @@ export function DiagnosticDeepDive() {
   }
 
   return (
-    <AppShell title="Diagnostic deep dive">
+    <VidyaShell
+      crumbs="PRACTICE · DIAGNOSTIC · DEEP DIVE"
+      title="Diagnostic deep dive"
+      subtitle="Trace a wrong answer back to its deepest weak prerequisite."
+      actions={
+        <a href="/diagnostic" className="vidya-shell__chip">
+          ← Back to diagnostic
+        </a>
+      }
+    >
       {error && (
         <div
+          role="alert"
           style={{
             padding: 8,
             background: "var(--bad-soft, #fee)",
@@ -98,14 +108,10 @@ export function DiagnosticDeepDive() {
         </div>
       )}
 
-      <section
-        style={{
-          padding: 16,
-          background: "var(--paper-2, #f8f9fc)",
-          borderRadius: 8,
-          marginBottom: 16,
-        }}
-      >
+      <section className="vidya-card-block" style={{ marginBottom: 16 }}>
+        <div className="vidya-card-block__head">
+          <div className="vidya-card-block__title">Walk the prereq chain</div>
+        </div>
         <p style={{ fontSize: 13, opacity: 0.85, marginTop: 0 }}>
           Pick a concept you got wrong recently. Paste the prereq chain (one
           edge per line, "from -&gt; to"). The walker traces back to the
@@ -150,20 +156,8 @@ export function DiagnosticDeepDive() {
           <button
             onClick={() => void handleRun()}
             disabled={busy || !primaryConceptId.trim()}
-            style={{
-              padding: "8px 16px",
-              background:
-                busy || !primaryConceptId.trim()
-                  ? "var(--ink-4, #cbd5e0)"
-                  : "var(--info, #4f87f6)",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor:
-                busy || !primaryConceptId.trim() ? "not-allowed" : "pointer",
-              alignSelf: "start",
-              fontSize: 13,
-            }}
+            className="vidya-shell__primary"
+            style={{ alignSelf: "start" }}
           >
             {busy ? "Walking…" : "Walk prereq chain"}
           </button>
@@ -171,8 +165,10 @@ export function DiagnosticDeepDive() {
       </section>
 
       {result && (
-        <section>
-          <h3 style={{ fontSize: 16, marginBottom: 12 }}>Result</h3>
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <div className="vidya-card-block__title">Result</div>
+          </div>
           <div
             style={{
               padding: 12,
@@ -269,6 +265,6 @@ export function DiagnosticDeepDive() {
           )}
         </section>
       )}
-    </AppShell>
+    </VidyaShell>
   );
 }
