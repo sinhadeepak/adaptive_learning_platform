@@ -1,7 +1,14 @@
+// Vidya v1 redesign — outer chrome is VidyaShell with PRACTICE · MOCK · RESULT
+// crumbs, blueprint/exam name as title, and a score/percentile subtitle. The
+// trophy hero, predicted-AIR card, stat strip, section breakdown, and CTA row
+// preserve their existing inline-style composition (non-pg custom classes such
+// as `card`, `btn`, and `section-heading` are intentionally untouched per the
+// migration rules). Three shell states: loading, error, and the full result.
+
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { auth } from "../lib/api";
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface MockSectionResult {
   name: string;
@@ -119,18 +126,36 @@ export function MockResult() {
 
   if (!result) {
     return (
-      <AppShell title="Mock Result">
+      <VidyaShell
+        crumbs="PRACTICE · MOCK · RESULT"
+        title="Mock result"
+        subtitle="Loading your score…"
+      >
         <div className="card" style={{ padding: 20 }}>Loading…</div>
-      </AppShell>
+      </VidyaShell>
     );
   }
   if (result.error) {
     return (
-      <AppShell title="Mock Result">
-        <div className="card" style={{ padding: 20, color: "var(--bad)" }}>
+      <VidyaShell
+        crumbs="PRACTICE · MOCK · RESULT"
+        title="Mock result"
+        subtitle="Could not score the mock."
+      >
+        <div
+          role="alert"
+          style={{
+            padding: "var(--sp-3) var(--sp-4)",
+            marginBottom: "var(--sp-4)",
+            background: "var(--bad)",
+            color: "var(--paper)",
+            borderRadius: 8,
+            fontSize: 13,
+          }}
+        >
           {result.message ?? "Could not score the mock."}
         </div>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
@@ -149,7 +174,16 @@ export function MockResult() {
         : "var(--warn)";
 
   return (
-    <AppShell title="Mock Result">
+    <VidyaShell
+      crumbs="PRACTICE · MOCK · RESULT"
+      title={result.examName}
+      subtitle={`${result.rawScore} / ${result.maxMarks} · ${scorePct}% raw · ${result.percentile.toFixed(1)} pctl`}
+      actions={
+        <Link to="/history" className="vidya-shell__chip">
+          ← Back to history
+        </Link>
+      }
+    >
       {/* Trophy hero */}
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <div
@@ -280,7 +314,7 @@ export function MockResult() {
           Home
         </Link>
       </div>
-    </AppShell>
+    </VidyaShell>
   );
 }
 
