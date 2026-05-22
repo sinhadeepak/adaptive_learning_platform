@@ -1,10 +1,18 @@
-// Sprint 18 (P3-S3) — Course content reader (post-purchase).
-// Sprint 21 (P3-S6) — Module/lesson navigation when the course has structure.
+// CourseRead — Vidya v1 redesign.
+//
+// Post-purchase reader. Three states:
+//   - error: VidyaShell + Vidya role="alert" banner
+//   - loading: VidyaShell + loading copy
+//   - loaded:
+//     * unstructured: single column article (vidya-card-block) with content_md
+//     * structured:   two-column reader — left lesson nav (sticky
+//       vidya-card-block), right article. Active lesson highlighted with
+//       accent-soft background.
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import {
   type CourseDetail,
   type CourseStructureView,
@@ -49,19 +57,36 @@ export function CourseRead() {
 
   if (error) {
     return (
-      <AppShell title="Course">
-        <div style={{ padding: "16px 24px" }}>
-          <p className="banner banner-error">{error}</p>
-          <Link to="/courses-mine" style={{ color: "var(--info)" }}>← Back to my courses</Link>
+      <VidyaShell
+        crumbs="MARKETPLACE · COURSE · READ"
+        title="Course"
+        subtitle="Couldn't load this course."
+        actions={<Link to="/courses-mine" className="vidya-shell__chip">← Back to my courses</Link>}
+      >
+        <div style={{ maxWidth: 880 }}>
+          <div role="alert" style={{
+            padding: "var(--sp-3) var(--sp-4)",
+            background: "var(--bad)",
+            color: "var(--paper)",
+            borderRadius: 8,
+            fontSize: 13,
+          }}>
+            {error}
+          </div>
         </div>
-      </AppShell>
+      </VidyaShell>
     );
   }
   if (!course) {
     return (
-      <AppShell title="Course">
-        <div style={{ padding: "16px 24px", color: "var(--ink-3)" }}>Loading…</div>
-      </AppShell>
+      <VidyaShell
+        crumbs="MARKETPLACE · COURSE · READ"
+        title="Course"
+        subtitle="Loading…"
+        actions={<Link to="/courses-mine" className="vidya-shell__chip">← Back to my courses</Link>}
+      >
+        <div style={{ maxWidth: 880, color: "var(--ink-3)" }}>Loading…</div>
+      </VidyaShell>
     );
   }
 
@@ -70,27 +95,23 @@ export function CourseRead() {
   if (!hasStructure) {
     // Legacy unstructured course — render content_md verbatim.
     return (
-      <AppShell title={course.title}>
-        <div style={{ padding: "16px 24px 32px", maxWidth: 880 }}>
-          <Link to="/courses-mine" style={{ color: "var(--info)", fontSize: 13 }}>← Back to my courses</Link>
-          <h1 style={{ marginTop: 12 }}>{course.title}</h1>
-          <p style={{ color: "var(--ink-3)" }}>{course.description}</p>
-          <article
-            style={{
-              background: "var(--paper-2)",
-              border: "1px solid var(--rule)",
-              padding: 24,
-              borderRadius: 8,
-              marginTop: 16,
-              whiteSpace: "pre-wrap",
-              color: "var(--ink-2)",
-              lineHeight: 1.6,
-            }}
-          >
+      <VidyaShell
+        crumbs={`MARKETPLACE · COURSE · ${course.title.toUpperCase()} · READ`}
+        title={course.title}
+        subtitle={course.description ?? ""}
+        actions={<Link to="/courses-mine" className="vidya-shell__chip">← Back to my courses</Link>}
+      >
+        <div style={{ maxWidth: 880 }}>
+          <article className="vidya-card-block" style={{
+            whiteSpace: "pre-wrap",
+            color: "var(--ink-2)",
+            lineHeight: 1.6,
+            fontSize: 14,
+          }}>
             {course.contentMd}
           </article>
         </div>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
@@ -99,77 +120,82 @@ export function CourseRead() {
     : 0;
 
   return (
-    <AppShell title={course.title}>
-    <div style={{ padding: "16px 24px 32px", maxWidth: 1200 }}>
-      <Link to="/courses-mine" style={{ color: "var(--info)", fontSize: 13 }}>← Back to my courses</Link>
-      <h1 style={{ marginTop: 12 }}>{course.title}</h1>
-      <p style={{ color: "var(--ink-3)" }}>{course.description}</p>
-      <p style={{ color: "var(--ink-3)" }}>
-        Lesson {activeIndex} of {allLessons.length}
-      </p>
-      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 24, marginTop: 16 }}>
-        <nav
-          aria-label="Course outline"
-          style={{
-            background: "var(--card-1, #fff)",
-            padding: 16,
-            borderRadius: 8,
-            maxHeight: "70vh",
-            overflowY: "auto",
-          }}
-        >
-          {structure?.items.map(({ module, lessons }) => (
-            <div key={module.id} style={{ marginBottom: 12 }}>
-              <strong style={{ fontSize: 14 }}>
-                {module.position}. {module.title}
-              </strong>
-              <ul style={{ listStyle: "none", padding: 0, marginTop: 4 }}>
-                {lessons.map((lesson) => (
-                  <li key={lesson.id}>
-                    <button
-                      type="button"
-                      onClick={() => setActiveLessonId(lesson.id)}
-                      style={{
-                        background:
-                          activeLessonId === lesson.id ? "var(--card, #eef)" : "none",
-                        border: "none",
-                        padding: "6px 8px",
-                        textAlign: "left",
-                        width: "100%",
-                        cursor: "pointer",
-                        color:
-                          activeLessonId === lesson.id ? "inherit" : "var(--info, #4F87F6)",
-                        borderRadius: 4,
-                      }}
-                    >
-                      {lesson.position}. {lesson.title}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </nav>
-        <article
-          style={{
-            background: "var(--card-1, #fff)",
-            padding: 24,
-            borderRadius: 8,
-            whiteSpace: "pre-wrap",
-            minHeight: "60vh",
-          }}
-        >
-          {activeLesson ? (
-            <>
-              <h2 style={{ marginTop: 0 }}>{activeLesson.title}</h2>
-              <div>{activeLesson.contentMd}</div>
-            </>
-          ) : (
-            <p>Pick a lesson to begin.</p>
-          )}
-        </article>
+    <VidyaShell
+      crumbs={`MARKETPLACE · COURSE · ${course.title.toUpperCase()} · READ`}
+      title={course.title}
+      subtitle={`Lesson ${activeIndex} of ${allLessons.length}`}
+      actions={<Link to="/courses-mine" className="vidya-shell__chip">← Back to my courses</Link>}
+    >
+      <div style={{ maxWidth: 1200 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: "var(--sp-4)" }}>
+          <nav
+            aria-label="Course outline"
+            className="vidya-card-block"
+            style={{
+              maxHeight: "70vh",
+              overflowY: "auto",
+              position: "sticky",
+              top: "var(--sp-3)",
+              alignSelf: "start",
+            }}
+          >
+            {structure?.items.map(({ module, lessons }) => (
+              <div key={module.id} style={{ marginBottom: "var(--sp-3)" }}>
+                <strong style={{ fontSize: 13, color: "var(--ink)", display: "block", marginBottom: 4 }}>
+                  {module.position}. {module.title}
+                </strong>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {lessons.map((lesson) => {
+                    const isActive = activeLessonId === lesson.id;
+                    return (
+                      <button
+                        key={lesson.id}
+                        type="button"
+                        onClick={() => setActiveLessonId(lesson.id)}
+                        style={{
+                          background: isActive ? "var(--accent-soft)" : "transparent",
+                          border: "none",
+                          padding: "6px 8px",
+                          textAlign: "left",
+                          width: "100%",
+                          cursor: "pointer",
+                          color: isActive ? "var(--accent-2)" : "var(--ink-2)",
+                          fontWeight: isActive ? 600 : 400,
+                          borderRadius: 4,
+                          fontSize: 12,
+                        }}
+                      >
+                        {lesson.position}. {lesson.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </nav>
+          <article
+            className="vidya-card-block"
+            style={{
+              whiteSpace: "pre-wrap",
+              minHeight: "60vh",
+              color: "var(--ink-2)",
+              lineHeight: 1.6,
+              fontSize: 14,
+            }}
+          >
+            {activeLesson ? (
+              <>
+                <h2 style={{ marginTop: 0, fontSize: 20, fontWeight: 700, color: "var(--ink)" }}>
+                  {activeLesson.title}
+                </h2>
+                <div style={{ marginTop: "var(--sp-3)" }}>{activeLesson.contentMd}</div>
+              </>
+            ) : (
+              <p style={{ color: "var(--ink-3)" }}>Pick a lesson to begin.</p>
+            )}
+          </article>
+        </div>
       </div>
-    </div>
-    </AppShell>
+    </VidyaShell>
   );
 }
