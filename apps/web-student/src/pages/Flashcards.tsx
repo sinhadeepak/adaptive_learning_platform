@@ -1,9 +1,9 @@
-// Phase 1D-8 — Flashcards: deck library + study mode.
+// Vidya v1 redesign — Flashcards: deck library + study mode.
 
 import { useEffect, useState } from "react";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface Deck {
   id: string;
@@ -36,54 +36,45 @@ type Tab = "due" | "my" | "community";
 export function Flashcards() {
   const [tab, setTab] = useState<Tab>("due");
 
+  const chips = (
+    <>
+      <button
+        type="button"
+        className={`vidya-shell__chip${tab === "due" ? " vidya-shell__chip--on" : ""}`}
+        onClick={() => setTab("due")}
+      >
+        Due today
+      </button>
+      <button
+        type="button"
+        className={`vidya-shell__chip${tab === "my" ? " vidya-shell__chip--on" : ""}`}
+        onClick={() => setTab("my")}
+      >
+        My decks
+      </button>
+      <button
+        type="button"
+        className={`vidya-shell__chip${tab === "community" ? " vidya-shell__chip--on" : ""}`}
+        onClick={() => setTab("community")}
+      >
+        Community decks
+      </button>
+    </>
+  );
+
   return (
-    <AppShell title="Flashcards">
-      <main className="page" style={{ padding: 24, maxWidth: 1000 }}>
-        <h1 style={{ marginTop: 0 }}>Flashcards</h1>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          <TabBtn active={tab === "due"} onClick={() => setTab("due")}>
-            Due today
-          </TabBtn>
-          <TabBtn active={tab === "my"} onClick={() => setTab("my")}>
-            My decks
-          </TabBtn>
-          <TabBtn active={tab === "community"} onClick={() => setTab("community")}>
-            Community decks
-          </TabBtn>
-        </div>
+    <VidyaShell
+      crumbs="PRACTICE · FLASHCARDS"
+      title="Flashcards"
+      subtitle="Spaced-repetition review — flip to see the answer, then rate your recall."
+      chips={chips}
+    >
+      <div style={{ maxWidth: 1000 }}>
         {tab === "due" && <DueTab />}
         {tab === "my" && <MyDecksTab />}
         {tab === "community" && <CommunityTab />}
-      </main>
-    </AppShell>
-  );
-}
-
-function TabBtn({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        padding: "8px 14px",
-        background: active ? "var(--gold)" : "var(--paper-2)",
-        color: active ? "#fff" : "var(--ink)",
-        border: "1px solid var(--rule)",
-        borderRadius: 6,
-        cursor: "pointer",
-        fontWeight: active ? 700 : 500,
-      }}
-    >
-      {children}
-    </button>
+      </div>
+    </VidyaShell>
   );
 }
 
@@ -166,7 +157,7 @@ function DueTab() {
       {!revealed ? (
         <button
           type="button"
-          className="btn btn-primary"
+          className="vidya-shell__primary"
           onClick={() => setRevealed(true)}
           style={{ marginTop: 16 }}
         >
@@ -272,7 +263,7 @@ function MyDecksTab() {
     <div>
       <button
         type="button"
-        className="btn btn-primary"
+        className="vidya-shell__primary"
         onClick={() => setShowNew((v) => !v)}
         style={{ marginBottom: 12 }}
       >
@@ -308,7 +299,7 @@ function MyDecksTab() {
           </select>
           <button
             type="button"
-            className="btn btn-primary"
+            className="vidya-shell__primary"
             onClick={create}
             disabled={!newTitle.trim()}
           >
@@ -332,7 +323,7 @@ function MyDecksTab() {
                 <button
                   type="button"
                   onClick={() => setImportDeck(importDeck === d.id ? null : d.id)}
-                  className="btn btn-ghost"
+                  className="vidya-shell__chip"
                   style={{ fontSize: 11 }}
                 >
                   + Import from questions
@@ -342,7 +333,7 @@ function MyDecksTab() {
                     <button
                       type="button"
                       onClick={() => submitForReview(d.id)}
-                      className="btn btn-primary"
+                      className="vidya-shell__primary"
                       style={{ fontSize: 11 }}
                     >
                       Submit for review
@@ -379,7 +370,7 @@ function MyDecksTab() {
                   />
                   <button
                     type="button"
-                    className="btn btn-primary"
+                    className="vidya-shell__primary"
                     onClick={() => runImport(d.id)}
                     disabled={!importTopic.trim()}
                   >
@@ -453,7 +444,7 @@ function CommunityTab() {
                 </div>
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="vidya-shell__primary"
                   onClick={() => subscribe(d.id)}
                 >
                   Subscribe
