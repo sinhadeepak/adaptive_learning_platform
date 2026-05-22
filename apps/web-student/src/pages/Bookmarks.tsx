@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
-import { Banner, Pill, SkeletonRows } from "../components/dashboard";
+import { VidyaShell } from "../components/vidya/VidyaShell";
+import { SkeletonRows } from "../components/dashboard";
 
+// Vidya v1 redesign
 // Saved questions list — server-backed, paginated by recency.
 // Mirrors the mobile BookmarksScreen so the student gets the same
 // "save and revisit" UX from either surface.
@@ -80,24 +81,38 @@ export function Bookmarks() {
   }
 
   return (
-    <AppShell title="Saved questions">
-      <p className="muted" style={{ marginTop: 0, marginBottom: "var(--sp-3)" }}>
-        Questions you've saved from quiz results to revisit later.
-      </p>
-
-      {error ? <Banner tone="danger" role="alert">{error}</Banner> : null}
+    <VidyaShell
+      crumbs="ME · BOOKMARKS"
+      title="Bookmarks"
+      subtitle="Saved content — bookmark anything for later review."
+    >
+      {error ? (
+        <div
+          role="alert"
+          style={{
+            background: "var(--paper)",
+            border: "1px solid var(--bad)",
+            color: "var(--bad)",
+            borderRadius: 12,
+            padding: "10px 12px",
+            marginBottom: "var(--sp-3)",
+          }}
+        >
+          {error}
+        </div>
+      ) : null}
 
       {items === null ? (
         <SkeletonRows count={4} />
       ) : items.length === 0 ? (
-        <div
+        <section
           style={{
             padding: "var(--sp-5)",
             textAlign: "center",
             color: "var(--ink-3)",
             border: "1px dashed var(--rule)",
             borderRadius: 12,
-            background: "var(--card-1)",
+            background: "var(--paper)",
           }}
         >
           <div style={{ fontSize: 36, marginBottom: 8 }}>☆</div>
@@ -109,9 +124,9 @@ export function Bookmarks() {
             to save it here for review.
           </div>
           <div style={{ marginTop: 14 }}>
-            <Link to="/practice" className="btn btn-primary">Start a practice session</Link>
+            <Link to="/practice" className="vidya-shell__primary">Start a practice session</Link>
           </div>
-        </div>
+        </section>
       ) : (
         <ol
           style={{
@@ -127,7 +142,7 @@ export function Bookmarks() {
             <li
               key={b.questionId}
               style={{
-                background: "var(--card-1)",
+                background: "var(--paper)",
                 border: "1px solid var(--rule)",
                 borderRadius: 12,
                 padding: "var(--sp-3)",
@@ -135,9 +150,39 @@ export function Bookmarks() {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {b.topicTitle ? (
-                  <Pill tone="info">◈ {b.topicTitle}</Pill>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      border: "1px solid var(--rule)",
+                      background: "var(--paper)",
+                      color: "var(--ink)",
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}
+                  >
+                    ◈ {b.topicTitle}
+                  </span>
                 ) : (
-                  <Pill tone="muted">Saved</Pill>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      border: "1px solid var(--rule)",
+                      background: "var(--paper)",
+                      color: "var(--ink-3)",
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Saved
+                  </span>
                 )}
                 <span style={{ flex: 1 }} />
                 <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
@@ -182,7 +227,7 @@ export function Bookmarks() {
                 <div style={{ marginTop: 12 }}>
                   <button
                     type="button"
-                    className="btn btn-secondary"
+                    className="vidya-shell__chip"
                     onClick={() => practiceTopic(b)}
                     disabled={starting === b.questionId}
                   >
@@ -194,7 +239,7 @@ export function Bookmarks() {
           ))}
         </ol>
       )}
-    </AppShell>
+    </VidyaShell>
   );
 }
 
