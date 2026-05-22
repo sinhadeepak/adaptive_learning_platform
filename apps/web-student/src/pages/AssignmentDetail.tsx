@@ -1,3 +1,5 @@
+// AssignmentDetail — Vidya v1 redesign.
+//
 // Sprint 9 F-1 + Sprint 10 S10-D — Student assignment detail.
 //
 // The student answers each question inline (4 multiple-choice buttons),
@@ -8,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import {
   fetchAssignment,
   fetchAssignmentQuestions,
@@ -65,11 +67,26 @@ export function AssignmentDetail() {
     }
   }
 
+  const backAction = (
+    <Link
+      to="/assignments"
+      className="vidya-shell__chip"
+      style={{ textDecoration: "none" }}
+    >
+      ← Assignments
+    </Link>
+  );
+
   if (!assignmentId) {
     return (
-      <AppShell title="Assignment">
+      <VidyaShell
+        crumbs="LEARN · ASSIGNMENT"
+        title="Assignment"
+        subtitle="Missing assignment id."
+        actions={backAction}
+      >
         <p>Missing assignment id.</p>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
@@ -78,17 +95,40 @@ export function AssignmentDetail() {
     questions.length > 0 &&
     questions.every((q) => answers[q.questionId] !== undefined);
 
+  const crumbs = `LEARN · ASSIGNMENT${assignment?.title ? ` · ${assignment.title.toUpperCase()}` : ""}`;
+  const subtitleParts: string[] = [];
+  if (assignment) {
+    const due = formatDueAt(assignment);
+    if (due) subtitleParts.push(due);
+    subtitleParts.push(progressBucket(assignment));
+  }
+  const subtitle = subtitleParts.length > 0 ? subtitleParts.join(" · ") : undefined;
+
   return (
-    <AppShell title="Assignment">
+    <VidyaShell
+      crumbs={crumbs}
+      title={assignment?.title ?? "Assignment"}
+      subtitle={subtitle}
+      actions={backAction}
+    >
       <main className="assignment-detail">
-        <Link to="/assignments" className="back-link">
-          ← My Assignments
-        </Link>
-        {error && <p className="banner banner-error">{error}</p>}
+        {error && (
+          <p
+            role="alert"
+            style={{
+              padding: "var(--sp-3) var(--sp-4)",
+              background: "var(--bad)",
+              color: "var(--paper)",
+              borderRadius: 8,
+              fontSize: 13,
+            }}
+          >
+            {error}
+          </p>
+        )}
         {assignment === null && <p>Loading…</p>}
         {assignment !== null && (
           <>
-            <h1>{assignment.title}</h1>
             <div className="meta-row">
               <span className={`pill pill-${progressBucket(assignment)}`}>
                 {progressBucket(assignment)}
@@ -150,7 +190,8 @@ export function AssignmentDetail() {
                     real Quiz session FSM. Inline radios stay as a
                     fallback for users who'd rather not navigate away. */}
                 <button
-                  className="btn-primary"
+                  type="button"
+                  className="vidya-shell__chip vidya-shell__chip--on"
                   style={{ marginBottom: 16 }}
                   onClick={async () => {
                     if (!assignmentId || !user) return;
@@ -204,7 +245,8 @@ export function AssignmentDetail() {
                   </ol>
                 )}
                 <button
-                  className="btn-primary"
+                  type="button"
+                  className="vidya-shell__chip vidya-shell__chip--on"
                   onClick={submit}
                   disabled={
                     submitting ||
@@ -227,6 +269,6 @@ export function AssignmentDetail() {
           </>
         )}
       </main>
-    </AppShell>
+    </VidyaShell>
   );
 }
