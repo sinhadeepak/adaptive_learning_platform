@@ -1,12 +1,14 @@
-// Tutors marketplace — production-grade redesign (2026-05-11).
+// Tutors marketplace — Vidya v1 redesign.
 //
-// Layout: pg-shell → pg-header → pg-filter-row (search + sort + price)
-// → pg-grid of pg-card tutor cards with avatar, rate, subjects, rating.
+// Layout: VidyaShell (crumbs + title + subtitle + tier chips + My-bookings
+// action) → search/range/sort row → 3-col vidya-grid of vidya-card-block
+// tutor cards with thumb gradient, headline, subject + tier chips, hourly
+// rate, and rating.
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { type TutorListingItem, marketplace } from "../lib/api";
 
 function paiseToRupees(p: number): string {
@@ -80,191 +82,194 @@ export function Tutors() {
   }, [items, search, sort, tierFilter]);
 
   return (
-    <AppShell title="Find a tutor">
-      <div className="pg-shell">
-        <header className="pg-header">
-          <div className="pg-header-main">
-            <h1 className="pg-header-title">Find a tutor</h1>
-            <p className="pg-header-sub">
-              Browse vetted 1:1 tutors. Filter by price and seniority; tap any
-              card to see qualifications, weekly availability, and book a
-              session.
-            </p>
-          </div>
-          <div className="pg-header-actions">
-            <Link to="/bookings" className="pg-btn pg-btn-ghost">
-              My bookings
-            </Link>
-          </div>
-        </header>
-
-        <div className="pg-filter-row">
-          <div className="pg-search">
-            <span className="pg-search-icon">⌕</span>
-            <input
-              className="pg-search-input"
-              placeholder="Search by name or expertise…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="pg-filter-chips">
-            {(["all", "premium", "standard"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                className={`pg-chip${tierFilter === t ? " on" : ""}`}
-                onClick={() => setTierFilter(t)}
-              >
-                {t === "all" ? "All tiers" : t === "premium" ? "Premium verified" : "Standard"}
-              </button>
-            ))}
-          </div>
-          <div className="pg-range" title={`Max hourly rate: ${paiseToRupees(maxRate * 100)}`}>
-            <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
-              Max ₹{maxRate.toLocaleString("en-IN")}
-            </span>
-            <input
-              type="range"
-              className="pg-range-input"
-              min={100}
-              max={5000}
-              step={100}
-              value={maxRate}
-              onChange={(e) => setMaxRate(parseInt(e.target.value, 10))}
-            />
-          </div>
-          <div className="pg-filter-sort">
-            <span className="pg-filter-label">Sort</span>
-            <select
-              className="pg-filter-select"
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-            >
-              <option value="price-asc">Price · low to high</option>
-              <option value="price-desc">Price · high to low</option>
-              <option value="rating">Top rated</option>
-              <option value="newest">Newest</option>
-            </select>
-          </div>
-        </div>
-
-        {error && <p className="banner banner-error">{error}</p>}
-
-        {items === null && !error && (
-          <div className="pg-grid">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="pg-card"
-                style={{ minHeight: 220, opacity: 0.5 }}
-                aria-hidden
-              />
-            ))}
-          </div>
-        )}
-
-        {filtered !== null && filtered.length === 0 && (
-          <div className="pg-empty">
-            <div className="pg-empty-icon">🔎</div>
-            <h2 className="pg-empty-title">No tutors match these filters</h2>
-            <p className="pg-empty-body">
-              Try raising the price ceiling, clearing the search, or switching
-              to "All tiers". New tutors join every week.
-            </p>
+    <VidyaShell
+      crumbs="MARKETPLACE · FIND A TUTOR"
+      title="Find a tutor"
+      subtitle="Browse vetted 1:1 tutors. Filter by price and seniority; tap any card to see qualifications, weekly availability, and book a session."
+      chips={
+        <>
+          {(["all", "premium", "standard"] as const).map((t) => (
             <button
+              key={t}
               type="button"
-              className="pg-btn pg-btn-ghost"
-              onClick={() => {
-                setSearch("");
-                setMaxRate(5000);
-                setTierFilter("all");
-              }}
+              className={`vidya-shell__chip${tierFilter === t ? " vidya-shell__chip--on" : ""}`}
+              onClick={() => setTierFilter(t)}
             >
-              Reset filters
+              {t === "all" ? "All tiers" : t === "premium" ? "Premium verified" : "Standard"}
             </button>
-          </div>
-        )}
-
-        {filtered !== null && filtered.length > 0 && (
-          <div className="pg-grid">
-            {filtered.map((t) => {
-              const isPremium = t.tier === "PREMIUM_VERIFIED";
-              const subjectCount = t.topicIds?.length ?? 0;
-              return (
-                <Link key={t.userId} to={`/tutors/${t.userId}`} className="pg-card">
-                  <div
-                    className="pg-card-thumb"
-                    style={{ background: tintFor(t.userId), height: 110 }}
-                  >
-                    <div className="pg-card-thumb-letter">
-                      {initialFor(t.displayName)}
-                    </div>
-                    {isPremium && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: 10,
-                          right: 10,
-                          padding: "3px 8px",
-                          background: "rgba(255,255,255,0.95)",
-                          color: "#000",
-                          fontSize: 10,
-                          fontWeight: 700,
-                          letterSpacing: 0.4,
-                          borderRadius: 999,
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        ★ Verified
-                      </div>
-                    )}
-                  </div>
-                  <div className="pg-card-body">
-                    <h2 className="pg-card-title">{t.displayName}</h2>
-                    <p className="pg-card-desc">
-                      {t.headline || "Tutor on AdaptiveLearn."}
-                    </p>
-                    <div className="pg-card-meta">
-                      {subjectCount > 0 && (
-                        <span className="pg-card-meta-pill">
-                          📚 {subjectCount} subject{subjectCount === 1 ? "" : "s"}
-                        </span>
-                      )}
-                      {isPremium ? (
-                        <span className="pg-card-meta-pill" style={{ color: "var(--info)" }}>
-                          Premium tier
-                        </span>
-                      ) : (
-                        <span className="pg-card-meta-pill">Standard tier</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="pg-card-foot">
-                    <span className="pg-card-price">
-                      {paiseToRupees(t.hourlyRatePaise)}
-                      <span className="pg-card-price-unit"> /hr</span>
-                    </span>
-                    {(t.ratingCount ?? 0) > 0 ? (
-                      <span className="pg-card-rating">
-                        <span className="pg-card-rating-star">★</span>
-                        {(t.ratingAvg ?? 0).toFixed(1)}
-                        <span style={{ color: "var(--ink-4)" }}>
-                          ({t.ratingCount})
-                        </span>
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
-                        New tutor
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
+          ))}
+        </>
+      }
+      actions={
+        <Link to="/bookings" className="vidya-shell__chip">
+          My bookings
+        </Link>
+      }
+    >
+      <div style={{
+        display: "flex",
+        gap: "var(--sp-3)",
+        flexWrap: "wrap",
+        alignItems: "center",
+        marginBottom: "var(--sp-4)",
+      }}>
+        <input
+          type="search"
+          placeholder="Search by name or expertise…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            flex: "1 1 240px",
+            minWidth: 200,
+            padding: "8px 12px",
+            background: "var(--paper)",
+            border: "1px solid var(--rule)",
+            borderRadius: 8,
+            color: "var(--ink)",
+            fontSize: 13,
+          }}
+        />
+        <label style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 11, color: "var(--ink-3)" }}>
+          <span>Max ₹{maxRate.toLocaleString("en-IN")}</span>
+          <input
+            type="range"
+            min={100}
+            max={5000}
+            step={100}
+            value={maxRate}
+            onChange={(e) => setMaxRate(parseInt(e.target.value, 10))}
+            style={{ width: 160 }}
+          />
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-3)" }}>
+          <span>SORT</span>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            style={{
+              padding: "7px 10px",
+              background: "var(--paper)",
+              border: "1px solid var(--rule)",
+              borderRadius: 8,
+              color: "var(--ink)",
+              fontSize: 13,
+            }}
+          >
+            <option value="price-asc">Price · low to high</option>
+            <option value="price-desc">Price · high to low</option>
+            <option value="rating">Top rated</option>
+            <option value="newest">Newest</option>
+          </select>
+        </label>
       </div>
-    </AppShell>
+
+      {error && (
+        <div role="alert" style={{
+          padding: "var(--sp-3) var(--sp-4)",
+          marginBottom: "var(--sp-4)",
+          background: "var(--bad)",
+          color: "var(--paper)",
+          borderRadius: 8,
+          fontSize: 13,
+        }}>
+          {error}
+        </div>
+      )}
+
+      {items === null && !error && (
+        <div className="vidya-grid-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="vidya-card-block"
+              style={{ minHeight: 220, opacity: 0.5 }}
+              aria-hidden
+            />
+          ))}
+        </div>
+      )}
+
+      {filtered !== null && filtered.length === 0 && (
+        <section style={{
+          textAlign: "center",
+          padding: "var(--sp-6) var(--sp-4)",
+          background: "var(--card)",
+          border: "1px solid var(--rule)",
+          borderRadius: 14,
+        }}>
+          <div style={{ fontSize: 36, marginBottom: "var(--sp-2)" }} aria-hidden>🔎</div>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--ink)" }}>
+            No tutors match these filters
+          </h2>
+          <p style={{ margin: "var(--sp-2) auto var(--sp-3)", maxWidth: 460, fontSize: 13, color: "var(--ink-2)" }}>
+            Try raising the price ceiling, clearing the search, or switching to "All tiers". New tutors join every week.
+          </p>
+          <button
+            type="button"
+            className="vidya-shell__chip"
+            onClick={() => {
+              setSearch("");
+              setMaxRate(5000);
+              setTierFilter("all");
+            }}
+          >
+            Reset filters
+          </button>
+        </section>
+      )}
+
+      {filtered !== null && filtered.length > 0 && (
+        <div className="vidya-grid-3">
+          {filtered.map((t) => {
+            const isPremium = t.tier === "PREMIUM_VERIFIED";
+            const subjectCount = t.topicIds?.length ?? 0;
+            return (
+              <Link
+                key={t.userId}
+                to={`/tutors/${t.userId}`}
+                className="vidya-card-block"
+                style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column" }}
+              >
+                <div style={{
+                  height: 110,
+                  background: tintFor(t.userId),
+                  borderRadius: "8px 8px 0 0",
+                  margin: "calc(-1 * var(--sp-4)) calc(-1 * var(--sp-4)) var(--sp-3)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "#fff", fontSize: 48, fontWeight: 700,
+                }}>
+                  {initialFor(t.displayName)}
+                </div>
+                <div className="vidya-card-block__head">
+                  <h3 className="vidya-card-block__title">{t.displayName}</h3>
+                </div>
+                <p style={{ fontSize: 13, color: "var(--ink-2)", margin: "var(--sp-1) 0 var(--sp-2)" }}>
+                  {t.headline ?? "Tutor on AdaptiveLearn."}
+                </p>
+                <div style={{ display: "flex", gap: "var(--sp-2)", flexWrap: "wrap", marginBottom: "var(--sp-3)" }}>
+                  <span className="vidya-shell__chip">📚 {subjectCount} subject{subjectCount === 1 ? "" : "s"}</span>
+                  <span className={`vidya-shell__chip${isPremium ? " vidya-shell__chip--on" : ""}`}>
+                    {isPremium ? "Premium verified" : "Standard tier"}
+                  </span>
+                </div>
+                <div style={{
+                  marginTop: "auto",
+                  display: "flex", justifyContent: "space-between", alignItems: "baseline",
+                  paddingTop: "var(--sp-3)", borderTop: "1px solid var(--rule)",
+                }}>
+                  <div>
+                    <strong style={{ fontSize: 18 }}>{paiseToRupees(t.hourlyRatePaise)}</strong>
+                    <span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4 }}>/hr</span>
+                  </div>
+                  <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                    {(t.ratingCount ?? 0) > 0 ? `★ ${t.ratingAvg?.toFixed(1) ?? "—"} (${t.ratingCount})` : "New tutor"}
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </VidyaShell>
   );
 }
