@@ -1,9 +1,14 @@
-// Sprint 17 (P3-S2) — Tutor public profile + booking flow.
+// TutorDetail — Vidya v1 redesign.
+//
+// Layout: VidyaShell (crumbs + tutor name + headline + back-to-tutors
+// action) → hero rate card → About / Qualifications / Availability /
+// Book-a-session vidya-card-block sections. Slot picker uses
+// vidya-shell__chip pills.
 
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import {
   type AvailabilitySlot,
   type TutorPublicProfile,
@@ -76,111 +81,157 @@ export function TutorDetail() {
 
   if (!profile) {
     return (
-      <AppShell title="Tutor">
-        <div style={{ padding: "16px 24px" }}>
-          {error ? <p className="banner banner-error">{error}</p> : <p style={{ color: "var(--ink-3)" }}>Loading…</p>}
-          <Link to="/tutors" style={{ color: "var(--info)" }}>← Back to tutors</Link>
+      <VidyaShell
+        crumbs="MARKETPLACE · TUTOR"
+        title="Tutor"
+        subtitle="Loading profile…"
+        actions={<Link to="/tutors" className="vidya-shell__chip">← Back to tutors</Link>}
+      >
+        <div style={{ maxWidth: 880 }}>
+          {error ? (
+            <div role="alert" style={{
+              padding: "var(--sp-3) var(--sp-4)",
+              background: "var(--bad)",
+              color: "var(--paper)",
+              borderRadius: 8,
+              fontSize: 13,
+            }}>
+              {error}
+            </div>
+          ) : (
+            <p style={{ color: "var(--ink-3)" }}>Loading…</p>
+          )}
         </div>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
   return (
-    <AppShell title={profile.displayName}>
-    <div style={{ padding: "16px 24px 32px", maxWidth: 880 }}>
-      <Link to="/tutors" style={{ color: "var(--info)", fontSize: 13 }}>← Back to tutors</Link>
-      <h1>{profile.displayName}</h1>
-      <p style={{ color: "var(--ink-3)" }}>{profile.headline}</p>
-      <p style={{ fontSize: 18 }}>
-        <strong>{paiseToRupees(profile.hourlyRatePaise)}</strong>/hr
-      </p>
-
-      {profile.bio && (
-        <section style={{ margin: "16px 0" }}>
-          <h2>About</h2>
-          <p style={{ whiteSpace: "pre-wrap" }}>{profile.bio}</p>
+    <VidyaShell
+      crumbs={`MARKETPLACE · TUTOR · ${profile.displayName.toUpperCase()}`}
+      title={profile.displayName}
+      subtitle={profile.headline ?? "AdaptiveLearn tutor"}
+      actions={<Link to="/tutors" className="vidya-shell__chip">← Back to tutors</Link>}
+    >
+      <div style={{ maxWidth: 880 }}>
+        <section className="vidya-heat-card" style={{ marginBottom: "var(--sp-4)" }}>
+          <div className="vidya-heat-card__head">
+            <div>
+              <div className="vidya-heat-card__eyebrow">HOURLY RATE</div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: "var(--ink)" }}>
+                {paiseToRupees(profile.hourlyRatePaise)}<span style={{ fontSize: 14, color: "var(--ink-3)" }}>/hr</span>
+              </div>
+            </div>
+          </div>
         </section>
-      )}
 
-      {profile.qualifications.length > 0 && (
-        <section style={{ margin: "16px 0" }}>
-          <h2>Qualifications</h2>
-          <ul>
-            {profile.qualifications.map((q) => (
-              <li key={q.id}>
-                <strong>{q.title}</strong>
-                {q.institution && <> — {q.institution}</>}
-                {q.yearCompleted && <> ({q.yearCompleted})</>}
-                <span style={{ color: "var(--ink-3)", marginLeft: 8 }}>
-                  [{q.kind}]
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+        {profile.bio && (
+          <section className="vidya-card-block" style={{ marginBottom: "var(--sp-4)" }}>
+            <div className="vidya-card-block__head">
+              <h2 className="vidya-card-block__title">About</h2>
+            </div>
+            <p style={{ whiteSpace: "pre-wrap", margin: 0, fontSize: 14, color: "var(--ink-2)", lineHeight: 1.6 }}>
+              {profile.bio}
+            </p>
+          </section>
+        )}
 
-      {profile.availability.length > 0 && (
-        <section style={{ margin: "16px 0" }}>
-          <h2>Weekly availability</h2>
-          <ul>
-            {profile.availability.map((a) => {
-              const sh = String(Math.floor(a.startMinute / 60)).padStart(2, "0");
-              const sm = String(a.startMinute % 60).padStart(2, "0");
-              const eh = String(Math.floor(a.endMinute / 60)).padStart(2, "0");
-              const em = String(a.endMinute % 60).padStart(2, "0");
-              return (
-                <li key={a.id}>
-                  {DAYS[a.dayOfWeek]} {sh}:{sm}–{eh}:{em}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-
-      <section style={{ margin: "16px 0" }}>
-        <h2>Book a session</h2>
-        <label>
-          Date{" "}
-          <input
-            type="date"
-            value={date}
-            min={todayISO(0)}
-            max={todayISO(14)}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </label>
-        {error && <p className="banner banner-error">{error}</p>}
-        <div style={{ marginTop: 8 }}>
-          {slots.length === 0 ? (
-            <p>No open slots on {date}.</p>
-          ) : (
-            <ul style={{ listStyle: "none", padding: 0 }}>
-              {slots.map((s) => (
-                <li key={s.slotStart} style={{ marginBottom: 6 }}>
-                  <button
-                    type="button"
-                    disabled={booking}
-                    onClick={() => bookSlot(s)}
-                  >
-                    {new Date(s.slotStart).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    →{" "}
-                    {new Date(s.slotEnd).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </button>
-                </li>
+        {profile.qualifications.length > 0 && (
+          <section className="vidya-card-block" style={{ marginBottom: "var(--sp-4)" }}>
+            <div className="vidya-card-block__head">
+              <h2 className="vidya-card-block__title">Qualifications</h2>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-2)" }}>
+              {profile.qualifications.map((q) => (
+                <div key={q.id} style={{ fontSize: 13, color: "var(--ink-2)" }}>
+                  <strong style={{ color: "var(--ink)" }}>{q.title}</strong>
+                  {q.institution && <> — {q.institution}</>}
+                  {q.yearCompleted && <> ({q.yearCompleted})</>}
+                  <span className="vidya-shell__chip" style={{ marginLeft: 8, fontSize: 10 }}>
+                    {q.kind}
+                  </span>
+                </div>
               ))}
-            </ul>
+            </div>
+          </section>
+        )}
+
+        {profile.availability.length > 0 && (
+          <section className="vidya-card-block" style={{ marginBottom: "var(--sp-4)" }}>
+            <div className="vidya-card-block__head">
+              <h2 className="vidya-card-block__title">Weekly availability</h2>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--sp-2)" }}>
+              {profile.availability.map((a) => {
+                const sh = String(Math.floor(a.startMinute / 60)).padStart(2, "0");
+                const sm = String(a.startMinute % 60).padStart(2, "0");
+                const eh = String(Math.floor(a.endMinute / 60)).padStart(2, "0");
+                const em = String(a.endMinute % 60).padStart(2, "0");
+                return (
+                  <span key={a.id} className="vidya-shell__chip" style={{ fontSize: 12 }}>
+                    {DAYS[a.dayOfWeek]} {sh}:{sm}–{eh}:{em}
+                  </span>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        <section className="vidya-card-block" style={{ marginBottom: "var(--sp-4)" }}>
+          <div className="vidya-card-block__head">
+            <h2 className="vidya-card-block__title">Book a session</h2>
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: "var(--sp-2)", marginBottom: "var(--sp-3)", fontSize: 13, color: "var(--ink-2)" }}>
+            <span>Date</span>
+            <input
+              type="date"
+              value={date}
+              min={todayISO(0)}
+              max={todayISO(14)}
+              onChange={(e) => setDate(e.target.value)}
+              style={{
+                padding: "7px 10px",
+                background: "var(--paper)",
+                border: "1px solid var(--rule)",
+                borderRadius: 8,
+                color: "var(--ink)",
+                fontSize: 13,
+              }}
+            />
+          </label>
+          {error && (
+            <div role="alert" style={{
+              padding: "var(--sp-3) var(--sp-4)",
+              marginBottom: "var(--sp-3)",
+              background: "var(--bad)",
+              color: "var(--paper)",
+              borderRadius: 8,
+              fontSize: 13,
+            }}>
+              {error}
+            </div>
           )}
-        </div>
-      </section>
-    </div>
-    </AppShell>
+          {slots.length === 0 ? (
+            <p style={{ fontSize: 13, color: "var(--ink-3)", margin: 0 }}>No open slots on {date}.</p>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--sp-2)" }}>
+              {slots.map((s) => (
+                <button
+                  key={s.slotStart}
+                  type="button"
+                  disabled={booking}
+                  onClick={() => bookSlot(s)}
+                  className="vidya-shell__chip"
+                  style={{ fontSize: 13, padding: "8px 14px" }}
+                >
+                  {new Date(s.slotStart).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} →{" "}
+                  {new Date(s.slotEnd).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </VidyaShell>
   );
 }
