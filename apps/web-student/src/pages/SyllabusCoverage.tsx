@@ -1,12 +1,14 @@
-// Sprint 28 (P4-S28) — Syllabus coverage view.
+// SyllabusCoverage — Vidya v1 redesign.
 //
-// Subject tabs → chapter cards with status pill + "M of N topics mastered"
-// + mini progress bar. Top headline shows overall coverage % + chapters
-// remaining.
+// Layout: VidyaShell (crumbs + title + subtitle + subject chips with
+// counts) → vidya-heat-card hero showing overall coverage % +
+// remaining chapters → vertical list of vidya-card-block chapter rows
+// with status pill, mastered/attempted count, and mini progress bar.
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import {
@@ -56,7 +58,7 @@ export function SyllabusCoverage() {
 
   if (error) {
     return (
-      <main className="page" style={{ padding: 24 }}>
+      <VidyaShell crumbs="PROGRESS · SYLLABUS" title="My Syllabus" subtitle="Couldn't load syllabus coverage.">
         <div role="alert" style={{
           padding: "var(--sp-3) var(--sp-4)",
           marginBottom: "var(--sp-4)",
@@ -67,156 +69,104 @@ export function SyllabusCoverage() {
         }}>
           {error}
         </div>
-      </main>
+      </VidyaShell>
     );
   }
   if (!coverage) {
     return (
-      <main className="page" style={{ padding: 24 }}>
-        <p>Loading…</p>
-      </main>
+      <VidyaShell crumbs="PROGRESS · SYLLABUS" title="My Syllabus" subtitle="Loading…">
+        <p style={{ color: "var(--ink-3)" }}>Loading…</p>
+      </VidyaShell>
     );
   }
 
   const remaining = chaptersRemaining(coverage);
 
   return (
-    <main className="page" style={{ padding: 24, maxWidth: 1000 }}>
-      <h1>My Syllabus</h1>
-      <p style={{ color: "var(--ink-3)" }}>
-        Track progress against the exam syllabus chapter by chapter.
-      </p>
-
-      {/* Headline tile */}
-      <section
-        style={{
-          background: "var(--card-1, #fff)",
-          padding: 20,
-          borderRadius: 8,
-          marginTop: 16,
-          display: "flex",
-          gap: 32,
-          alignItems: "center",
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 38, fontWeight: 700 }}>{coverage.overallPct}%</div>
-          <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
-            {coverage.masteredTopics} / {coverage.totalTopics} topics mastered
+    <VidyaShell
+      crumbs="PROGRESS · SYLLABUS"
+      title="My Syllabus"
+      subtitle="Track progress against the exam syllabus chapter by chapter."
+      chips={
+        <>
+          {coverage.subjects.map((s) => (
+            <button
+              key={s.subjectId}
+              type="button"
+              role="tab"
+              aria-selected={activeSubjectId === s.subjectId}
+              className={`vidya-shell__chip${activeSubjectId === s.subjectId ? " vidya-shell__chip--on" : ""}`}
+              onClick={() => setActiveSubjectId(s.subjectId)}
+            >
+              {s.name} · {s.coveredChapters}/{s.totalChapters}
+            </button>
+          ))}
+        </>
+      }
+    >
+      <div style={{ maxWidth: 1000 }}>
+        {/* Headline tile */}
+        <section className="vidya-heat-card" style={{ marginBottom: "var(--sp-4)" }}>
+          <div className="vidya-heat-card__head" style={{ display: "flex", gap: "var(--sp-6)", alignItems: "center" }}>
+            <div>
+              <div className="vidya-heat-card__eyebrow">OVERALL COVERAGE</div>
+              <div style={{ fontSize: 38, fontWeight: 800, color: "var(--ink)" }}>{coverage.overallPct}%</div>
+              <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
+                {coverage.masteredTopics} / {coverage.totalTopics} topics mastered
+              </div>
+            </div>
+            <div>
+              <div className="vidya-heat-card__eyebrow">REMAINING</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--ink)" }}>{remaining}</div>
+              <div style={{ fontSize: 13, color: "var(--ink-3)" }}>chapters remaining</div>
+            </div>
           </div>
-        </div>
-        <div>
-          <div style={{ fontSize: 24, fontWeight: 600 }}>{remaining}</div>
-          <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
-            chapters remaining
-          </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Subject tabs */}
-      <nav
-        style={{
-          display: "flex",
-          gap: 8,
-          marginTop: 24,
-          flexWrap: "wrap",
-        }}
-      >
-        {coverage.subjects.map((s) => (
-          <button
-            key={s.subjectId}
-            type="button"
-            onClick={() => setActiveSubjectId(s.subjectId)}
-            style={{
-              padding: "8px 14px",
-              borderRadius: 6,
-              border: "1px solid var(--rule)",
-              background:
-                activeSubjectId === s.subjectId
-                  ? "var(--card, #eef)"
-                  : "transparent",
-              fontWeight: activeSubjectId === s.subjectId ? 600 : 400,
-            }}
-          >
-            {s.name} · {s.coveredChapters}/{s.totalChapters}
-          </button>
-        ))}
-      </nav>
-
-      {/* Chapter list for active subject */}
-      {activeSubject && (
-        <section style={{ marginTop: 16 }}>
-          <ul style={{ listStyle: "none", padding: 0 }}>
+        {/* Chapter list for active subject */}
+        {activeSubject && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
             {activeSubject.chapters.map((ch) => (
               <ChapterCard key={ch.chapterId} chapter={ch} />
             ))}
-          </ul>
-        </section>
-      )}
-    </main>
+          </div>
+        )}
+      </div>
+    </VidyaShell>
   );
 }
 
 function ChapterCard({ chapter }: { chapter: ChapterCoverage }) {
   const colour = chapterStatusColour(chapter.status);
-  const pct =
-    chapter.totalTopics > 0
-      ? Math.round((chapter.masteredTopics / chapter.totalTopics) * 100)
-      : 0;
+  const pct = chapter.totalTopics > 0
+    ? Math.round((chapter.masteredTopics / chapter.totalTopics) * 100)
+    : 0;
   return (
-    <li
-      style={{
-        background: "var(--card-1, #fff)",
-        padding: 16,
-        borderRadius: 8,
-        marginBottom: 12,
-      }}
-    >
-      <div
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-      >
-        <strong>{chapter.name}</strong>
-        <span
-          className="pill"
-          style={{
-            padding: "2px 8px",
-            borderRadius: 12,
-            background: colour,
-            color: "#fff",
-            fontSize: 11,
-          }}
-        >
+    <div className="vidya-card-block">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--sp-3)" }}>
+        <strong style={{ fontSize: 14, color: "var(--ink)" }}>{chapter.name}</strong>
+        <span style={{
+          padding: "3px 10px",
+          borderRadius: 9999,
+          background: colour,
+          color: "#fff",
+          fontSize: 10,
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: 0.4,
+          flexShrink: 0,
+        }}>
           {chapterStatusLabel(chapter.status)}
         </span>
       </div>
-      <p
-        style={{
-          margin: "6px 0 8px",
-          fontSize: 13,
-          color: "var(--ink-3)",
-        }}
-      >
+      <p style={{ margin: "var(--sp-2) 0", fontSize: 13, color: "var(--ink-2)" }}>
         {chapter.totalTopics === 0
           ? "No topics mapped yet — content team is working on it."
           : `${chapter.masteredTopics} of ${chapter.totalTopics} topics mastered · attempted ${chapter.attemptedTopics}`}
       </p>
-      {/* Mini progress bar */}
-      <div
-        style={{
-          background: "var(--card-2, #e5e7eb)",
-          borderRadius: 4,
-          height: 6,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            width: `${pct}%`,
-            height: "100%",
-            background: colour,
-          }}
-        />
+      <div style={{ background: "var(--paper-2)", borderRadius: 4, height: 6, overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: colour, transition: "width 200ms" }} />
       </div>
-    </li>
+    </div>
   );
 }
