@@ -1,4 +1,4 @@
-// F3 — Custom Test Builder.
+// F3 — Custom Test Builder (Vidya v1 redesign).
 //
 // 4-step wizard:
 //   1. Scope     — exam + test name
@@ -14,8 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { auth } from "../lib/api";
-import { AppShell } from "../components/AppShell";
-import { Banner } from "../components/dashboard";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 // Local catalog typings — web-student doesn't ship a `catalog.*`
 // helper module today; everywhere else in the codebase uses raw
@@ -232,28 +231,54 @@ export function TestBuilder() {
   const subjectsForCurrent = subjectsByExam[examId] ?? [];
 
   return (
-    <AppShell
-      title="Build a custom test"
+    <VidyaShell
+      crumbs="PRACTICE · BUILD A TEST"
+      title="Build a test"
+      subtitle="Pick topics, difficulty, and length. Your custom test is saved to My Tests."
       actions={
-        <Link to="/practice" className="pg-btn pg-btn-ghost">
+        <Link to="/practice" className="vidya-shell__chip">
           Cancel
         </Link>
       }
     >
-      <div className="pg-shell" style={{ maxWidth: 1080 }}>
+      <div style={{ maxWidth: 1080 }}>
         <Stepper step={step} />
 
-        {error && <Banner tone="danger">{error}</Banner>}
+        {error && (
+          <div
+            role="alert"
+            style={{
+              padding: "var(--sp-3) var(--sp-4)",
+              marginBottom: "var(--sp-4)",
+              background: "var(--bad)",
+              color: "var(--paper)",
+              borderRadius: 8,
+              fontSize: 13,
+            }}
+          >
+            {error}
+          </div>
+        )}
 
         {step === 1 && (
-          <section className="pg-section">
-            <h2 className="pg-section-title">
-              1. Scope
-              <span className="pg-section-title-sub">exam + name</span>
-            </h2>
-            <div className="pg-fields">
+          <section className="vidya-card-block">
+            <div className="vidya-card-block__head">
+              <h3 className="vidya-card-block__title">
+                1. Scope
+                <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: "var(--ink-3)" }}>
+                  exam + name
+                </span>
+              </h3>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 2fr",
+                gap: "var(--sp-3)",
+              }}
+            >
               <div>
-                <div className="pg-field-label">Exam</div>
+                <div style={fieldLabel}>Exam</div>
                 <select
                   value={examId}
                   onChange={(e) => setExamId(e.target.value)}
@@ -267,8 +292,8 @@ export function TestBuilder() {
                   ))}
                 </select>
               </div>
-              <div style={{ gridColumn: "span 2" }}>
-                <div className="pg-field-label">Test name</div>
+              <div>
+                <div style={fieldLabel}>Test name</div>
                 <input
                   type="text"
                   value={name}
@@ -283,14 +308,16 @@ export function TestBuilder() {
         )}
 
         {step === 2 && (
-          <section className="pg-section">
-            <h2 className="pg-section-title">
-              2. Sections
-              <span className="pg-section-title-sub">
-                {sections.length} section{sections.length === 1 ? "" : "s"} ·{" "}
-                {totalQuestions} Q · {totalMinutes} min
-              </span>
-            </h2>
+          <section className="vidya-card-block">
+            <div className="vidya-card-block__head">
+              <h3 className="vidya-card-block__title">
+                2. Sections
+                <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: "var(--ink-3)" }}>
+                  {sections.length} section{sections.length === 1 ? "" : "s"} ·{" "}
+                  {totalQuestions} Q · {totalMinutes} min
+                </span>
+              </h3>
+            </div>
             {sections.map((s, i) => {
               const subjectTopics = topicsBySubject[s.subjectId] ?? [];
               return (
@@ -298,9 +325,9 @@ export function TestBuilder() {
                   key={s.id}
                   style={{
                     padding: 14,
-                    background: "var(--paper-2)",
+                    background: "var(--card)",
                     border: "1px solid var(--rule)",
-                    borderRadius: 6,
+                    borderRadius: 10,
                     marginBottom: 12,
                   }}
                 >
@@ -314,7 +341,7 @@ export function TestBuilder() {
                     }}
                   >
                     <div>
-                      <div className="pg-field-label">Section name</div>
+                      <div style={fieldLabel}>Section name</div>
                       <input
                         value={s.name}
                         onChange={(e) => updateSection(i, { name: e.target.value })}
@@ -323,7 +350,7 @@ export function TestBuilder() {
                       />
                     </div>
                     <div>
-                      <div className="pg-field-label">Subject</div>
+                      <div style={fieldLabel}>Subject</div>
                       <select
                         value={s.subjectId}
                         onChange={(e) => {
@@ -341,7 +368,7 @@ export function TestBuilder() {
                       </select>
                     </div>
                     <div>
-                      <div className="pg-field-label">Questions</div>
+                      <div style={fieldLabel}>Questions</div>
                       <input
                         type="number"
                         min={1}
@@ -354,7 +381,7 @@ export function TestBuilder() {
                       />
                     </div>
                     <div>
-                      <div className="pg-field-label">Minutes</div>
+                      <div style={fieldLabel}>Minutes</div>
                       <input
                         type="number"
                         min={1}
@@ -367,7 +394,7 @@ export function TestBuilder() {
                       />
                     </div>
                     <div>
-                      <div className="pg-field-label">Difficulty</div>
+                      <div style={fieldLabel}>Difficulty</div>
                       <select
                         value={s.difficulty}
                         onChange={(e) =>
@@ -384,7 +411,7 @@ export function TestBuilder() {
                       type="button"
                       onClick={() => setSections(sections.filter((_, j) => j !== i))}
                       disabled={sections.length === 1}
-                      className="pg-btn pg-btn-ghost pg-btn-sm"
+                      className="vidya-shell__chip"
                       style={{ height: 34 }}
                     >
                       Remove
@@ -393,7 +420,7 @@ export function TestBuilder() {
 
                   {s.subjectId && (
                     <div>
-                      <div className="pg-field-label">
+                      <div style={fieldLabel}>
                         Topics{" "}
                         <span style={{ color: "var(--ink-4)", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>
                           (optional — leave empty to pull from all topics in the subject)
@@ -412,7 +439,7 @@ export function TestBuilder() {
                                 key={t.id}
                                 type="button"
                                 onClick={() => toggleTopic(i, t.id)}
-                                className={`pg-chip${on ? " on" : ""}`}
+                                className={`vidya-shell__chip${on ? " vidya-shell__chip--on" : ""}`}
                               >
                                 {t.title}
                               </button>
@@ -427,7 +454,7 @@ export function TestBuilder() {
             })}
             <button
               type="button"
-              className="pg-btn pg-btn-subtle"
+              className="vidya-shell__chip"
               onClick={() => setSections([...sections, newSection()])}
               disabled={sections.length >= 10}
             >
@@ -437,14 +464,24 @@ export function TestBuilder() {
         )}
 
         {step === 3 && (
-          <section className="pg-section">
-            <h2 className="pg-section-title">
-              3. Rules
-              <span className="pg-section-title-sub">marks + navigation</span>
-            </h2>
-            <div className="pg-fields">
+          <section className="vidya-card-block">
+            <div className="vidya-card-block__head">
+              <h3 className="vidya-card-block__title">
+                3. Rules
+                <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: "var(--ink-3)" }}>
+                  marks + navigation
+                </span>
+              </h3>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "var(--sp-3)",
+              }}
+            >
               <div>
-                <div className="pg-field-label">Marks per correct</div>
+                <div style={fieldLabel}>Marks per correct</div>
                 <input
                   type="number"
                   min={1}
@@ -457,7 +494,7 @@ export function TestBuilder() {
                 />
               </div>
               <div>
-                <div className="pg-field-label">Negative marks per wrong</div>
+                <div style={fieldLabel}>Negative marks per wrong</div>
                 <input
                   type="number"
                   min={0}
@@ -507,52 +544,67 @@ export function TestBuilder() {
         )}
 
         {step === 4 && (
-          <section className="pg-section">
-            <h2 className="pg-section-title">
-              4. Review &amp; launch
-              <span className="pg-section-title-sub">double-check before saving</span>
-            </h2>
-            <div className="pg-stat-strip" style={{ marginBottom: 16 }}>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Total questions</div>
-                <div className="pg-stat-value">{totalQuestions}</div>
+          <section className="vidya-card-block">
+            <div className="vidya-card-block__head">
+              <h3 className="vidya-card-block__title">
+                4. Review &amp; launch
+                <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: "var(--ink-3)" }}>
+                  double-check before saving
+                </span>
+              </h3>
+            </div>
+            <div style={{ display: "flex", gap: "var(--sp-4)", marginBottom: 16, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>Total questions</div>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>{totalQuestions}</div>
               </div>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Total minutes</div>
-                <div className="pg-stat-value">{totalMinutes}</div>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>Total minutes</div>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>{totalMinutes}</div>
               </div>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Scoring</div>
-                <div className="pg-stat-value" style={{ fontSize: 16 }}>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>Scoring</div>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>
                   +{scoring.correct} / −{scoring.negative}
                 </div>
               </div>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Sections</div>
-                <div className="pg-stat-value">{sections.length}</div>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>Sections</div>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>{sections.length}</div>
               </div>
             </div>
 
-            <div className="pg-list">
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
               {sections.map((s, i) => (
-                <div className="pg-row" key={s.id}>
-                  <div className="pg-row-main">
-                    <p className="pg-row-title">
+                <div
+                  key={s.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "var(--sp-3) var(--sp-4)",
+                    background: "var(--card)",
+                    border: "1px solid var(--rule)",
+                    borderRadius: 10,
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>
                       {s.name || `Section ${i + 1}`}
                     </p>
-                    <div className="pg-row-meta">
+                    <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>
                       <span>
                         {subjectsForCurrent.find((sub) => sub.id === s.subjectId)?.name ?? "Subject?"}
                       </span>
-                      <span className="pg-row-meta-dot">·</span>
+                      <span style={{ margin: "0 6px" }}>·</span>
                       <span>{s.nQuestions} Q · {s.nMinutes} min</span>
-                      <span className="pg-row-meta-dot">·</span>
+                      <span style={{ margin: "0 6px" }}>·</span>
                       <span>
                         {s.difficulty === "mixed" ? "Mixed difficulty" : s.difficulty === "easy" ? "Easy-heavy" : "Hard-heavy"}
                       </span>
                       {s.topicIds.length > 0 && (
                         <>
-                          <span className="pg-row-meta-dot">·</span>
+                          <span style={{ margin: "0 6px" }}>·</span>
                           <span>{s.topicIds.length} topic{s.topicIds.length === 1 ? "" : "s"} picked</span>
                         </>
                       )}
@@ -575,7 +627,7 @@ export function TestBuilder() {
         >
           <button
             type="button"
-            className="pg-btn pg-btn-ghost"
+            className="vidya-shell__chip"
             onClick={() => setStep((s) => (s > 1 ? ((s - 1) as Step) : s))}
             disabled={step === 1}
           >
@@ -585,7 +637,7 @@ export function TestBuilder() {
             {step < 4 ? (
               <button
                 type="button"
-                className="pg-btn pg-btn-primary"
+                className="vidya-shell__primary"
                 onClick={() => setStep((s) => (s + 1) as Step)}
                 disabled={!canAdvance[step]}
               >
@@ -595,7 +647,7 @@ export function TestBuilder() {
               <>
                 <button
                   type="button"
-                  className="pg-btn pg-btn-ghost"
+                  className="vidya-shell__chip"
                   onClick={() => save(false)}
                   disabled={submitting}
                 >
@@ -603,7 +655,7 @@ export function TestBuilder() {
                 </button>
                 <button
                   type="button"
-                  className="pg-btn pg-btn-primary"
+                  className="vidya-shell__primary"
                   onClick={() => save(true)}
                   disabled={submitting}
                 >
@@ -614,7 +666,7 @@ export function TestBuilder() {
           </div>
         </div>
       </div>
-    </AppShell>
+    </VidyaShell>
   );
 }
 
@@ -629,7 +681,7 @@ function Stepper({ step }: { step: Step }) {
         padding: "12px 16px",
         background: "var(--card)",
         border: "1px solid var(--rule)",
-        borderRadius: 8,
+        borderRadius: 10,
       }}
     >
       {STEPS.map((label, i) => {
@@ -685,13 +737,22 @@ function Stepper({ step }: { step: Step }) {
   );
 }
 
+const fieldLabel: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  color: "var(--ink-3)",
+  textTransform: "uppercase",
+  letterSpacing: 0.5,
+  marginBottom: 4,
+};
+
 const fieldInput: React.CSSProperties = {
   width: "100%",
-  padding: "7px 10px",
-  background: "var(--card)",
+  padding: "8px 12px",
+  background: "var(--paper)",
   color: "var(--ink)",
-  border: "1px solid var(--rule-2)",
-  borderRadius: 6,
+  border: "1px solid var(--rule)",
+  borderRadius: 8,
   fontSize: 13,
   fontFamily: "inherit",
   outline: "none",
