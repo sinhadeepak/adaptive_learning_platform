@@ -1,15 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { AppShell } from "../components/AppShell";
-import { RadarChart, type RadarPoint } from "../components/RadarChart";
-import { useAuth } from "../lib/auth-provider";
-import {
-  studentProfile,
-  type MultiProfileResponse,
-  type TransferRow,
-} from "../lib/phase5-api";
-
-// ─────────────────────────────────────────────────────────────────────────
-// S46 — ConceptProfile.
+// ConceptProfile — Vidya v1 redesign.
+//
+// Per-concept analytics drill-down: mastery, recent attempts, related
+// concepts. Layout: VidyaShell (crumbs + title + subtitle + back action)
+// → concept list rail + selected-concept radar/bloom matrix/cross-links.
 //
 // Per ADR-0017: 9-dimension assessment substrate per concept. v1
 // surfaces the dimensions the backend already serves end-to-end:
@@ -24,7 +17,17 @@ import {
 // endpoints (S29 error-patterns, S27 revision queue, S22 sections);
 // the radar surfaces concept-grain only here, and links to the
 // corresponding pages for the rest.
-// ─────────────────────────────────────────────────────────────────────────
+
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { VidyaShell } from "../components/vidya/VidyaShell";
+import { RadarChart, type RadarPoint } from "../components/RadarChart";
+import { useAuth } from "../lib/auth-provider";
+import {
+  studentProfile,
+  type MultiProfileResponse,
+  type TransferRow,
+} from "../lib/phase5-api";
 
 function bloomMatrixRow(matrix: MultiProfileResponse["bloomMatrix"], conceptId: string): {
   level: string;
@@ -59,6 +62,11 @@ export function ConceptProfile() {
       }
     })();
   }, [user?.id]);
+
+  const selectedConcept = useMemo(
+    () => profile?.concepts.find((c) => c.conceptId === selectedConceptId) ?? null,
+    [profile, selectedConceptId],
+  );
 
   const radarPoints = useMemo<RadarPoint[]>(() => {
     if (!profile || !selectedConceptId) return [];
@@ -96,9 +104,48 @@ export function ConceptProfile() {
     ];
   }, [profile, transfer, selectedConceptId]);
 
+  const conceptLabel = selectedConcept
+    ? `${selectedConcept.conceptId.slice(0, 8)}…`
+    : "Concept";
+  const crumbs = `LEARN · CONCEPT · ${conceptLabel.toUpperCase()}`;
+
+  const subtitle = selectedConcept
+    ? `Mastery ${(selectedConcept.ewa * 100).toFixed(0)}% · n=${selectedConcept.n}`
+    : profile && profile.concepts.length === 0
+      ? "No concept-grain data yet"
+      : "Select a concept to drill in";
+
+  const backAction = (
+    <Link
+      to="/analysis"
+      className="vidya-shell__chip"
+      style={{ textDecoration: "none" }}
+    >
+      ← Analysis
+    </Link>
+  );
+
   return (
-    <AppShell title="Concept profile">
-      {error && <div style={{ color: "var(--bad)" }}>{error}</div>}
+    <VidyaShell
+      crumbs={crumbs}
+      title="Concept profile"
+      subtitle={subtitle}
+      actions={backAction}
+    >
+      {error && (
+        <div
+          role="alert"
+          style={{
+            background: "var(--bad)",
+            color: "var(--paper)",
+            padding: "var(--sp-3)",
+            borderRadius: "var(--radius-2)",
+            margin: "0 0 var(--sp-3) 0",
+          }}
+        >
+          {error}
+        </div>
+      )}
 
       {profile && profile.concepts.length === 0 && (
         <p style={{ fontSize: 14, opacity: 0.8 }}>
@@ -144,10 +191,12 @@ export function ConceptProfile() {
           <div>
             {selectedConceptId && (
               <>
-                <h3 style={{ fontSize: 14, marginBottom: 8 }}>
-                  Selected: <code>{selectedConceptId.slice(0, 16)}…</code>
-                </h3>
-                <RadarChart points={radarPoints} size={360} />
+                <section className="vidya-heat-card" style={{ marginBottom: 16 }}>
+                  <h3 style={{ fontSize: 14, marginBottom: 8 }}>
+                    Selected: <code>{selectedConceptId.slice(0, 16)}…</code>
+                  </h3>
+                  <RadarChart points={radarPoints} size={360} />
+                </section>
 
                 <section style={{ marginTop: 16 }}>
                   <h4 style={{ fontSize: 13, marginBottom: 6 }}>Bloom matrix</h4>
@@ -192,6 +241,6 @@ export function ConceptProfile() {
           </div>
         </div>
       )}
-    </AppShell>
+    </VidyaShell>
   );
 }
