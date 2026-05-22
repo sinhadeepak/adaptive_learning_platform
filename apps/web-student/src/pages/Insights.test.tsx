@@ -26,10 +26,10 @@ vi.mock("../lib/auth-provider", () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-// AppShell — heavy chrome we don't need in unit tests. Stub it so the
+// VidyaShell — heavy chrome we don't need in unit tests. Stub it so the
 // page mounts without pulling in the full nav.
-vi.mock("../components/AppShell", () => ({
-  AppShell: ({
+vi.mock("../components/vidya/VidyaShell", () => ({
+  VidyaShell: ({
     children,
     title,
   }: {
