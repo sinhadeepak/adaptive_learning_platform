@@ -1,12 +1,14 @@
-// Sprint 24 (P4-S24) — PYQ drill view.
+// PYQDrill — Vidya v1 redesign.
 //
-// Chapter-wise + year-wise navigation over the PYQ corpus. Shows
-// frequency-by-chapter analysis ("trending up / down / flat") so
-// students can spot which chapters dominate the recent papers.
+// Layout: VidyaShell (crumbs + title + subject chips) → 320px aside
+// with chapter list + frequency arrows → main section with year-filter
+// chips + question cards (vidya-card-block per question, tinted
+// option buttons for correct/incorrect reveal).
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { auth } from "../lib/api";
 import {
   totalAcrossYears,
@@ -128,7 +130,11 @@ export function PYQDrill() {
 
   if (error) {
     return (
-      <main className="page" style={{ padding: 24 }}>
+      <VidyaShell
+        crumbs="LEARN · PYQ HUB"
+        title="PYQ Drill"
+        subtitle="Browse previous-year questions chapter-wise and year-wise. Frequency view shows which chapters dominate the recent papers."
+      >
         <div role="alert" style={{
           padding: "var(--sp-3) var(--sp-4)",
           marginBottom: "var(--sp-4)",
@@ -139,101 +145,92 @@ export function PYQDrill() {
         }}>
           {error}
         </div>
-      </main>
+      </VidyaShell>
     );
   }
 
   return (
-    <main className="page" style={{ padding: 24, maxWidth: 1200 }}>
-      <h1>PYQ Drill</h1>
-      <p style={{ color: "var(--ink-3)" }}>
-        Browse previous-year questions chapter-wise and year-wise. Frequency
-        view shows which chapters dominate the recent papers.
-      </p>
-
-      {/* Subject pills */}
-      <nav style={{ display: "flex", gap: 8, marginTop: 12 }}>
-        {subjects.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => setSubjectId(s.id)}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 6,
-              border: "1px solid var(--rule)",
-              background: subjectId === s.id ? "var(--card, #eef)" : "transparent",
-            }}
-          >
-            {s.name}
-          </button>
-        ))}
-      </nav>
-
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 24, marginTop: 16 }}>
+    <VidyaShell
+      crumbs="LEARN · PYQ HUB"
+      title="PYQ Drill"
+      subtitle="Browse previous-year questions chapter-wise and year-wise. Frequency view shows which chapters dominate the recent papers."
+      chips={
+        <>
+          {subjects.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className={`vidya-shell__chip${subjectId === s.id ? " vidya-shell__chip--on" : ""}`}
+              onClick={() => setSubjectId(s.id)}
+            >
+              {s.name}
+            </button>
+          ))}
+        </>
+      }
+    >
+      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: "var(--sp-4)" }}>
         {/* Chapter list with frequency */}
         <aside>
-          <h2 style={{ fontSize: 16, marginTop: 0 }}>Chapters</h2>
-          {frequency === null && <p>Loading…</p>}
+          <h3 style={{ margin: "0 0 var(--sp-3)", fontSize: 13, fontWeight: 700, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.6 }}>
+            Chapters
+          </h3>
+          {frequency === null && <p style={{ color: "var(--ink-3)", fontSize: 13 }}>Loading…</p>}
           {frequency !== null && frequency.chapters.length === 0 && (
-            <p style={{ color: "var(--ink-3)" }}>No PYQs for this subject yet.</p>
+            <p style={{ color: "var(--ink-3)", fontSize: 13 }}>No PYQs for this subject yet.</p>
           )}
-          <ul style={{ listStyle: "none", padding: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {frequency?.chapters.map((ch) => {
               const dir = trendDirection(ch.yearCounts);
               const arrow =
                 dir === "up" ? "↑" : dir === "down" ? "↓" : dir === "single" ? "·" : "→";
               const arrowColor =
-                dir === "up"
-                  ? "var(--good, #10C47A)"
-                  : dir === "down"
-                  ? "var(--bad, #F43F5E)"
-                  : "var(--ink-3)";
+                dir === "up" ? "var(--good)" : dir === "down" ? "var(--bad)" : "var(--ink-3)";
+              const isActive = activeTopicId === ch.topicId;
               return (
-                <li key={ch.topicId} style={{ marginBottom: 4 }}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTopicId(ch.topicId)}
-                    style={{
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "8px 12px",
-                      borderRadius: 4,
-                      border: "1px solid var(--rule)",
-                      background:
-                        activeTopicId === ch.topicId
-                          ? "var(--card, #eef)"
-                          : "transparent",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <span>{ch.topicTitle}</span>
-                    <span style={{ color: arrowColor, fontWeight: 600 }}>
-                      {arrow} {totalAcrossYears(ch.yearCounts)}
-                    </span>
-                  </button>
-                </li>
+                <button
+                  key={ch.topicId}
+                  type="button"
+                  onClick={() => setActiveTopicId(ch.topicId)}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    border: "1px solid var(--rule)",
+                    background: isActive ? "var(--accent-soft)" : "var(--paper)",
+                    color: isActive ? "var(--accent-2)" : "var(--ink)",
+                    fontWeight: isActive ? 600 : 500,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {ch.topicTitle}
+                  </span>
+                  <span style={{ color: arrowColor, fontWeight: 600, fontSize: 12, flexShrink: 0 }}>
+                    {arrow} {totalAcrossYears(ch.yearCounts)}
+                  </span>
+                </button>
               );
             })}
-          </ul>
+          </div>
         </aside>
 
-        {/* Question pane */}
         <section>
           {/* Year pills */}
           {allYears.length > 0 && (
-            <nav style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <div role="tablist" style={{ display: "flex", flexWrap: "wrap", gap: "var(--sp-2)", marginBottom: "var(--sp-4)" }}>
               <button
                 type="button"
+                role="tab"
+                aria-selected={yearFilter === null}
+                className={`vidya-shell__chip${yearFilter === null ? " vidya-shell__chip--on" : ""}`}
                 onClick={() => setYearFilter(null)}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "1px solid var(--rule)",
-                  background: yearFilter === null ? "var(--card, #eef)" : "transparent",
-                }}
               >
                 All years
               </button>
@@ -241,94 +238,94 @@ export function PYQDrill() {
                 <button
                   key={y}
                   type="button"
+                  role="tab"
+                  aria-selected={yearFilter === y}
+                  className={`vidya-shell__chip${yearFilter === y ? " vidya-shell__chip--on" : ""}`}
                   onClick={() => setYearFilter(y)}
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 6,
-                    border: "1px solid var(--rule)",
-                    background: yearFilter === y ? "var(--card, #eef)" : "transparent",
-                  }}
                 >
                   {y}
                 </button>
               ))}
-            </nav>
+            </div>
           )}
 
           {/* Question list */}
-          {questions === null && activeTopicId !== null && <p>Loading…</p>}
-          {questions !== null && questions.items.length === 0 && (
-            <p style={{ color: "var(--ink-3)" }}>No PYQs match this filter.</p>
+          {questions === null && activeTopicId !== null && (
+            <p style={{ color: "var(--ink-3)", fontSize: 13 }}>Loading…</p>
           )}
-          <ol style={{ listStyle: "none", padding: 0 }}>
+          {questions !== null && questions.items.length === 0 && (
+            <p style={{ color: "var(--ink-3)", fontSize: 13 }}>No PYQs match this filter.</p>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
             {questions?.items.map((q, i) => {
               const choice = revealed[q.id];
               const showAnswer = choice !== undefined;
               return (
-                <li
-                  key={q.id}
-                  style={{
-                    background: "var(--card-1, #fff)",
-                    padding: 16,
-                    borderRadius: 8,
-                    marginBottom: 12,
-                  }}
-                >
-                  <div style={{ color: "var(--ink-3)", fontSize: 13 }}>
+                <article key={q.id} className="vidya-card-block">
+                  <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 600 }}>
                     Q{i + 1}
                     {q.examYear && ` · ${q.examYear}`}
                     {q.paperSession && ` · ${q.paperSession}`}
                   </div>
-                  <p style={{ margin: "8px 0", fontSize: 17 }}>{q.stem}</p>
-                  <ul style={{ listStyle: "none", padding: 0 }}>
+                  <p style={{ margin: "var(--sp-2) 0 var(--sp-3)", fontSize: 15, lineHeight: 1.5, color: "var(--ink)" }}>
+                    {q.stem}
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {q.choices.map((c, idx) => {
                       const isCorrect = idx === q.correctIdx;
                       const isPicked = choice === idx;
-                      const styleAfter = showAnswer
-                        ? isCorrect
-                          ? "var(--good, #10C47A)"
-                          : isPicked
-                          ? "var(--bad, #F43F5E)"
-                          : "transparent"
-                        : isPicked
-                        ? "var(--card, #eef)"
-                        : "transparent";
+                      let background = "var(--paper)";
+                      let color = "var(--ink)";
+                      let border = "1px solid var(--rule)";
+                      if (showAnswer) {
+                        if (isCorrect) {
+                          background = "var(--good-soft)";
+                          color = "var(--good)";
+                          border = "1px solid var(--good)";
+                        } else if (isPicked) {
+                          background = "var(--bad-soft)";
+                          color = "var(--bad)";
+                          border = "1px solid var(--bad)";
+                        }
+                      } else if (isPicked) {
+                        background = "var(--accent-soft)";
+                        border = "1px solid var(--accent)";
+                      }
                       return (
-                        <li key={idx}>
-                          <button
-                            type="button"
-                            disabled={showAnswer}
-                            onClick={() => setRevealed((r) => ({ ...r, [q.id]: idx }))}
-                            style={{
-                              display: "block",
-                              width: "100%",
-                              textAlign: "left",
-                              padding: 8,
-                              marginBottom: 4,
-                              borderRadius: 4,
-                              border: "1px solid var(--rule)",
-                              background: styleAfter,
-                              color: showAnswer && (isCorrect || isPicked) ? "#fff" : undefined,
-                              cursor: showAnswer ? "default" : "pointer",
-                            }}
-                          >
-                            {String.fromCharCode(65 + idx)}. {c}
-                          </button>
-                        </li>
+                        <button
+                          key={idx}
+                          type="button"
+                          disabled={showAnswer}
+                          onClick={() => setRevealed((r) => ({ ...r, [q.id]: idx }))}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            textAlign: "left",
+                            padding: "10px 12px",
+                            borderRadius: 8,
+                            border,
+                            background,
+                            color,
+                            cursor: showAnswer ? "default" : "pointer",
+                            fontSize: 13,
+                          }}
+                        >
+                          {String.fromCharCode(65 + idx)}. {c}
+                        </button>
                       );
                     })}
-                  </ul>
+                  </div>
                   {showAnswer && (
-                    <p style={{ color: "var(--ink-3)", fontSize: 14 }}>
+                    <p style={{ marginTop: "var(--sp-2)", color: choice === q.correctIdx ? "var(--good)" : "var(--bad)", fontSize: 13, fontWeight: 600 }}>
                       {choice === q.correctIdx ? "✓ Correct" : `✗ Correct answer: ${String.fromCharCode(65 + q.correctIdx)}`}
                     </p>
                   )}
-                </li>
+                </article>
               );
             })}
-          </ol>
+          </div>
         </section>
       </div>
-    </main>
+    </VidyaShell>
   );
 }
