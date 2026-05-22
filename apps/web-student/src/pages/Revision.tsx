@@ -97,7 +97,16 @@ export function Revision() {
   if (error) {
     return (
       <main className="page" style={{ padding: 24 }}>
-        <p className="banner banner-error">{error}</p>
+        <div role="alert" style={{
+          padding: "var(--sp-3) var(--sp-4)",
+          marginBottom: "var(--sp-4)",
+          background: "var(--bad)",
+          color: "var(--paper)",
+          borderRadius: 8,
+          fontSize: 13,
+        }}>
+          {error}
+        </div>
       </main>
     );
   }
