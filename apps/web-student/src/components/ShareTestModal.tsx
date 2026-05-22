@@ -103,11 +103,34 @@ export function ShareTestModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="pg-modal"
-        style={{ maxWidth: 460 }}
+        style={{
+          maxWidth: 460,
+          width: "100%",
+          background: "var(--paper)",
+          border: "1px solid var(--rule)",
+          borderRadius: 12,
+          padding: "20px 22px",
+          boxShadow: "0 24px 48px rgba(0,0,0,0.28)",
+        }}
       >
-        <div className="pg-modal-title">Share this test</div>
-        <p className="pg-modal-body">
+        <div
+          style={{
+            fontSize: 15,
+            fontWeight: 700,
+            color: "var(--ink)",
+            marginBottom: 8,
+          }}
+        >
+          Share this test
+        </div>
+        <p
+          style={{
+            fontSize: 13,
+            color: "var(--ink-3)",
+            margin: "0 0 16px",
+            lineHeight: 1.5,
+          }}
+        >
           Anyone with the link can take your test. The recipient signs in
           (or signs up), takes the test, and can optionally rate it. You
           can break the link any time.
@@ -157,45 +180,45 @@ export function ShareTestModal({
               />
               <button
                 type="button"
-                className="pg-btn pg-btn-primary pg-btn-sm"
                 onClick={copy}
+                style={btnPrimaryStyle(false)}
               >
                 {copied ? "✓ Copied" : "Copy"}
               </button>
             </div>
-            <div className="pg-modal-actions">
+            <div style={actionsRowStyle}>
               <button
                 type="button"
-                className="pg-btn pg-btn-ghost"
                 onClick={unshare}
                 disabled={busy}
+                style={btnGhostStyle(busy)}
               >
                 {busy ? "Working…" : "Unshare"}
               </button>
               <button
                 type="button"
-                className="pg-btn pg-btn-primary"
                 onClick={onClose}
+                style={btnPrimaryStyle(false)}
               >
                 Done
               </button>
             </div>
           </>
         ) : (
-          <div className="pg-modal-actions">
+          <div style={actionsRowStyle}>
             <button
               type="button"
-              className="pg-btn pg-btn-ghost"
               onClick={onClose}
               disabled={busy}
+              style={btnGhostStyle(busy)}
             >
               Cancel
             </button>
             <button
               type="button"
-              className="pg-btn pg-btn-primary"
               onClick={share}
               disabled={busy}
+              style={btnPrimaryStyle(busy)}
             >
               {busy ? "Generating…" : "Mint share link →"}
             </button>
@@ -204,4 +227,38 @@ export function ShareTestModal({
       </div>
     </div>
   );
+}
+
+const actionsRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: 8,
+};
+
+function btnPrimaryStyle(disabled: boolean): React.CSSProperties {
+  return {
+    padding: "8px 14px",
+    fontSize: 13,
+    fontWeight: 600,
+    background: "var(--accent)",
+    color: "var(--paper)",
+    border: "1px solid var(--accent)",
+    borderRadius: 8,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.6 : 1,
+  };
+}
+
+function btnGhostStyle(disabled: boolean): React.CSSProperties {
+  return {
+    padding: "8px 14px",
+    fontSize: 13,
+    fontWeight: 600,
+    background: "transparent",
+    color: "var(--ink-2)",
+    border: "1px solid var(--rule)",
+    borderRadius: 8,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.6 : 1,
+  };
 }
