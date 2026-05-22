@@ -1,3 +1,5 @@
+// JoinCohort — Vidya v1 redesign.
+//
 // Sprint 11 S11-A — Cohort invite landing.
 //
 // Reachable from a shared link `/join/:token`. The student lands here,
@@ -8,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { useAuth } from "../lib/auth-provider";
 import { api } from "../lib/api";
 
@@ -48,18 +50,30 @@ export function JoinCohort() {
 
   if (!token) {
     return (
-      <AppShell title="Join Cohort">
-        <main className="page" style={{ padding: 24 }}>
+      <VidyaShell
+        crumbs="JOIN COHORT"
+        title="Join cohort"
+        subtitle="Missing invite token."
+      >
+        <main style={{ maxWidth: 480 }}>
           <p>Missing invite token in the URL.</p>
         </main>
-      </AppShell>
+      </VidyaShell>
     );
   }
 
+  const subtitle = cohortId
+    ? `Cohort ${cohortId.slice(0, 8)}… — your educator has invited you to join their class.`
+    : "Your educator has invited you to join their class on the platform.";
+
   return (
-    <AppShell title="Join Cohort">
-      <main className="page" style={{ padding: 24, maxWidth: 480 }}>
-        <h1>Join your class</h1>
+    <VidyaShell
+      crumbs="JOIN COHORT"
+      title="Join cohort"
+      subtitle={subtitle}
+    >
+      <main style={{ maxWidth: 480 }}>
+        <h1 style={{ marginTop: 0 }}>Join your class</h1>
         {phase === "confirm" && (
           <>
             <p>
@@ -67,7 +81,12 @@ export function JoinCohort() {
               platform. Tap to confirm — your assignments will appear right
               after.
             </p>
-            <button className="btn-primary" onClick={claim} disabled={!user}>
+            <button
+              type="button"
+              className="vidya-shell__chip vidya-shell__chip--on"
+              onClick={claim}
+              disabled={!user}
+            >
               Join cohort
             </button>
             {!user && (
@@ -79,7 +98,16 @@ export function JoinCohort() {
         )}
         {phase === "claiming" && <p>Joining…</p>}
         {phase === "joined" && (
-          <p className="banner banner-success">
+          <p
+            role="status"
+            style={{
+              padding: "var(--sp-3) var(--sp-4)",
+              background: "var(--good-soft, var(--good))",
+              color: "var(--paper)",
+              borderRadius: 8,
+              fontSize: 13,
+            }}
+          >
             You're in! Redirecting to your assignments…
             {cohortId && (
               <span className="hint" style={{ display: "block" }}>
@@ -90,15 +118,28 @@ export function JoinCohort() {
         )}
         {phase === "error" && (
           <>
-            <p className="banner banner-error">
+            <p
+              role="alert"
+              style={{
+                padding: "var(--sp-3) var(--sp-4)",
+                background: "var(--bad)",
+                color: "var(--paper)",
+                borderRadius: 8,
+                fontSize: 13,
+              }}
+            >
               {error || "Could not redeem invite."}
             </p>
-            <button className="btn-secondary" onClick={() => setPhase("confirm")}>
+            <button
+              type="button"
+              className="vidya-shell__chip"
+              onClick={() => setPhase("confirm")}
+            >
               Try again
             </button>
           </>
         )}
       </main>
-    </AppShell>
+    </VidyaShell>
   );
 }
