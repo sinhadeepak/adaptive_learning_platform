@@ -1,4 +1,4 @@
-// F3 — My custom tests list + AI-suggested tests (merged from AISuggestedTests.tsx).
+// F3 — My custom tests list + AI-suggested tests (Vidya v1 redesign).
 // URL: /practice/my-tests
 //   ?tab=my-tests    (default) — custom blueprints the user has authored
 //   ?tab=ai-suggested          — AI-suggested blueprints (today_pick / long_form /
@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { auth } from "../lib/api";
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { Banner } from "../components/dashboard";
 import { ShareTestModal } from "../components/ShareTestModal";
 
@@ -181,23 +181,25 @@ function AISuggestionsTab() {
   }
 
   return (
-    <div className="pg-shell" style={{ maxWidth: 960 }}>
+    <div style={{ maxWidth: 960 }}>
       {error && <Banner tone="danger">{error}</Banner>}
 
-      <header className="pg-header">
-        <div className="pg-header-main">
-          <h1 className="pg-header-title">Pick a shape — we'll target your weak spots</h1>
-          <p className="pg-header-sub">
-            We compose a fresh test from your mastery data + recent attempts.
-            Each card is a different "shape" — pick the one that fits the
-            moment. Each suggestion is fresh for 24 hours.
-          </p>
-        </div>
-      </header>
+      <div style={{ marginBottom: "var(--sp-4)" }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, marginBottom: "var(--sp-2)" }}>
+          Pick a shape — we'll target your weak spots
+        </h2>
+        <p style={{ fontSize: 13, color: "var(--ink-3)", margin: 0 }}>
+          We compose a fresh test from your mastery data + recent attempts.
+          Each card is a different "shape" — pick the one that fits the
+          moment. Each suggestion is fresh for 24 hours.
+        </p>
+      </div>
 
       {/* ── Variant grid ─────────────────────────────────────────── */}
-      <section className="pg-section">
-        <h2 className="pg-section-title">Compose a new suggestion</h2>
+      <section className="vidya-card-block">
+        <div className="vidya-card-block__head">
+          <div className="vidya-card-block__title">Compose a new suggestion</div>
+        </div>
         <div
           style={{
             display: "grid",
@@ -241,13 +243,15 @@ function AISuggestionsTab() {
 
       {/* ── Latest composed suggestion ───────────────────────────── */}
       {latest && (
-        <section className="pg-section">
-          <h2 className="pg-section-title">
-            Your new suggestion
-            <span className="pg-section-title-sub">
-              Fresh — auto-expires in 24h
-            </span>
-          </h2>
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <div className="vidya-card-block__title">
+              Your new suggestion
+              <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: "var(--ink-3)" }}>
+                Fresh — auto-expires in 24h
+              </span>
+            </div>
+          </div>
           <div
             style={{
               padding: 18,
@@ -262,28 +266,39 @@ function AISuggestionsTab() {
             <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 14 }}>
               {latest.rationale}
             </div>
-            <div className="pg-stat-strip" style={{ marginBottom: 14 }}>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Questions</div>
-                <div className="pg-stat-value">{latest.totalQuestions}</div>
+            <div style={{ display: "flex", gap: "var(--sp-4)", marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>Questions</div>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>{latest.totalQuestions}</div>
               </div>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Time</div>
-                <div className="pg-stat-value">{latest.totalMinutes}m</div>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>Time</div>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>{latest.totalMinutes}m</div>
               </div>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Sections</div>
-                <div className="pg-stat-value">{latest.sections.length}</div>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.5 }}>Sections</div>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>{latest.sections.length}</div>
               </div>
             </div>
-            <div className="pg-list" style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)", marginBottom: 14 }}>
               {latest.sections.map((s, i) => (
-                <div className="pg-row" key={s.section_id}>
-                  <div className="pg-row-main">
-                    <p className="pg-row-title">{s.name || `Section ${i + 1}`}</p>
-                    <div className="pg-row-meta">
+                <div
+                  key={s.section_id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "var(--sp-3) var(--sp-4)",
+                    background: "var(--card)",
+                    border: "1px solid var(--rule)",
+                    borderRadius: 10,
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>{s.name || `Section ${i + 1}`}</p>
+                    <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>
                       <span>{s.n_questions} Q · {s.n_minutes} min</span>
-                      <span className="pg-row-meta-dot">·</span>
+                      <span style={{ margin: "0 6px" }}>·</span>
                       <span>{s.difficulty_band}</span>
                     </div>
                   </div>
@@ -293,7 +308,7 @@ function AISuggestionsTab() {
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button
                 type="button"
-                className="pg-btn pg-btn-primary"
+                className="vidya-shell__primary"
                 onClick={() => start(latest.blueprintId)}
               >
                 Start now →
@@ -304,32 +319,45 @@ function AISuggestionsTab() {
       )}
 
       {/* ── Active suggestions ───────────────────────────────────── */}
-      <section className="pg-section">
-        <h2 className="pg-section-title">
-          Recent suggestions
-          <span className="pg-section-title-sub">
-            {active === null
-              ? "loading…"
-              : active.length === 0
-                ? "none yet — pick a shape above"
-                : `${active.length} fresh`}
-          </span>
-        </h2>
+      <section className="vidya-card-block">
+        <div className="vidya-card-block__head">
+          <div className="vidya-card-block__title">
+            Recent suggestions
+            <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: "var(--ink-3)" }}>
+              {active === null
+                ? "loading…"
+                : active.length === 0
+                  ? "none yet — pick a shape above"
+                  : `${active.length} fresh`}
+            </span>
+          </div>
+        </div>
         {active && active.length > 0 && (
-          <div className="pg-list">
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
             {active.map((s) => (
-              <div className="pg-row" key={s.blueprintId}>
-                <div className="pg-row-main">
-                  <p className="pg-row-title">{s.name}</p>
-                  <div className="pg-row-meta">
+              <div
+                key={s.blueprintId}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "var(--sp-3) var(--sp-4)",
+                  background: "var(--card)",
+                  border: "1px solid var(--rule)",
+                  borderRadius: 10,
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>{s.name}</p>
+                  <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>
                     <span>{s.totalQuestions} Q · {s.totalMinutes} min</span>
-                    <span className="pg-row-meta-dot">·</span>
+                    <span style={{ margin: "0 6px" }}>·</span>
                     <span>{s.sectionCount} section{s.sectionCount === 1 ? "" : "s"}</span>
                   </div>
                 </div>
                 <button
                   type="button"
-                  className="pg-btn pg-btn-ghost"
+                  className="vidya-shell__chip"
                   onClick={() => start(s.blueprintId)}
                 >
                   Start →
@@ -343,47 +371,9 @@ function AISuggestionsTab() {
   );
 }
 
-// ─── Tab bar ─────────────────────────────────────────────────────────────────
+// ─── Tabs ────────────────────────────────────────────────────────────────────
 
 type Tab = "my-tests" | "ai-suggested";
-
-function TabBar({ active, onSelect }: { active: Tab; onSelect: (t: Tab) => void }) {
-  const tabs: Array<{ id: Tab; label: string }> = [
-    { id: "my-tests", label: "My tests" },
-    { id: "ai-suggested", label: "AI suggestions" },
-  ];
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: 4,
-        borderBottom: "1px solid var(--border, rgba(0,0,0,0.10))",
-        marginBottom: 20,
-      }}
-    >
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          onClick={() => onSelect(t.id)}
-          style={{
-            padding: "8px 16px",
-            fontWeight: active === t.id ? 700 : 400,
-            fontSize: 14,
-            background: "none",
-            border: "none",
-            borderBottom: active === t.id ? "2px solid var(--accent)" : "2px solid transparent",
-            color: active === t.id ? "var(--accent)" : "inherit",
-            cursor: "pointer",
-            marginBottom: -1,
-          }}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 
@@ -473,146 +463,205 @@ export function MyTests() {
     }
   }
 
+  const tabs: Array<{ id: Tab; label: string }> = [
+    { id: "my-tests", label: "My tests" },
+    { id: "ai-suggested", label: "AI suggestions" },
+  ];
+
+  const chips = (
+    <>
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === t.id}
+          onClick={() => switchTab(t.id)}
+          className={
+            activeTab === t.id
+              ? "vidya-shell__chip vidya-shell__chip--on"
+              : "vidya-shell__chip"
+          }
+        >
+          {t.label}
+        </button>
+      ))}
+    </>
+  );
+
+  const actions = (
+    <>
+      <Link to="/practice" className="vidya-shell__chip">
+        ← Practice
+      </Link>
+      <Link to="/practice/build" className="vidya-shell__primary">
+        ＋ New test
+      </Link>
+    </>
+  );
+
   return (
-    <AppShell
-      title="My custom tests"
-      actions={
-        <>
-          <Link to="/practice" className="pg-btn pg-btn-ghost">
-            ← Practice
-          </Link>
-          <Link to="/practice/build" className="pg-btn pg-btn-primary">
-            ＋ New test
-          </Link>
-        </>
-      }
+    <VidyaShell
+      crumbs="PRACTICE · MY TESTS"
+      title="My tests"
+      subtitle="Custom tests you've built, plus AI-suggested practice based on your weak topics."
+      chips={chips}
+      actions={actions}
     >
-      <div className="pg-shell">
-        <header className="pg-header">
-          <div className="pg-header-main">
-            <h1 className="pg-header-title">My custom tests</h1>
-            <p className="pg-header-sub">
-              Tests you've built with the Custom Test Builder, and AI-suggested
-              tests tailored to your weak spots. Re-launch any of them, or
-              build a new one from scratch.
-            </p>
-          </div>
-        </header>
+      {activeTab === "ai-suggested" && <AISuggestionsTab />}
 
-        <TabBar active={activeTab} onSelect={switchTab} />
+      {activeTab === "my-tests" && (
+        <>
+          {error && <Banner tone="danger">{error}</Banner>}
 
-        {activeTab === "ai-suggested" && <AISuggestionsTab />}
+          {items === null && !error && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    opacity: 0.5,
+                    minHeight: 80,
+                    background: "var(--card)",
+                    border: "1px solid var(--rule)",
+                    borderRadius: 10,
+                  }}
+                  aria-hidden
+                />
+              ))}
+            </div>
+          )}
 
-        {activeTab === "my-tests" && (
-          <>
-            {error && <Banner tone="danger">{error}</Banner>}
+          {items !== null && items.length === 0 && (
+            <section
+              style={{
+                textAlign: "center",
+                padding: "var(--sp-6) var(--sp-4)",
+                background: "var(--card)",
+                border: "1px solid var(--rule)",
+                borderRadius: 14,
+              }}
+            >
+              <div style={{ fontSize: 40, marginBottom: "var(--sp-3)" }}>📝</div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, marginBottom: "var(--sp-2)" }}>
+                No custom tests yet
+              </h2>
+              <p style={{ fontSize: 14, color: "var(--ink-3)", maxWidth: 520, margin: "0 auto var(--sp-4)" }}>
+                Build a test that mixes multiple topics, sets your own
+                difficulty band, and runs against a custom timer. Useful when
+                you want more control than topic-only Practice but a tighter
+                scope than a full Mock Exam.
+              </p>
+              <Link to="/practice/build" className="vidya-shell__primary">
+                ＋ Build your first test
+              </Link>
+            </section>
+          )}
 
-            {items === null && !error && (
-              <div className="pg-list">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="pg-row" style={{ opacity: 0.5, minHeight: 80 }} aria-hidden />
-                ))}
-              </div>
-            )}
-
-            {items !== null && items.length === 0 && (
-              <div className="pg-empty">
-                <div className="pg-empty-icon">📝</div>
-                <h2 className="pg-empty-title">No custom tests yet</h2>
-                <p className="pg-empty-body">
-                  Build a test that mixes multiple topics, sets your own
-                  difficulty band, and runs against a custom timer. Useful when
-                  you want more control than topic-only Practice but a tighter
-                  scope than a full Mock Exam.
-                </p>
-                <Link to="/practice/build" className="pg-btn pg-btn-primary">
-                  ＋ Build your first test
-                </Link>
-              </div>
-            )}
-
-            {items !== null && items.length > 0 && (
-              <div className="pg-list">
-                {items.map((bp) => {
-                  const stats = statsByBp[bp.id];
-                  return (
-                    <div key={bp.id} className="pg-row">
-                      <div className="pg-row-main">
-                        <p className="pg-row-title">{bp.name}</p>
-                        <div className="pg-row-meta">
-                          <span>{bp.totalQuestions} Q · {bp.totalMinutes} min</span>
-                          <span className="pg-row-meta-dot">·</span>
-                          <span>+{bp.marksCorrect} / −{bp.marksNegative}</span>
-                          <span className="pg-row-meta-dot">·</span>
-                          <span>
-                            {Array.isArray(bp.sections) ? bp.sections.length : 0} section
-                            {(Array.isArray(bp.sections) ? bp.sections.length : 0) === 1 ? "" : "s"}
-                          </span>
-                          {bp.createdAt && (
-                            <>
-                              <span className="pg-row-meta-dot">·</span>
-                              <span>
-                                {new Date(bp.createdAt).toLocaleDateString("en-IN", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                })}
-                              </span>
-                            </>
-                          )}
-                          {stats && bp.shareSlug && (
-                            <>
-                              <span className="pg-row-meta-dot">·</span>
-                              <span style={{ color: "var(--info)" }}>
-                                {stats.attempts} attempt{stats.attempts === 1 ? "" : "s"}
-                              </span>
-                              {stats.ratings.count > 0 && (
-                                <>
-                                  <span className="pg-row-meta-dot">·</span>
-                                  <span style={{ color: "var(--warn)" }}>
-                                    ★ {stats.ratings.avgStars?.toFixed(1)} (
-                                    {stats.ratings.count})
-                                  </span>
-                                </>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="pg-row-aside">
-                        {bp.shareSlug && (
-                          <span className="pg-pill pg-pill-info">Shared</span>
+          {items !== null && items.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
+              {items.map((bp) => {
+                const stats = statsByBp[bp.id];
+                return (
+                  <div
+                    key={bp.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "var(--sp-3)",
+                      padding: "var(--sp-3) var(--sp-4)",
+                      background: "var(--card)",
+                      border: "1px solid var(--rule)",
+                      borderRadius: 10,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>{bp.name}</p>
+                      <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        <span>{bp.totalQuestions} Q · {bp.totalMinutes} min</span>
+                        <span>·</span>
+                        <span>+{bp.marksCorrect} / −{bp.marksNegative}</span>
+                        <span>·</span>
+                        <span>
+                          {Array.isArray(bp.sections) ? bp.sections.length : 0} section
+                          {(Array.isArray(bp.sections) ? bp.sections.length : 0) === 1 ? "" : "s"}
+                        </span>
+                        {bp.createdAt && (
+                          <>
+                            <span>·</span>
+                            <span>
+                              {new Date(bp.createdAt).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                          </>
                         )}
-                        <Link
-                          to={`/mock-exam?blueprintId=${bp.id}`}
-                          className="pg-btn pg-btn-primary pg-btn-sm"
-                        >
-                          ▶ Start →
-                        </Link>
-                        <button
-                          type="button"
-                          className="pg-btn pg-btn-subtle pg-btn-sm"
-                          onClick={() => setSharing(bp)}
-                        >
-                          {bp.shareSlug ? "Manage share" : "Share"}
-                        </button>
-                        <button
-                          type="button"
-                          className="pg-btn pg-btn-ghost pg-btn-sm"
-                          onClick={() => deleteOne(bp.id)}
-                          disabled={deletingId === bp.id}
-                        >
-                          {deletingId === bp.id ? "…" : "Delete"}
-                        </button>
+                        {stats && bp.shareSlug && (
+                          <>
+                            <span>·</span>
+                            <span style={{ color: "var(--info)" }}>
+                              {stats.attempts} attempt{stats.attempts === 1 ? "" : "s"}
+                            </span>
+                            {stats.ratings.count > 0 && (
+                              <>
+                                <span>·</span>
+                                <span style={{ color: "var(--warn)" }}>
+                                  ★ {stats.ratings.avgStars?.toFixed(1)} (
+                                  {stats.ratings.count})
+                                </span>
+                              </>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-2)", flexShrink: 0 }}>
+                      {bp.shareSlug && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            background: "var(--info)",
+                            color: "var(--paper)",
+                          }}
+                        >
+                          Shared
+                        </span>
+                      )}
+                      <Link
+                        to={`/mock-exam?blueprintId=${bp.id}`}
+                        className="vidya-shell__primary"
+                      >
+                        ▶ Start →
+                      </Link>
+                      <button
+                        type="button"
+                        className="vidya-shell__chip"
+                        onClick={() => setSharing(bp)}
+                      >
+                        {bp.shareSlug ? "Manage share" : "Share"}
+                      </button>
+                      <button
+                        type="button"
+                        className="vidya-shell__chip"
+                        onClick={() => deleteOne(bp.id)}
+                        disabled={deletingId === bp.id}
+                      >
+                        {deletingId === bp.id ? "…" : "Delete"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
 
       {sharing && (
         <ShareTestModal
@@ -634,6 +683,6 @@ export function MyTests() {
           }}
         />
       )}
-    </AppShell>
+    </VidyaShell>
   );
 }
