@@ -1,3 +1,5 @@
+// Assignments — Vidya v1 redesign.
+//
 // Sprint 9 F-1 — Student Assignments inbox.
 //
 // Renders the list returned by GET /content/assignments?mine=true.
@@ -5,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import {
   formatDueAt,
   listMyAssignments,
@@ -38,10 +40,26 @@ export function Assignments() {
   }, []);
 
   return (
-    <AppShell title="My Assignments">
+    <VidyaShell
+      crumbs="LEARN · ASSIGNMENTS"
+      title="Assignments"
+      subtitle="Tasks set by your tutors and clans."
+    >
       <main className="assignments-page">
-        <h1>My Assignments</h1>
-        {error && <p className="banner banner-error">{error}</p>}
+        {error && (
+          <p
+            role="alert"
+            style={{
+              padding: "var(--sp-3) var(--sp-4)",
+              background: "var(--bad)",
+              color: "var(--paper)",
+              borderRadius: 8,
+              fontSize: 13,
+            }}
+          >
+            {error}
+          </p>
+        )}
         {items === null && <p>Loading…</p>}
         {items !== null && items.length === 0 && (
           <p className="empty-state">
@@ -82,6 +100,6 @@ export function Assignments() {
           </ul>
         )}
       </main>
-    </AppShell>
+    </VidyaShell>
   );
 }
