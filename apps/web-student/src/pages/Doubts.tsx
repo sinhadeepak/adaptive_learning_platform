@@ -1,15 +1,21 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { auth } from "../lib/api";
-import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
-import { Banner, Pill, SkeletonRows } from "../components/dashboard";
-
-// Doubts list — persistent threads backed by the doubts service.
+// Doubts — Vidya v1 redesign.
+//
+// Layout: VidyaShell (crumbs + title + subtitle + status filter chips +
+// Ask-a-question primary action) → optional compose card → vertical list
+// of vidya-card-block rows. Each row: status chip (toned per state) +
+// optional topic chip + last-activity meta + clamped question preview.
+//
 // Distinct from /experts (AI tutor free-form chat in localStorage):
 // these threads survive across devices and route to humans (peer/expert)
 // once the AI doesn't suffice. Source for the inbox `doubt.answered`
 // notification deep-link.
+
+import type { CSSProperties } from "react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { auth } from "../lib/api";
+import { useAuth } from "../lib/auth-provider";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface DoubtSummary {
   id: string;
@@ -25,6 +31,25 @@ interface DoubtSummary {
 }
 
 type Filter = "all" | "open" | "answered" | "resolved";
+
+const FILTER_LABELS: Record<Filter, string> = {
+  all: "All",
+  open: "Open",
+  answered: "Answered",
+  resolved: "Resolved",
+};
+
+type ChipTone = "info" | "success" | "warning" | "muted";
+
+function chipToneStyle(tone: ChipTone): CSSProperties {
+  const tones: Record<ChipTone, CSSProperties> = {
+    info:    { background: "var(--info-soft)", color: "var(--info)" },
+    success: { background: "var(--good-soft)", color: "var(--good)" },
+    warning: { background: "var(--warn-soft)", color: "var(--warn)" },
+    muted:   { background: "var(--paper-2)",   color: "var(--ink-3)" },
+  };
+  return tones[tone];
+}
 
 export function Doubts() {
   const navigate = useNavigate();
@@ -84,63 +109,55 @@ export function Doubts() {
     : null;
 
   return (
-    <AppShell title="My doubts">
-      <p className="muted" style={{ marginTop: 0, marginBottom: "var(--sp-3)" }}>
-        Persistent question threads. AI tutor replies first; if you mark a
-        thread unresolved, an expert can pick it up.
-      </p>
-
-      {error ? <Banner tone="danger" role="alert">{error}</Banner> : null}
-
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          marginBottom: "var(--sp-3)",
-          flexWrap: "wrap",
-        }}
-      >
-        {(["all", "open", "answered", "resolved"] as Filter[]).map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => setFilter(f)}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 999,
-              border: `1px solid ${filter === f ? "var(--info)" : "var(--rule)"}`,
-              background: filter === f ? "var(--info)" : "transparent",
-              color: filter === f ? "#fff" : "var(--ink)",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              textTransform: "capitalize",
-            }}
-          >
-            {f}
-          </button>
-        ))}
-        <span style={{ flex: 1 }} />
+    <VidyaShell
+      crumbs="LEARN · DOUBTS"
+      title="Doubts"
+      subtitle="Questions you've asked the AI tutor — pending, answered, resolved. AI tutor replies first; if you mark a thread unresolved, an expert can pick it up."
+      chips={
+        <>
+          {(["all", "open", "answered", "resolved"] as Filter[]).map((f) => (
+            <button
+              key={f}
+              type="button"
+              role="tab"
+              aria-selected={filter === f}
+              className={`vidya-shell__chip${filter === f ? " vidya-shell__chip--on" : ""}`}
+              onClick={() => setFilter(f)}
+            >
+              {FILTER_LABELS[f]}
+            </button>
+          ))}
+        </>
+      }
+      actions={
         <button
           type="button"
-          className="btn btn-primary"
+          className="vidya-shell__primary"
           onClick={() => setComposing((c) => !c)}
         >
-          {composing ? "Cancel" : "Ask a question"}
+          {composing ? "Cancel" : "＋ Ask a question"}
         </button>
-      </div>
+      }
+    >
+      {error ? (
+        <div
+          role="alert"
+          style={{
+            background: "var(--bad)",
+            color: "var(--paper)",
+            padding: "var(--sp-3)",
+            borderRadius: "var(--radius-2)",
+            margin: "0 0 var(--sp-3) 0",
+          }}
+        >
+          {error}
+        </div>
+      ) : null}
 
       {composing ? (
         <div
-          style={{
-            background: "var(--card-1)",
-            border: "1px solid var(--rule)",
-            borderRadius: 12,
-            padding: "var(--sp-4)",
-            marginBottom: "var(--sp-3)",
-          }}
+          className="vidya-card-block"
+          style={{ marginBottom: "var(--sp-3)" }}
         >
           <textarea
             value={draft}
@@ -149,12 +166,12 @@ export function Doubts() {
             placeholder="What's the question? Add context — formula, attempt, where you got stuck."
             style={{
               width: "100%",
-              background: "var(--card-2)",
+              background: "var(--paper)",
               border: "1px solid var(--rule)",
               borderRadius: 8,
               color: "var(--ink)",
-              padding: 10,
-              fontSize: 14,
+              padding: "8px 12px",
+              fontSize: 13,
               fontFamily: "inherit",
               resize: "vertical",
             }}
@@ -172,7 +189,7 @@ export function Doubts() {
             </span>
             <button
               type="button"
-              className="btn btn-primary"
+              className="vidya-shell__primary"
               onClick={postNew}
               disabled={draft.trim().length < 4 || posting}
             >
@@ -183,25 +200,38 @@ export function Doubts() {
       ) : null}
 
       {filtered === null ? (
-        <SkeletonRows count={4} />
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="vidya-card-block"
+              style={{ opacity: 0.5, minHeight: 72 }}
+              aria-hidden
+            />
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
-        <div
+        <section
           style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "var(--sp-2)",
             padding: "var(--sp-5)",
             textAlign: "center",
-            color: "var(--ink-3)",
+            background: "var(--card)",
             border: "1px dashed var(--rule)",
-            borderRadius: 12,
-            background: "var(--card-1)",
+            borderRadius: "var(--radius-2)",
+            color: "var(--ink-3)",
           }}
         >
           {items && items.length === 0 ? (
             <>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>💬</div>
+              <div style={{ fontSize: 36, marginBottom: 8 }} aria-hidden>💬</div>
               <div style={{ color: "var(--ink)", fontWeight: 600, marginBottom: 6 }}>
                 No doubts yet
               </div>
-              <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 13, lineHeight: 1.5, maxWidth: 480 }}>
                 Tap "Ask a question" above — your thread will be saved here and
                 ping your inbox when an answer arrives.
               </div>
@@ -209,7 +239,7 @@ export function Doubts() {
           ) : (
             <>No doubts match this filter.</>
           )}
-        </div>
+        </section>
       ) : (
         <ol
           style={{
@@ -218,19 +248,16 @@ export function Doubts() {
             padding: 0,
             display: "flex",
             flexDirection: "column",
-            gap: 10,
+            gap: "var(--sp-3)",
           }}
         >
           {filtered.map((d) => (
             <li key={d.id}>
               <Link
                 to={`/doubts/${d.id}`}
+                className="vidya-card-block"
                 style={{
                   display: "block",
-                  background: "var(--card-1)",
-                  border: "1px solid var(--rule)",
-                  borderRadius: 12,
-                  padding: "var(--sp-3)",
                   textDecoration: "none",
                   color: "inherit",
                 }}
@@ -241,10 +268,23 @@ export function Doubts() {
                     alignItems: "center",
                     gap: 8,
                     marginBottom: 8,
+                    flexWrap: "wrap",
                   }}
                 >
-                  <Pill tone={statusTone(d.status)}>{d.status}</Pill>
-                  {d.topicTitle ? <Pill tone="info">◈ {d.topicTitle}</Pill> : null}
+                  <span
+                    className="vidya-shell__chip"
+                    style={chipToneStyle(statusTone(d.status))}
+                  >
+                    {d.status}
+                  </span>
+                  {d.topicTitle ? (
+                    <span
+                      className="vidya-shell__chip"
+                      style={chipToneStyle("info")}
+                    >
+                      ◈ {d.topicTitle}
+                    </span>
+                  ) : null}
                   <span style={{ flex: 1 }} />
                   <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
                     {relative(d.lastActivityAt)}
@@ -266,22 +306,25 @@ export function Doubts() {
                 <div
                   style={{
                     marginTop: 6,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
                     fontSize: 12,
-                    color: "var(--ink-3)",
+                    color: "var(--ink-2)",
                   }}
                 >
-                  {d.answerCount} answer{d.answerCount === 1 ? "" : "s"}
+                  <span>{d.answerCount} answer{d.answerCount === 1 ? "" : "s"}</span>
                 </div>
               </Link>
             </li>
           ))}
         </ol>
       )}
-    </AppShell>
+    </VidyaShell>
   );
 }
 
-function statusTone(s: string): "info" | "success" | "warning" | "muted" {
+function statusTone(s: string): ChipTone {
   if (s === "RESOLVED") return "success";
   if (s === "ANSWERED") return "info";
   if (s === "OPEN") return "warning";
