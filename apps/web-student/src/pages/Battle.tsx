@@ -1,4 +1,4 @@
-// F7 — Battle: quick-play lobby + live match + result screen.
+// F7 — Battle: quick-play lobby + live match + result screen. Vidya v1 redesign.
 //
 // One page, four phases driven by WS messages from alp-battle:
 //   - "idle"     → show Find Opponent button
@@ -13,8 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Button, Card } from "@alp/ui";
-import { AppShell } from "../components/AppShell";
-import { Banner } from "../components/dashboard";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { battleClient, type BattleEnvelope } from "../lib/battle";
 import { auth } from "../lib/api";
 
@@ -219,16 +218,29 @@ export function Battle() {
   const myEloDelta = result?.eloDelta[myUserId] ?? 0;
 
   return (
-    <AppShell
+    <VidyaShell
+      crumbs="COMPETE · BATTLE"
       title="Battle"
+      subtitle="Real-time question duels against students at your level."
       actions={
-        <Link to="/practice" style={{ textDecoration: "none" }}>
-          <Button variant="ghost" size="sm">← Practice</Button>
+        <Link to="/practice" className="vidya-shell__chip">
+          ← Practice
         </Link>
       }
     >
-      <div className="pg-shell" style={{ maxWidth: 960 }}>
-        {error && <Banner tone="danger">{error}</Banner>}
+      <div style={{ maxWidth: 960 }}>
+        {error && (
+          <div role="alert" style={{
+            padding: "var(--sp-3) var(--sp-4)",
+            marginBottom: "var(--sp-4)",
+            background: "var(--bad)",
+            color: "var(--paper)",
+            borderRadius: 8,
+            fontSize: 13,
+          }}>
+            {error}
+          </div>
+        )}
 
         {phase === "idle" && (
           <IdlePhase connected={connected} onQueue={queue} />
@@ -274,7 +286,7 @@ export function Battle() {
           />
         )}
       </div>
-    </AppShell>
+    </VidyaShell>
   );
 }
 
@@ -334,7 +346,7 @@ function IdlePhase({ connected, onQueue }: { connected: boolean; onQueue: () => 
 
 function QueuingPhase({ eloBand, onCancel }: { eloBand: number | null; onCancel: () => void }) {
   return (
-    <section className="pg-section" style={{ padding: 64, textAlign: "center" }}>
+    <section className="vidya-card-block" style={{ padding: 64, textAlign: "center" }}>
       <div style={{ fontSize: 32, marginBottom: 16 }}>🔄</div>
       <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
         Searching for opponent…
@@ -344,7 +356,7 @@ function QueuingPhase({ eloBand, onCancel }: { eloBand: number | null; onCancel:
           ? `ELO band ${eloBand} — widening search after 30 s`
           : ""}
       </div>
-      <button type="button" className="pg-btn pg-btn-ghost" onClick={onCancel}>
+      <button type="button" className="vidya-shell__chip" onClick={onCancel}>
         Cancel
       </button>
     </section>
@@ -366,7 +378,7 @@ function PlayingPhase({
 }) {
   const dangerLow = secondsLeft <= 5;
   return (
-    <section className="pg-section">
+    <section className="vidya-card-block">
       <div
         style={{
           display: "flex",
@@ -469,32 +481,40 @@ function ResultPhase({
     result.leaderboard.find((r) => r.userId === myUserId)?.rank ?? null;
   return (
     <>
-      <header className="pg-header">
-        <div className="pg-header-main">
-          <h1 className="pg-header-title">
-            {myRank === 1 ? "🏆 You won!" : myRank === 2 ? "🥈 So close" : "Match complete"}
-          </h1>
-          {myResult && (
-            <p className="pg-header-sub">
-              You scored {myResult.score} points · {myResult.correct} /{" "}
-              {myResult.total} correct · ELO{" "}
-              {myEloDelta >= 0 ? "+" : ""}
-              {myEloDelta}
-            </p>
-          )}
-        </div>
+      <header style={{ marginBottom: 20 }}>
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "var(--t-h1-size)",
+            lineHeight: "var(--t-h1-line)",
+            fontWeight: 700,
+            color: "var(--ink)",
+          }}
+        >
+          {myRank === 1 ? "🏆 You won!" : myRank === 2 ? "🥈 So close" : "Match complete"}
+        </h1>
+        {myResult && (
+          <p style={{ margin: "4px 0 0", color: "var(--ink-3)" }}>
+            You scored {myResult.score} points · {myResult.correct} /{" "}
+            {myResult.total} correct · ELO{" "}
+            {myEloDelta >= 0 ? "+" : ""}
+            {myEloDelta}
+          </p>
+        )}
       </header>
 
-      <section className="pg-section">
-        <h2 className="pg-section-title">Leaderboard</h2>
-        <div className="pg-list">
+      <section className="vidya-card-block">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">Leaderboard</h2>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {result.leaderboard.map((row) => {
             const player = result.perPlayer.find((p) => p.userId === row.userId);
             const isMe = row.userId === myUserId;
             return (
-              <div className="pg-row" key={row.userId}>
-                <div className="pg-row-main">
-                  <p className="pg-row-title">
+              <div key={row.userId} style={{ padding: "10px 0", borderBottom: "1px solid var(--rule)" }}>
+                <div>
+                  <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>
                     {row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : "🥉"}{" "}
                     {player?.displayName ?? row.userId.slice(0, 8)}
                     {isMe && (
@@ -503,17 +523,17 @@ function ResultPhase({
                       </span>
                     )}
                   </p>
-                  <div className="pg-row-meta">
+                  <div style={{ display: "flex", gap: 6, fontSize: 12, color: "var(--ink-3)", marginTop: 4 }}>
                     <span>{row.score} pts</span>
                     {player && (
                       <>
-                        <span className="pg-row-meta-dot">·</span>
+                        <span>·</span>
                         <span>
                           {player.correct}/{player.total} correct
                         </span>
                       </>
                     )}
-                    <span className="pg-row-meta-dot">·</span>
+                    <span>·</span>
                     <span style={{ color: result.eloDelta[row.userId] >= 0 ? "var(--good)" : "var(--bad)" }}>
                       ELO {result.eloDelta[row.userId] >= 0 ? "+" : ""}
                       {result.eloDelta[row.userId]}
@@ -526,8 +546,10 @@ function ResultPhase({
         </div>
       </section>
 
-      <section className="pg-section">
-        <h2 className="pg-section-title">Lobby chat</h2>
+      <section className="vidya-card-block">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">Lobby chat</h2>
+        </div>
         <div
           style={{
             maxHeight: 200,
@@ -565,17 +587,17 @@ function ResultPhase({
             maxLength={500}
             style={{ flex: 1, padding: 8, fontSize: 13 }}
           />
-          <button type="button" className="pg-btn pg-btn-primary" onClick={onSendChat}>
+          <button type="button" className="vidya-shell__primary" onClick={onSendChat}>
             Send
           </button>
         </div>
       </section>
 
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-        <button type="button" className="pg-btn pg-btn-ghost" onClick={onLeave}>
+        <button type="button" className="vidya-shell__chip" onClick={onLeave}>
           Leave
         </button>
-        <button type="button" className="pg-btn pg-btn-primary" onClick={onRematch}>
+        <button type="button" className="vidya-shell__primary" onClick={onRematch}>
           Find another →
         </button>
       </div>
