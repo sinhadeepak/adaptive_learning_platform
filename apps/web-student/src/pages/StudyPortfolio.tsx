@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 // ────────────────────────────────────────────────────────────────────
-// Study Portfolio — Phase B2.
+// Study Portfolio — Phase B2. Vidya v1 redesign.
 //
 // Robinhood/Zerodha-style asset-allocation view of the user's study
 // effort. For each yield bucket (High / Medium / Low) we show current
@@ -91,7 +91,11 @@ export function StudyPortfolio() {
   }
 
   return (
-    <AppShell title="Study Portfolio">
+    <VidyaShell
+      crumbs="INSIGHT · STUDY PORTFOLIO"
+      title="Study portfolio"
+      subtitle="Topic-by-topic mastery — your full coverage across every subject."
+    >
       <header style={{ marginBottom: 16 }}>
         <div style={eyebrow}>◈ STUDY PORTFOLIO</div>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: "4px 0 4px" }}>
@@ -180,7 +184,7 @@ export function StudyPortfolio() {
           </section>
         </>
       )}
-    </AppShell>
+    </VidyaShell>
   );
 }
 
