@@ -18,6 +18,7 @@ import 'screens/forgot_password_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/verify_screen.dart';
+import 'vidya/screens/vidya_splash_screen.dart';
 import 'vidya/vidya_root_app.dart';
 
 // Single API base URL — points at the web-student nginx, which proxies
@@ -290,7 +291,7 @@ class _AuroraGuestFlowState extends State<AuroraGuestFlow> {
     // AuroraRoute provides the enclosing MaterialApp + Aurora theme;
     // this widget just returns the current home content directly.
     return !_bootstrapped
-        ? const _Splash()
+        ? const VidyaSplashScreen()
         : _session == null
             ? _guestRoute()
             : _session!.user.onboardingState == 'ONBOARDED'
@@ -302,116 +303,5 @@ class _AuroraGuestFlowState extends State<AuroraGuestFlow> {
                     },
                   )
                 : _onboardingRoute();
-  }
-}
-
-/// Aurora v3 branded cold-start splash.
-///
-/// Renders while the auth / theme / density notifiers bootstrap. Aims for a
-/// perceived duration of 600–800 ms; if bootstrap finishes faster the splash
-/// is replaced immediately. Final Lumi character art is pending the design
-/// pass (plan open question #1); the centered orb is a placeholder.
-class _Splash extends StatelessWidget {
-  const _Splash();
-
-  // Aurora dark-mode token mirror — kept inline so the splash is independent
-  // of Theme.of(context) (it renders before any inherited theme settles).
-  // `_brand600` would be used by the (TODO Wave 2) branded SVG logo once
-  // the design pass lands; kept here so the swap is one-line.
-  static const _bgBase = Color(0xFF07090F);
-  static const _brand500 = Color(0xFF7C7CE8);
-  static const _neutralFg = Color(0xFFEEF2FF);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bgBase,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Aurora gradient — radial halo top-right + linear depth bottom-left.
-          // Matches the dark-theme home surface so the transition into the
-          // app is seamless (no white flash).
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment(0.6, -0.4),
-                radius: 1.2,
-                colors: [
-                  Color(0x665B5BD6), // 40% brand-600
-                  Color(0x0007090F), // transparent dark
-                ],
-                stops: [0.0, 0.7],
-              ),
-            ),
-          ),
-          // Centred logo lockup + Lumi placeholder + wordmark.
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Lumi placeholder orb — 64 dp halo with inner glow.
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        Color(0xFFA78BFA), // soft violet core
-                        Color(0xFF22D4EE), // cyan halo
-                        Color(0x0022D4EE), // fade
-                      ],
-                      stops: [0.0, 0.6, 1.0],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0x66A78BFA),
-                        blurRadius: 32,
-                        spreadRadius: 4,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // ALP wordmark. Replace with branded SVG when design lands.
-                const Text(
-                  'ALP',
-                  style: TextStyle(
-                    color: _neutralFg,
-                    fontSize: 36,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 4,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Adaptive Learning Platform',
-                  style: TextStyle(
-                    color: _neutralFg.withValues(alpha: 0.7),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Bottom-anchored progress indicator. Sized small so it reads as
-          // "still loading" without dominating the splash.
-          const Align(
-            alignment: Alignment(0, 0.85),
-            child: SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                valueColor: AlwaysStoppedAnimation<Color>(_brand500),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
