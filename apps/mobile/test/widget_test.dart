@@ -382,7 +382,7 @@ testWidgets('cold-start with reset-password deep link routes to ResetPasswordScr
   );
 
   await tester.pumpWidget(
-    AdaptiveLearningApp(
+    AuroraGuestFlow(
       auth: auth,
       initialDeepLink: 'alp://reset?token=cold-start-token',
     ),
@@ -401,7 +401,7 @@ testWidgets('cold-start without deep link lands on login', (tester) async {
     httpClient: MockClient((_) async => http.Response('{}', 404)),
   );
 
-  await tester.pumpWidget(AdaptiveLearningApp(auth: auth));
+  await tester.pumpWidget(AuroraGuestFlow(auth: auth));
   await tester.pumpAndSettle();
 
   expect(find.byKey(const Key('login.email')), findsOneWidget);
@@ -416,7 +416,7 @@ testWidgets('cold-start with ignored deep link (no token) falls through to login
   );
 
   await tester.pumpWidget(
-    AdaptiveLearningApp(
+    AuroraGuestFlow(
       auth: auth,
       initialDeepLink: 'https://app.adaptive-learn.io/reset', // no ?token=
     ),
