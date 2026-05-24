@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_login_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_register_screen.dart';
 
 Widget _harness({
   required Widget child,
@@ -144,6 +145,119 @@ void main() {
       await tester.tap(find.text("Don't have an account? Sign up"));
       await tester.pumpAndSettle();
       expect(taps, 1);
+    });
+  });
+
+  group('VidyaRegisterScreen', () {
+    testWidgets('renders all required fields + ToS checkbox', (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((_) async => http.Response('{}', 404)),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaRegisterScreen(
+          auth: auth,
+          onRegistered: (_, __) {},
+          onBackToLogin: () {},
+        ),
+      ));
+      expect(find.byKey(const Key('vidya.register.firstName')), findsOneWidget);
+      expect(find.byKey(const Key('vidya.register.lastName')), findsOneWidget);
+      expect(find.byKey(const Key('vidya.register.email')), findsOneWidget);
+      expect(find.byKey(const Key('vidya.register.password')), findsOneWidget);
+      expect(find.byType(Checkbox), findsOneWidget);
+      expect(find.byKey(const Key('vidya.register.submit')), findsOneWidget);
+    });
+
+    testWidgets('success hands (RegisterResult, email) to onRegistered',
+        (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((req) async {
+          if (req.url.path.endsWith('/auth/register')) {
+            return http.Response(
+              '{"userId":"u-9","otpChannel":"email"}',
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response('{}', 404);
+        }),
+      );
+      RegisterResult? captured;
+      String? capturedEmail;
+      await tester.pumpWidget(_harness(
+        child: VidyaRegisterScreen(
+          auth: auth,
+          onRegistered: (r, e) {
+            captured = r;
+            capturedEmail = e;
+          },
+          onBackToLogin: () {},
+        ),
+      ));
+      await tester.enterText(find.byKey(const Key('vidya.register.firstName')), 'Rahul');
+      await tester.enterText(find.byKey(const Key('vidya.register.lastName')), 'Sharma');
+      await tester.enterText(find.byKey(const Key('vidya.register.email')), 'r@example.com');
+      await tester.enterText(find.byKey(const Key('vidya.register.password')), 'SuperSecret123!');
+      await tester.tap(find.byType(Checkbox));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('vidya.register.submit')));
+      await tester.pumpAndSettle();
+      expect(captured?.userId, 'u-9');
+      expect(captured?.otpChannel, 'email');
+      expect(capturedEmail, 'r@example.com');
+    });
+
+    testWidgets('409 surfaces "already registered" message', (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((_) async => http.Response(
+              '{"detail":{"code":"email_taken","message":"Email is already registered"}}',
+              409,
+              headers: {'content-type': 'application/json'},
+            )),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaRegisterScreen(
+          auth: auth,
+          onRegistered: (_, __) {},
+          onBackToLogin: () {},
+        ),
+      ));
+      await tester.enterText(find.byKey(const Key('vidya.register.firstName')), 'R');
+      await tester.enterText(find.byKey(const Key('vidya.register.lastName')), 'S');
+      await tester.enterText(find.byKey(const Key('vidya.register.email')), 'r@example.com');
+      await tester.enterText(find.byKey(const Key('vidya.register.password')), 'SuperSecret123!');
+      await tester.tap(find.byType(Checkbox));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('vidya.register.submit')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('already registered'), findsOneWidget);
+    });
+
+    testWidgets('blocks submit when ToS unchecked', (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((_) async => http.Response('{}', 404)),
+      );
+      var called = 0;
+      await tester.pumpWidget(_harness(
+        child: VidyaRegisterScreen(
+          auth: auth,
+          onRegistered: (_, __) => called++,
+          onBackToLogin: () {},
+        ),
+      ));
+      await tester.enterText(find.byKey(const Key('vidya.register.firstName')), 'R');
+      await tester.enterText(find.byKey(const Key('vidya.register.lastName')), 'S');
+      await tester.enterText(find.byKey(const Key('vidya.register.email')), 'r@example.com');
+      await tester.enterText(find.byKey(const Key('vidya.register.password')), 'SuperSecret123!');
+      // ToS NOT checked
+      await tester.tap(find.byKey(const Key('vidya.register.submit')));
+      await tester.pumpAndSettle();
+      expect(called, 0);
+      expect(find.textContaining('accept the Terms'), findsOneWidget);
     });
   });
 }
