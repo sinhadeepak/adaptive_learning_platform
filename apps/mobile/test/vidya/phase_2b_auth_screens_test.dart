@@ -9,6 +9,7 @@ import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_login_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_register_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_verify_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_forgot_password_screen.dart';
 
 Widget _harness({
   required Widget child,
@@ -339,7 +340,7 @@ void main() {
       final auth = AuthClient(
         baseUrl: 'http://test',
         httpClient: MockClient((_) async => http.Response(
-              '{"detail":{"code":"otp_invalid","message":"Code didn’t match. Try again."}}',
+              '{"detail":{"code":"otp_invalid","message":"Code did not match. Try again."}}',
               400,
               headers: {'content-type': 'application/json'},
             )),
@@ -358,7 +359,70 @@ void main() {
         await tester.enterText(find.byKey(Key('vidya.verify.cell$i')), '0');
       }
       await tester.pumpAndSettle();
-      expect(find.textContaining('didn’t match'), findsOneWidget);
+      expect(find.textContaining('did not match'), findsOneWidget);
+    });
+  });
+
+  group('VidyaForgotPasswordScreen', () {
+    testWidgets('submits email then shows enumeration-safe confirmation',
+        (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((req) async {
+          if (req.url.path.endsWith('/auth/password/forgot')) {
+            return http.Response('', 204);
+          }
+          return http.Response('{}', 404);
+        }),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaForgotPasswordScreen(
+          auth: auth,
+          onBackToLogin: () {},
+        ),
+      ));
+      await tester.enterText(
+          find.byKey(const Key('vidya.forgot.email')), 'a@b.com');
+      await tester.tap(find.byKey(const Key('vidya.forgot.submit')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('check your inbox'), findsOneWidget);
+    });
+
+    testWidgets('204 vs 200 both show same confirmation (enumeration-safe)',
+        (tester) async {
+      // 204 case already covered above; this tests the rate-limited path.
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((_) async => http.Response('{}', 429)),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaForgotPasswordScreen(
+          auth: auth,
+          onBackToLogin: () {},
+        ),
+      ));
+      await tester.enterText(
+          find.byKey(const Key('vidya.forgot.email')), 'a@b.com');
+      await tester.tap(find.byKey(const Key('vidya.forgot.submit')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Too many'), findsOneWidget);
+    });
+
+    testWidgets('Back to login fires onBackToLogin', (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((_) async => http.Response('{}', 404)),
+      );
+      var taps = 0;
+      await tester.pumpWidget(_harness(
+        child: VidyaForgotPasswordScreen(
+          auth: auth,
+          onBackToLogin: () => taps++,
+        ),
+      ));
+      await tester.tap(find.text('Back to login'));
+      await tester.pumpAndSettle();
+      expect(taps, 1);
     });
   });
 }

@@ -13,4 +13,5 @@ export 'screens/vidya_exam_select_screen.dart';
 export 'screens/vidya_login_screen.dart';
 export 'screens/vidya_register_screen.dart';
 export 'screens/vidya_verify_screen.dart';
+export 'screens/vidya_forgot_password_screen.dart';
 export 'vidya_root_app.dart';
