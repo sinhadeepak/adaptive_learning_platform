@@ -10,6 +10,7 @@ import 'package:adaptive_learning_mobile/vidya/screens/vidya_login_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_register_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_verify_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_forgot_password_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_new_password_screen.dart';
 
 Widget _harness({
   required Widget child,
@@ -423,6 +424,104 @@ void main() {
       await tester.tap(find.text('Back to login'));
       await tester.pumpAndSettle();
       expect(taps, 1);
+    });
+  });
+
+  group('VidyaNewPasswordScreen', () {
+    testWidgets('rejects mismatched confirm', (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((_) async => http.Response('', 204)),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaNewPasswordScreen(
+          auth: auth,
+          token: 'abc-token',
+          onCompleted: () {},
+        ),
+      ));
+      await tester.enterText(
+          find.byKey(const Key('vidya.newpw.password')), 'SuperSecret123!');
+      await tester.enterText(
+          find.byKey(const Key('vidya.newpw.confirm')), 'Different!');
+      await tester.tap(find.byKey(const Key('vidya.newpw.submit')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining("match"), findsOneWidget);
+    });
+
+    testWidgets('success calls onCompleted', (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((req) async {
+          if (req.url.path.endsWith('/auth/password/reset')) {
+            return http.Response('', 204);
+          }
+          return http.Response('{}', 404);
+        }),
+      );
+      var done = 0;
+      await tester.pumpWidget(_harness(
+        child: VidyaNewPasswordScreen(
+          auth: auth,
+          token: 'abc-token',
+          onCompleted: () => done++,
+        ),
+      ));
+      await tester.enterText(
+          find.byKey(const Key('vidya.newpw.password')), 'SuperSecret123!');
+      await tester.enterText(
+          find.byKey(const Key('vidya.newpw.confirm')), 'SuperSecret123!');
+      await tester.tap(find.byKey(const Key('vidya.newpw.submit')));
+      await tester.pumpAndSettle();
+      expect(done, 1);
+    });
+
+    testWidgets('410 surfaces expired token banner', (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((_) async => http.Response(
+              '{"detail":{"code":"reset_token_invalid","message":"Reset link is invalid or has expired."}}',
+              410,
+            )),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaNewPasswordScreen(
+          auth: auth,
+          token: 'abc-token',
+          onCompleted: () {},
+        ),
+      ));
+      await tester.enterText(
+          find.byKey(const Key('vidya.newpw.password')), 'SuperSecret123!');
+      await tester.enterText(
+          find.byKey(const Key('vidya.newpw.confirm')), 'SuperSecret123!');
+      await tester.tap(find.byKey(const Key('vidya.newpw.submit')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('expired'), findsOneWidget);
+    });
+
+    testWidgets('422 surfaces weak-password banner', (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((_) async => http.Response(
+              '{"detail":{"code":"weak_password","message":"Password is too weak."}}',
+              422,
+            )),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaNewPasswordScreen(
+          auth: auth,
+          token: 'abc-token',
+          onCompleted: () {},
+        ),
+      ));
+      await tester.enterText(
+          find.byKey(const Key('vidya.newpw.password')), 'aaaaaaaaaaaa');
+      await tester.enterText(
+          find.byKey(const Key('vidya.newpw.confirm')), 'aaaaaaaaaaaa');
+      await tester.tap(find.byKey(const Key('vidya.newpw.submit')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('too weak'), findsOneWidget);
     });
   });
 }
