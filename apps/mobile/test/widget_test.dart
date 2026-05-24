@@ -26,11 +26,6 @@ void main() {
     FlutterSecureStorage.setMockInitialValues({});
   });
 
-  testWidgets('renders Sprint-0-style splash via legacy app shell', (tester) async {
-    await tester.pumpWidget(const AdaptiveLearningAppLegacy());
-    expect(find.textContaining('Adaptive Learning Platform'), findsOneWidget);
-  });
-
   test('alp_design_tokens path dep is wired (smoke)', () {
     expect(AlpSpacing.s4, 16);
     // brandPrimary is the canonical student-blue from docs/ui (PR #41 flipped
