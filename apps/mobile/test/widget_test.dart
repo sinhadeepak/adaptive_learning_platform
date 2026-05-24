@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/main.dart';
+import 'package:adaptive_learning_mobile/vidya/aurora_route.dart';
 import 'package:adaptive_learning_mobile/screens/forgot_password_screen.dart';
 import 'package:adaptive_learning_mobile/screens/login_screen.dart';
 import 'package:adaptive_learning_mobile/screens/reset_password_screen.dart';
@@ -374,8 +375,6 @@ void main() {
 // ---- Sprint 4 — deep-link cold-start ----
 
 testWidgets('cold-start with reset-password deep link routes to ResetPasswordScreen',
-    // Phase 2a T2: re-enable once AuroraRoute provides Aurora theme harness.
-    skip: true,
     (tester) async {
   FlutterSecureStorage.setMockInitialValues({});
   final auth = AuthClient(
@@ -384,8 +383,8 @@ testWidgets('cold-start with reset-password deep link routes to ResetPasswordScr
   );
 
   await tester.pumpWidget(
-    MaterialApp(
-      home: AuroraGuestFlow(
+    AuroraRoute(
+      builder: (_) => AuroraGuestFlow(
         auth: auth,
         initialDeepLink: 'alp://reset?token=cold-start-token',
       ),
@@ -399,24 +398,6 @@ testWidgets('cold-start with reset-password deep link routes to ResetPasswordScr
 });
 
 testWidgets('cold-start without deep link lands on login',
-    // Phase 2a T2: re-enable once AuroraRoute provides Aurora theme harness.
-    skip: true,
-    (tester) async {
-  FlutterSecureStorage.setMockInitialValues({});
-  final auth = AuthClient(
-    baseUrl: 'http://test',
-    httpClient: MockClient((_) async => http.Response('{}', 404)),
-  );
-
-  await tester.pumpWidget(MaterialApp(home: AuroraGuestFlow(auth: auth)));
-  await tester.pumpAndSettle();
-
-  expect(find.byKey(const Key('login.email')), findsOneWidget);
-});
-
-testWidgets('cold-start with ignored deep link (no token) falls through to login',
-    // Phase 2a T2: re-enable once AuroraRoute provides Aurora theme harness.
-    skip: true,
     (tester) async {
   FlutterSecureStorage.setMockInitialValues({});
   final auth = AuthClient(
@@ -425,8 +406,24 @@ testWidgets('cold-start with ignored deep link (no token) falls through to login
   );
 
   await tester.pumpWidget(
-    MaterialApp(
-      home: AuroraGuestFlow(
+    AuroraRoute(builder: (_) => AuroraGuestFlow(auth: auth)),
+  );
+  await tester.pumpAndSettle();
+
+  expect(find.byKey(const Key('login.email')), findsOneWidget);
+});
+
+testWidgets('cold-start with ignored deep link (no token) falls through to login',
+    (tester) async {
+  FlutterSecureStorage.setMockInitialValues({});
+  final auth = AuthClient(
+    baseUrl: 'http://test',
+    httpClient: MockClient((_) async => http.Response('{}', 404)),
+  );
+
+  await tester.pumpWidget(
+    AuroraRoute(
+      builder: (_) => AuroraGuestFlow(
         auth: auth,
         initialDeepLink: 'https://app.adaptive-learn.io/reset', // no ?token=
       ),
