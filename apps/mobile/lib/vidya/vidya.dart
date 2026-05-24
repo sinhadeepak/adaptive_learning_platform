@@ -10,3 +10,4 @@ export 'screens/vidya_splash_screen.dart';
 export 'screens/vidya_welcome_screen.dart';
 export 'screens/vidya_onboarding_card_screen.dart';
 export 'screens/vidya_exam_select_screen.dart';
+export 'vidya_root_app.dart';
