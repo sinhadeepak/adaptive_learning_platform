@@ -5,3 +5,4 @@ export 'persona_notifier.dart';
 export 'density_notifier.dart';
 export 'theme_mode_notifier.dart';
 export 'vidya_app.dart';
+export 'aurora_route.dart';
