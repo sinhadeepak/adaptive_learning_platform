@@ -18,6 +18,7 @@ import 'screens/forgot_password_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/verify_screen.dart';
+import 'vidya/vidya_root_app.dart';
 
 // Single API base URL — points at the web-student nginx, which proxies
 // /api/v1/* to every backend service (auth, profile, quiz, catalog,
@@ -39,7 +40,7 @@ void main() {
   // OS status bar matches the splash + dark-locked theme. The notifier
   // listener below re-applies whenever the user toggles theme in Settings.
   AuroraSystemChrome.applyForTheme(ThemeMode.dark);
-  runApp(AuroraGuestFlow(auth: AuthClient(baseUrl: _apiBaseUrl)));
+  runApp(VidyaRootApp(auth: AuthClient(baseUrl: _apiBaseUrl)));
 }
 
 class AuroraGuestFlow extends StatefulWidget {
