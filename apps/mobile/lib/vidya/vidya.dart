@@ -6,3 +6,4 @@ export 'density_notifier.dart';
 export 'theme_mode_notifier.dart';
 export 'vidya_app.dart';
 export 'aurora_route.dart';
+export 'screens/vidya_splash_screen.dart';
