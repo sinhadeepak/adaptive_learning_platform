@@ -31,7 +31,7 @@ import 'vidya/vidya_root_app.dart';
 //   iOS simulator:    --dart-define=ALP_API_BASE_URL=http://localhost:35173/api/v1
 const _apiBaseUrl = String.fromEnvironment(
   'ALP_API_BASE_URL',
-  defaultValue: 'http://10.11.5.166:35173/api/v1',
+  defaultValue: 'http://192.168.29.85:35173/api/v1',
 );
 
 void main() {
