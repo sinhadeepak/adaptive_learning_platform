@@ -40,6 +40,8 @@ void main() {
   // OS status bar matches the splash + dark-locked theme. The notifier
   // listener below re-applies whenever the user toggles theme in Settings.
   AuroraSystemChrome.applyForTheme(ThemeMode.dark);
+  // initialDeepLink will be wired in via the deep-link plugin in a follow-up;
+  // the constructor accepts it now so tests and future wiring work.
   runApp(VidyaRootApp(auth: AuthClient(baseUrl: _apiBaseUrl)));
 }
 
