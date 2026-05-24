@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_login_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_register_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_verify_screen.dart';
 
 Widget _harness({
   required Widget child,
@@ -258,6 +259,106 @@ void main() {
       await tester.pumpAndSettle();
       expect(called, 0);
       expect(find.textContaining('accept the Terms'), findsOneWidget);
+    });
+  });
+
+  group('VidyaVerifyScreen', () {
+    testWidgets('renders 6 OTP cells', (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((_) async => http.Response('{}', 404)),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaVerifyScreen(
+          auth: auth,
+          userId: 'u-1',
+          email: 'a@b.com',
+          channel: 'email',
+          onVerified: (_) {},
+          onBack: () {},
+        ),
+      ));
+      expect(find.byKey(const Key('vidya.verify.cell0')), findsOneWidget);
+      expect(find.byKey(const Key('vidya.verify.cell5')), findsOneWidget);
+    });
+
+    testWidgets('full 6-digit entry calls verifyOtp + onVerified',
+        (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((req) async {
+          if (req.url.path.endsWith('/auth/otp/verify')) {
+            return http.Response(
+              '{"user":{"id":"u-1","email":"a@b.com","firstName":"A","lastName":"B","role":"STUDENT","onboardingState":"REGISTERED"},'
+              '"tokens":{"accessToken":"at","refreshToken":"rt","expiresAt":1000}}',
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response('{}', 404);
+        }),
+      );
+      Session? captured;
+      await tester.pumpWidget(_harness(
+        child: VidyaVerifyScreen(
+          auth: auth,
+          userId: 'u-1',
+          email: 'a@b.com',
+          channel: 'email',
+          onVerified: (s) => captured = s,
+          onBack: () {},
+        ),
+      ));
+      for (var i = 0; i < 6; i++) {
+        await tester.enterText(find.byKey(Key('vidya.verify.cell$i')), '${i + 1}');
+      }
+      await tester.pumpAndSettle();
+      expect(captured, isNotNull);
+      expect(captured!.user.id, 'u-1');
+    });
+
+    testWidgets('shows email in subtitle when channel == email', (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((_) async => http.Response('{}', 404)),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaVerifyScreen(
+          auth: auth,
+          userId: 'u-1',
+          email: 'a@b.com',
+          channel: 'email',
+          onVerified: (_) {},
+          onBack: () {},
+        ),
+      ));
+      expect(find.textContaining('a@b.com'), findsOneWidget);
+    });
+
+    testWidgets('invalid OTP surfaces error banner', (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((_) async => http.Response(
+              '{"detail":{"code":"otp_invalid","message":"Code didn’t match. Try again."}}',
+              400,
+              headers: {'content-type': 'application/json'},
+            )),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaVerifyScreen(
+          auth: auth,
+          userId: 'u-1',
+          email: 'a@b.com',
+          channel: 'email',
+          onVerified: (_) {},
+          onBack: () {},
+        ),
+      ));
+      for (var i = 0; i < 6; i++) {
+        await tester.enterText(find.byKey(Key('vidya.verify.cell$i')), '0');
+      }
+      await tester.pumpAndSettle();
+      expect(find.textContaining('didn’t match'), findsOneWidget);
     });
   });
 }
