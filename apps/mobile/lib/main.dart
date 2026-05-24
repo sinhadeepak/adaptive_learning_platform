@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'aurora/density_notifier.dart';
 import 'aurora/persona.dart';
 import 'aurora/system_chrome.dart';
@@ -40,11 +39,11 @@ void main() {
   // OS status bar matches the splash + dark-locked theme. The notifier
   // listener below re-applies whenever the user toggles theme in Settings.
   AuroraSystemChrome.applyForTheme(ThemeMode.dark);
-  runApp(AdaptiveLearningApp(auth: AuthClient(baseUrl: _apiBaseUrl)));
+  runApp(AuroraGuestFlow(auth: AuthClient(baseUrl: _apiBaseUrl)));
 }
 
-class AdaptiveLearningApp extends StatefulWidget {
-  const AdaptiveLearningApp({
+class AuroraGuestFlow extends StatefulWidget {
+  const AuroraGuestFlow({
     super.key,
     required this.auth,
     this.initialDeepLink,
@@ -57,7 +56,7 @@ class AdaptiveLearningApp extends StatefulWidget {
   final String? initialDeepLink;
 
   @override
-  State<AdaptiveLearningApp> createState() => _AdaptiveLearningAppState();
+  State<AuroraGuestFlow> createState() => _AuroraGuestFlowState();
 }
 
 enum _GuestScreen { login, register, verify, forgotPassword, resetPassword }
@@ -83,7 +82,7 @@ enum _OnboardStep {
   done,
 }
 
-class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
+class _AuroraGuestFlowState extends State<AuroraGuestFlow> {
   Session? _session;
   bool _bootstrapped = false;
   _GuestScreen _guestScreen = _GuestScreen.login;
@@ -285,38 +284,21 @@ class _AdaptiveLearningAppState extends State<AdaptiveLearningApp> {
 
   @override
   Widget build(BuildContext context) {
-    final density = _density.density;
-    final persona = _persona.persona;
-    return MaterialApp(
-      title: 'Adaptive Learning Platform',
-      // Aurora v2 — light + dark themes built pair-wise, density-aware.
-      // Aurora v3 threads the active persona through AuroraTheme.build()
-      // so widgets can read `Theme.of(context).extension<PersonaTheme>()`
-      // for touch-target, type-scale, motion-energy, illustration-density,
-      // streak-shame, numeric-exposure, Lumi-prominence flexes.
-      //
-      // Aurora v3 / Wave 1: ThemeModeNotifier defaults to ThemeMode.dark
-      // until the new Aurora widget library lands. Legacy widgets hardcode
-      // dark-theme constants inline, so light mode renders text invisibly.
-      // Settings still exposes the toggle; users who flip to light will see
-      // the bug until Wave 2 W2.11. See plan file.
-      theme: AuroraTheme.light(density: density, persona: persona),
-      darkTheme: AuroraTheme.dark(density: density, persona: persona),
-      themeMode: _themeMode.mode,
-      home: !_bootstrapped
-          ? const _Splash()
-          : _session == null
-              ? _guestRoute()
-              : _session!.user.onboardingState == 'ONBOARDED'
-                  ? MainScaffold(
-                      auth: widget.auth,
-                      onSignOut: () async {
-                        await widget.auth.logout();
-                        if (mounted) setState(() => _session = null);
-                      },
-                    )
-                  : _onboardingRoute(),
-    );
+    // AuroraRoute provides the enclosing MaterialApp + Aurora theme;
+    // this widget just returns the current home content directly.
+    return !_bootstrapped
+        ? const _Splash()
+        : _session == null
+            ? _guestRoute()
+            : _session!.user.onboardingState == 'ONBOARDED'
+                ? MainScaffold(
+                    auth: widget.auth,
+                    onSignOut: () async {
+                      await widget.auth.logout();
+                      if (mounted) setState(() => _session = null);
+                    },
+                  )
+                : _onboardingRoute();
   }
 }
 
