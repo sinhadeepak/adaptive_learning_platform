@@ -32,7 +32,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(VidyaRootApp(auth: _makeAuth()));
     await tester.pumpAndSettle();
-    expect(find.text('Welcome to Vidya'), findsOneWidget);
+    expect(find.text('WELCOME TO VIDYA'), findsOneWidget);
   });
 
   testWidgets('returning user (onboarding_done == true) lands on AuroraRoute',
@@ -42,7 +42,7 @@ void main() {
     await tester.pumpWidget(VidyaRootApp(auth: _makeAuth()));
     await tester.pumpAndSettle();
     // Welcome NOT visible — AuroraRoute is rendering AuroraGuestFlow.
-    expect(find.text('Welcome to Vidya'), findsNothing);
+    expect(find.text('WELCOME TO VIDYA'), findsNothing);
   });
 
   testWidgets(
@@ -61,7 +61,7 @@ void main() {
     await tester.pump(); // trigger bootstrap futures
     await tester.pump(const Duration(milliseconds: 100)); // let microtasks run
     // Welcome must NOT be shown — authenticated user goes straight to home.
-    expect(find.text('Welcome to Vidya'), findsNothing);
+    expect(find.text('WELCOME TO VIDYA'), findsNothing);
     expect(find.text('Welcome back'), findsNothing); // not on login either
   });
 
@@ -69,8 +69,8 @@ void main() {
       (tester) async {
     await tester.pumpWidget(VidyaRootApp(auth: _makeAuth()));
     await tester.pumpAndSettle();
-    expect(find.text('Welcome to Vidya'), findsOneWidget);
-    await tester.tap(find.text('Sign in'));
+    expect(find.text('WELCOME TO VIDYA'), findsOneWidget);
+    await tester.tap(find.text('I already have an account'));
     await tester.pumpAndSettle();
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.byKey(const Key('vidya.login.email')), findsOneWidget);
