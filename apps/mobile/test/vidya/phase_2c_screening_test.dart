@@ -7,6 +7,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/vidya/screening_client.dart';
+import 'package:alp_design_tokens/alp_design_tokens.dart';
+import 'package:flutter/material.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_screening_intro_screen.dart';
 
 ScreeningClient _makeClient(MockClient mock, {AuthClient? auth}) {
   return ScreeningClient(
@@ -14,6 +17,22 @@ ScreeningClient _makeClient(MockClient mock, {AuthClient? auth}) {
     httpClient: mock,
     auth: auth ??
         AuthClient(baseUrl: 'http://test', httpClient: mock),
+  );
+}
+
+Widget _harness({
+  required Widget child,
+  Brightness brightness = Brightness.light,
+  VidyaPersona persona = VidyaPersona.aspirant,
+  VidyaDensity density = VidyaDensity.regular,
+}) {
+  return MaterialApp(
+    theme: VidyaTheme.material(
+      brightness: brightness,
+      persona: persona,
+      density: density,
+    ),
+    home: child,
   );
 }
 
@@ -137,6 +156,46 @@ void main() {
       final c = _makeClient(mock, auth: auth);
       await c.diagnosticComplete();
       expect(capturedPath, '/profile/me/diagnostic-complete');
+    });
+  });
+
+  group('VidyaScreeningIntroScreen', () {
+    testWidgets('renders title + Start CTA + Skip', (tester) async {
+      await tester.pumpWidget(_harness(
+        child: VidyaScreeningIntroScreen(
+          onStart: () {},
+          onSkip: () {},
+        ),
+      ));
+      expect(find.byKey(const Key('vidya.screening.intro.start')), findsOneWidget);
+      expect(find.text('Skip for now'), findsOneWidget);
+      expect(find.textContaining('calibrate'), findsOneWidget);
+    });
+
+    testWidgets('Start fires onStart', (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(_harness(
+        child: VidyaScreeningIntroScreen(
+          onStart: () => taps++,
+          onSkip: () {},
+        ),
+      ));
+      await tester.tap(find.byKey(const Key('vidya.screening.intro.start')));
+      await tester.pumpAndSettle();
+      expect(taps, 1);
+    });
+
+    testWidgets('Skip fires onSkip', (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(_harness(
+        child: VidyaScreeningIntroScreen(
+          onStart: () {},
+          onSkip: () => taps++,
+        ),
+      ));
+      await tester.tap(find.text('Skip for now'));
+      await tester.pumpAndSettle();
+      expect(taps, 1);
     });
   });
 }
