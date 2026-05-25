@@ -15,8 +15,8 @@ class VidyaSplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ext = Theme.of(context).extension<VidyaThemeData>();
-    final bg     = ext?.paper  ?? const Color(0xFFFFFFFF);
-    final ink    = ext?.ink    ?? const Color(0xFF0A0A0F);
+    final bg = ext?.paper ?? const Color(0xFFFFFFFF);
+    final ink = ext?.ink ?? const Color(0xFF0A0A0F);
     final accent = ext?.accent ?? const Color(0xFF1F6B4A);
 
     return Scaffold(
@@ -29,41 +29,38 @@ class VidyaSplashScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: accent,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      'V',
+                  RichText(
+                    key: const Key('vidya.splash.wordmark'),
+                    text: TextSpan(
                       style: TextStyle(
                         fontFamily: VidyaFonts.display,
-                        fontSize: 36,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                        fontSize: 56,
+                        fontWeight: FontWeight.w500,
+                        color: ink,
+                        height: 1,
+                        letterSpacing: -1,
                       ),
+                      children: [
+                        const TextSpan(text: 'v'),
+                        TextSpan(
+                          text: 'i',
+                          style: TextStyle(
+                            fontStyle: FontStyle.italic,
+                            color: accent,
+                          ),
+                        ),
+                        const TextSpan(text: 'dya'),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Vidya',
+                    'THE ADAPTIVE TUTOR',
                     style: TextStyle(
-                      fontFamily: VidyaFonts.display,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w400,
-                      color: ink,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Adaptive learning, designed for you',
-                    style: TextStyle(
-                      fontFamily: VidyaFonts.ui,
-                      fontSize: 13,
+                      fontFamily: VidyaFonts.mono,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 3,
                       color: ink.withValues(alpha: 0.6),
                     ),
                   ),
