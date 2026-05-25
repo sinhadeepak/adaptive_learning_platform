@@ -1,6 +1,7 @@
 // VidyaOnboardingCardScreen — parameterised 3-card onboarding sequence.
-// cardIndex 1 = AI adapts, 2 = Readiness, 3 = Guided.
-// VidyaFonts.mono == 'GeistMono' (confirmed in tokens.dart).
+// cardIndex 1 = Adaptive engine (sigmoid illustration with YOU marker)
+// cardIndex 2 = Readiness score (radial dial 728/900)
+// cardIndex 3 = Daily plan (topic allocation bars)
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
@@ -23,18 +24,31 @@ class VidyaOnboardingCardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final v = VidyaThemeData.of(context);
 
-    final (title, body) = switch (cardIndex) {
-      1 => (
-          'AI that adapts to you',
-          'Every question is calibrated live to your current level. Get harder ones as you improve; easier ones when you stall.',
+    final spec = switch (cardIndex) {
+      1 => _CardSpec(
+          eyebrow: 'ADAPTIVE ENGINE · 3-PL IRT',
+          title: 'Every question, tuned to you.',
+          body:
+              'Our engine reads your ability after every answer and serves '
+              'the next question at your edge — not too easy, never '
+              'frustrating.',
+          ctaLabel: 'Continue',
         ),
-      2 => (
-          'See your readiness, live',
-          'A single score, updated every session, that tracks how prepared you actually are — by topic and overall.',
+      2 => _CardSpec(
+          eyebrow: 'READINESS SCORE',
+          title: 'One number, every day.',
+          body:
+              'Your live readiness — out of 900. The same algorithm exam '
+              'boards use to estimate your final rank.',
+          ctaLabel: 'Continue',
         ),
-      _ => (
-          'Guided, not generic',
-          'We tell you what to study next, why, and how long it should take — so you spend time on what matters.',
+      _ => _CardSpec(
+          eyebrow: 'DAILY PLAN',
+          title: 'The shortest path to your rank.',
+          body:
+              'We pick the topics that move your score the most, today. '
+              'No guesswork. No filler. Just signal.',
+          ctaLabel: 'Begin',
         ),
     };
 
@@ -65,16 +79,12 @@ class VidyaOnboardingCardScreen extends StatelessWidget {
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: IntrinsicHeight(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Step counter
                       Text(
-                        '$cardIndex of 3',
+                        '$cardIndex / 3',
                         style: TextStyle(
                           fontFamily: VidyaFonts.mono,
                           fontSize: 12,
@@ -83,40 +93,46 @@ class VidyaOnboardingCardScreen extends StatelessWidget {
                           color: v.ink3,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      // Title
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 240,
+                        child: _PreviewForIndex(cardIndex: cardIndex),
+                      ),
+                      const SizedBox(height: 24),
                       Text(
-                        title,
+                        spec.eyebrow,
+                        style: TextStyle(
+                          fontFamily: VidyaFonts.mono,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.8,
+                          color: v.ink3,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        spec.title,
                         style: TextStyle(
                           fontFamily: VidyaFonts.display,
-                          fontSize: 30,
+                          fontSize: 26,
                           fontWeight: FontWeight.w500,
                           color: v.ink,
                           height: 1.2,
                         ),
                       ),
                       const SizedBox(height: 12),
-                      // Body text
                       Text(
-                        body,
+                        spec.body,
                         style: TextStyle(
                           fontFamily: VidyaFonts.ui,
-                          fontSize: 15,
-                          color: v.ink.withAlpha(166), // 0.65 alpha ≈ 166/255
+                          fontSize: 14,
+                          color: v.ink.withAlpha(166),
                           height: 1.55,
                         ),
                       ),
-                      const SizedBox(height: 28),
-                      // Preview widget — expands to fill remaining space
-                      Expanded(
-                        child: Center(
-                          child: _previewForIndex(cardIndex),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Continue CTA
+                      const Spacer(),
                       VidyaButton(
-                        label: 'Continue',
+                        label: spec.ctaLabel,
                         onPressed: onContinue,
                         style: VidyaButtonStyle.primary,
                         size: VidyaButtonSize.lg,
@@ -133,131 +149,102 @@ class VidyaOnboardingCardScreen extends StatelessWidget {
       ),
     );
   }
-
-  Widget _previewForIndex(int index) {
-    return switch (index) {
-      1 => const _AdaptationPreview(),
-      2 => const _ReadinessPreview(),
-      _ => const _RecommendationPreview(),
-    };
-  }
 }
 
-// ─── Card 1: Adaptation preview ─────────────────────────────────────────────
+class _CardSpec {
+  final String eyebrow;
+  final String title;
+  final String body;
+  final String ctaLabel;
+  const _CardSpec({
+    required this.eyebrow,
+    required this.title,
+    required this.body,
+    required this.ctaLabel,
+  });
+}
 
-class _AdaptationPreview extends StatelessWidget {
-  const _AdaptationPreview();
+class _PreviewForIndex extends StatelessWidget {
+  final int cardIndex;
+  const _PreviewForIndex({required this.cardIndex});
 
   @override
   Widget build(BuildContext context) {
-    final v = VidyaThemeData.of(context);
-    return VidyaCard(
+    switch (cardIndex) {
+      case 1:
+        return const _Card1Preview();
+      case 2:
+        return const _Card2Preview();
+      default:
+        return const _Card3Preview();
+    }
+  }
+}
+
+class _Card1Preview extends StatelessWidget {
+  const _Card1Preview();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8),
+      child: VidyaSigmoidIllustration(
+        theta: 0.79,
+        pAtTheta: 0.74,
+      ),
+    );
+  }
+}
+
+class _Card2Preview extends StatelessWidget {
+  const _Card2Preview();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: SizedBox(
+        width: 220,
+        height: 220,
+        child: VidyaReadinessRadial(
+          eyebrow: 'READINESS',
+          value: 728,
+          max: 900,
+        ),
+      ),
+    );
+  }
+}
+
+class _Card3Preview extends StatelessWidget {
+  const _Card3Preview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const VidyaAiTag(label: 'ADAPTIVE ENGINE'),
-          const SizedBox(height: 16),
+          const VidyaTopicAllocationBar(
+            items: [
+              VidyaTopicAllocation(
+                name: 'Thermodynamics',
+                percent: 62,
+                accent: true,
+              ),
+              VidyaTopicAllocation(name: 'Organic chemistry', percent: 24),
+              VidyaTopicAllocation(name: 'Cell biology', percent: 14),
+            ],
+          ),
+          const SizedBox(height: 14),
           Text(
-            'θ = 0.42 → 0.61',
+            "THIS WEEK'S ALLOCATION",
             style: TextStyle(
               fontFamily: VidyaFonts.mono,
-              fontSize: 22,
+              fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: v.ink,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Difficulty rises with every correct answer',
-            style: TextStyle(
-              fontFamily: VidyaFonts.ui,
-              fontSize: 13,
-              color: v.ink3,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Card 2: Readiness preview ───────────────────────────────────────────────
-
-class _ReadinessPreview extends StatelessWidget {
-  const _ReadinessPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    return VidyaCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          VidyaMasteryBar(
-            label: 'Mechanics',
-            value: 0.78,
-            bucket: VidyaMasteryBucket.strong,
-          ),
-          const SizedBox(height: 12),
-          VidyaMasteryBar(
-            label: 'Thermodynamics',
-            value: 0.45,
-            bucket: VidyaMasteryBucket.dev,
-          ),
-          const SizedBox(height: 12),
-          VidyaMasteryBar(
-            label: 'Calculus',
-            value: 0.22,
-            bucket: VidyaMasteryBucket.weak,
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 36,
-            child: VidyaSparkline(
-              values: [0.41, 0.45, 0.52, 0.55, 0.61, 0.66, 0.71],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Card 3: Recommendation preview ─────────────────────────────────────────
-
-class _RecommendationPreview extends StatelessWidget {
-  const _RecommendationPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    final v = VidyaThemeData.of(context);
-    return VidyaCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const VidyaAiTag(label: 'NEXT UP'),
-          const SizedBox(height: 12),
-          Text(
-            'Practice Calculus — 20 min',
-            style: TextStyle(
-              fontFamily: VidyaFonts.display,
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: v.ink,
-              height: 1.25,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Limits & continuity is your weakest concept. 12 questions calibrated to your level.',
-            style: TextStyle(
-              fontFamily: VidyaFonts.ui,
-              fontSize: 13,
-              color: v.ink3,
-              height: 1.4,
+              letterSpacing: 1.6,
+              color: VidyaThemeData.of(context).ink3,
             ),
           ),
         ],
