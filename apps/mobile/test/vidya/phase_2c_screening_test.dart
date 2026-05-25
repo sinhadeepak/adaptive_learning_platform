@@ -10,6 +10,7 @@ import 'package:adaptive_learning_mobile/vidya/screening_client.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_screening_intro_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_screening_quiz_screen.dart';
 
 ScreeningClient _makeClient(MockClient mock, {AuthClient? auth}) {
   return ScreeningClient(
@@ -196,6 +197,207 @@ void main() {
       await tester.tap(find.text('Skip for now'));
       await tester.pumpAndSettle();
       expect(taps, 1);
+    });
+  });
+
+  group('VidyaScreeningQuizScreen', () {
+    testWidgets('renders first question after start', (tester) async {
+      var callIdx = 0;
+      final mock = MockClient((req) async {
+        callIdx++;
+        if (req.url.path.endsWith('/screening/start')) {
+          return http.Response(
+            jsonEncode({'token': 'tok-1', 'target_count': 2, 'exam_code': 'JEE-MAIN'}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (req.url.path.endsWith('/next')) {
+          return http.Response(
+            jsonEncode({
+              'item_idx': 0,
+              'total': 2,
+              'stem': 'What is 2+2?',
+              'choices': ['3', '4', '5', '6'],
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{}', 404);
+      });
+      final client = ScreeningClient(
+        baseUrl: 'http://test',
+        httpClient: mock,
+        auth: AuthClient(baseUrl: 'http://test', httpClient: mock),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaScreeningQuizScreen(
+          client: client,
+          examCode: 'JEE-MAIN',
+          onCompleted: (_) {},
+          onBack: () {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('What is 2+2?'), findsOneWidget);
+      expect(find.text('4'), findsOneWidget);
+      expect(find.text('Question 1 of 2'), findsOneWidget);
+    });
+
+    testWidgets('selecting a choice + tapping Submit advances to next',
+        (tester) async {
+      final stems = ['Q1?', 'Q2?'];
+      var nextCalls = 0;
+      var answerCalls = 0;
+      final mock = MockClient((req) async {
+        final path = req.url.path;
+        if (path.endsWith('/screening/start')) {
+          return http.Response(
+            jsonEncode({'token': 'tok-1', 'target_count': 2, 'exam_code': 'JEE-MAIN'}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (path.endsWith('/next')) {
+          final idx = nextCalls;
+          nextCalls++;
+          if (idx >= stems.length) {
+            return http.Response(
+              jsonEncode({'detail': {'code': 'complete', 'message': 'done'}}),
+              409,
+            );
+          }
+          return http.Response(
+            jsonEncode({
+              'item_idx': idx,
+              'total': stems.length,
+              'stem': stems[idx],
+              'choices': ['A', 'B', 'C', 'D'],
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (path.endsWith('/answer')) {
+          answerCalls++;
+          return http.Response('', 204);
+        }
+        return http.Response('{}', 404);
+      });
+      final client = ScreeningClient(
+        baseUrl: 'http://test',
+        httpClient: mock,
+        auth: AuthClient(baseUrl: 'http://test', httpClient: mock),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaScreeningQuizScreen(
+          client: client,
+          examCode: 'JEE-MAIN',
+          onCompleted: (_) {},
+          onBack: () {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('Q1?'), findsOneWidget);
+      await tester.tap(find.text('B'));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('vidya.screening.quiz.submit')));
+      await tester.pumpAndSettle();
+      expect(find.text('Q2?'), findsOneWidget);
+      expect(answerCalls, 1);
+    });
+
+    testWidgets('when next returns complete, fires onCompleted(token)',
+        (tester) async {
+      var nextCalls = 0;
+      final mock = MockClient((req) async {
+        final path = req.url.path;
+        if (path.endsWith('/screening/start')) {
+          return http.Response(
+            jsonEncode({'token': 'tok-final', 'target_count': 1, 'exam_code': 'JEE-MAIN'}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (path.endsWith('/next')) {
+          final idx = nextCalls;
+          nextCalls++;
+          if (idx == 0) {
+            return http.Response(
+              jsonEncode({
+                'item_idx': 0, 'total': 1, 'stem': 'Q?', 'choices': ['A', 'B', 'C', 'D'],
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response(
+            jsonEncode({'detail': {'code': 'complete', 'message': 'done'}}),
+            409,
+          );
+        }
+        if (path.endsWith('/answer')) return http.Response('', 204);
+        return http.Response('{}', 404);
+      });
+      final client = ScreeningClient(
+        baseUrl: 'http://test',
+        httpClient: mock,
+        auth: AuthClient(baseUrl: 'http://test', httpClient: mock),
+      );
+      String? capturedToken;
+      await tester.pumpWidget(_harness(
+        child: VidyaScreeningQuizScreen(
+          client: client,
+          examCode: 'JEE-MAIN',
+          onCompleted: (t) => capturedToken = t,
+          onBack: () {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('A'));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('vidya.screening.quiz.submit')));
+      await tester.pumpAndSettle();
+      expect(capturedToken, 'tok-final');
+    });
+
+    testWidgets('503 unavailable surfaces banner with Skip CTA',
+        (tester) async {
+      final mock = MockClient((req) async {
+        if (req.url.path.endsWith('/screening/start')) {
+          return http.Response(
+            jsonEncode({
+              'detail': {
+                'code': 'screening_unavailable',
+                'message': 'Not enough published questions to seed a screening test for this exam yet.',
+              }
+            }),
+            503,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{}', 404);
+      });
+      final client = ScreeningClient(
+        baseUrl: 'http://test',
+        httpClient: mock,
+        auth: AuthClient(baseUrl: 'http://test', httpClient: mock),
+      );
+      var backTaps = 0;
+      await tester.pumpWidget(_harness(
+        child: VidyaScreeningQuizScreen(
+          client: client,
+          examCode: 'JEE-MAIN',
+          onCompleted: (_) {},
+          onBack: () => backTaps++,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Not enough published questions'), findsOneWidget);
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+      expect(backTaps, 1);
     });
   });
 }
