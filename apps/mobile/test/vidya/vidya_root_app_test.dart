@@ -113,7 +113,7 @@ void main() {
     expect(find.text('NEET UG'), findsOneWidget);
     await tester.tap(find.text('NEET UG'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Continue'));
+    await tester.tap(find.textContaining('Continue with NEET'));
     await tester.pumpAndSettle();
     expect(find.textContaining('calibrate'), findsOneWidget);
   });
@@ -144,7 +144,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('NEET UG'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Continue'));
+    await tester.tap(find.textContaining('Continue with NEET'));
     // home renders MainScaffold which mounts InboxBellButton's 60s timer —
     // use explicit pump instead of pumpAndSettle (T6 pattern).
     await tester.pump();
