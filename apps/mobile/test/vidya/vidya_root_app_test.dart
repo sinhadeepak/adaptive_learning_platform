@@ -62,7 +62,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100)); // let microtasks run
     // Welcome must NOT be shown — authenticated user goes straight to home.
     expect(find.text('WELCOME TO VIDYA'), findsNothing);
-    expect(find.text('Welcome back'), findsNothing); // not on login either
+    expect(find.text('Welcome back.'), findsNothing); // not on login either
   });
 
   testWidgets('Welcome → Sign in tapped routes to VidyaLoginScreen',
@@ -72,7 +72,7 @@ void main() {
     expect(find.text('WELCOME TO VIDYA'), findsOneWidget);
     await tester.tap(find.text('I already have an account'));
     await tester.pumpAndSettle();
-    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Welcome back.'), findsOneWidget);
     expect(find.byKey(const Key('vidya.login.email')), findsOneWidget);
   });
 

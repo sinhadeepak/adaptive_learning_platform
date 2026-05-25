@@ -68,9 +68,9 @@ class _VidyaLoginScreenState extends State<VidyaLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = VidyaThemeData.of(context);
-    final ink = theme.ink;
-    final muted = theme.ink3;
+    final v = VidyaThemeData.of(context);
+    final ink = v.ink;
+    final muted = v.ink3;
 
     return VidyaScaffold(
       appBar: VidyaAppBar(title: ''),
@@ -85,9 +85,44 @@ class _VidyaLoginScreenState extends State<VidyaLoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
+                    RichText(
+                      key: const Key('vidya.login.wordmark'),
+                      text: TextSpan(
+                        style: TextStyle(
+                          fontFamily: VidyaFonts.display,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w500,
+                          color: ink,
+                          height: 1,
+                        ),
+                        children: [
+                          const TextSpan(text: 'v'),
+                          TextSpan(
+                            text: 'i',
+                            style: TextStyle(
+                              fontStyle: FontStyle.italic,
+                              color: v.accent,
+                            ),
+                          ),
+                          const TextSpan(text: 'dya'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
                     Text(
-                      'Welcome back',
+                      'LOG IN',
+                      style: TextStyle(
+                        fontFamily: VidyaFonts.mono,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 2,
+                        color: muted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Welcome back.',
                       style: TextStyle(
                         fontFamily: VidyaFonts.display,
                         fontSize: 32,
@@ -95,9 +130,9 @@ class _VidyaLoginScreenState extends State<VidyaLoginScreen> {
                         color: ink,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
-                      'Sign in to continue.',
+                      'Continue your preparation.',
                       style: TextStyle(
                         fontFamily: VidyaFonts.ui,
                         fontSize: 14,
@@ -114,7 +149,9 @@ class _VidyaLoginScreenState extends State<VidyaLoginScreen> {
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.email],
-                      decoration: const InputDecoration(labelText: 'Email'),
+                      decoration: const InputDecoration(
+                        labelText: 'Mobile number or email',
+                      ),
                       validator: (v) {
                         if (v == null || v.isEmpty) return 'Enter your email';
                         if (!v.contains('@')) return 'Enter a valid email';
@@ -127,7 +164,9 @@ class _VidyaLoginScreenState extends State<VidyaLoginScreen> {
                       controller: _password,
                       obscureText: true,
                       autofillHints: const [AutofillHints.password],
-                      decoration: const InputDecoration(labelText: 'Password'),
+                      decoration: const InputDecoration(
+                        labelText: 'Password',
+                      ),
                       validator: (v) =>
                           (v == null || v.isEmpty) ? 'Enter your password' : null,
                     ),
@@ -136,7 +175,8 @@ class _VidyaLoginScreenState extends State<VidyaLoginScreen> {
                       children: [
                         Checkbox(
                           value: _remember,
-                          onChanged: (v) => setState(() => _remember = v ?? false),
+                          onChanged: (v) =>
+                              setState(() => _remember = v ?? false),
                         ),
                         Text(
                           'Keep me signed in',
@@ -148,7 +188,8 @@ class _VidyaLoginScreenState extends State<VidyaLoginScreen> {
                         ),
                         const Spacer(),
                         TextButton(
-                          onPressed: _submitting ? null : widget.onForgotPassword,
+                          onPressed:
+                              _submitting ? null : widget.onForgotPassword,
                           child: const Text('Forgot password?'),
                         ),
                       ],
@@ -156,10 +197,11 @@ class _VidyaLoginScreenState extends State<VidyaLoginScreen> {
                     const Spacer(),
                     VidyaButton(
                       key: const Key('vidya.login.submit'),
-                      label: _submitting ? 'Signing in…' : 'Sign in',
+                      label: _submitting ? 'Signing in…' : 'Log in',
                       onPressed: _submitting ? null : _submit,
                       disabled: _submitting,
                       size: VidyaButtonSize.lg,
+                      fullWidth: true,
                     ),
                     const SizedBox(height: 12),
                     Center(
@@ -178,4 +220,3 @@ class _VidyaLoginScreenState extends State<VidyaLoginScreen> {
     );
   }
 }
-

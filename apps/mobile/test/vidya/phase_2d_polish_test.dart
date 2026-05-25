@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_login_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_splash_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_welcome_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_onboarding_card_screen.dart';
@@ -221,6 +222,25 @@ void main() {
       await tester.tap(find.text('National Eligibility Test'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Continue with NEET'), findsOneWidget);
+    });
+  });
+
+  group('VidyaLoginScreen (Phase 2d polish)', () {
+    testWidgets('renders wordmark + LOG IN eyebrow + headline',
+        (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((req) async => http.Response('{}', 404)),
+      );
+      await tester.pumpWidget(_harness(VidyaLoginScreen(
+        auth: auth,
+        onLoggedIn: (_) {},
+        onSignUp: () {},
+        onForgotPassword: () {},
+      )));
+      expect(find.byKey(const Key('vidya.login.wordmark')), findsOneWidget);
+      expect(find.text('LOG IN'), findsOneWidget);
+      expect(find.text('Welcome back.'), findsOneWidget);
     });
   });
 }
