@@ -86,4 +86,69 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Set new password'), findsOneWidget);
   });
+
+  testWidgets(
+      'authenticated user (not ONBOARDED, no screening done) routes examSelect → screeningIntro on Continue',
+      (tester) async {
+    FlutterSecureStorage.setMockInitialValues({
+      'alp.auth.tokens':
+          '{"accessToken":"at","refreshToken":"rt","expiresAt":99999999999}',
+    });
+    final mock = MockClient((req) async {
+      if (req.url.path.endsWith('/catalog/exams')) {
+        return http.Response(
+          '[{"id":"a-1","code":"NEET","name":"NEET UG"}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      if (req.url.path.endsWith('/profile/exams')) {
+        return http.Response('{}', 200);
+      }
+      return http.Response('{}', 404);
+    });
+    final auth = AuthClient(baseUrl: 'http://test', httpClient: mock);
+    await tester.pumpWidget(VidyaRootApp(auth: auth));
+    await tester.pumpAndSettle();
+    expect(find.text('NEET UG'), findsOneWidget);
+    await tester.tap(find.text('NEET UG'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('calibrate'), findsOneWidget);
+  });
+
+  testWidgets(
+      'screening_done == true skips screening — examSelect Continue routes straight to home',
+      (tester) async {
+    FlutterSecureStorage.setMockInitialValues({
+      'alp.auth.tokens':
+          '{"accessToken":"at","refreshToken":"rt","expiresAt":99999999999}',
+      'vidya.screening_done': 'true',
+    });
+    final mock = MockClient((req) async {
+      if (req.url.path.endsWith('/catalog/exams')) {
+        return http.Response(
+          '[{"id":"a-1","code":"NEET","name":"NEET UG"}]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      if (req.url.path.endsWith('/profile/exams')) {
+        return http.Response('{}', 200);
+      }
+      return http.Response('{}', 404);
+    });
+    final auth = AuthClient(baseUrl: 'http://test', httpClient: mock);
+    await tester.pumpWidget(VidyaRootApp(auth: auth));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('NEET UG'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    // home renders MainScaffold which mounts InboxBellButton's 60s timer —
+    // use explicit pump instead of pumpAndSettle (T6 pattern).
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.textContaining('calibrate'), findsNothing);
+  });
 }
