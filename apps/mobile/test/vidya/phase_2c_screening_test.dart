@@ -203,9 +203,7 @@ void main() {
 
   group('VidyaScreeningQuizScreen', () {
     testWidgets('renders first question after start', (tester) async {
-      var callIdx = 0;
       final mock = MockClient((req) async {
-        callIdx++;
         if (req.url.path.endsWith('/screening/start')) {
           return http.Response(
             jsonEncode({'token': 'tok-1', 'target_count': 2, 'exam_code': 'JEE-MAIN'}),
