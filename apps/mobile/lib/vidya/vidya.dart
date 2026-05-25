@@ -19,3 +19,4 @@ export 'vidya_root_app.dart';
 export 'screening_client.dart';
 export 'screens/vidya_screening_intro_screen.dart';
 export 'screens/vidya_screening_quiz_screen.dart';
+export 'screens/vidya_screening_result_screen.dart';

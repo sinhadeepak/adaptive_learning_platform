@@ -11,6 +11,7 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_screening_intro_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_screening_quiz_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_screening_result_screen.dart';
 
 ScreeningClient _makeClient(MockClient mock, {AuthClient? auth}) {
   return ScreeningClient(
@@ -398,6 +399,124 @@ void main() {
       await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
       expect(backTaps, 1);
+    });
+  });
+
+  group('VidyaScreeningResultScreen', () {
+    testWidgets('renders score + topic breakdown after reveal',
+        (tester) async {
+      final mock = MockClient((req) async {
+        if (req.url.path.endsWith('/reveal')) {
+          return http.Response(
+            jsonEncode({
+              'score_pct': 75.0,
+              'correct': 9,
+              'total': 12,
+              'topic_breakdown': [
+                {'topic_id': 't-mech', 'correct': 1, 'total': 4},
+                {'topic_id': 't-thermo', 'correct': 3, 'total': 4},
+                {'topic_id': 't-calc', 'correct': 5, 'total': 4},
+              ],
+              'readiness_seed': 0.75,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{}', 404);
+      });
+      final client = ScreeningClient(
+        baseUrl: 'http://test',
+        httpClient: mock,
+        auth: AuthClient(baseUrl: 'http://test', httpClient: mock),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaScreeningResultScreen(
+          client: client,
+          token: 'tok-1',
+          onCompleted: () {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('75%'), findsOneWidget);
+      expect(find.textContaining('9 of 12'), findsOneWidget);
+    });
+
+    testWidgets('Save & continue calls persist + diagnosticComplete + onCompleted',
+        (tester) async {
+      var persistCalled = false;
+      var fsmCalled = false;
+      final mock = MockClient((req) async {
+        if (req.url.path.endsWith('/reveal')) {
+          return http.Response(
+            jsonEncode({
+              'score_pct': 50.0,
+              'correct': 6,
+              'total': 12,
+              'topic_breakdown': [],
+              'readiness_seed': 0.5,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (req.url.path.endsWith('/persist')) {
+          persistCalled = true;
+          return http.Response(
+            jsonEncode({'persisted': true, 'attempt_id': 'a-1'}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (req.url.path.endsWith('/diagnostic-complete')) {
+          fsmCalled = true;
+          return http.Response('', 204);
+        }
+        return http.Response('{}', 404);
+      });
+      final auth = AuthClient(baseUrl: 'http://test', httpClient: mock);
+      final client = ScreeningClient(
+        baseUrl: 'http://test',
+        httpClient: mock,
+        auth: auth,
+      );
+      var done = 0;
+      await tester.pumpWidget(_harness(
+        child: VidyaScreeningResultScreen(
+          client: client,
+          token: 'tok-1',
+          onCompleted: () => done++,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('vidya.screening.result.continue')));
+      await tester.pumpAndSettle();
+      expect(persistCalled, true);
+      expect(fsmCalled, true);
+      expect(done, 1);
+    });
+
+    testWidgets('reveal failure surfaces banner', (tester) async {
+      final mock = MockClient((req) async {
+        if (req.url.path.endsWith('/reveal')) {
+          return http.Response('{}', 500);
+        }
+        return http.Response('{}', 404);
+      });
+      final client = ScreeningClient(
+        baseUrl: 'http://test',
+        httpClient: mock,
+        auth: AuthClient(baseUrl: 'http://test', httpClient: mock),
+      );
+      await tester.pumpWidget(_harness(
+        child: VidyaScreeningResultScreen(
+          client: client,
+          token: 'tok-1',
+          onCompleted: () {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.textContaining("couldn't load"), findsOneWidget);
     });
   });
 }
