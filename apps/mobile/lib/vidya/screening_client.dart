@@ -105,7 +105,7 @@ class ScreeningClient {
   }
 
   Future<ScreeningPersist> persist(String token) async {
-    final res = await _auth.apiPost('/api/v1/screening/$token/persist', const <String, dynamic>{});
+    final res = await _auth.apiPost('/screening/$token/persist', const <String, dynamic>{});
     if (res.statusCode != 200) {
       throw ScreeningException(res.statusCode, _decodeMessage(res));
     }
@@ -118,7 +118,7 @@ class ScreeningClient {
 
   Future<void> diagnosticComplete() async {
     final res = await _auth.apiPost(
-      '/api/v1/profile/me/diagnostic-complete',
+      '/profile/me/diagnostic-complete',
       const <String, dynamic>{},
     );
     if (res.statusCode != 204 && res.statusCode != 200) {

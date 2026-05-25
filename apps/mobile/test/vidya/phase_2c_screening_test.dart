@@ -123,7 +123,7 @@ void main() {
       final r = await c.persist('tok-1');
       expect(r.persisted, true);
       expect(r.attemptId, 'a-1');
-      expect(capturedPath, '/api/v1/screening/tok-1/persist');
+      expect(capturedPath, '/screening/tok-1/persist');
     });
 
     test('diagnosticComplete hits POST /profile/me/diagnostic-complete',
@@ -136,7 +136,7 @@ void main() {
       final auth = AuthClient(baseUrl: 'http://test', httpClient: mock);
       final c = _makeClient(mock, auth: auth);
       await c.diagnosticComplete();
-      expect(capturedPath, '/api/v1/profile/me/diagnostic-complete');
+      expect(capturedPath, '/profile/me/diagnostic-complete');
     });
   });
 }
