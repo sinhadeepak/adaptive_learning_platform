@@ -16,3 +16,4 @@ export 'screens/vidya_verify_screen.dart';
 export 'screens/vidya_forgot_password_screen.dart';
 export 'screens/vidya_new_password_screen.dart';
 export 'vidya_root_app.dart';
+export 'screening_client.dart';
