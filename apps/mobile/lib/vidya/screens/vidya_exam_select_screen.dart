@@ -1,6 +1,7 @@
 // VidyaExamSelectScreen — exam selection with backend persistence.
 // Mirrors Aurora's GET /catalog/exams + PUT /profile/exams contract.
-// Also writes vidya.selected_exam_{id,code} to FlutterSecureStorage.
+// Writes vidya.selected_exam_{id,code} to FlutterSecureStorage so
+// downstream Vidya screens (screening, home) can re-read it.
 
 import 'dart:convert';
 
@@ -30,6 +31,22 @@ class _Exam {
         subtitle: j['subtitle'] as String?,
       );
 }
+
+// Aspirant counts are currently hardcoded by exam code. Backend
+// migration tracked under Phase 4 — extend /catalog/exams to include
+// an `aspirants_label` field; then this lookup goes away.
+const _aspirantLookup = <String, String>{
+  'NEET': '2.4M aspirants',
+  'JEE': '1.2M aspirants',
+  'JEE-MAIN': '1.2M aspirants',
+  'JEE-ADVANCED': '180K aspirants',
+  'UPSC': '900K aspirants',
+  'CBSE': '1.8M students',
+  'GATE': '850K aspirants',
+};
+
+String? _aspirantLabel(String code) =>
+    _aspirantLookup[code.toUpperCase()];
 
 class VidyaExamSelectScreen extends StatefulWidget {
   const VidyaExamSelectScreen({
@@ -87,19 +104,30 @@ class _VidyaExamSelectScreenState extends State<VidyaExamSelectScreen> {
       _submitting = true;
     });
     try {
-      final res = await widget.auth.apiPut('/profile/exams', {'examId': _selectedId});
+      final res = await widget.auth.apiPut(
+        '/profile/exams',
+        {'examId': _selectedId},
+      );
       if (res.statusCode != 200) {
         setState(() => _error = "We couldn't save your selection. Try again.");
         return;
       }
       await _storage.write(key: 'vidya.selected_exam_id', value: _selectedId);
-      await _storage.write(key: 'vidya.selected_exam_code', value: _selectedCode);
+      await _storage.write(
+        key: 'vidya.selected_exam_code',
+        value: _selectedCode,
+      );
       widget.onContinue();
     } catch (_) {
       setState(() => _error = "We couldn't save your selection. Try again.");
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  String _continueLabel() {
+    if (_selectedCode == null) return 'Continue';
+    return 'Continue with $_selectedCode →';
   }
 
   @override
@@ -120,28 +148,35 @@ class _VidyaExamSelectScreenState extends State<VidyaExamSelectScreen> {
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: IntrinsicHeight(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Title
                       Text(
-                        'Which exam are you preparing for?',
+                        'STEP 1 / 3',
+                        style: TextStyle(
+                          fontFamily: VidyaFonts.mono,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 2,
+                          color: v.ink3,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Choose your exam',
                         style: TextStyle(
                           fontFamily: VidyaFonts.display,
-                          fontSize: 26,
+                          fontSize: 28,
                           fontWeight: FontWeight.w500,
                           color: v.ink,
                           height: 1.2,
                         ),
                       ),
                       const SizedBox(height: 6),
-                      // Subtitle
                       Text(
-                        'Pick one to get started. You can add more later.',
+                        'We tune everything to one exam — the syllabus, the '
+                        'difficulty, the scoring model.',
                         style: TextStyle(
                           fontFamily: VidyaFonts.ui,
                           fontSize: 14,
@@ -150,7 +185,6 @@ class _VidyaExamSelectScreenState extends State<VidyaExamSelectScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      // Error banner
                       if (_error != null) ...[
                         VidyaBanner(
                           message: _error!,
@@ -159,7 +193,6 @@ class _VidyaExamSelectScreenState extends State<VidyaExamSelectScreen> {
                         ),
                         const SizedBox(height: 12),
                       ],
-                      // Content: loading / empty / list
                       if (_exams == null)
                         const Center(
                           child: Padding(
@@ -190,10 +223,9 @@ class _VidyaExamSelectScreenState extends State<VidyaExamSelectScreen> {
                         ],
                       const Spacer(),
                       const SizedBox(height: 16),
-                      // Continue CTA
                       VidyaButton(
                         key: const Key('vidya.exam.continue'),
-                        label: 'Continue',
+                        label: _continueLabel(),
                         onPressed: _selectedId != null && !_submitting
                             ? _submit
                             : null,
@@ -230,43 +262,84 @@ class _ExamCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final v = VidyaThemeData.of(context);
+    final aspirants = _aspirantLabel(exam.code);
 
     return VidyaCard(
       key: Key('vidya.exam.card.${exam.code}'),
       tone: selected ? VidyaCardTone.accent : VidyaCardTone.defaultTone,
       onTap: onTap,
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  exam.name,
-                  style: TextStyle(
-                    fontFamily: VidyaFonts.ui,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: v.ink,
-                  ),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: selected
+                    ? v.accent
+                    : v.accent.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                exam.code,
+                style: TextStyle(
+                  fontFamily: VidyaFonts.mono,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                  color: selected ? Colors.white : v.accent,
                 ),
-                if (exam.subtitle != null) ...[
-                  const SizedBox(height: 4),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    exam.subtitle!,
+                    exam.name,
                     style: TextStyle(
                       fontFamily: VidyaFonts.ui,
-                      fontSize: 13,
-                      color: v.ink3,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: v.ink,
                     ),
                   ),
+                  if (exam.subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      exam.subtitle!,
+                      style: TextStyle(
+                        fontFamily: VidyaFonts.ui,
+                        fontSize: 12,
+                        color: v.ink3,
+                      ),
+                    ),
+                  ],
+                  if (aspirants != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      aspirants,
+                      style: TextStyle(
+                        fontFamily: VidyaFonts.mono,
+                        fontSize: 11,
+                        color: v.ink3,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          if (selected)
-            Icon(Icons.check_circle, color: v.accent, size: 20),
-        ],
+            const SizedBox(width: 8),
+            Icon(
+              selected ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: selected ? v.accent : v.ink3.withValues(alpha: 0.4),
+              size: 22,
+            ),
+          ],
+        ),
       ),
     );
   }

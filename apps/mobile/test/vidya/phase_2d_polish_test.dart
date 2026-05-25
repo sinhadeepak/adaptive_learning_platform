@@ -1,11 +1,16 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_splash_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_welcome_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_onboarding_card_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_exam_select_screen.dart';
 
 Widget _harness(Widget child) => MaterialApp(
       theme: VidyaTheme.material(
@@ -137,6 +142,85 @@ void main() {
       expect(find.byType(VidyaTopicAllocationBar), findsOneWidget);
       expect(find.text('Thermodynamics'), findsOneWidget);
       expect(find.text('62%'), findsOneWidget);
+    });
+  });
+
+  group('VidyaExamSelectScreen (Phase 2d polish)', () {
+    AuthClient _auth(List<Map<String, dynamic>> examPayload) =>
+        AuthClient(
+          baseUrl: 'http://test',
+          httpClient: MockClient((req) async {
+            if (req.url.path.endsWith('/catalog/exams')) {
+              return http.Response(
+                jsonEncode(examPayload),
+                200,
+                headers: {'content-type': 'application/json'},
+              );
+            }
+            if (req.url.path.endsWith('/profile/exams')) {
+              return http.Response('{}', 200);
+            }
+            return http.Response('{}', 404);
+          }),
+        );
+
+    testWidgets('renders STEP eyebrow + title', (tester) async {
+      await tester.pumpWidget(_harness(VidyaExamSelectScreen(
+        auth: _auth([
+          {
+            'id': 'a-neet',
+            'code': 'NEET',
+            'name': 'National Eligibility Test',
+            'subtitle': 'Medical · MBBS / BDS / AYUSH',
+          },
+        ]),
+        onContinue: () {},
+        onBack: () {},
+      )));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('STEP 1'), findsOneWidget);
+      expect(find.text('Choose your exam'), findsOneWidget);
+    });
+
+    testWidgets('renders exam name + subtitle + aspirant count badge',
+        (tester) async {
+      await tester.pumpWidget(_harness(VidyaExamSelectScreen(
+        auth: _auth([
+          {
+            'id': 'a-neet',
+            'code': 'NEET',
+            'name': 'National Eligibility Test',
+            'subtitle': 'Medical · MBBS / BDS / AYUSH',
+          },
+        ]),
+        onContinue: () {},
+        onBack: () {},
+      )));
+      await tester.pumpAndSettle();
+      expect(find.text('National Eligibility Test'), findsOneWidget);
+      expect(find.text('Medical · MBBS / BDS / AYUSH'), findsOneWidget);
+      expect(find.textContaining('2.4M aspirants'), findsOneWidget);
+    });
+
+    testWidgets('Continue label switches to exam-aware once a card is tapped',
+        (tester) async {
+      await tester.pumpWidget(_harness(VidyaExamSelectScreen(
+        auth: _auth([
+          {
+            'id': 'a-neet',
+            'code': 'NEET',
+            'name': 'National Eligibility Test',
+            'subtitle': 'Medical · MBBS / BDS / AYUSH',
+          },
+        ]),
+        onContinue: () {},
+        onBack: () {},
+      )));
+      await tester.pumpAndSettle();
+      expect(find.text('Continue'), findsOneWidget);
+      await tester.tap(find.text('National Eligibility Test'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Continue with NEET'), findsOneWidget);
     });
   });
 }

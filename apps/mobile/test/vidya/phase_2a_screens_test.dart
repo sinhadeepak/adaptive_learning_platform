@@ -243,8 +243,10 @@ void main() {
       // Loading state
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       await tester.pumpAndSettle();
-      // Exam list rendered
-      expect(find.text('NEET'), findsOneWidget);
+      // Exam list rendered — NEET appears in both the code badge and the name
+      // label since this test uses name:'NEET' equal to the code, so we use
+      // findsAtLeastNWidgets. Unique strings (name vs code) use findsOneWidget.
+      expect(find.text('NEET'), findsAtLeastNWidgets(1));
       expect(find.text('JEE Main'), findsOneWidget);
       expect(find.text('Medical'), findsOneWidget);
       expect(find.text('Engineering'), findsOneWidget);
