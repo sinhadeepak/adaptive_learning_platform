@@ -75,8 +75,8 @@ void main() {
           onSkip: () => skip++,
         ),
       ));
-      expect(find.text('Get started'), findsOneWidget);
-      expect(find.text('Sign in'), findsOneWidget);
+      expect(find.text("Get started — it's free"), findsOneWidget);
+      expect(find.text('I already have an account'), findsOneWidget);
     });
 
     testWidgets('Get Started fires callback', (tester) async {
@@ -88,7 +88,7 @@ void main() {
           onSkip: () {},
         ),
       ));
-      await tester.tap(find.text('Get started'));
+      await tester.tap(find.text("Get started — it's free"));
       await tester.pumpAndSettle();
       expect(taps, 1);
     });
@@ -102,7 +102,7 @@ void main() {
           onSkip: () {},
         ),
       ));
-      await tester.tap(find.text('Sign in'));
+      await tester.tap(find.text('I already have an account'));
       await tester.pumpAndSettle();
       expect(taps, 1);
     });
@@ -138,17 +138,17 @@ void main() {
     testWidgets('renders card 1 (AI adapts)', (tester) async {
       await tester.pumpWidget(_harness(child: make(cardIndex: 1)));
       expect(find.byType(VidyaOnboardingCardScreen), findsOneWidget);
-      expect(find.text('1 of 3'), findsOneWidget);
+      expect(find.text('1 / 3'), findsOneWidget);
     });
 
     testWidgets('renders card 2 (Readiness)', (tester) async {
       await tester.pumpWidget(_harness(child: make(cardIndex: 2)));
-      expect(find.text('2 of 3'), findsOneWidget);
+      expect(find.text('2 / 3'), findsOneWidget);
     });
 
     testWidgets('renders card 3 (Guided)', (tester) async {
       await tester.pumpWidget(_harness(child: make(cardIndex: 3)));
-      expect(find.text('3 of 3'), findsOneWidget);
+      expect(find.text('3 / 3'), findsOneWidget);
     });
 
     testWidgets('Continue fires onContinue', (tester) async {
