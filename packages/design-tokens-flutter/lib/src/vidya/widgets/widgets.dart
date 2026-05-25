@@ -15,3 +15,4 @@ export 'vidya_tag.dart';
 export 'vidya_ai_tag.dart';
 export 'vidya_mastery_bar.dart';
 export 'vidya_sparkline.dart';
+export 'vidya_lang_toggle.dart';
