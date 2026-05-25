@@ -29,7 +29,7 @@ class ScreeningClient {
     String language = 'en',
   }) async {
     final res = await _http.post(
-      _uri('/api/v1/screening/start'),
+      _uri('/screening/start'),
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({'exam_code': examCode, 'language': language}),
     );
@@ -48,7 +48,7 @@ class ScreeningClient {
   }
 
   Future<ScreeningNextResult> next(String token) async {
-    final res = await _http.get(_uri('/api/v1/screening/$token/next'));
+    final res = await _http.get(_uri('/screening/$token/next'));
     if (res.statusCode == 409) {
       final code = _decodeCode(res);
       if (code == 'complete') return ScreeningComplete();
@@ -73,7 +73,7 @@ class ScreeningClient {
     required int answerIdx,
   }) async {
     final res = await _http.post(
-      _uri('/api/v1/screening/$token/answer'),
+      _uri('/screening/$token/answer'),
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({'item_idx': itemIdx, 'answer_idx': answerIdx}),
     );
@@ -83,7 +83,7 @@ class ScreeningClient {
   }
 
   Future<ScreeningReveal> reveal(String token) async {
-    final res = await _http.get(_uri('/api/v1/screening/$token/reveal'));
+    final res = await _http.get(_uri('/screening/$token/reveal'));
     if (res.statusCode == 404) throw ScreeningExpired();
     if (res.statusCode != 200) {
       throw ScreeningException(res.statusCode, _decodeMessage(res));
