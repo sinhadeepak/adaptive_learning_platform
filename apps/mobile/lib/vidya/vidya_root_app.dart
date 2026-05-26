@@ -1,7 +1,7 @@
 // VidyaRootApp — runApp target for Phase 2a+. Owns the Vidya
 // notifiers, bootstraps them in parallel with the AuthClient and
-// the vidya.onboarding_done flag, then drives a 15-state machine
-// covering onboarding + auth + screening + home.
+// the vidya.onboarding_done flag, then drives an 18-state machine
+// covering onboarding + auth + screening + guest screening + home.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -16,6 +16,8 @@ import 'persona_notifier.dart';
 import 'screening_client.dart';
 import 'screens/vidya_exam_select_screen.dart';
 import 'screens/vidya_forgot_password_screen.dart';
+import 'screens/vidya_guest_screening_intro_screen.dart';
+import 'screens/vidya_guest_screening_result_screen.dart';
 import 'screens/vidya_login_screen.dart';
 import 'screens/vidya_new_password_screen.dart';
 import 'screens/vidya_onboarding_card_screen.dart';
@@ -44,6 +46,9 @@ enum _VidyaScreen {
   screeningIntro,
   screeningQuiz,
   screeningResult,
+  guestExamSelect,
+  guestScreeningIntro,
+  guestScreeningResult,
   home,
 }
 
@@ -80,6 +85,11 @@ class _VidyaRootAppState extends State<VidyaRootApp> {
   // Screening state.
   String? _screeningToken;
   String? _selectedExamCode;
+
+  // Guest-funnel state — set in the pre-auth flow and consumed in
+  // _onSignedIn to claim the anonymous attempt for the new account.
+  String? _pendingGuestToken;
+  String? _pendingGuestExamCode;
   late final ScreeningClient _screeningClient = ScreeningClient(
     baseUrl: widget.auth.baseUrl,
     httpClient: http.Client(),
@@ -147,8 +157,24 @@ class _VidyaRootAppState extends State<VidyaRootApp> {
     await _storage.write(key: _onboardingDoneKey, value: 'true');
   }
 
-  void _onSignedIn(Session session) {
+  Future<void> _onSignedIn(Session session) async {
     _markOnboardingDone();
+    final token = _pendingGuestToken;
+    if (token != null) {
+      // Best-effort claim — if persist or diagnostic-complete fails we
+      // still route to home; the user can re-take the diagnostic later.
+      try {
+        await _screeningClient.persist(token);
+        await _screeningClient.diagnosticComplete();
+        await _storage.write(key: _screeningDoneKey, value: 'true');
+      } catch (_) {
+        // Swallow — the new user is signed in either way.
+      }
+      _pendingGuestToken = null;
+      _pendingGuestExamCode = null;
+      if (mounted) setState(() => _screen = _VidyaScreen.home);
+      return;
+    }
     if (mounted) {
       setState(() {
         _screen = session.user.onboardingState == 'ONBOARDED'
@@ -212,7 +238,8 @@ class _VidyaRootAppState extends State<VidyaRootApp> {
       case _VidyaScreen.card3:
         return VidyaOnboardingCardScreen(
           cardIndex: 3,
-          onContinue: () => setState(() => _screen = _VidyaScreen.register),
+          onContinue: () =>
+              setState(() => _screen = _VidyaScreen.guestExamSelect),
           onSkip: () => setState(() => _screen = _VidyaScreen.register),
           onBack: () => setState(() => _screen = _VidyaScreen.card2),
         );
@@ -287,16 +314,28 @@ class _VidyaRootAppState extends State<VidyaRootApp> {
           },
         );
       case _VidyaScreen.screeningQuiz:
+        final isGuest = _pendingGuestExamCode != null;
         return VidyaScreeningQuizScreen(
           client: _screeningClient,
-          examCode: _selectedExamCode ?? 'JEE-MAIN',
+          examCode: isGuest
+              ? _pendingGuestExamCode!
+              : (_selectedExamCode ?? 'JEE-MAIN'),
           onCompleted: (token) => setState(() {
-            _screeningToken = token;
-            _screen = _VidyaScreen.screeningResult;
+            if (isGuest) {
+              _pendingGuestToken = token;
+              _screen = _VidyaScreen.guestScreeningResult;
+            } else {
+              _screeningToken = token;
+              _screen = _VidyaScreen.screeningResult;
+            }
           }),
           onBack: () async {
-            await _storage.write(key: _screeningSkippedKey, value: 'true');
-            if (mounted) setState(() => _screen = _VidyaScreen.home);
+            if (isGuest) {
+              if (mounted) setState(() => _screen = _VidyaScreen.register);
+            } else {
+              await _storage.write(key: _screeningSkippedKey, value: 'true');
+              if (mounted) setState(() => _screen = _VidyaScreen.home);
+            }
           },
         );
       case _VidyaScreen.screeningResult:
@@ -307,6 +346,37 @@ class _VidyaRootAppState extends State<VidyaRootApp> {
             await _storage.write(key: _screeningDoneKey, value: 'true');
             if (mounted) setState(() => _screen = _VidyaScreen.home);
           },
+        );
+      case _VidyaScreen.guestExamSelect:
+        return VidyaExamSelectScreen(
+          auth: widget.auth,
+          mode: ExamSelectMode.guest,
+          onContinue: () async {
+            final code = await _storage.read(key: 'vidya.selected_exam_code');
+            if (!mounted) return;
+            setState(() {
+              _pendingGuestExamCode = code;
+              _screen = _VidyaScreen.guestScreeningIntro;
+            });
+          },
+          onBack: () => setState(() => _screen = _VidyaScreen.card3),
+        );
+      case _VidyaScreen.guestScreeningIntro:
+        return VidyaGuestScreeningIntroScreen(
+          onStart: () => setState(() => _screen = _VidyaScreen.screeningQuiz),
+          onSkip: () => setState(() => _screen = _VidyaScreen.register),
+        );
+      case _VidyaScreen.guestScreeningResult:
+        return VidyaGuestScreeningResultScreen(
+          client: _screeningClient,
+          token: _pendingGuestToken ?? '',
+          onSignUp: (token) {
+            setState(() {
+              _pendingGuestToken = token;
+              _screen = _VidyaScreen.register;
+            });
+          },
+          onSignIn: () => setState(() => _screen = _VidyaScreen.login),
         );
       case _VidyaScreen.home:
         return AuroraRoute(

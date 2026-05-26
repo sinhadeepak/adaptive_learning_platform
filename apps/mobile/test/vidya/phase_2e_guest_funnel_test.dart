@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_guest_screening_intro_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_exam_select_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/vidya_root_app.dart';
 
 Widget _harness(Widget child) => MaterialApp(
       theme: VidyaTheme.material(
@@ -325,4 +326,147 @@ void main() {
       expect(profileCalls.length, 1);
     });
   });
+
+  group('VidyaRootApp guest funnel routing', () {
+    setUp(() {
+      FlutterSecureStorage.setMockInitialValues({});
+    });
+
+    testWidgets('card3 Begin routes to guestExamSelect (not register)',
+        (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((req) async {
+          if (req.url.path.endsWith('/catalog/exams')) {
+            return http.Response(
+              jsonEncode([
+                {
+                  'id': 'a-neet',
+                  'code': 'NEET',
+                  'name': 'National Eligibility Test',
+                },
+              ]),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response('{}', 404);
+        }),
+      );
+      await tester.pumpWidget(_RootHarness(auth: auth));
+      await tester.pumpAndSettle();
+      // Welcome → Get Started → card 1
+      await tester.tap(find.textContaining("Get started"));
+      await tester.pumpAndSettle();
+      // card 1 → Continue → card 2
+      await tester.tap(find.text('Continue').first);
+      await tester.pumpAndSettle();
+      // card 2 → Continue → card 3
+      await tester.tap(find.text('Continue').first);
+      await tester.pumpAndSettle();
+      // card 3 → Begin → guestExamSelect
+      await tester.tap(find.text('Begin').first);
+      await tester.pumpAndSettle();
+      // We should land on exam-select (STEP 1 / 3 eyebrow visible)
+      expect(find.textContaining('STEP 1'), findsOneWidget);
+      expect(find.text('Choose your exam'), findsOneWidget);
+      expect(find.text('National Eligibility Test'), findsOneWidget);
+    });
+
+    testWidgets('guest funnel happy path lands on guestScreeningIntro after exam pick',
+        (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((req) async {
+          if (req.url.path.endsWith('/catalog/exams')) {
+            return http.Response(
+              jsonEncode([
+                {
+                  'id': 'a-neet',
+                  'code': 'NEET',
+                  'name': 'National Eligibility Test',
+                },
+              ]),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response('{}', 404);
+        }),
+      );
+      await tester.pumpWidget(_RootHarness(auth: auth));
+      await tester.pumpAndSettle();
+      // Drive through the cards quickly
+      await tester.tap(find.textContaining("Get started"));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Begin').first);
+      await tester.pumpAndSettle();
+      // Exam select → pick NEET → Continue → guest screening intro
+      await tester.tap(find.text('National Eligibility Test'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Continue with NEET'));
+      await tester.pumpAndSettle();
+      // Guest screening intro headline visible
+      expect(find.text('5-MINUTE SCREENING'), findsOneWidget);
+      expect(find.text('See where you stand. Before signing up.'),
+          findsOneWidget);
+    });
+
+    testWidgets('guestScreeningIntro Skip routes to register',
+        (tester) async {
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((req) async {
+          if (req.url.path.endsWith('/catalog/exams')) {
+            return http.Response(
+              jsonEncode([
+                {
+                  'id': 'a-neet',
+                  'code': 'NEET',
+                  'name': 'National Eligibility Test',
+                },
+              ]),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response('{}', 404);
+        }),
+      );
+      await tester.pumpWidget(_RootHarness(auth: auth));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining("Get started"));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Begin').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('National Eligibility Test'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Continue with NEET'));
+      await tester.pumpAndSettle();
+      // Now on guest screening intro — tap Skip
+      await tester.tap(find.byKey(const Key('vidya.guest.intro.skip')));
+      await tester.pumpAndSettle();
+      // Register screen — heuristic check: the screen renders the
+      // 'Create account' label (headline + submit button both match).
+      expect(find.textContaining('Create account'), findsAtLeastNWidgets(1));
+    });
+  });
+}
+
+class _RootHarness extends StatelessWidget {
+  final AuthClient auth;
+  const _RootHarness({required this.auth});
+
+  @override
+  Widget build(BuildContext context) {
+    return VidyaRootApp(auth: auth);
+  }
 }
