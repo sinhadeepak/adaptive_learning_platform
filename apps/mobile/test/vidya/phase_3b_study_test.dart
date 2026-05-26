@@ -133,14 +133,20 @@ void main() {
       expect(find.textContaining('17 topics'), findsOneWidget);
     });
 
-    testWidgets('tapping a subject shows the deferred snackbar',
+    testWidgets('tapping a subject pushes VidyaSubjectDetailScreen',
         (tester) async {
       final auth = await _loggedInAuth(_studyMocks());
       await tester.pumpWidget(_harness(VidyaStudyScreen(auth: auth)));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Physics'));
-      await tester.pump();
-      expect(find.textContaining('coming in Phase 3b.full'), findsOneWidget);
+      await tester.pumpAndSettle();
+      // Subject detail's '<N> topics' sub-header is unique to that
+      // screen — its presence proves the push happened. (The default
+      // _studyMocks doesn't stub topicsForSubject, so the detail
+      // screen settles to its error state; the AppBar title 'Physics'
+      // still proves we're on the detail route.)
+      expect(find.text('Physics'), findsAtLeastNWidgets(1));
+      expect(find.text('Retry'), findsOneWidget);
     });
 
     testWidgets('empty state when user has no exams', (tester) async {

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
+import 'vidya_subject_detail_screen.dart';
 
 class VidyaStudyScreen extends StatefulWidget {
   final AuthClient auth;
@@ -71,13 +72,12 @@ class _VidyaStudyScreenState extends State<VidyaStudyScreen> {
   }
 
   void _onSubjectTap(Subject s) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Subject detail for ${s.name} is coming in Phase 3b.full.',
-        ),
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => VidyaSubjectDetailScreen(
+        auth: widget.auth,
+        subject: s,
       ),
-    );
+    ));
   }
 
   @override
