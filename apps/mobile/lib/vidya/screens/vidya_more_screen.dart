@@ -1,0 +1,245 @@
+// VidyaMoreScreen — Phase 3e v1. Minimal More tab with profile header,
+// Aurora-shell rollback toggle (surfaces vidya.use_aurora_shell as a
+// UI switch), and Sign out. Full settings/profile editing lives in
+// Phase 3e.full.
+
+import 'package:alp_design_tokens/alp_design_tokens.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import '../../auth/auth_client.dart';
+
+class VidyaMoreScreen extends StatefulWidget {
+  final AuthClient auth;
+  final VoidCallback onSignOut;
+
+  const VidyaMoreScreen({
+    super.key,
+    required this.auth,
+    required this.onSignOut,
+  });
+
+  @override
+  State<VidyaMoreScreen> createState() => _VidyaMoreScreenState();
+}
+
+class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
+  static const _storage = FlutterSecureStorage();
+  static const _useAuroraShellKey = 'vidya.use_aurora_shell';
+
+  bool _useAuroraShell = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFlag();
+  }
+
+  Future<void> _loadFlag() async {
+    final v = await _storage.read(key: _useAuroraShellKey);
+    if (!mounted) return;
+    setState(() => _useAuroraShell = v == 'true');
+  }
+
+  Future<void> _toggleAuroraShell(bool next) async {
+    await _storage.write(
+      key: _useAuroraShellKey,
+      value: next ? 'true' : 'false',
+    );
+    if (!mounted) return;
+    setState(() => _useAuroraShell = next);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Restart app to apply.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    final user = widget.auth.user;
+    final firstName = user?.firstName ?? 'There';
+    final email = user?.email ?? '';
+    final initial =
+        firstName.isNotEmpty ? firstName.substring(0, 1).toUpperCase() : '?';
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      children: [
+        Text(
+          'MORE',
+          style: TextStyle(
+            fontFamily: VidyaFonts.mono,
+            fontSize: 11,
+            color: v.ink3,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _ProfileHeaderCard(
+          initial: initial,
+          firstName: firstName,
+          email: email,
+        ),
+        const SizedBox(height: 24),
+        _Section(
+          eyebrow: 'DEVELOPER',
+          child: VidyaCard(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Use Aurora shell',
+                          style: TextStyle(
+                            fontFamily: VidyaFonts.ui,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: v.ink,
+                          ),
+                        ),
+                      ),
+                      Switch(
+                        value: _useAuroraShell,
+                        onChanged: _toggleAuroraShell,
+                        activeColor: v.accent,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Switches the post-auth shell back to the legacy '
+                    'Aurora bottom-nav. Restart app to apply.',
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.ui,
+                      fontSize: 12,
+                      color: v.ink3,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _Section(
+          eyebrow: 'ACCOUNT',
+          child: VidyaCard(
+            child: InkWell(
+              onTap: widget.onSignOut,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Sign out',
+                        style: TextStyle(
+                          fontFamily: VidyaFonts.ui,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: v.ink,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      color: v.ink3,
+                      size: 22,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileHeaderCard extends StatelessWidget {
+  final String initial;
+  final String firstName;
+  final String email;
+  const _ProfileHeaderCard({
+    required this.initial,
+    required this.firstName,
+    required this.email,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return VidyaCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            VidyaAvatar(initials: initial, size: 48),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    firstName,
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.display,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w500,
+                      color: v.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    email,
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.ui,
+                      fontSize: 13,
+                      color: v.ink3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  final String eyebrow;
+  final Widget child;
+  const _Section({required this.eyebrow, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          eyebrow,
+          style: TextStyle(
+            fontFamily: VidyaFonts.mono,
+            fontSize: 10,
+            color: v.ink3,
+            letterSpacing: 1.4,
+          ),
+        ),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
+  }
+}
