@@ -12,6 +12,7 @@ import 'package:http/testing.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_more_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/theme_mode_notifier.dart';
 
 Widget _harness(Widget child) => MaterialApp(
       theme: VidyaTheme.material(
@@ -112,6 +113,52 @@ void main() {
       await tester.tap(find.byType(Switch));
       await tester.pump(); // surface the snackbar
       expect(find.text('Restart app to apply.'), findsOneWidget);
+    });
+
+    testWidgets('renders THEME section with 3 mode options when notifier supplied',
+        (tester) async {
+      final auth = await _loggedInAuth();
+      final notifier = VidyaThemeModeNotifier();
+      await tester.pumpWidget(_harness(
+        VidyaMoreScreen(
+          auth: auth,
+          onSignOut: () {},
+          themeMode: notifier,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('THEME'), findsOneWidget);
+      expect(find.text('Light'), findsOneWidget);
+      expect(find.text('Dark'), findsOneWidget);
+      expect(find.text('System'), findsOneWidget);
+    });
+
+    testWidgets('tapping a theme option calls notifier.setMode',
+        (tester) async {
+      final auth = await _loggedInAuth();
+      final notifier = VidyaThemeModeNotifier();
+      await tester.pumpWidget(_harness(
+        VidyaMoreScreen(
+          auth: auth,
+          onSignOut: () {},
+          themeMode: notifier,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      // Default is dark; tap Light.
+      await tester.tap(find.text('Light'));
+      await tester.pumpAndSettle();
+      expect(notifier.mode, ThemeMode.light);
+    });
+
+    testWidgets('THEME section hidden when no notifier passed',
+        (tester) async {
+      final auth = await _loggedInAuth();
+      await tester.pumpWidget(_harness(
+        VidyaMoreScreen(auth: auth, onSignOut: () {}),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('THEME'), findsNothing);
     });
 
     testWidgets('Sign out row fires onSignOut', (tester) async {

@@ -8,15 +8,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../auth/auth_client.dart';
+import '../theme_mode_notifier.dart';
 
 class VidyaMoreScreen extends StatefulWidget {
   final AuthClient auth;
   final VoidCallback onSignOut;
+  // Optional — when supplied, a THEME section appears with a 3-way
+  // segmented control. Hidden otherwise so unit-level tests that
+  // don't care about theme management don't need to wire it up.
+  final VidyaThemeModeNotifier? themeMode;
 
   const VidyaMoreScreen({
     super.key,
     required this.auth,
     required this.onSignOut,
+    this.themeMode,
   });
 
   @override
@@ -33,6 +39,17 @@ class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
   void initState() {
     super.initState();
     _loadFlag();
+    widget.themeMode?.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.themeMode?.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadFlag() async {
@@ -81,6 +98,18 @@ class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
           email: email,
         ),
         const SizedBox(height: 24),
+        if (widget.themeMode != null) ...[
+          _Section(
+            eyebrow: 'THEME',
+            child: _ThemePickerCard(
+              notifier: widget.themeMode!,
+              accent: v.accent,
+              ink: v.ink,
+              ink3: v.ink3,
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         _Section(
           eyebrow: 'DEVELOPER',
           child: VidyaCard(
@@ -240,6 +269,104 @@ class _Section extends StatelessWidget {
         const SizedBox(height: 8),
         child,
       ],
+    );
+  }
+}
+
+class _ThemePickerCard extends StatelessWidget {
+  final VidyaThemeModeNotifier notifier;
+  final Color accent;
+  final Color ink;
+  final Color ink3;
+  const _ThemePickerCard({
+    required this.notifier,
+    required this.accent,
+    required this.ink,
+    required this.ink3,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return VidyaCard(
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Row(
+          children: [
+            Expanded(
+              child: _ThemeOption(
+                label: 'Light',
+                selected: notifier.mode == ThemeMode.light,
+                onTap: () => notifier.setMode(ThemeMode.light),
+                accent: accent,
+                ink: ink,
+                ink3: ink3,
+              ),
+            ),
+            Expanded(
+              child: _ThemeOption(
+                label: 'Dark',
+                selected: notifier.mode == ThemeMode.dark,
+                onTap: () => notifier.setMode(ThemeMode.dark),
+                accent: accent,
+                ink: ink,
+                ink3: ink3,
+              ),
+            ),
+            Expanded(
+              child: _ThemeOption(
+                label: 'System',
+                selected: notifier.mode == ThemeMode.system,
+                onTap: () => notifier.setMode(ThemeMode.system),
+                accent: accent,
+                ink: ink,
+                ink3: ink3,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeOption extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color accent;
+  final Color ink;
+  final Color ink3;
+  const _ThemeOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.accent,
+    required this.ink,
+    required this.ink3,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? accent.withValues(alpha: 0.12) : null,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: VidyaFonts.ui,
+            fontSize: 14,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            color: selected ? accent : ink3,
+          ),
+        ),
+      ),
     );
   }
 }
