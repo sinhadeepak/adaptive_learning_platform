@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
+import 'package:adaptive_learning_mobile/screens/main_scaffold.dart';
+import 'package:adaptive_learning_mobile/vidya/shell/vidya_main_shell.dart';
 import 'package:adaptive_learning_mobile/vidya/vidya_root_app.dart';
 
 AuthClient _makeAuth() => AuthClient(
@@ -46,7 +48,7 @@ void main() {
   });
 
   testWidgets(
-      'authenticated returning user (ONBOARDED) lands on home (MainScaffold) — not Vidya welcome',
+      'authenticated returning user (ONBOARDED) lands on VidyaMainShell',
       (tester) async {
     // Seed an authenticated session in secure storage so AuthClient.bootstrap()
     // restores it. Tokens persisted under 'alp.auth.tokens' as JSON.
@@ -56,13 +58,30 @@ void main() {
       'vidya.onboarding_done': 'true',
     });
     await tester.pumpWidget(VidyaRootApp(auth: _makeAuth()));
-    // Use pump() instead of pumpAndSettle() because MainScaffold contains
-    // InboxBell which has a 60s Timer.periodic that prevents settling.
-    await tester.pump(); // trigger bootstrap futures
-    await tester.pump(const Duration(milliseconds: 100)); // let microtasks run
-    // Welcome must NOT be shown — authenticated user goes straight to home.
+    // Phase 3a — VidyaMainShell has no Timer.periodic, so pumpAndSettle
+    // works without the explicit-pump workaround that MainScaffold needed.
+    await tester.pumpAndSettle();
+    expect(find.byType(VidyaMainShell), findsOneWidget);
+    expect(find.byType(MainScaffold), findsNothing);
     expect(find.text('WELCOME TO VIDYA'), findsNothing);
-    expect(find.text('Welcome back.'), findsNothing); // not on login either
+    expect(find.text('Welcome back.'), findsNothing);
+  });
+
+  testWidgets(
+      'vidya.use_aurora_shell == true keeps home on AuroraRoute(MainScaffold)',
+      (tester) async {
+    FlutterSecureStorage.setMockInitialValues({
+      'alp.auth.tokens':
+          '{"accessToken":"at","refreshToken":"rt","expiresAt":99999999999}',
+      'vidya.onboarding_done': 'true',
+      'vidya.use_aurora_shell': 'true',
+    });
+    await tester.pumpWidget(VidyaRootApp(auth: _makeAuth()));
+    // MainScaffold mounts InboxBell's 60s Timer.periodic which would
+    // hang pumpAndSettle — use explicit pump (the legacy pattern).
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(VidyaMainShell), findsNothing);
   });
 
   testWidgets('Welcome → Sign in tapped routes to VidyaLoginScreen',
@@ -145,10 +164,10 @@ void main() {
     await tester.tap(find.text('NEET UG'));
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Continue with NEET'));
-    // home renders MainScaffold which mounts InboxBellButton's 60s timer —
-    // use explicit pump instead of pumpAndSettle (T6 pattern).
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    // Phase 3a — VidyaMainShell has no Timer.periodic, so pumpAndSettle
+    // works without the explicit-pump workaround.
+    await tester.pumpAndSettle();
     expect(find.textContaining('calibrate'), findsNothing);
+    expect(find.byType(VidyaMainShell), findsOneWidget);
   });
 }
