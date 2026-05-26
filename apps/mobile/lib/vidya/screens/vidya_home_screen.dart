@@ -12,6 +12,19 @@ class VidyaHomeScreen extends StatelessWidget {
   final AuthClient auth;
   const VidyaHomeScreen({super.key, required this.auth});
 
+  // Slide-7-style eyebrow: e.g. "WED · MAY 16". Replaces the placeholder
+  // "WELCOME TO VIDYA" that collided with the actual welcome screen's
+  // text and broke the root-app "no welcome on home" assertion.
+  static String _todayEyebrow() {
+    final now = DateTime.now();
+    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    const months = [
+      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+    ];
+    return '${days[now.weekday - 1]} · ${months[now.month - 1]} ${now.day}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final v = VidyaThemeData.of(context);
@@ -20,7 +33,7 @@ class VidyaHomeScreen extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       children: [
         Text(
-          'WELCOME TO VIDYA',
+          _todayEyebrow(),
           style: TextStyle(
             fontFamily: VidyaFonts.mono,
             fontSize: 11,

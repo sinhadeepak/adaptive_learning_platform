@@ -15,6 +15,7 @@ import 'density_notifier.dart';
 import 'persona_notifier.dart';
 import 'screening_client.dart';
 import 'screens/vidya_exam_select_screen.dart';
+import 'shell/vidya_main_shell.dart';
 import 'screens/vidya_forgot_password_screen.dart';
 import 'screens/vidya_guest_screening_intro_screen.dart';
 import 'screens/vidya_guest_screening_result_screen.dart';
@@ -387,11 +388,19 @@ class _VidyaRootAppState extends State<VidyaRootApp> {
           onSignIn: () => setState(() => _screen = _VidyaScreen.login),
         );
       case _VidyaScreen.home:
-        return AuroraRoute(
-          builder: (_) => MainScaffold(
-            auth: widget.auth,
-            onSignOut: _onSignOut,
-          ),
+        // Phase 3a — fork point. Rollback flag keeps Aurora available
+        // for the migration window. Default is the new Vidya shell.
+        if (_useAuroraShell) {
+          return AuroraRoute(
+            builder: (_) => MainScaffold(
+              auth: widget.auth,
+              onSignOut: _onSignOut,
+            ),
+          );
+        }
+        return VidyaMainShell(
+          auth: widget.auth,
+          onSignOut: _onSignOut,
         );
     }
   }

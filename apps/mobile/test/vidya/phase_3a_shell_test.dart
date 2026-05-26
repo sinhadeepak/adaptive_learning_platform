@@ -33,8 +33,8 @@ void main() {
       )));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('vidya.shell.home')), findsOneWidget);
-      // Vidya home stub shows the eyebrow.
-      expect(find.text('WELCOME TO VIDYA'), findsOneWidget);
+      // Vidya home stub shows the Phase 3a.1 hint card.
+      expect(find.text('COMING IN PHASE 3a.1'), findsOneWidget);
     });
 
     testWidgets('tapping STUDY shows the study placeholder', (tester) async {
