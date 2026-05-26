@@ -81,6 +81,48 @@ void main() {
       expect(q.choices, ['3', '4', '5', '6']);
     });
 
+    test('next parses theta_estimate / theta_se / next_q_b when present (Phase 2f)',
+        () async {
+      final mock = MockClient((req) async => http.Response(
+            jsonEncode({
+              'item_idx': 0,
+              'total': 12,
+              'stem': 'Q',
+              'choices': ['a', 'b', 'c', 'd'],
+              'theta_estimate': -0.42,
+              'theta_se': 0.71,
+              'next_q_b': 0.84,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          ));
+      final c = _makeClient(mock);
+      final r = await c.next('tok-1');
+      expect(r, isA<ScreeningQuestion>());
+      final q = r as ScreeningQuestion;
+      expect(q.thetaEstimate, -0.42);
+      expect(q.thetaSe, 0.71);
+      expect(q.nextQB, 0.84);
+    });
+
+    test('next tolerates absent theta fields (forward-compat)', () async {
+      final mock = MockClient((req) async => http.Response(
+            jsonEncode({
+              'item_idx': 0,
+              'total': 12,
+              'stem': 'Q',
+              'choices': ['a', 'b', 'c', 'd'],
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          ));
+      final c = _makeClient(mock);
+      final q = await c.next('tok-1') as ScreeningQuestion;
+      expect(q.thetaEstimate, isNull);
+      expect(q.thetaSe, isNull);
+      expect(q.nextQB, isNull);
+    });
+
     test('next returns ScreeningComplete on 409 {code: complete}', () async {
       final mock = MockClient((req) async => http.Response(
             jsonEncode({'detail': {'code': 'complete', 'message': 'done'}}),

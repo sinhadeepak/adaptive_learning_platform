@@ -64,6 +64,9 @@ class ScreeningClient {
       total: json['total'] as int,
       stem: json['stem'] as String,
       choices: (json['choices'] as List<dynamic>).cast<String>(),
+      thetaEstimate: (json['theta_estimate'] as num?)?.toDouble(),
+      thetaSe: (json['theta_se'] as num?)?.toDouble(),
+      nextQB: (json['next_q_b'] as num?)?.toDouble(),
     );
   }
 
@@ -169,11 +172,19 @@ class ScreeningQuestion extends ScreeningNextResult {
   final int total;
   final String stem;
   final List<String> choices;
+  // Phase 2f — nullable for forward-compat with backends that haven't
+  // deployed the theta-live overlay.
+  final double? thetaEstimate;
+  final double? thetaSe;
+  final double? nextQB;
   ScreeningQuestion({
     required this.itemIdx,
     required this.total,
     required this.stem,
     required this.choices,
+    this.thetaEstimate,
+    this.thetaSe,
+    this.nextQB,
   });
 }
 
