@@ -38,7 +38,7 @@ void main() {
       expect(find.byKey(const Key('vidya.shell.home')), findsOneWidget);
     });
 
-    testWidgets('tapping STUDY shows the study placeholder', (tester) async {
+    testWidgets('tapping STUDY shows the study tab', (tester) async {
       await tester.pumpWidget(_harness(VidyaMainShell(
         auth: _auth(),
         onSignOut: () {},
@@ -46,8 +46,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('STUDY'));
       await tester.pumpAndSettle();
+      // Phase 3b v1: the Study tab now contains the real VidyaStudyScreen
+      // instead of a 'COMING SOON' placeholder. The lightweight harness
+      // here has no auth.user, so the screen settles to its empty state
+      // — but the key is still present and that's what we assert on.
       expect(find.byKey(const Key('vidya.shell.study')), findsOneWidget);
-      expect(find.text('COMING SOON'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('tapping INSIGHTS shows the insights placeholder',

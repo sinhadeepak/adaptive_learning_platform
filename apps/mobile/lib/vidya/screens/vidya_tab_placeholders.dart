@@ -12,16 +12,8 @@
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
-class VidyaStudyTabPlaceholder extends StatelessWidget {
-  const VidyaStudyTabPlaceholder({super.key});
-  @override
-  Widget build(BuildContext context) => const _Placeholder(
-        title: 'Study',
-        message:
-            "We're rebuilding this. Your Aurora Study tab stays available "
-            'until Phase 3b ships the Vidya version.',
-      );
-}
+// VidyaStudyTabPlaceholder retired in Phase 3b v1 — VidyaStudyScreen
+// is now the real Study tab.
 
 class VidyaPracticeTabPlaceholder extends StatelessWidget {
   const VidyaPracticeTabPlaceholder({super.key});
