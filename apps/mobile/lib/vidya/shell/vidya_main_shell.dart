@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import '../../auth/auth_client.dart';
 import '../screens/vidya_home_screen.dart';
 import '../screens/vidya_more_screen.dart';
+import '../screens/vidya_practice_screen.dart';
 import '../screens/vidya_study_screen.dart';
 import '../screens/vidya_tab_placeholders.dart';
 import 'vidya_main_shell_scope.dart';
@@ -56,7 +57,7 @@ class _VidyaMainShellState extends State<VidyaMainShell> {
       ),
       Container(
         key: const Key('vidya.shell.practice'),
-        child: const VidyaPracticeTabPlaceholder(),
+        child: const VidyaPracticeScreen(),
       ),
       Container(
         key: const Key('vidya.shell.insights'),
