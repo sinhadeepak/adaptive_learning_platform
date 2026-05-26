@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
+import 'vidya_topic_detail_screen.dart';
 
 class VidyaInsightsScreen extends StatefulWidget {
   final AuthClient auth;
@@ -25,15 +26,24 @@ class _InsightsData {
   final int weak;
   final int notStarted;
   final int totalAttempted;
+  // Phase 3d.full v1 — named topics under "FOCUS ON". Topics with EWA
+  // in (0, 0.70), weakest first, up to 3. Empty when no qualifying
+  // topics OR the topic-catalog fetch failed (degraded silently).
+  final List<_FocusTopic> focusOn;
+
   const _InsightsData({
     required this.strong,
     required this.developing,
     required this.weak,
     required this.notStarted,
     required this.totalAttempted,
+    this.focusOn = const [],
   });
 
-  factory _InsightsData.fromMastery(List<TopicMastery> rows) {
+  factory _InsightsData.fromMastery(
+    List<TopicMastery> rows, {
+    Map<String, Topic> topicsById = const {},
+  }) {
     var strong = 0, developing = 0, weak = 0, notStarted = 0;
     for (final r in rows) {
       if (r.ewa >= 0.70) {
@@ -46,14 +56,27 @@ class _InsightsData {
         notStarted++;
       }
     }
+    // Build FOCUS ON list — only attempted topics not yet STRONG.
+    final candidates = [
+      for (final r in rows)
+        if (r.ewa > 0 && r.ewa < 0.70 && topicsById.containsKey(r.topicId))
+          _FocusTopic(topic: topicsById[r.topicId]!, ewa: r.ewa),
+    ]..sort((a, b) => a.ewa.compareTo(b.ewa));
     return _InsightsData(
       strong: strong,
       developing: developing,
       weak: weak,
       notStarted: notStarted,
       totalAttempted: strong + developing + weak,
+      focusOn: candidates.take(3).toList(growable: false),
     );
   }
+}
+
+class _FocusTopic {
+  final Topic topic;
+  final double ewa;
+  const _FocusTopic({required this.topic, required this.ewa});
 }
 
 class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
@@ -82,13 +105,49 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
         setState(() => _state = _InsightsState.empty);
         return;
       }
+      // Phase 3d.full v1 — also resolve topicId → Topic so the
+      // FOCUS ON section can show topic names. Failures here degrade
+      // silently: the bucket grid renders even without names.
+      final topicsById = await _resolveTopicsCatalog(api);
+      if (!mounted) return;
       setState(() {
-        _data = _InsightsData.fromMastery(rows);
+        _data = _InsightsData.fromMastery(rows, topicsById: topicsById);
         _state = _InsightsState.loaded;
       });
     } catch (_) {
       if (mounted) setState(() => _state = _InsightsState.error);
     }
+  }
+
+  Future<Map<String, Topic>> _resolveTopicsCatalog(ApiClient api) async {
+    try {
+      final profile = await api.getProfile();
+      final examId = (profile?.exams.isNotEmpty ?? false)
+          ? profile!.exams.first.examId
+          : null;
+      if (examId == null) return const {};
+      final subjects = await api.subjectsForExam(examId);
+      if (subjects.isEmpty) return const {};
+      // Parallel fan-out: one topicsForSubject call per subject.
+      final topicLists = await Future.wait(
+        subjects.map((s) => api.topicsForSubject(s.id)),
+      );
+      final result = <String, Topic>{};
+      for (final topics in topicLists) {
+        for (final t in topics) {
+          result[t.id] = t;
+        }
+      }
+      return result;
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  void _onFocusTopicTap(_FocusTopic t) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => VidyaTopicDetailScreen(topic: t.topic, ewa: t.ewa),
+    ));
   }
 
   @override
@@ -176,6 +235,35 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
                 ),
               ],
             ),
+            if (d.focusOn.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              Text(
+                'FOCUS ON',
+                style: TextStyle(
+                  fontFamily: VidyaFonts.mono,
+                  fontSize: 11,
+                  color: v.ink3,
+                  letterSpacing: 1.4,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${d.focusOn.length} ${d.focusOn.length == 1 ? "topic" : "topics"} to work on',
+                style: TextStyle(
+                  fontFamily: VidyaFonts.ui,
+                  fontSize: 13,
+                  color: v.ink2,
+                ),
+              ),
+              const SizedBox(height: 12),
+              for (final t in d.focusOn) ...[
+                _FocusCard(
+                  topic: t,
+                  onTap: () => _onFocusTopicTap(t),
+                ),
+                const SizedBox(height: 10),
+              ],
+            ],
             const SizedBox(height: 16),
             VidyaCard(
               child: Padding(
@@ -357,6 +445,72 @@ class _ErrorState extends StatelessWidget {
               size: VidyaButtonSize.md,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FocusCard extends StatelessWidget {
+  final _FocusTopic topic;
+  final VoidCallback onTap;
+  const _FocusCard({required this.topic, required this.onTap});
+
+  String _label() {
+    if (topic.ewa >= 0.40) return 'DEVELOPING';
+    return 'WEAK';
+  }
+
+  Color _color(VidyaThemeData v) {
+    if (topic.ewa >= 0.40) return v.info;
+    return v.bad;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return VidyaCard(
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: _color(v),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${_label()} • ${topic.ewa.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.mono,
+                      fontSize: 10,
+                      color: v.ink3,
+                      letterSpacing: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                topic.topic.title,
+                style: TextStyle(
+                  fontFamily: VidyaFonts.display,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                  color: v.ink,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
