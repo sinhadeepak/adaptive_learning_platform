@@ -17,10 +17,10 @@ import 'package:flutter/material.dart';
 
 import '../../auth/auth_client.dart';
 import '../screens/vidya_home_screen.dart';
+import '../screens/vidya_insights_screen.dart';
 import '../screens/vidya_more_screen.dart';
 import '../screens/vidya_practice_screen.dart';
 import '../screens/vidya_study_screen.dart';
-import '../screens/vidya_tab_placeholders.dart';
 import 'vidya_main_shell_scope.dart';
 
 class VidyaMainShell extends StatefulWidget {
@@ -61,7 +61,7 @@ class _VidyaMainShellState extends State<VidyaMainShell> {
       ),
       Container(
         key: const Key('vidya.shell.insights'),
-        child: const VidyaInsightsTabPlaceholder(),
+        child: VidyaInsightsScreen(auth: widget.auth),
       ),
       Container(
         key: const Key('vidya.shell.more'),
