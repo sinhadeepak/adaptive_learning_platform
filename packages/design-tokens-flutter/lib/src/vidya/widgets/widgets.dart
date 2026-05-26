@@ -19,3 +19,4 @@ export 'vidya_lang_toggle.dart';
 export 'vidya_sigmoid_illustration.dart';
 export 'vidya_readiness_radial.dart';
 export 'vidya_topic_allocation_bar.dart';
+export 'vidya_theta_readout.dart';
