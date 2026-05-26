@@ -60,6 +60,7 @@ MockClient _homeMocks({
   int? streak = 12,
   int? questionsToday = 3,
   int mockCount = 14,
+  int unreadCount = 0,
   String firstName = 'Aarav',
   bool failReadiness = false,
 }) {
@@ -116,6 +117,14 @@ MockClient _homeMocks({
             }
           ]
         }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    if (path.contains('/notifications/inbox/') &&
+        path.endsWith('/unread-count')) {
+      return http.Response(
+        jsonEncode({'unreadCount': unreadCount}),
         200,
         headers: {'content-type': 'application/json'},
       );
@@ -210,6 +219,32 @@ void main() {
       await tester.tap(find.text('Start practice'));
       await tester.pumpAndSettle();
       expect(switched, VidyaShellTab.practice);
+    });
+
+    testWidgets('header renders initials avatar from firstName',
+        (tester) async {
+      final auth = await _loggedInAuth(_homeMocks(firstName: 'Aarav'));
+      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpAndSettle();
+      // The 'A' initial appears inside the VidyaAvatar circle.
+      expect(find.text('A'), findsOneWidget);
+    });
+
+    testWidgets('bell shows unread badge when count > 0', (tester) async {
+      final auth = await _loggedInAuth(_homeMocks(unreadCount: 3));
+      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.notifications_outlined), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+    });
+
+    testWidgets('bell hides badge when count == 0', (tester) async {
+      final auth = await _loggedInAuth(_homeMocks(unreadCount: 0));
+      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.notifications_outlined), findsOneWidget);
+      // No '0' badge text rendered.
+      expect(find.text('0'), findsNothing);
     });
 
     testWidgets('readiness fetch failure keeps other cards', (tester) async {

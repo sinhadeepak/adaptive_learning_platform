@@ -66,6 +66,7 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
       _safe<Streak>(() => api.streak(user.id)),
       _safe<List<DailyActivity>>(() => api.dailyActivity(user.id, days: 1)),
       _safe<List<MockAttemptRow>>(() => api.mockAttempts()),
+      _safe<int>(() => api.inboxUnreadCount(user.id)),
     ]);
     if (!mounted) return;
     final profile = results[0] as UserProfile?;
@@ -73,6 +74,7 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
     final streak = results[2] as Streak?;
     final daily = (results[3] as List<DailyActivity>?) ?? const [];
     final mocks = (results[4] as List<MockAttemptRow>?) ?? const [];
+    final unread = (results[5] as int?) ?? 0;
     setState(() {
       _data = _HomeData(
         firstName: profile?.firstName ?? user.firstName,
@@ -80,6 +82,7 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
         streakDays: streak?.current,
         questionsToday: daily.fold<int>(0, (sum, d) => sum + d.questions),
         mockCount: mocks.length,
+        unreadCount: unread,
       );
       _loading = false;
     });
@@ -123,28 +126,52 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
       );
     }
 
+    final initial = d.firstName.isNotEmpty
+        ? d.firstName.substring(0, 1).toUpperCase()
+        : '?';
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       children: [
-        Text(
-          _todayEyebrow(),
-          style: TextStyle(
-            fontFamily: VidyaFonts.mono,
-            fontSize: 11,
-            color: v.ink3,
-            letterSpacing: 1.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Hi, ${d.firstName}.',
-          style: TextStyle(
-            fontFamily: VidyaFonts.display,
-            fontSize: 32,
-            fontWeight: FontWeight.w500,
-            color: v.ink,
-            height: 1.1,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _todayEyebrow(),
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.mono,
+                      fontSize: 11,
+                      color: v.ink3,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Hi, ${d.firstName}.',
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.display,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w500,
+                      color: v.ink,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            VidyaBellButton(
+              unreadCount: d.unreadCount,
+              // Phase 3a.2 — no notifications screen yet; route to More
+              // tab where the inbox surface will eventually live.
+              onTap: () => VidyaMainShellScope.of(context)
+                  ?.switchTo(VidyaShellTab.more),
+            ),
+            const SizedBox(width: 8),
+            VidyaAvatar(initials: initial, size: 40),
+          ],
         ),
         const SizedBox(height: 20),
         _ReadinessCard(score: d.readinessScore, scale: _scoreScale),
@@ -168,12 +195,14 @@ class _HomeData {
   final int? streakDays;
   final int? questionsToday;
   final int? mockCount;
+  final int unreadCount;
   const _HomeData({
     required this.firstName,
     this.readinessScore,
     this.streakDays,
     this.questionsToday,
     this.mockCount,
+    this.unreadCount = 0,
   });
 }
 
