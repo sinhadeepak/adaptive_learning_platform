@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
+import 'vidya_topic_detail_screen.dart';
 
 class VidyaSubjectDetailScreen extends StatefulWidget {
   final AuthClient auth;
@@ -80,13 +81,10 @@ class _VidyaSubjectDetailScreenState extends State<VidyaSubjectDetailScreen> {
   }
 
   void _onTopicTap(Topic t) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Topic detail for ${t.title} is coming in Phase 3b.full v2.',
-        ),
-      ),
-    );
+    final ewa = _data?.ewaByTopic[t.id] ?? 0.0;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => VidyaTopicDetailScreen(topic: t, ewa: ewa),
+    ));
   }
 
   @override

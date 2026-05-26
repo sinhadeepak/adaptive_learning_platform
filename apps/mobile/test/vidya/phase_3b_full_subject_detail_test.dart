@@ -141,16 +141,17 @@ void main() {
       expect(find.textContaining('7 questions'), findsOneWidget);
     });
 
-    testWidgets('tap topic shows deferred snackbar', (tester) async {
+    testWidgets('tap topic pushes VidyaTopicDetailScreen', (tester) async {
       final auth = await _loggedInAuth(_detailMocks());
       await tester.pumpWidget(_harness(
         VidyaSubjectDetailScreen(auth: auth, subject: _physics()),
       ));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Mechanics'));
-      await tester.pump();
-      expect(
-          find.textContaining('coming in Phase 3b.full v2'), findsOneWidget);
+      await tester.pumpAndSettle();
+      // 'Practice this topic' is unique to the topic detail screen —
+      // its presence after tap proves the Navigator.push fired.
+      expect(find.text('Practice this topic'), findsOneWidget);
     });
 
     testWidgets('empty state when topics list is empty', (tester) async {
