@@ -32,9 +32,10 @@ void main() {
         onSignOut: () {},
       )));
       await tester.pumpAndSettle();
+      // Home tab is keyed; settles to either the loading spinner or the
+      // empty-data fallback (no auth.user in this lightweight harness),
+      // both of which are acceptable for the "mounts on Home" assertion.
       expect(find.byKey(const Key('vidya.shell.home')), findsOneWidget);
-      // Vidya home stub shows the Phase 3a.1 hint card.
-      expect(find.text('COMING IN PHASE 3a.1'), findsOneWidget);
     });
 
     testWidgets('tapping STUDY shows the study placeholder', (tester) async {
