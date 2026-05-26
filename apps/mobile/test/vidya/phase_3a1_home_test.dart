@@ -247,6 +247,18 @@ void main() {
       expect(find.text('0'), findsNothing);
     });
 
+    testWidgets('no skeleton placeholders visible once data lands',
+        (tester) async {
+      // Skeleton existence/shape is covered by vidya_skeleton_test.dart.
+      // Here we assert the loading-state transitions correctly: after
+      // settle, no skeleton blocks remain and the real content is up.
+      final auth = await _loggedInAuth(_homeMocks());
+      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpAndSettle();
+      expect(find.byType(VidyaSkeletonBlock), findsNothing);
+      expect(find.text('Hi, Aarav.'), findsOneWidget);
+    });
+
     testWidgets('readiness fetch failure keeps other cards', (tester) async {
       final auth = await _loggedInAuth(_homeMocks(failReadiness: true));
       await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));

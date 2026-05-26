@@ -106,7 +106,7 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
   Widget build(BuildContext context) {
     final v = VidyaThemeData.of(context);
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const _HomeSkeleton();
     }
     final d = _data;
     if (d == null) {
@@ -368,6 +368,112 @@ class _StatTile extends StatelessWidget {
                 color: v.ink,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Loading-state placeholder. Mirrors the eventual layout (header row +
+// greeting + readiness card + next-session card + stats row) so the
+// screen doesn't visually jump when data lands. No animation — static
+// placeholders keep pumpAndSettle happy.
+class _HomeSkeleton extends StatelessWidget {
+  const _HomeSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  VidyaSkeletonBlock(width: 90, height: 12),
+                  SizedBox(height: 10),
+                  VidyaSkeletonBlock(width: 220, height: 28),
+                ],
+              ),
+            ),
+            VidyaSkeletonBlock(
+              width: 44,
+              height: 44,
+              borderRadius: BorderRadius.all(Radius.circular(22)),
+            ),
+            SizedBox(width: 8),
+            VidyaSkeletonBlock(
+              width: 40,
+              height: 40,
+              borderRadius: BorderRadius.all(Radius.circular(20)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const _SkeletonCard(children: [
+          VidyaSkeletonBlock(width: 80, height: 10),
+          SizedBox(height: 10),
+          VidyaSkeletonBlock(width: 160, height: 30),
+        ]),
+        const SizedBox(height: 12),
+        const _SkeletonCard(children: [
+          VidyaSkeletonBlock(width: 100, height: 10),
+          SizedBox(height: 8),
+          VidyaSkeletonBlock(width: 220, height: 20),
+          SizedBox(height: 12),
+          VidyaSkeletonBlock(width: 120, height: 36),
+        ]),
+        const SizedBox(height: 12),
+        Row(
+          children: const [
+            Expanded(child: _SkeletonStat()),
+            SizedBox(width: 8),
+            Expanded(child: _SkeletonStat()),
+            SizedBox(width: 8),
+            Expanded(child: _SkeletonStat()),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SkeletonCard extends StatelessWidget {
+  final List<Widget> children;
+  const _SkeletonCard({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return VidyaCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: children,
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonStat extends StatelessWidget {
+  const _SkeletonStat();
+
+  @override
+  Widget build(BuildContext context) {
+    return VidyaCard(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            VidyaSkeletonBlock(width: 50, height: 8),
+            SizedBox(height: 8),
+            VidyaSkeletonBlock(width: 60, height: 20),
           ],
         ),
       ),
