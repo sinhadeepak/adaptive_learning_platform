@@ -45,34 +45,16 @@ class VidyaInsightsTabPlaceholder extends StatelessWidget {
       );
 }
 
-class VidyaMoreTabPlaceholder extends StatelessWidget {
-  final VoidCallback onSignOut;
-  const VidyaMoreTabPlaceholder({super.key, required this.onSignOut});
-
-  @override
-  Widget build(BuildContext context) => _Placeholder(
-        title: 'More',
-        message:
-            "Profile, settings, and developer options land in Phase 3e. "
-            "For now: sign out below.",
-        action: _Action(label: 'Sign out', onTap: onSignOut),
-      );
-}
-
-class _Action {
-  final String label;
-  final VoidCallback onTap;
-  const _Action({required this.label, required this.onTap});
-}
+// Phase 3e v1 retired VidyaMoreTabPlaceholder in favour of the real
+// VidyaMoreScreen; the optional 'action' field is no longer used by
+// any caller, so _Placeholder simplifies to title + message only.
 
 class _Placeholder extends StatelessWidget {
   final String title;
   final String message;
-  final _Action? action;
   const _Placeholder({
     required this.title,
     required this.message,
-    this.action,
   });
 
   @override
@@ -117,14 +99,6 @@ class _Placeholder extends StatelessWidget {
                     height: 1.4,
                   ),
                 ),
-                if (action != null) ...[
-                  const SizedBox(height: 16),
-                  VidyaButton(
-                    label: action!.label,
-                    onPressed: action!.onTap,
-                    size: VidyaButtonSize.md,
-                  ),
-                ],
               ],
             ),
           ),
