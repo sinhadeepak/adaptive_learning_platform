@@ -7,6 +7,7 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
 import '../theme_mode_notifier.dart';
 
@@ -34,12 +35,61 @@ class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
   static const _useAuroraShellKey = 'vidya.use_aurora_shell';
 
   bool _useAuroraShell = false;
+  // Phase 3e.full slice — language preference. Bootstraps from
+  // getProfile(); flips trigger api.updatePreferences and update local
+  // state for the segmented control. Hot-switching app UI strings to
+  // Hindi is out of scope until an l10n system lands; the snackbar
+  // tells the user to restart.
+  VidyaLang _lang = VidyaLang.en;
+  bool _savingLang = false;
 
   @override
   void initState() {
     super.initState();
     _loadFlag();
+    _loadLanguage();
     widget.themeMode?.addListener(_onThemeChanged);
+  }
+
+  Future<void> _loadLanguage() async {
+    try {
+      final api = ApiClient(widget.auth);
+      final profile = await api.getProfile();
+      if (!mounted) return;
+      if (profile?.language == 'hi') {
+        setState(() => _lang = VidyaLang.hi);
+      }
+    } catch (_) {
+      // best-effort — leave default 'en'
+    }
+  }
+
+  Future<void> _setLanguage(VidyaLang next) async {
+    if (next == _lang || _savingLang) return;
+    setState(() {
+      _lang = next;
+      _savingLang = true;
+    });
+    try {
+      final api = ApiClient(widget.auth);
+      await api.updatePreferences(
+        language: next == VidyaLang.hi ? 'hi' : 'en',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Restart app to apply.')),
+      );
+    } catch (_) {
+      if (mounted) {
+        // Roll back on failure.
+        setState(() => _lang = next == VidyaLang.hi ? VidyaLang.en : VidyaLang.hi);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't save. Try again.")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingLang = false);
+    }
   }
 
   @override
@@ -110,6 +160,19 @@ class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
           ),
           const SizedBox(height: 16),
         ],
+        _Section(
+          eyebrow: 'LANGUAGE',
+          child: VidyaCard(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: VidyaLangToggle(
+                value: _lang,
+                onChanged: _setLanguage,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         _Section(
           eyebrow: 'DEVELOPER',
           child: VidyaCard(

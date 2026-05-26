@@ -151,6 +151,52 @@ void main() {
       expect(notifier.mode, ThemeMode.light);
     });
 
+    testWidgets('renders LANGUAGE section with EN + हि segments',
+        (tester) async {
+      final auth = await _loggedInAuth();
+      await tester.pumpWidget(_harness(
+        VidyaMoreScreen(auth: auth, onSignOut: () {}),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('LANGUAGE'), findsOneWidget);
+      // The segments come from VidyaLangToggle which renders 'EN' + 'हि'.
+      expect(find.text('EN'), findsOneWidget);
+      expect(find.text('हि'), findsOneWidget);
+    });
+
+    testWidgets('tapping हि fires updatePreferences', (tester) async {
+      String? capturedLanguage;
+      final mock = MockClient((req) async {
+        if (req.url.path.endsWith('/auth/login')) {
+          return http.Response(_sessionJson(), 200,
+              headers: {'content-type': 'application/json'});
+        }
+        if (req.url.path.endsWith('/profile/preferences')) {
+          final body = jsonDecode(req.body) as Map<String, dynamic>;
+          capturedLanguage = body['language'] as String?;
+          return http.Response(
+            jsonEncode({
+              'user': {'firstName': 'Aarav', 'lastName': 'L', 'email': 'a@b.com'},
+              'preferences': {'language': 'hi'},
+              'exams': [],
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{}', 404);
+      });
+      final auth = AuthClient(baseUrl: 'http://test', httpClient: mock);
+      await auth.login(email: 'a@b.com', password: 'pw');
+      await tester.pumpWidget(_harness(
+        VidyaMoreScreen(auth: auth, onSignOut: () {}),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('हि'));
+      await tester.pumpAndSettle();
+      expect(capturedLanguage, 'hi');
+    });
+
     testWidgets('THEME section hidden when no notifier passed',
         (tester) async {
       final auth = await _loggedInAuth();
@@ -167,6 +213,10 @@ void main() {
       await tester.pumpWidget(_harness(
         VidyaMoreScreen(auth: auth, onSignOut: () => signOuts++),
       ));
+      await tester.pumpAndSettle();
+      // Sign out lives below the LANGUAGE + DEVELOPER sections in the
+      // ListView — scroll it into view before tapping.
+      await tester.ensureVisible(find.text('Sign out'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Sign out'));
       await tester.pumpAndSettle();
