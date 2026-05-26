@@ -401,6 +401,7 @@ class _VidyaRootAppState extends State<VidyaRootApp> {
         return VidyaMainShell(
           auth: widget.auth,
           onSignOut: _onSignOut,
+          themeMode: _themeMode,
         );
     }
   }

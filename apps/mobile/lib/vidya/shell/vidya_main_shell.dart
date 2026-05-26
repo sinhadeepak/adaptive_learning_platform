@@ -21,18 +21,22 @@ import '../screens/vidya_insights_screen.dart';
 import '../screens/vidya_more_screen.dart';
 import '../screens/vidya_practice_screen.dart';
 import '../screens/vidya_study_screen.dart';
+import '../theme_mode_notifier.dart';
 import 'vidya_main_shell_scope.dart';
 
 class VidyaMainShell extends StatefulWidget {
   final AuthClient auth;
   final VoidCallback onSignOut;
   final VidyaShellTab initialTab;
+  // Optional — when supplied, the More tab surfaces a THEME picker.
+  final VidyaThemeModeNotifier? themeMode;
 
   const VidyaMainShell({
     super.key,
     required this.auth,
     required this.onSignOut,
     this.initialTab = VidyaShellTab.home,
+    this.themeMode,
   });
 
   @override
@@ -68,6 +72,7 @@ class _VidyaMainShellState extends State<VidyaMainShell> {
         child: VidyaMoreScreen(
           auth: widget.auth,
           onSignOut: widget.onSignOut,
+          themeMode: widget.themeMode,
         ),
       ),
     ];
