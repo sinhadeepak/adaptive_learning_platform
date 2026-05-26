@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_guest_screening_intro_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_exam_select_screen.dart';
 
 Widget _harness(Widget child) => MaterialApp(
       theme: VidyaTheme.material(
@@ -219,6 +220,109 @@ void main() {
       ));
       await tester.pumpAndSettle();
       expect(find.textContaining("couldn't load"), findsOneWidget);
+    });
+  });
+
+  group('VidyaExamSelectScreen (guest mode)', () {
+    setUp(() {
+      FlutterSecureStorage.setMockInitialValues({});
+    });
+
+    testWidgets('guest mode: Continue writes storage + fires onContinue, no /profile/exams call',
+        (tester) async {
+      final profileCalls = <String>[];
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((req) async {
+          if (req.url.path.endsWith('/catalog/exams')) {
+            return http.Response(
+              jsonEncode([
+                {
+                  'id': 'a-neet',
+                  'code': 'NEET',
+                  'name': 'National Eligibility Test',
+                },
+              ]),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (req.url.path.endsWith('/profile/exams')) {
+            profileCalls.add(req.url.path);
+            return http.Response('{}', 200);
+          }
+          return http.Response('{}', 404);
+        }),
+      );
+      var continueCalls = 0;
+      await tester.pumpWidget(MaterialApp(
+        theme: VidyaTheme.material(
+          brightness: Brightness.light,
+          persona: VidyaPersona.aspirant,
+          density: VidyaDensity.regular,
+        ),
+        home: VidyaExamSelectScreen(
+          auth: auth,
+          onContinue: () => continueCalls++,
+          onBack: () {},
+          mode: ExamSelectMode.guest,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('National Eligibility Test'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Continue with NEET'));
+      await tester.pumpAndSettle();
+      expect(continueCalls, 1);
+      expect(profileCalls, isEmpty);
+      const storage = FlutterSecureStorage();
+      expect(await storage.read(key: 'vidya.selected_exam_code'), 'NEET');
+    });
+
+    testWidgets('authed mode (default): Continue still PUTs /profile/exams',
+        (tester) async {
+      final profileCalls = <String>[];
+      final auth = AuthClient(
+        baseUrl: 'http://test',
+        httpClient: MockClient((req) async {
+          if (req.url.path.endsWith('/catalog/exams')) {
+            return http.Response(
+              jsonEncode([
+                {
+                  'id': 'a-neet',
+                  'code': 'NEET',
+                  'name': 'National Eligibility Test',
+                },
+              ]),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (req.url.path.endsWith('/profile/exams')) {
+            profileCalls.add(req.url.path);
+            return http.Response('{}', 200);
+          }
+          return http.Response('{}', 404);
+        }),
+      );
+      await tester.pumpWidget(MaterialApp(
+        theme: VidyaTheme.material(
+          brightness: Brightness.light,
+          persona: VidyaPersona.aspirant,
+          density: VidyaDensity.regular,
+        ),
+        home: VidyaExamSelectScreen(
+          auth: auth,
+          onContinue: () {},
+          onBack: () {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('National Eligibility Test'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Continue with NEET'));
+      await tester.pumpAndSettle();
+      expect(profileCalls.length, 1);
     });
   });
 }

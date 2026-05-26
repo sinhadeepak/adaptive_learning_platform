@@ -48,17 +48,21 @@ const _aspirantLookup = <String, String>{
 String? _aspirantLabel(String code) =>
     _aspirantLookup[code.toUpperCase()];
 
+enum ExamSelectMode { authed, guest }
+
 class VidyaExamSelectScreen extends StatefulWidget {
   const VidyaExamSelectScreen({
     super.key,
     required this.auth,
     required this.onContinue,
     required this.onBack,
+    this.mode = ExamSelectMode.authed,
   });
 
   final AuthClient auth;
   final VoidCallback onContinue;
   final VoidCallback onBack;
+  final ExamSelectMode mode;
 
   @override
   State<VidyaExamSelectScreen> createState() => _VidyaExamSelectScreenState();
@@ -104,13 +108,15 @@ class _VidyaExamSelectScreenState extends State<VidyaExamSelectScreen> {
       _submitting = true;
     });
     try {
-      final res = await widget.auth.apiPut(
-        '/profile/exams',
-        {'examId': _selectedId},
-      );
-      if (res.statusCode != 200) {
-        setState(() => _error = "We couldn't save your selection. Try again.");
-        return;
+      if (widget.mode == ExamSelectMode.authed) {
+        final res = await widget.auth.apiPut(
+          '/profile/exams',
+          {'examId': _selectedId},
+        );
+        if (res.statusCode != 200) {
+          setState(() => _error = "We couldn't save your selection. Try again.");
+          return;
+        }
       }
       await _storage.write(key: 'vidya.selected_exam_id', value: _selectedId);
       await _storage.write(
