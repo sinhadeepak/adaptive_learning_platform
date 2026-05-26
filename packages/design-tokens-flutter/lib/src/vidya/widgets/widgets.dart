@@ -21,3 +21,4 @@ export 'vidya_readiness_radial.dart';
 export 'vidya_topic_allocation_bar.dart';
 export 'vidya_theta_readout.dart';
 export 'vidya_bottom_nav.dart';
+export 'vidya_bell_button.dart';
