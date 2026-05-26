@@ -66,6 +66,10 @@ class _VidyaRootAppState extends State<VidyaRootApp> {
   static const _onboardingDoneKey = 'vidya.onboarding_done';
   static const _screeningDoneKey = 'vidya.screening_done';
   static const _screeningSkippedKey = 'vidya.screening_skipped';
+  // Phase 3a — soft-rollback flag. When 'true' in secure storage, the
+  // `home` state continues to render Aurora's MainScaffold instead of
+  // VidyaMainShell. Default-off (null/anything-else => Vidya shell).
+  static const _useAuroraShellKey = 'vidya.use_aurora_shell';
 
   final _persona = VidyaPersonaNotifier();
   final _density = VidyaDensityNotifier();
@@ -73,6 +77,7 @@ class _VidyaRootAppState extends State<VidyaRootApp> {
 
   _VidyaScreen _screen = _VidyaScreen.splash;
   bool _bootstrapped = false;
+  bool _useAuroraShell = false;
 
   // Pending OTP context — carried from register → verifyOtp.
   String? _pendingUserId;
@@ -107,14 +112,17 @@ class _VidyaRootAppState extends State<VidyaRootApp> {
 
   Future<void> _bootstrap() async {
     String? onboardingDone;
+    String? useAuroraShell;
     await Future.wait<void>([
       _persona.bootstrap(),
       _density.bootstrap(),
       _themeMode.bootstrap(),
       widget.auth.bootstrap(),
       _storage.read(key: _onboardingDoneKey).then((v) => onboardingDone = v),
+      _storage.read(key: _useAuroraShellKey).then((v) => useAuroraShell = v),
     ]);
     if (!mounted) return;
+    _useAuroraShell = useAuroraShell == 'true';
 
     // Deep-link wins over normal routing (handles password-reset emails).
     // parseDeepLink() never throws and returns DeepLinkRoute.ignored for
