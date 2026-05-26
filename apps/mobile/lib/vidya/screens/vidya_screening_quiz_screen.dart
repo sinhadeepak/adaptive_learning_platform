@@ -3,6 +3,14 @@
 // ScreeningComplete arrives, at which point it surfaces the token to
 // the parent via onCompleted. Errors surface in a VidyaBanner with a
 // Skip-only escape hatch.
+//
+// Phase 2f: chrome additions — countdown timer in app bar, X close
+// action, question metadata pill row, and the LIVE θ readout card
+// between the choices and the Submit button. Countdown is decorative
+// (Out-of-scope: timer-driven session expiry) — it re-renders on each
+// setState (i.e. each answer-submit), not once a second. Avoids the
+// Timer.periodic + pumpAndSettle deadlock that would break Phase 2c
+// tests.
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
@@ -34,6 +42,12 @@ class _VidyaScreeningQuizScreenState extends State<VidyaScreeningQuizScreen> {
   int? _selectedIdx;
   bool _submitting = false;
   String? _error;
+  DateTime? _started;
+  // Captured _before_ _question is overwritten in _fetchNext so the
+  // VidyaThetaReadout can compare the new θ against the prior one and
+  // render an up/down trend arrow.
+  double? _previousTheta;
+  static const _sessionWindow = Duration(minutes: 15);
 
   @override
   void initState() {
@@ -45,6 +59,7 @@ class _VidyaScreeningQuizScreenState extends State<VidyaScreeningQuizScreen> {
     try {
       final start = await widget.client.start(examCode: widget.examCode);
       _token = start.token;
+      _started = DateTime.now();
       await _fetchNext();
     } on ScreeningUnavailable catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -60,10 +75,33 @@ class _VidyaScreeningQuizScreenState extends State<VidyaScreeningQuizScreen> {
       widget.onCompleted(_token!);
       return;
     }
+    // Snapshot the prior θ before overwriting _question so the readout
+    // can render its trend arrow.
+    _previousTheta = _question?.thetaEstimate;
     setState(() {
       _question = result as ScreeningQuestion;
       _selectedIdx = null;
     });
+  }
+
+  String _formatCountdown() {
+    if (_started == null) return '';
+    final remaining = _sessionWindow - DateTime.now().difference(_started!);
+    if (remaining.isNegative) return '0:00';
+    final m = remaining.inMinutes;
+    final s = remaining.inSeconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  String _narrativeFor(double? theta, double? previous) {
+    if (theta == null) return '';
+    if (previous == null) return "Let's see where you stand.";
+    final delta = theta - previous;
+    if (delta >= 0.05) return "You're answering above your zone.";
+    if (delta <= -0.05) {
+      return "You're being challenged — that's how growth happens.";
+    }
+    return "Steady answers — you're in your zone.";
   }
 
   Future<void> _submit() async {
@@ -130,7 +168,15 @@ class _VidyaScreeningQuizScreenState extends State<VidyaScreeningQuizScreen> {
 
     final q = _question!;
     return VidyaScaffold(
-      appBar: VidyaAppBar(title: ''),
+      appBar: VidyaAppBar(
+        title: _formatCountdown(),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.close, color: ink),
+            onPressed: widget.onBack,
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
         child: Column(
@@ -155,7 +201,9 @@ class _VidyaScreeningQuizScreenState extends State<VidyaScreeningQuizScreen> {
                 valueColor: AlwaysStoppedAnimation<Color>(accent),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            _MetadataRow(nextQB: q.nextQB),
+            const SizedBox(height: 16),
             Text(
               q.stem,
               style: TextStyle(
@@ -221,6 +269,13 @@ class _VidyaScreeningQuizScreenState extends State<VidyaScreeningQuizScreen> {
               ),
             ),
             const SizedBox(height: 12),
+            VidyaThetaReadout(
+              theta: q.thetaEstimate,
+              previousTheta: _previousTheta,
+              nextQB: q.nextQB,
+              narrative: _narrativeFor(q.thetaEstimate, _previousTheta),
+            ),
+            const SizedBox(height: 12),
             VidyaButton(
               key: const Key('vidya.screening.quiz.submit'),
               label: _submitting ? 'Saving…' : 'Submit',
@@ -229,6 +284,54 @@ class _VidyaScreeningQuizScreenState extends State<VidyaScreeningQuizScreen> {
               size: VidyaButtonSize.lg,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// Compact pill row above the question stem. The b-value pill is the
+// only dynamic content in Phase 2f; marks + subject·topic are static
+// placeholders until backend exposure lands in Phase 3c.
+class _MetadataRow extends StatelessWidget {
+  final double? nextQB;
+  const _MetadataRow({required this.nextQB});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        const _Pill(text: '4 marks'),
+        if (nextQB != null)
+          _Pill(text: 'b ${nextQB! >= 0 ? '+' : ''}${nextQB!.toStringAsFixed(2)}'),
+        const _Pill(text: 'Physics · Thermo'),
+      ],
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  final String text;
+  const _Pill({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: v.ink3.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontFamily: VidyaFonts.mono,
+          fontSize: 11,
+          color: v.ink2,
+          letterSpacing: 0.3,
         ),
       ),
     );
