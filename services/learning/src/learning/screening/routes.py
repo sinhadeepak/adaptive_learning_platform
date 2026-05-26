@@ -12,6 +12,7 @@ Persisted screenings land as the user's first quiz session post-signup.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
@@ -54,6 +55,11 @@ class NextResponse(BaseModel):
     total: int
     stem: str
     choices: list[str]
+    # Phase 2f — all optional for forward/backward compat with clients
+    # that haven't deployed the theta-live overlay yet.
+    theta_estimate: float | None = None
+    theta_se: float | None = None
+    next_q_b: float | None = None
 
 
 class AnswerRequest(BaseModel):
@@ -108,11 +114,28 @@ async def next_question(token: str) -> NextResponse:
     if item_idx >= len(payload["items"]):
         raise HTTPException(status_code=409, detail={"code": "complete", "message": "Screening complete."})
     item = payload["items"][item_idx]
+    responses = payload["responses"]
+    answered = len(responses)
+    if answered == 0:
+        # Item-1 special case — full prior uncertainty, theta starts at 0.
+        theta_estimate: float = 0.0
+        theta_se: float = 1.0
+    else:
+        score = sum(1 for r in responses if r["is_correct"]) / answered
+        # Same seed -> theta map that /persist uses to write user_theta_prior.
+        theta_estimate = max(-1.5, min(1.5, (score - 0.5) * 3.0))
+        # SE shrinks with item count; floor at 0.6 so the readout doesn't
+        # over-promise certainty from a short 12-item screening.
+        theta_se = max(0.6, 1.0 / math.sqrt(answered + 1))
+    next_q_b = item.get("difficulty_b")
     return NextResponse(
         item_idx=item_idx,
         total=len(payload["items"]),
         stem=item["stem"],
         choices=item["choices"],
+        theta_estimate=theta_estimate,
+        theta_se=theta_se,
+        next_q_b=float(next_q_b) if next_q_b is not None else None,
     )
 
 
