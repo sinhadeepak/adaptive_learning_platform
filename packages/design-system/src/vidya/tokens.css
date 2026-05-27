@@ -68,6 +68,13 @@
   --card:     #FFFFFF;
   --rule:     #EEEEF1;
   --rule-2:   #DCDCE0;
+  /* Legacy Aurora-era aliases used by shell.css for inset card
+     surfaces. Vidya doesn't have a separate dark card layer, so we
+     map them onto paper-2 / rule so existing rules render readable
+     dark-ink-on-light-surface instead of falling back to Aurora's
+     hardcoded #0F1A2E / #16213A navy. */
+  --card-1:   #F6F6F8;
+  --card-2:   #EEEEF1;
 
   /* ── Ink (light) ────────────────────────────────────────── */
   --ink:      #0A0A0F;
@@ -178,6 +185,8 @@
   --card:     #181D26;
   --rule:     #262B35;
   --rule-2:   #353B47;
+  --card-1:   #181D26;
+  --card-2:   #262B35;
 
   --ink:      #F1EEE7;
   --ink-2:    #C7C3BA;
