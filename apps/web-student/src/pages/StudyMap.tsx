@@ -42,6 +42,12 @@ interface MasteryListResponse {
   topics: Array<{ topicId: string; ewa: number; n: number }>;
 }
 
+interface ExamMeta {
+  id: string;
+  code: string;
+  name: string;
+}
+
 interface ChapterRow {
   id: string;
   index: number;
@@ -64,11 +70,40 @@ export function StudyMap() {
   const navigate = useNavigate();
 
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [topics, setTopics] = useState<Topic[]>([]);
+  // Topics keyed by subject id. When `routeSubjectId` is in the URL the
+  // page renders only that subject; otherwise all subjects render in
+  // sequence so users see the entire syllabus at a glance.
+  const [topicsBySubject, setTopicsBySubject] = useState<Record<string, Topic[]>>({});
   const [mastery, setMastery] = useState<Map<string, { ewa: number; n: number }>>(new Map());
-  const [classFilter, setClassFilter] = useState<"all" | "11" | "12">("all");
+  const [examMeta, setExamMeta] = useState<ExamMeta | null>(null);
 
-  // Subjects
+  // Exam meta — drives subtitle + right-rail labels. The /catalog/exams
+  // endpoint returns either a bare array OR { exams: [...] }; tolerate
+  // both shapes (same pattern as VidyaShell).
+  useEffect(() => {
+    if (!examId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await auth.fetch(`/api/v1/catalog/exams`);
+        if (!r.ok || !alive) return;
+        const body = (await r.json()) as
+          | ExamMeta[]
+          | { exams?: ExamMeta[] | null };
+        const list: ExamMeta[] = Array.isArray(body)
+          ? body
+          : Array.isArray(body.exams)
+            ? body.exams
+            : [];
+        const match = list.find((e) => e.id === examId);
+        if (alive && match) setExamMeta(match);
+      } catch { /* offline — subtitle falls back to "your exam" */ }
+    })();
+    return () => { alive = false; };
+  }, [examId]);
+
+  // Subjects. The endpoint returns either a bare array OR
+  // { subjects: [...] }; tolerate both shapes (same pattern as /catalog/exams).
   useEffect(() => {
     if (!examId) return;
     let alive = true;
@@ -76,8 +111,15 @@ export function StudyMap() {
       try {
         const r = await auth.fetch(`/api/v1/catalog/exams/${examId}/subjects`);
         if (r.ok && alive) {
-          const data = (await r.json()) as { subjects?: Subject[] | null };
-          setSubjects(Array.isArray(data.subjects) ? data.subjects : []);
+          const body = (await r.json()) as
+            | Subject[]
+            | { subjects?: Subject[] | null };
+          const list: Subject[] = Array.isArray(body)
+            ? body
+            : Array.isArray(body.subjects)
+              ? body.subjects
+              : [];
+          setSubjects(list);
         }
       } catch { /* offline */ }
     })();
@@ -87,21 +129,50 @@ export function StudyMap() {
   const activeSubjectId = routeSubjectId ?? subjects[0]?.id ?? "";
   const activeSubject = subjects.find((s) => s.id === activeSubjectId);
 
-  // Topics for the active subject
+  // Topics — fetched for ALL subjects in parallel so the all-subjects
+  // landing view (no `routeSubjectId` in the URL) can show every
+  // chapter in the syllabus. The single-subject deep-link
+  // (`/study/:examId/:subjectId`) reads from the same map.
+  // Endpoint returns either a bare array OR { topics: [...] }; tolerate
+  // both. The `tier` field may be omitted by the API — default to "FREE".
   useEffect(() => {
-    if (!activeSubjectId) return;
+    if (subjects.length === 0) return;
     let alive = true;
     (async () => {
-      try {
-        const r = await auth.fetch(`/api/v1/catalog/subjects/${activeSubjectId}/topics`);
-        if (r.ok && alive) {
-          const data = (await r.json()) as { topics?: Topic[] | null };
-          setTopics(Array.isArray(data.topics) ? data.topics : []);
-        }
-      } catch { /* offline */ }
+      const entries = await Promise.all(
+        subjects.map(async (s): Promise<[string, Topic[]]> => {
+          try {
+            const r = await auth.fetch(`/api/v1/catalog/subjects/${s.id}/topics`);
+            if (!r.ok) return [s.id, []];
+            const body = (await r.json()) as
+              | Partial<Topic>[]
+              | { topics?: Partial<Topic>[] | null };
+            const list: Partial<Topic>[] = Array.isArray(body)
+              ? body
+              : Array.isArray(body.topics)
+                ? body.topics
+                : [];
+            const cleaned: Topic[] = list
+              .filter((t): t is Topic & { id: string; title: string } =>
+                typeof t.id === "string" && typeof t.title === "string",
+              )
+              .map((t) => ({
+                id: t.id,
+                subjectId: t.subjectId ?? s.id,
+                title: t.title,
+                questionCount: t.questionCount ?? 0,
+                tier: (t.tier as Topic["tier"]) ?? "FREE",
+              }));
+            return [s.id, cleaned];
+          } catch {
+            return [s.id, []];
+          }
+        }),
+      );
+      if (alive) setTopicsBySubject(Object.fromEntries(entries));
     })();
     return () => { alive = false; };
-  }, [activeSubjectId]);
+  }, [subjects]);
 
   // Mastery
   useEffect(() => {
@@ -122,58 +193,88 @@ export function StudyMap() {
     return () => { alive = false; };
   }, [user?.id]);
 
-  /* ── Build chapter rows ──────────────────────────────────── */
+  /* ── Build chapter rows per subject ───────────────────────── */
 
-  const chapters: ChapterRow[] = useMemo(() => {
-    if (!topics.length) return [];
-    return topics.map((t, i) => {
-      const m = mastery.get(t.id);
-      const ewa = m?.ewa ?? -1;
-      // Stub flags — replace with real planner output when available.
-      const isFocus = ewa >= 0 && ewa >= 0.4 && ewa < 0.7 && i % 3 === 1;
-      const hasDecay = m ? ewa > 0 && ewa < 0.4 && m.n > 3 : false;
-      const locked = ewa < 0 && i >= 9 && i % 3 === 0;
-      return {
-        id: t.id,
-        index: i + 1,
-        title: t.title,
-        ewa,
-        qsDone: m?.n ?? 0,
-        questionCount: t.questionCount,
-        tier: t.tier,
-        locked,
-        isFocus,
-        hasDecay,
-      };
-    });
-  }, [topics, mastery]);
+  const chaptersBySubject: Record<string, ChapterRow[]> = useMemo(() => {
+    const out: Record<string, ChapterRow[]> = {};
+    for (const [subjectId, topics] of Object.entries(topicsBySubject)) {
+      out[subjectId] = topics.map((t, i) => {
+        const m = mastery.get(t.id);
+        const ewa = m?.ewa ?? -1;
+        // Stub flags — replace with real planner output when available.
+        const isFocus = ewa >= 0 && ewa >= 0.4 && ewa < 0.7 && i % 3 === 1;
+        const hasDecay = m ? ewa > 0 && ewa < 0.4 && m.n > 3 : false;
+        const locked = ewa < 0 && i >= 9 && i % 3 === 0;
+        return {
+          id: t.id,
+          index: i + 1,
+          title: t.title,
+          ewa,
+          qsDone: m?.n ?? 0,
+          questionCount: t.questionCount,
+          tier: t.tier,
+          locked,
+          isFocus,
+          hasDecay,
+        };
+      });
+    }
+    return out;
+  }, [topicsBySubject, mastery]);
 
-  const filteredChapters = useMemo(() => {
-    if (classFilter === "all") return chapters;
-    const half = Math.ceil(chapters.length / 2);
-    return classFilter === "11" ? chapters.slice(0, half) : chapters.slice(half);
-  }, [chapters, classFilter]);
+  // When deep-linked to a single subject, only that subject's chapters
+  // render. Otherwise all subjects render in `subjects` order.
+  const visibleSubjects = useMemo(
+    () => (routeSubjectId ? subjects.filter((s) => s.id === routeSubjectId) : subjects),
+    [routeSubjectId, subjects],
+  );
 
-  // Weakest active chapter (recommended next)
+  // Recommended next — weakest active chapter across the visible
+  // subjects (single-subject mode → that subject only; all-subjects
+  // mode → globally weakest).
   const recommended = useMemo(() => {
-    const active = chapters.filter((c) => !c.locked && c.ewa >= 0 && c.ewa < 0.7);
+    const all = visibleSubjects.flatMap((s) => chaptersBySubject[s.id] ?? []);
+    const active = all.filter((c) => !c.locked && c.ewa >= 0 && c.ewa < 0.7);
     return [...active].sort((a, b) => a.ewa - b.ewa)[0] ?? null;
-  }, [chapters]);
+  }, [visibleSubjects, chaptersBySubject]);
 
-  const subjectShort = activeSubject?.name ?? "Subject";
+  const totalVisibleChapters = useMemo(
+    () => visibleSubjects.reduce((n, s) => n + (chaptersBySubject[s.id]?.length ?? 0), 0),
+    [visibleSubjects, chaptersBySubject],
+  );
+
+  const crumbLabel = routeSubjectId
+    ? `Study map · ${activeSubject?.name ?? "Subject"}`
+    : "Study map · Full syllabus";
+
+  const headEyebrow = routeSubjectId
+    ? `${activeSubject?.name ?? "Subject"} · ${totalVisibleChapters} chapters`
+    : `${examMeta?.code || examMeta?.name || "Full"} · ${totalVisibleChapters} chapters · ${visibleSubjects.length} subjects`;
+
+  const headTitle = routeSubjectId
+    ? `${activeSubject?.name ?? "Subject"} syllabus`
+    : `${examMeta?.code || examMeta?.name || "Exam"} syllabus`;
 
   return (
     <VidyaShell
-      crumbs={`Study map · ${subjectShort}`}
+      crumbs={crumbLabel}
       title="Study map"
-      subtitle={`Every chapter, every topic — your path through the ${(activeSubject?.examId ?? examId).toUpperCase()} syllabus`}
+      subtitle={`Every chapter, every topic — your path through the ${examMeta?.code || examMeta?.name || "exam"} syllabus`}
       chips={
         <>
+          {/* "All" pill resets to the exam-wide view */}
+          <Link
+            key="__all"
+            to={`/study/${examId}`}
+            className={`vidya-shell__chip${!routeSubjectId ? " vidya-shell__chip--on" : ""}`}
+          >
+            All
+          </Link>
           {subjects.map((s) => (
             <Link
               key={s.id}
               to={`/study/${examId}/${s.id}`}
-              className={`vidya-shell__chip${s.id === activeSubjectId ? " vidya-shell__chip--on" : ""}`}
+              className={`vidya-shell__chip${s.id === routeSubjectId ? " vidya-shell__chip--on" : ""}`}
             >
               {s.name}
             </Link>
@@ -182,6 +283,7 @@ export function StudyMap() {
       }
       actions={
         <button
+          type="button"
           className="vidya-shell__primary"
           onClick={() => {
             if (recommended) navigate(`/practice?topic=${recommended.id}`);
@@ -197,39 +299,51 @@ export function StudyMap() {
         <section className="vidya-chapters">
           <div className="vidya-chapters__head">
             <div>
-              <div className="vidya-chapters__eyebrow">
-                {subjectShort} · {chapters.length} chapters
-              </div>
-              <div className="vidya-chapters__title">
-                Class 11 <span aria-hidden>→</span> 12 path
-              </div>
+              <div className="vidya-chapters__eyebrow">{headEyebrow}</div>
+              <div className="vidya-chapters__title">{headTitle}</div>
             </div>
             <div className="vidya-chapters__filters">
-              <button className="vidya-shell__chip">▽ Filter</button>
-              <button
-                className={`vidya-shell__chip${classFilter === "11" ? " vidya-shell__chip--on" : ""}`}
-                onClick={() => setClassFilter(classFilter === "11" ? "all" : "11")}
-              >
-                Class 11
-              </button>
-              <button
-                className={`vidya-shell__chip${classFilter === "12" ? " vidya-shell__chip--on" : ""}`}
-                onClick={() => setClassFilter(classFilter === "12" ? "all" : "12")}
-              >
-                Class 12
-              </button>
+              <button type="button" className="vidya-shell__chip">▽ Filter</button>
             </div>
           </div>
 
-          <ol className="vidya-chapters__list">
-            {filteredChapters.length === 0 ? (
+          {totalVisibleChapters === 0 ? (
+            <ol className="vidya-chapters__list">
               <li style={{ color: "var(--ink-3)", textAlign: "center", padding: "var(--sp-8) 0" }}>
-                No chapters for this subject yet.
+                No chapters for this exam yet.
               </li>
-            ) : (
-              filteredChapters.map((c) => <ChapterRowView key={c.id} c={c} />)
-            )}
-          </ol>
+            </ol>
+          ) : (
+            visibleSubjects.map((s) => {
+              const subjectChapters = chaptersBySubject[s.id] ?? [];
+              if (subjectChapters.length === 0) return null;
+              return (
+                <div key={s.id} style={{ marginBottom: "var(--sp-6)" }}>
+                  {/* In single-subject mode the subject heading is
+                      redundant with headTitle, so suppress it. */}
+                  {routeSubjectId ? null : (
+                    <h2
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.6,
+                        color: "var(--ink-3)",
+                        margin: "var(--sp-4) 0 var(--sp-2)",
+                      }}
+                    >
+                      {s.name}
+                    </h2>
+                  )}
+                  <ol className="vidya-chapters__list">
+                    {subjectChapters.map((c) => (
+                      <ChapterRowView key={c.id} c={c} />
+                    ))}
+                  </ol>
+                </div>
+              );
+            })
+          )}
         </section>
 
         {/* Right rail */}
@@ -274,7 +388,7 @@ export function StudyMap() {
 
           <section className="vidya-mock-card">
             <div className="vidya-mock-card__eyebrow">
-              Mock test · Class {classFilter === "12" ? "12" : "11"}
+              Mock test{examMeta?.code ? ` · ${examMeta.code}` : ""}
             </div>
             <div className="vidya-mock-card__title">Take the section test</div>
             <p className="vidya-mock-card__body">
