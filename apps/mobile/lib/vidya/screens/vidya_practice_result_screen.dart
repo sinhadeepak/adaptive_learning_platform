@@ -9,8 +9,10 @@
 //     topicId, else a single row keyed off the session's topicId).
 //     Topic labels resolved best-effort from /catalog/topics/{id};
 //     falls back to the topicId on catalog failure.
-//   - "See updated insights →" deep-link that pushes
-//     VidyaInsightsScreen for mastery deltas after the session.
+//   - "See updated insights →" deep-link that switches the parent
+//     VidyaMainShell to the Insights tab (canonical cross-tab pattern,
+//     see vidya_home_screen.dart). Unwinds the Practice navigator
+//     stack via onDone() so the back button doesn't return here.
 //   - Done CTA that fires `onDone`.
 //
 // Score denominator is `targetCount`, NOT `servedCount`, so the result
@@ -30,20 +32,17 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
 import '../../api/api_client.dart';
-import '../../auth/auth_client.dart';
 import '../../quiz/quiz_client.dart';
-import 'vidya_insights_screen.dart';
+import '../shell/vidya_main_shell_scope.dart';
 
 class VidyaPracticeResultScreen extends StatefulWidget {
   final QuizClient client;
-  final AuthClient auth;
   final String sessionId;
   final VoidCallback onDone;
 
   const VidyaPracticeResultScreen({
     super.key,
     required this.client,
-    required this.auth,
     required this.sessionId,
     required this.onDone,
   });
@@ -166,7 +165,7 @@ class _VidyaPracticeResultScreenState
   }
 
   Future<void> _resolveLabels(List<String> topicIds) async {
-    final api = ApiClient(widget.auth);
+    final api = ApiClient(widget.client.auth);
     try {
       final results = await Future.wait(
         topicIds.map((id) async {
@@ -200,11 +199,18 @@ class _VidyaPracticeResultScreenState
   }
 
   void _onSeeInsights() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => VidyaInsightsScreen(auth: widget.auth),
-      ),
-    );
+    // Cross-tab handoff — matches the canonical pattern in
+    // vidya_home_screen.dart (lines 102 / 169-170). Switching the
+    // parent VidyaMainShell's IndexedStack lands the user on the
+    // Insights tab WITH the bottom nav, avoiding a duplicate Insights
+    // instance nested inside the Practice tab's navigator. Then unwind
+    // the Practice stack via onDone() so the back button doesn't
+    // return to this stale result screen.
+    final scope = VidyaMainShellScope.of(context);
+    if (scope != null) {
+      scope.switchTo(VidyaShellTab.insights);
+      widget.onDone();
+    }
   }
 
   @override

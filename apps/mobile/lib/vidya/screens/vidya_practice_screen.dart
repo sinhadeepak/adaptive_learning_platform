@@ -74,7 +74,6 @@ class VidyaPracticeScreen extends StatelessWidget {
               Navigator.of(context).pushReplacement(MaterialPageRoute(
                 builder: (_) => VidyaPracticeResultScreen(
                   client: client,
-                  auth: client.auth,
                   sessionId: sessionId,
                   onDone: () => Navigator.of(context).pop(),
                 ),
@@ -102,7 +101,6 @@ class VidyaPracticeScreen extends StatelessWidget {
                     Navigator.of(context).pushReplacement(MaterialPageRoute(
                       builder: (_) => VidyaPracticeResultScreen(
                         client: client,
-                        auth: client.auth,
                         sessionId: sessionId,
                         onDone: () => Navigator.of(context).pop(),
                       ),

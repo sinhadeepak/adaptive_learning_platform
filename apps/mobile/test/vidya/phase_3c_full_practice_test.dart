@@ -11,9 +11,9 @@ import 'package:http/testing.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/quiz/quiz_client.dart';
-import 'package:adaptive_learning_mobile/vidya/screens/vidya_insights_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_result_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_session_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/shell/vidya_main_shell_scope.dart';
 
 Widget _harness(Widget child) => MaterialApp(
       theme: VidyaTheme.material(
@@ -434,7 +434,6 @@ void main() {
       );
       await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
         client: client,
-        auth: client.auth,
         sessionId: 'sess-1',
         onDone: () {},
       ),),);
@@ -452,7 +451,6 @@ void main() {
       var doneTaps = 0;
       await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
         client: client,
-        auth: client.auth,
         sessionId: 'sess-1',
         onDone: () => doneTaps++,
       ),),);
@@ -474,7 +472,6 @@ void main() {
       );
       await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
         client: client,
-        auth: client.auth,
         sessionId: 'sess-1',
         onDone: () {},
       ),),);
@@ -501,7 +498,6 @@ void main() {
       );
       await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
         client: client,
-        auth: client.auth,
         sessionId: 'sess-1',
         onDone: () {},
       ),),);
@@ -537,7 +533,6 @@ void main() {
 
       await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
         client: client,
-        auth: client.auth,
         sessionId: 'sess-1',
         onDone: () {},
       ),),);
@@ -647,7 +642,6 @@ void main() {
 
       await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
         client: client,
-        auth: client.auth,
         sessionId: 'sess-1',
         onDone: () {},
       )));
@@ -662,8 +656,15 @@ void main() {
       expect(find.text('2 / 2'), findsOneWidget);
     });
 
-    testWidgets('See insights CTA pushes VidyaInsightsScreen',
+    testWidgets(
+        'See insights CTA switches the shell to the Insights tab + fires onDone',
         (tester) async {
+      // v2 final polish (I1): the CTA no longer pushes a duplicate
+      // VidyaInsightsScreen into the Practice tab's navigator. It
+      // calls VidyaMainShellScope.switchTo(VidyaShellTab.insights)
+      // (canonical pattern, see vidya_home_screen.dart) and then
+      // fires onDone() to unwind the Practice navigator stack so the
+      // back button doesn't return to this stale result screen.
       final client = buildClient(
         sessionResponse: summaryWithItems(
           target: 2,
@@ -676,23 +677,39 @@ void main() {
         topicLabels: const {'mech': 'Mechanics'},
       );
 
-      await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
-        client: client,
-        auth: client.auth,
-        sessionId: 'sess-1',
-        onDone: () {},
-      )));
+      VidyaShellTab? switched;
+      var doneTaps = 0;
+      await tester.pumpWidget(MaterialApp(
+        theme: VidyaTheme.material(
+          brightness: Brightness.light,
+          persona: VidyaPersona.aspirant,
+          density: VidyaDensity.regular,
+        ),
+        home: VidyaMainShellScope(
+          activeTab: VidyaShellTab.practice,
+          switchTo: (t) => switched = t,
+          child: VidyaPracticeResultScreen(
+            client: client,
+            sessionId: 'sess-1',
+            onDone: () => doneTaps++,
+          ),
+        ),
+      ));
       await tester.pumpAndSettle();
 
-      expect(find.byType(VidyaInsightsScreen), findsNothing);
+      expect(switched, isNull);
+      expect(doneTaps, 0);
       await tester.tap(
         find.byKey(const Key('vidya.practice.result.see-insights')),
       );
-      // VidyaInsightsScreen kicks off async loads on mount; pump once
-      // to let the route transition land but don't wait for them.
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(find.byType(VidyaInsightsScreen), findsOneWidget);
+      // Asserts the new contract: the shell was asked to switch to the
+      // Insights tab and the Practice navigator stack was unwound via
+      // onDone(). We deliberately do NOT assert find.byType(
+      // VidyaInsightsScreen) — the Insights screen lives in the parent
+      // shell's IndexedStack, which isn't part of this widget test.
+      expect(switched, VidyaShellTab.insights);
+      expect(doneTaps, 1);
     });
 
     testWidgets('empty items list → no breakdown section, just score + Done',
@@ -714,7 +731,6 @@ void main() {
 
       await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
         client: client,
-        auth: client.auth,
         sessionId: 'sess-1',
         onDone: () {},
       )));
@@ -761,7 +777,6 @@ void main() {
 
       await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
         client: client,
-        auth: client.auth,
         sessionId: 'sess-1',
         onDone: () {},
       )));
