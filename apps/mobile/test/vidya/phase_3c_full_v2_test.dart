@@ -155,6 +155,7 @@ void main() {
         find.textContaining("don't have a weak topic yet"),
         findsOneWidget,
       );
+      expect(find.textContaining('Quick Practice'), findsOneWidget);
       expect(find.text('Start focused session'), findsNothing);
       await tester.tap(find.text('Back'));
       await tester.pump();

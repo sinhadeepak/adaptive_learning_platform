@@ -75,8 +75,19 @@ class _VidyaFocusedIntroScreenState extends State<VidyaFocusedIntroScreen> {
       if (!mounted) return;
       // Defensive: backend builds weak_concepts in last_seen_at order,
       // not EWA order — sort ascending so weakest is first.
+      // TODO(engagement): drop this sort once
+      // services/engagement/src/engagement/analytics/routes.py orders
+      // weak_concepts by ewa ASC (currently ORDER BY last_seen_at DESC
+      // at routes.py:749, then appended to weak_concepts in
+      // last_seen_at order without re-sort).
+      // Tiebreaker on conceptId because Dart's List.sort is not stable —
+      // two concepts with identical EWA could otherwise swap order
+      // between renders.
       final sorted = List<ConceptRow>.of(snap.weakConcepts)
-        ..sort((a, b) => a.ewa.compareTo(b.ewa));
+        ..sort((a, b) {
+          final c = a.ewa.compareTo(b.ewa);
+          return c != 0 ? c : a.conceptId.compareTo(b.conceptId);
+        });
       final patched = InsightsSnapshot(
         userId: snap.userId,
         conceptMastery: snap.conceptMastery,
@@ -233,8 +244,10 @@ class _VidyaFocusedIntroScreenState extends State<VidyaFocusedIntroScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                "You don't have a weak topic yet — answer 10+ Quick "
-                'Practice questions first to unlock Focused mode.',
+                "You don't have a weak topic yet. Answer a few more "
+                'Quick Practice questions so we can spot patterns — '
+                'Focused mode unlocks once we see consistent struggles '
+                'on a concept.',
                 style: TextStyle(
                   fontFamily: VidyaFonts.ui,
                   fontSize: 15,
