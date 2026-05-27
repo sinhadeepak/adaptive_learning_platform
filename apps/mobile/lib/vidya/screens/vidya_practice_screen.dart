@@ -14,6 +14,8 @@ import 'package:flutter/material.dart';
 import '../../insights/insights_client.dart';
 import '../../quiz/quiz_client.dart';
 import 'vidya_focused_intro_screen.dart';
+import 'vidya_mock_intro_screen.dart';
+import 'vidya_mock_session_screen.dart';
 import 'vidya_practice_result_screen.dart';
 import 'vidya_practice_session_screen.dart';
 
@@ -114,11 +116,54 @@ class VidyaPracticeScreen extends StatelessWidget {
           ),
         ));
       case _PracticeModeKind.mock:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${m.title} session is coming in Phase 3c.full v2.'),
+        final user = client.auth.user;
+        final examId = user?.examId;
+        if (user == null || examId == null || examId.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Pick your exam in onboarding to unlock mock tests.',
+              ),
+            ),
+          );
+          return;
+        }
+        final userId = user.id;
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => VidyaMockIntroScreen(
+            client: client,
+            userId: userId,
+            examId: examId,
+            onStart: ({
+              required String blueprintId,
+              required String blueprintName,
+              required int itemCount,
+              required int totalMinutes,
+            }) {
+              Navigator.of(context).pushReplacement(MaterialPageRoute(
+                builder: (_) => VidyaMockSessionScreen(
+                  client: client,
+                  blueprintId: blueprintId,
+                  blueprintName: blueprintName,
+                  userId: userId,
+                  itemCount: itemCount,
+                  totalMinutes: totalMinutes,
+                  onCompleted: (sessionId) {
+                    Navigator.of(context).pushReplacement(MaterialPageRoute(
+                      builder: (_) => VidyaPracticeResultScreen(
+                        client: client,
+                        sessionId: sessionId,
+                        onDone: () => Navigator.of(context).pop(),
+                      ),
+                    ));
+                  },
+                  onBack: () => Navigator.of(context).pop(),
+                ),
+              ));
+            },
+            onBack: () => Navigator.of(context).pop(),
           ),
-        );
+        ));
     }
   }
 

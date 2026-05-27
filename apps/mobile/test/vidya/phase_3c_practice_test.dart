@@ -13,6 +13,7 @@ import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/insights/insights_client.dart';
 import 'package:adaptive_learning_mobile/quiz/quiz_client.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_focused_intro_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_mock_intro_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_session_screen.dart';
 
@@ -25,6 +26,24 @@ AuthClient _auth() => AuthClient(
     );
 
 QuizClient _stub() => QuizClient(auth: _auth());
+
+/// Build a QuizClient whose AuthClient carries an in-memory User so the
+/// Mock card wiring can read `client.auth.user?.examId`. When [examId]
+/// is null we explicitly set a User with null examId, exercising the
+/// onboarding-nudge branch.
+QuizClient _stubWithUser({String? examId}) {
+  final auth = _auth();
+  auth.setUser(User(
+    id: 'u-1',
+    email: 't@example.com',
+    firstName: 'T',
+    lastName: 'U',
+    role: 'STUDENT',
+    onboardingState: 'COMPLETE',
+    examId: examId,
+  ));
+  return QuizClient(auth: auth);
+}
 
 InsightsClient _stubInsights() => InsightsClient(auth: _auth());
 
@@ -76,16 +95,34 @@ void main() {
       expect(find.byType(VidyaFocusedIntroScreen), findsOneWidget);
     });
 
-    testWidgets('Mock Test tap shows the v2 deferred snackbar',
+    testWidgets('Mock Test tap navigates to mock intro screen (examId set)',
         (tester) async {
-      await tester.pumpWidget(_harness(VidyaPracticeScreen(client: _stub(), insights: _stubInsights())));
+      await tester.pumpWidget(_harness(VidyaPracticeScreen(
+        client: _stubWithUser(examId: 'exam-jee-main'),
+        insights: _stubInsights(),
+      )));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mock Test'));
+      // The intro screen kicks off an HTTP fetch that 500s in tests;
+      // pumpAndSettle is safe because that future resolves quickly.
+      await tester.pumpAndSettle();
+      expect(find.byType(VidyaMockIntroScreen), findsOneWidget);
+    });
+
+    testWidgets('Mock Test tap shows onboarding nudge when examId is null',
+        (tester) async {
+      await tester.pumpWidget(_harness(VidyaPracticeScreen(
+        client: _stubWithUser(),
+        insights: _stubInsights(),
+      )));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Mock Test'));
       await tester.pump();
       expect(
-        find.textContaining('coming in Phase 3c.full v2'),
+        find.textContaining('Pick your exam in onboarding'),
         findsOneWidget,
       );
+      expect(find.byType(VidyaMockIntroScreen), findsNothing);
     });
   });
 }

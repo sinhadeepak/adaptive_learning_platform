@@ -217,6 +217,7 @@ class User {
     required this.role,
     required this.onboardingState,
     this.tenantId,
+    this.examId,
   });
   final String id;
   final String email;
@@ -225,6 +226,13 @@ class User {
   final String role;
   final String onboardingState;
   final String? tenantId;
+
+  /// Phase 3c.full v3 — primary exam the user is preparing for. Optional
+  /// because legacy /auth payloads don't carry it; populated by callers
+  /// after a /profile/exams fetch (see screens/home_tab.dart) via
+  /// `AuthClient.setUser(...)`. Mock Test card uses this to decide whether
+  /// to launch the blueprint intro vs. show an onboarding nudge.
+  final String? examId;
   factory User.fromJson(Map<String, dynamic> json) => User(
         id: json['id'] as String,
         email: json['email'] as String,
@@ -233,6 +241,22 @@ class User {
         role: json['role'] as String,
         onboardingState: json['onboardingState'] as String,
         tenantId: json['tenantId'] as String?,
+        examId: json['examId'] as String?,
+      );
+
+  /// Phase 3c.full v3 — produce a copy with a different `examId`. Used by
+  /// callers that resolved the exam after login (e.g. home tab fetching
+  /// /profile/exams) so subsequent screens can read `auth.user.examId`
+  /// directly.
+  User copyWith({String? examId}) => User(
+        id: id,
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+        role: role,
+        onboardingState: onboardingState,
+        tenantId: tenantId,
+        examId: examId ?? this.examId,
       );
 }
 
