@@ -1,13 +1,25 @@
-// VidyaPracticeScreen — Phase 3c v1. Stateless landing with three
-// practice mode cards (Quick / Focused / Mock). Tap shows a snackbar;
-// the real session screen with Phase 2f's θ-live overlay lands in
-// Phase 3c.full.
+// VidyaPracticeScreen — Phase 3c.full v1. Landing surface with three
+// practice mode cards (Quick / Focused / Mock). Quick now wires through
+// to VidyaPracticeSessionScreen → VidyaPracticeResultScreen; Focused +
+// Mock still snackbar (their slices land in Phase 3c.full v2 + v3).
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
+import '../../quiz/quiz_client.dart';
+import 'vidya_practice_result_screen.dart';
+import 'vidya_practice_session_screen.dart';
+
 class VidyaPracticeScreen extends StatelessWidget {
-  const VidyaPracticeScreen({super.key});
+  final QuizClient client;
+  const VidyaPracticeScreen({super.key, required this.client});
+
+  // Seeded Mechanics topic — same UUID Aurora's PracticeTab passes for
+  // its Adaptive Practice card. Quick Practice in v1 reuses it as a
+  // sensible random-syllabus stand-in. v2 will source this from the
+  // user's active subject/topic; the constant lives here (private)
+  // until that wiring lands.
+  static const _seededQuickTopic = '33333333-0000-0000-0000-000000000001';
 
   static const _modes = <_Mode>[
     _Mode(
@@ -28,9 +40,33 @@ class VidyaPracticeScreen extends StatelessWidget {
   ];
 
   void _onModeTap(BuildContext context, _Mode m) {
+    if (m.title == 'Quick Practice') {
+      final userId = client.auth.user?.id ?? '';
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => VidyaPracticeSessionScreen(
+          client: client,
+          mode: QuizSessionMode.practice,
+          questionCount: 10,
+          topicId: _seededQuickTopic,
+          userId: userId,
+          onCompleted: (sessionId) {
+            Navigator.of(context).pushReplacement(MaterialPageRoute(
+              builder: (_) => VidyaPracticeResultScreen(
+                client: client,
+                sessionId: sessionId,
+                onDone: () => Navigator.of(context).pop(),
+              ),
+            ));
+          },
+          onBack: () => Navigator.of(context).pop(),
+        ),
+      ));
+      return;
+    }
+    // Focused + Mock keep the snackbar stub.
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${m.title} session is coming in Phase 3c.full.'),
+        content: Text('${m.title} session is coming in Phase 3c.full v2.'),
       ),
     );
   }

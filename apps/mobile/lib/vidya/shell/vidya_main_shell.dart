@@ -16,6 +16,7 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
 import '../../auth/auth_client.dart';
+import '../../quiz/quiz_client.dart';
 import '../screens/vidya_home_screen.dart';
 import '../screens/vidya_insights_screen.dart';
 import '../screens/vidya_more_screen.dart';
@@ -45,6 +46,10 @@ class VidyaMainShell extends StatefulWidget {
 
 class _VidyaMainShellState extends State<VidyaMainShell> {
   late VidyaShellTab _active = widget.initialTab;
+  // Practice tab needs a QuizClient. Construct once off the shared
+  // AuthClient so the bearer token auto-attaches; instance is reused
+  // across Quick → Session → Result navigation.
+  late final QuizClient _quizClient = QuizClient(auth: widget.auth);
 
   void _switchTo(VidyaShellTab t) => setState(() => _active = t);
 
@@ -61,7 +66,7 @@ class _VidyaMainShellState extends State<VidyaMainShell> {
       ),
       Container(
         key: const Key('vidya.shell.practice'),
-        child: const VidyaPracticeScreen(),
+        child: VidyaPracticeScreen(client: _quizClient),
       ),
       Container(
         key: const Key('vidya.shell.insights'),
