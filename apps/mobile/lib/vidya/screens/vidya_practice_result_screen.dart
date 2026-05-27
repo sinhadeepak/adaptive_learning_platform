@@ -302,7 +302,14 @@ class _VidyaPracticeResultScreenState
                 height: 1.1,
               ),
             ),
-            if (_breakdown.isNotEmpty) ...[
+            // Hide the breakdown when there's only one row — it would
+            // render directly under the big score and read as
+            // `Mechanics  7 / 10` under `7 / 10`, adding zero info.
+            // Today the backend `itemSummary` doesn't emit per-item
+            // topicId, so all PRACTICE sessions collapse to one row;
+            // multi-row will light up automatically once the Go
+            // `itemSummary` struct serialises topicId per item.
+            if (_breakdown.length >= 2) ...[
               const SizedBox(height: 32),
               Text(
                 'BY TOPIC',

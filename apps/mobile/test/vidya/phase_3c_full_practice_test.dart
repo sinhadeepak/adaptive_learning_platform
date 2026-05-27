@@ -724,6 +724,55 @@ void main() {
       expect(find.text('BY TOPIC'), findsNothing);
       expect(find.text('Done'), findsOneWidget);
     });
+
+    testWidgets(
+        'single-topic breakdown is suppressed (redundant with big score)',
+        (tester) async {
+      // Today's PRACTICE sessions always collapse to one topic because
+      // backend itemSummary doesn't yet emit per-item topicId. Rendering
+      // a single-row breakdown directly under the big score reads as
+      // `Mechanics 7 / 10` under `7 / 10` — zero extra info. Suppress.
+      final items = List<QuizItemSummary>.generate(
+        10,
+        (i) => QuizItemSummary(
+          itemIdx: i,
+          questionId: 'q-$i',
+          answered: true,
+          topicId: 't-1',
+          isCorrect: i < 7,
+          answerIdx: 0,
+          correctIdx: i < 7 ? 0 : 1,
+        ),
+      );
+      final client = buildClient(
+        sessionResponse: QuizSessionDetail(
+          sessionId: 'sess-1',
+          userId: 'u-1',
+          topicId: 't-1',
+          mode: 'PRACTICE',
+          strategy: 'random',
+          status: 'COMPLETED',
+          targetCount: 10,
+          servedCount: 10,
+          correctCount: 7,
+          items: items,
+        ),
+      );
+
+      await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
+        client: client,
+        auth: client.auth,
+        sessionId: 'sess-1',
+        onDone: () {},
+      )));
+      await tester.pumpAndSettle();
+
+      // Score + Done still render
+      expect(find.text('7 / 10'), findsOneWidget);
+      expect(find.text('Done'), findsOneWidget);
+      // But the single-row breakdown is suppressed
+      expect(find.text('BY TOPIC'), findsNothing);
+    });
   });
 
   group('computeTopicBreakdown (pure)', () {
