@@ -287,6 +287,18 @@ class ApiClient {
         .toList();
   }
 
+  /// Phase 3c.full v3 — list public OFFICIAL + CURATED-PUBLISHED blueprints
+  /// for the given exam. Wraps `GET /catalog/exam-blueprints?examId=<id>`
+  /// (Sprint 23 P4-S23). Returns `[]` on non-200 to keep the calling UI
+  /// resilient — empty + error states render identically in Mock intro.
+  Future<List<ExamBlueprint>> examBlueprints(String examId) async {
+    final r = await auth.apiGet('/catalog/exam-blueprints?examId=$examId');
+    if (r.statusCode != 200) return const [];
+    final j = jsonDecode(r.body) as Map<String, dynamic>;
+    final items = (j['items'] as List? ?? const []).cast<Map<String, dynamic>>();
+    return items.map(ExamBlueprint.fromJson).toList();
+  }
+
   Future<Topic?> topic(String topicId) async {
     final r = await auth.apiGet('/catalog/topics/$topicId');
     if (r.statusCode != 200) return null;
@@ -744,6 +756,82 @@ class Topic {
   final String title;
   final int questionCount;
   final String tier;
+}
+
+/// One row from `GET /catalog/exam-blueprints?examId=<id>`. Mirrors the
+/// catalog repo's `_row_to_dict` shape — see
+/// `services/learning/src/learning/exam_blueprints/repositories.py`.
+/// `sections` is the raw blueprint definition (subject_id / topic_ids /
+/// n_questions / n_minutes per section) — the Mock intro card surfaces
+/// section names + counts off this list.
+class ExamBlueprint {
+  ExamBlueprint({
+    required this.id,
+    required this.examId,
+    required this.name,
+    required this.totalQuestions,
+    required this.totalMinutes,
+    required this.marksCorrect,
+    required this.marksNegative,
+    required this.sections,
+    required this.interSectionNavigation,
+    required this.perSectionTimeLocked,
+    required this.kind,
+    required this.visibility,
+    required this.status,
+    this.createdByUserId,
+    this.shareSlug,
+    this.createdAt,
+    this.updatedAt,
+    this.publishedAt,
+  });
+
+  final String id;
+  final String examId;
+  final String name;
+  final int totalQuestions;
+  final int totalMinutes;
+  final int marksCorrect;
+  final double marksNegative;
+  /// Raw JSONB section definitions from the blueprint row. Each item is
+  /// shaped roughly `{section_id, name, subject_id?, topic_ids, n_questions,
+  /// n_minutes, difficulty_distribution, difficulty_band}` — kept as
+  /// untyped maps because Mock intro renders the few fields it needs
+  /// (`name`, `n_questions`, `n_minutes`) directly.
+  final List<Map<String, dynamic>> sections;
+  final bool interSectionNavigation;
+  final bool perSectionTimeLocked;
+  final String kind; // OFFICIAL | CURATED | CUSTOM | AI_SUGGESTED | SHARED
+  final String visibility; // PUBLIC | PRIVATE | UNLISTED
+  final String status; // PUBLISHED | PENDING_REVIEW | RETIRED
+  final String? createdByUserId;
+  final String? shareSlug;
+  final String? createdAt;
+  final String? updatedAt;
+  final String? publishedAt;
+
+  factory ExamBlueprint.fromJson(Map<String, dynamic> j) => ExamBlueprint(
+        id: j['id'] as String,
+        examId: (j['examId'] ?? '') as String,
+        name: (j['name'] ?? '') as String,
+        totalQuestions: ((j['totalQuestions'] ?? 0) as num).toInt(),
+        totalMinutes: ((j['totalMinutes'] ?? 0) as num).toInt(),
+        marksCorrect: ((j['marksCorrect'] ?? 0) as num).toInt(),
+        marksNegative: ((j['marksNegative'] ?? 0) as num).toDouble(),
+        sections: ((j['sections'] ?? const []) as List)
+            .whereType<Map<String, dynamic>>()
+            .toList(),
+        interSectionNavigation: (j['interSectionNavigation'] ?? true) as bool,
+        perSectionTimeLocked: (j['perSectionTimeLocked'] ?? false) as bool,
+        kind: (j['kind'] ?? 'OFFICIAL') as String,
+        visibility: (j['visibility'] ?? 'PUBLIC') as String,
+        status: (j['status'] ?? 'PUBLISHED') as String,
+        createdByUserId: j['createdByUserId'] as String?,
+        shareSlug: j['shareSlug'] as String?,
+        createdAt: j['createdAt'] as String?,
+        updatedAt: j['updatedAt'] as String?,
+        publishedAt: j['publishedAt'] as String?,
+      );
 }
 
 class RankProjection {

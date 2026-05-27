@@ -56,6 +56,40 @@ class QuizClient {
     return QuizSessionStart.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
+  /// Phase 3c.full v3 — Mock blueprint launch (Sprint 23 P4-S23).
+  /// POSTs to `/quiz/sessions/from-blueprint` and returns the rich
+  /// Mock-specific response (sessionId, blueprintName, itemCount,
+  /// totalMinutes, marksCorrect, marksNegative, short, sections, …).
+  Future<QuizSessionStartFromBlueprint> startFromBlueprint({
+    required String blueprintId,
+    required String userId,
+    int attemptIdx = 0,
+  }) async {
+    final res = await auth.apiPost('/quiz/sessions/from-blueprint', {
+      'blueprintId': blueprintId,
+      'userId': userId,
+      'attemptIdx': attemptIdx,
+    });
+    if (res.statusCode == 404) {
+      throw const QuizError('No mock blueprint found.', QuizErrorCode.notFound);
+    }
+    if (res.statusCode == 422) {
+      throw const QuizError(
+        'No questions available for this mock yet.',
+        QuizErrorCode.emptyTopic,
+      );
+    }
+    if (res.statusCode != 201) {
+      throw QuizError(
+        'Could not start mock (${res.statusCode}).',
+        QuizErrorCode.unknown,
+      );
+    }
+    return QuizSessionStartFromBlueprint.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<QuizNext> next(String sessionId) async {
     final res = await auth.apiGet('/quiz/sessions/$sessionId/next');
     if (res.statusCode == 409) {
@@ -129,6 +163,91 @@ class QuizSessionStart {
         strategy: j['strategy'] as String,
         mode: j['mode'] as String,
         expiresAt: DateTime.parse(j['expiresAt'] as String),
+      );
+}
+
+/// Response from `POST /quiz/sessions/from-blueprint` (Sprint 23 P4-S23).
+/// Carries the rich Mock blueprint metadata the session UI needs at start:
+/// total marks rules, per-section composition, and the `short` flag the
+/// composer raises when the question bank couldn't fill the blueprint.
+class QuizSessionStartFromBlueprint {
+  QuizSessionStartFromBlueprint({
+    required this.sessionId,
+    required this.blueprintId,
+    required this.blueprintName,
+    required this.mode,
+    required this.status,
+    required this.expiresAt,
+    required this.itemCount,
+    required this.totalMinutes,
+    required this.marksCorrect,
+    required this.marksNegative,
+    required this.short,
+    required this.interSectionNavigation,
+    required this.perSectionTimeLocked,
+    required this.sections,
+  });
+  final String sessionId;
+  final String blueprintId;
+  final String blueprintName;
+  final String mode; // always "MOCK_BLUEPRINT"
+  final String status; // "IN_PROGRESS"
+  final DateTime expiresAt;
+  final int itemCount;
+  final int totalMinutes;
+  final int marksCorrect;
+  final double marksNegative;
+  final bool short;
+  final bool interSectionNavigation;
+  final bool perSectionTimeLocked;
+  final List<MockBlueprintSection> sections;
+
+  factory QuizSessionStartFromBlueprint.fromJson(Map<String, dynamic> j) =>
+      QuizSessionStartFromBlueprint(
+        sessionId: j['sessionId'] as String,
+        blueprintId: j['blueprintId'] as String,
+        blueprintName: (j['blueprintName'] ?? '') as String,
+        mode: (j['mode'] ?? 'MOCK_BLUEPRINT') as String,
+        status: (j['status'] ?? 'IN_PROGRESS') as String,
+        expiresAt: DateTime.parse(j['expiresAt'] as String),
+        itemCount: ((j['itemCount'] ?? 0) as num).toInt(),
+        totalMinutes: ((j['totalMinutes'] ?? 0) as num).toInt(),
+        marksCorrect: ((j['marksCorrect'] ?? 0) as num).toInt(),
+        marksNegative: ((j['marksNegative'] ?? 0) as num).toDouble(),
+        short: (j['short'] ?? false) as bool,
+        interSectionNavigation: (j['interSectionNavigation'] ?? true) as bool,
+        perSectionTimeLocked: (j['perSectionTimeLocked'] ?? false) as bool,
+        sections: ((j['sections'] ?? const []) as List)
+            .cast<Map<String, dynamic>>()
+            .map(MockBlueprintSection.fromJson)
+            .toList(),
+      );
+}
+
+/// Per-section composition result emitted by the blueprint composer.
+/// `nRequested` is what the blueprint asked for; `nComposed` is what
+/// the bank could actually fill (drives the per-section short banner).
+class MockBlueprintSection {
+  MockBlueprintSection({
+    required this.sectionId,
+    required this.name,
+    required this.nRequested,
+    required this.nComposed,
+    required this.short,
+  });
+  final String sectionId;
+  final String name;
+  final int nRequested;
+  final int nComposed;
+  final bool short;
+
+  factory MockBlueprintSection.fromJson(Map<String, dynamic> j) =>
+      MockBlueprintSection(
+        sectionId: (j['sectionId'] ?? '') as String,
+        name: (j['name'] ?? '') as String,
+        nRequested: ((j['nRequested'] ?? 0) as num).toInt(),
+        nComposed: ((j['nComposed'] ?? 0) as num).toInt(),
+        short: (j['short'] ?? false) as bool,
       );
 }
 
