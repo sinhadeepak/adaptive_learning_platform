@@ -10,7 +10,9 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
+import 'package:adaptive_learning_mobile/insights/insights_client.dart';
 import 'package:adaptive_learning_mobile/quiz/quiz_client.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_focused_intro_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_session_screen.dart';
 
@@ -24,6 +26,8 @@ AuthClient _auth() => AuthClient(
 
 QuizClient _stub() => QuizClient(auth: _auth());
 
+InsightsClient _stubInsights() => InsightsClient(auth: _auth());
+
 Widget _harness(Widget child) => MaterialApp(
       theme: VidyaTheme.material(
         brightness: Brightness.light,
@@ -36,7 +40,7 @@ Widget _harness(Widget child) => MaterialApp(
 void main() {
   group('VidyaPracticeScreen — Phase 3c v1', () {
     testWidgets('renders PRACTICE eyebrow + tagline', (tester) async {
-      await tester.pumpWidget(_harness(VidyaPracticeScreen(client: _stub())));
+      await tester.pumpWidget(_harness(VidyaPracticeScreen(client: _stub(), insights: _stubInsights())));
       await tester.pumpAndSettle();
       expect(find.text('PRACTICE'), findsOneWidget);
       expect(find.text('Sharpen your edge.'), findsOneWidget);
@@ -44,7 +48,7 @@ void main() {
 
     testWidgets('renders three mode cards with name + duration eyebrow',
         (tester) async {
-      await tester.pumpWidget(_harness(VidyaPracticeScreen(client: _stub())));
+      await tester.pumpWidget(_harness(VidyaPracticeScreen(client: _stub(), insights: _stubInsights())));
       await tester.pumpAndSettle();
       expect(find.text('Quick Practice'), findsOneWidget);
       expect(find.text('Focused Practice'), findsOneWidget);
@@ -56,28 +60,25 @@ void main() {
 
     testWidgets('Quick Practice tap navigates to session screen',
         (tester) async {
-      await tester.pumpWidget(_harness(VidyaPracticeScreen(client: _stub())));
+      await tester.pumpWidget(_harness(VidyaPracticeScreen(client: _stub(), insights: _stubInsights())));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Quick Practice'));
       await tester.pumpAndSettle();
       expect(find.byType(VidyaPracticeSessionScreen), findsOneWidget);
     });
 
-    testWidgets('Focused Practice tap shows the v2 deferred snackbar',
+    testWidgets('Focused Practice tap navigates to focused intro screen',
         (tester) async {
-      await tester.pumpWidget(_harness(VidyaPracticeScreen(client: _stub())));
+      await tester.pumpWidget(_harness(VidyaPracticeScreen(client: _stub(), insights: _stubInsights())));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Focused Practice'));
-      await tester.pump();
-      expect(
-        find.textContaining('coming in Phase 3c.full v2'),
-        findsOneWidget,
-      );
+      await tester.pumpAndSettle();
+      expect(find.byType(VidyaFocusedIntroScreen), findsOneWidget);
     });
 
     testWidgets('Mock Test tap shows the v2 deferred snackbar',
         (tester) async {
-      await tester.pumpWidget(_harness(VidyaPracticeScreen(client: _stub())));
+      await tester.pumpWidget(_harness(VidyaPracticeScreen(client: _stub(), insights: _stubInsights())));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Mock Test'));
       await tester.pump();

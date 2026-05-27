@@ -1,12 +1,19 @@
-// VidyaPracticeScreen — Phase 3c.full v1. Landing surface with three
-// practice mode cards (Quick / Focused / Mock). Quick now wires through
-// to VidyaPracticeSessionScreen → VidyaPracticeResultScreen; Focused +
-// Mock still snackbar (their slices land in Phase 3c.full v2 + v3).
+// VidyaPracticeScreen — Phase 3c.full v2. Landing surface with three
+// practice mode cards (Quick / Focused / Mock). Quick + Focused now
+// wire to the session loop; Mock still snackbars (slice lands in v3).
+//
+// Focused branches through VidyaFocusedIntroScreen first so the user
+// sees the resolved topic name + EWA before committing; the intro
+// screen hands back the topicId via onStart and we pushReplacement
+// into the session screen so back-from-Result lands on the Practice
+// landing (not on the intro).
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
+import '../../insights/insights_client.dart';
 import '../../quiz/quiz_client.dart';
+import 'vidya_focused_intro_screen.dart';
 import 'vidya_practice_result_screen.dart';
 import 'vidya_practice_session_screen.dart';
 
@@ -17,7 +24,12 @@ enum _PracticeModeKind { quick, focused, mock }
 
 class VidyaPracticeScreen extends StatelessWidget {
   final QuizClient client;
-  const VidyaPracticeScreen({super.key, required this.client});
+  final InsightsClient insights;
+  const VidyaPracticeScreen({
+    super.key,
+    required this.client,
+    required this.insights,
+  });
 
   // Seeded Mechanics topic — same UUID Aurora's PracticeTab passes for
   // its Adaptive Practice card. Quick Practice in v1 reuses it as a
@@ -71,6 +83,36 @@ class VidyaPracticeScreen extends StatelessWidget {
           ),
         ));
       case _PracticeModeKind.focused:
+        final userId = client.auth.user?.id ?? '';
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => VidyaFocusedIntroScreen(
+            client: client,
+            insights: insights,
+            userId: userId,
+            onStart: (topicId, _) {
+              Navigator.of(context).pushReplacement(MaterialPageRoute(
+                builder: (_) => VidyaPracticeSessionScreen(
+                  client: client,
+                  mode: QuizSessionMode.practice,
+                  questionCount: 10,
+                  topicId: topicId,
+                  userId: userId,
+                  onCompleted: (sessionId) {
+                    Navigator.of(context).pushReplacement(MaterialPageRoute(
+                      builder: (_) => VidyaPracticeResultScreen(
+                        client: client,
+                        sessionId: sessionId,
+                        onDone: () => Navigator.of(context).pop(),
+                      ),
+                    ));
+                  },
+                  onBack: () => Navigator.of(context).pop(),
+                ),
+              ));
+            },
+            onBack: () => Navigator.of(context).pop(),
+          ),
+        ));
       case _PracticeModeKind.mock:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

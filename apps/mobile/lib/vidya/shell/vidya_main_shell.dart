@@ -16,6 +16,7 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
 import '../../auth/auth_client.dart';
+import '../../insights/insights_client.dart';
 import '../../quiz/quiz_client.dart';
 import '../screens/vidya_home_screen.dart';
 import '../screens/vidya_insights_screen.dart';
@@ -50,6 +51,11 @@ class _VidyaMainShellState extends State<VidyaMainShell> {
   // AuthClient so the bearer token auto-attaches; instance is reused
   // across Quick → Session → Result navigation.
   late final QuizClient _quizClient = QuizClient(auth: widget.auth);
+  // Focused Practice (Phase 3c.full v2) reads the user's weakest topic
+  // from the engagement insights snapshot. Sibling to _quizClient so the
+  // same bearer-token path is reused.
+  late final InsightsClient _insightsClient =
+      InsightsClient(auth: widget.auth);
 
   void _switchTo(VidyaShellTab t) => setState(() => _active = t);
 
@@ -66,7 +72,10 @@ class _VidyaMainShellState extends State<VidyaMainShell> {
       ),
       Container(
         key: const Key('vidya.shell.practice'),
-        child: VidyaPracticeScreen(client: _quizClient),
+        child: VidyaPracticeScreen(
+          client: _quizClient,
+          insights: _insightsClient,
+        ),
       ),
       Container(
         key: const Key('vidya.shell.insights'),
