@@ -17,13 +17,13 @@
 routing:
   authoring:
     primary:    { provider: admin_chain, model: auto, max_tokens: 2000 }
-    fallback:   { provider: openai,      model: gpt-4o-mini, max_tokens: 2000 }
+    fallback:   { provider: stub,        model: stub-v1, max_tokens: 2000 }
     timeout_ms: 30000
     cost_target_per_call_usd: 0.05
 
   quality_check:
     primary:    { provider: admin_chain, model: auto, max_tokens: 800 }
-    fallback:   { provider: openai,      model: gpt-4o-mini, max_tokens: 800 }
+    fallback:   { provider: stub,        model: stub-v1, max_tokens: 800 }
     timeout_ms: 15000
     cost_target_per_call_usd: 0.005
 
