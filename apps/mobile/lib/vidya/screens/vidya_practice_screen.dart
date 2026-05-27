@@ -10,6 +10,11 @@ import '../../quiz/quiz_client.dart';
 import 'vidya_practice_result_screen.dart';
 import 'vidya_practice_session_screen.dart';
 
+/// Stable identifier for each practice mode, decoupled from the
+/// user-visible `title`. Lets a copy or i18n change touch the
+/// `_modes` literal without silently re-routing dispatch.
+enum _PracticeModeKind { quick, focused, mock }
+
 class VidyaPracticeScreen extends StatelessWidget {
   final QuizClient client;
   const VidyaPracticeScreen({super.key, required this.client});
@@ -23,16 +28,19 @@ class VidyaPracticeScreen extends StatelessWidget {
 
   static const _modes = <_Mode>[
     _Mode(
+      kind: _PracticeModeKind.quick,
       eyebrow: 'QUICK • 10 mins',
       title: 'Quick Practice',
       body: 'Random questions from your active syllabus.',
     ),
     _Mode(
+      kind: _PracticeModeKind.focused,
       eyebrow: 'FOCUSED • 20 mins',
       title: 'Focused Practice',
       body: "Drill the topics you've struggled with recently.",
     ),
     _Mode(
+      kind: _PracticeModeKind.mock,
       eyebrow: 'MOCK • 3 hrs',
       title: 'Mock Test',
       body: 'Full-length test under timed exam conditions.',
@@ -40,35 +48,36 @@ class VidyaPracticeScreen extends StatelessWidget {
   ];
 
   void _onModeTap(BuildContext context, _Mode m) {
-    if (m.title == 'Quick Practice') {
-      final userId = client.auth.user?.id ?? '';
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => VidyaPracticeSessionScreen(
-          client: client,
-          mode: QuizSessionMode.practice,
-          questionCount: 10,
-          topicId: _seededQuickTopic,
-          userId: userId,
-          onCompleted: (sessionId) {
-            Navigator.of(context).pushReplacement(MaterialPageRoute(
-              builder: (_) => VidyaPracticeResultScreen(
-                client: client,
-                sessionId: sessionId,
-                onDone: () => Navigator.of(context).pop(),
-              ),
-            ));
-          },
-          onBack: () => Navigator.of(context).pop(),
-        ),
-      ));
-      return;
+    switch (m.kind) {
+      case _PracticeModeKind.quick:
+        final userId = client.auth.user?.id ?? '';
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => VidyaPracticeSessionScreen(
+            client: client,
+            mode: QuizSessionMode.practice,
+            questionCount: 10,
+            topicId: _seededQuickTopic,
+            userId: userId,
+            onCompleted: (sessionId) {
+              Navigator.of(context).pushReplacement(MaterialPageRoute(
+                builder: (_) => VidyaPracticeResultScreen(
+                  client: client,
+                  sessionId: sessionId,
+                  onDone: () => Navigator.of(context).pop(),
+                ),
+              ));
+            },
+            onBack: () => Navigator.of(context).pop(),
+          ),
+        ));
+      case _PracticeModeKind.focused:
+      case _PracticeModeKind.mock:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${m.title} session is coming in Phase 3c.full v2.'),
+          ),
+        );
     }
-    // Focused + Mock keep the snackbar stub.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${m.title} session is coming in Phase 3c.full v2.'),
-      ),
-    );
   }
 
   @override
@@ -108,10 +117,12 @@ class VidyaPracticeScreen extends StatelessWidget {
 }
 
 class _Mode {
+  final _PracticeModeKind kind;
   final String eyebrow;
   final String title;
   final String body;
   const _Mode({
+    required this.kind,
     required this.eyebrow,
     required this.title,
     required this.body,
