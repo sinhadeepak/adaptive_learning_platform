@@ -370,6 +370,7 @@ void main() {
     QuizSessionDetail summary({
       int correct = 7,
       int served = 10,
+      int target = 10,
     }) =>
         QuizSessionDetail(
           sessionId: 'sess-1',
@@ -378,7 +379,7 @@ void main() {
           mode: 'PRACTICE',
           strategy: 'random',
           status: 'COMPLETED',
-          targetCount: 10,
+          targetCount: target,
           servedCount: served,
           correctCount: correct,
           items: const [],
@@ -443,6 +444,24 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('9 / 10'), findsOneWidget);
       expect(client.sessionCalls, 2);
+    });
+
+    testWidgets('early-quit summary uses targetCount as denominator',
+        (tester) async {
+      // User answered only 5 of the 10 they planned. The result screen
+      // must read "3 / 10" (not the misleading "3 / 5") to match what
+      // the user saw mid-quiz ("X of 10" throughout).
+      final client = _StubQuizClient(
+        sessionResponse: summary(correct: 3, served: 5, target: 10),
+      );
+      await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
+        client: client,
+        sessionId: 'sess-1',
+        onDone: () {},
+      ),),);
+      await tester.pumpAndSettle();
+      expect(find.text('3 / 10'), findsOneWidget);
+      expect(find.text('3 / 5'), findsNothing);
     });
   });
 }
