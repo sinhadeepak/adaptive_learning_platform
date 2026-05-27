@@ -212,7 +212,12 @@ class _VidyaMockSessionScreenState extends State<VidyaMockSessionScreen> {
     }
   }
 
-  Future<void> _confirmExit() async {
+  /// Show the exit-confirm dialog and return whether the user tapped
+  /// Exit. Caller decides what to do with the result (✕ button invokes
+  /// `widget.onBack()`; the Android-back PopScope handler pops the route
+  /// manually). Returns `false` if the dialog was dismissed or Cancel
+  /// was tapped.
+  Future<bool> _confirmExit() async {
     final exit = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -230,7 +235,7 @@ class _VidyaMockSessionScreenState extends State<VidyaMockSessionScreen> {
         ],
       ),
     );
-    if (exit == true) widget.onBack();
+    return exit == true;
   }
 
   /// Format remaining seconds as `HH:MM:SS` (Mock can run 3 hours so
@@ -270,11 +275,29 @@ class _VidyaMockSessionScreenState extends State<VidyaMockSessionScreen> {
 
     Widget closeButton() => IconButton(
           icon: Icon(Icons.close, color: ink),
-          onPressed: _confirmExit,
+          onPressed: () async {
+            if (await _confirmExit()) widget.onBack();
+          },
+        );
+
+    // Wrap the whole screen in PopScope so the Android system back
+    // gesture / hardware back button funnels through `_confirmExit`
+    // instead of silently popping a 3-hour Mock session. canPop: false
+    // means Flutter never auto-pops; we pop manually if (and only if)
+    // the user confirms via the dialog.
+    Widget wrap(Widget child) => PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) async {
+            if (didPop) return;
+            if (await _confirmExit()) {
+              widget.onBack();
+            }
+          },
+          child: child,
         );
 
     if (_error != null) {
-      return VidyaScaffold(
+      return wrap(VidyaScaffold(
         appBar: VidyaAppBar(title: '', actions: [closeButton()]),
         body: Padding(
           padding: const EdgeInsets.all(20),
@@ -308,21 +331,21 @@ class _VidyaMockSessionScreenState extends State<VidyaMockSessionScreen> {
             ],
           ),
         ),
-      );
+      ),);
     }
 
     if (_item == null) {
-      return VidyaScaffold(
+      return wrap(VidyaScaffold(
         appBar: VidyaAppBar(title: '', actions: [closeButton()]),
         body: const Center(child: CircularProgressIndicator()),
-      );
+      ),);
     }
 
     final q = _item!;
     final sectionName = _currentSectionName();
     final total = widget.itemCount;
 
-    return VidyaScaffold(
+    return wrap(VidyaScaffold(
       appBar: VidyaAppBar(
         title: _formatCountdown(),
         actions: [closeButton()],
@@ -458,6 +481,6 @@ class _VidyaMockSessionScreenState extends State<VidyaMockSessionScreen> {
           ],
         ),
       ),
-    );
+    ),);
   }
 }

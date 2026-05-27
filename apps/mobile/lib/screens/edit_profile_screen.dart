@@ -66,16 +66,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         return;
       }
       // Mirror into AuthClient so the profile tab + greeting stay fresh.
+      // copyWith preserves examId (and other fields not passed) so a
+      // name edit doesn't silently drop the user's exam selection.
       final u = widget.auth.user;
       if (u != null) {
-        widget.auth.setUser(User(
-          id: u.id,
-          email: u.email,
+        widget.auth.setUser(u.copyWith(
           firstName: updated.firstName,
           lastName: updated.lastName,
-          role: u.role,
-          onboardingState: u.onboardingState,
-          tenantId: u.tenantId,
         ),);
       }
       setState(() {

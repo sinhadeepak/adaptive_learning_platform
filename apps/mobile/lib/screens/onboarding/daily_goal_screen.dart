@@ -44,18 +44,12 @@ class _DailyGoalScreenState extends State<DailyGoalScreen> {
         setState(() => _error = "We couldn't save your goal.");
         return;
       }
-      // Mark the in-memory user as ONBOARDED so the app routes to home immediately.
+      // Mark the in-memory user as ONBOARDED so the app routes to home
+      // immediately. copyWith preserves examId (and other fields) so the
+      // exam selection picked one step earlier survives this flip.
       final u = widget.auth.user;
       if (u != null) {
-        widget.auth.setUser(User(
-          id: u.id,
-          email: u.email,
-          firstName: u.firstName,
-          lastName: u.lastName,
-          role: u.role,
-          onboardingState: 'ONBOARDED',
-          tenantId: u.tenantId,
-        ),);
+        widget.auth.setUser(u.copyWith(onboardingState: 'ONBOARDED'));
       }
       widget.onCompleted();
     } catch (_) {

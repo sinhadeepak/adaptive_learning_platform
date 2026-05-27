@@ -528,6 +528,46 @@ void main() {
 
       await tester.pumpWidget(const SizedBox());
     });
+
+    testWidgets('Android system back gesture triggers exit confirm',
+        (tester) async {
+      final qc = _StubQuizClient(
+        sections: const [('sec-a', 'Section A', 1)],
+        items: [_qItem(0, 'Q1', const ['alpha', 'beta', 'gamma', 'delta'])],
+      );
+
+      var backTaps = 0;
+      await tester.pumpWidget(_harness(VidyaMockSessionScreen(
+        client: qc,
+        blueprintId: 'bp-1',
+        blueprintName: 'JEE',
+        userId: 'u-1',
+        itemCount: 1,
+        totalMinutes: 3,
+        onCompleted: (_) {},
+        onBack: () => backTaps++,
+      )));
+      await tester.pump();
+      await tester.pump();
+
+      // Simulate the Android system back gesture / hardware back button.
+      // PopScope(canPop: false) should intercept and surface the
+      // confirm dialog instead of silently popping the route.
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(find.text('Exit mock test?'), findsOneWidget);
+
+      // Cancel — dialog dismisses, screen stays, onBack NOT invoked.
+      await tester.tap(find.text('Cancel'));
+      await tester.pump();
+      expect(find.text('Exit mock test?'), findsNothing);
+      expect(find.text('Q1'), findsOneWidget);
+      expect(backTaps, 0);
+
+      // Drain the screen so the periodic timer doesn't leak across tests.
+      await tester.pumpWidget(const SizedBox());
+    });
   });
 }
 
