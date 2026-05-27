@@ -59,11 +59,13 @@ class _StubQuizClient extends QuizClient {
     Object? startError,
     Object? nextError,
     Object? answerError,
+    Map<int, Object>? nextErrors,
   })  : _startResponse = startResponse,
         _nextResponses = List.of(nextResponses),
         _startError = startError,
         _nextError = nextError,
         _answerError = answerError,
+        _nextErrors = Map.of(nextErrors ?? const {}),
         super(
           auth: AuthClient(
             baseUrl: 'http://stub',
@@ -77,10 +79,22 @@ class _StubQuizClient extends QuizClient {
   Object? _nextError;
   final Object? _answerError;
 
+  /// Map of {1-indexed call number → error to throw on that next() call}.
+  /// Lets a test inject a transient failure mid-session without taking
+  /// down every subsequent fetch.
+  final Map<int, Object> _nextErrors;
+
   int startCalls = 0;
   int nextCalls = 0;
   int answerCalls = 0;
   int? lastAnswerIdx;
+
+  /// Last topicId/userId echoed through start() — lets tests assert the
+  /// screen's constructor params actually flow to the wire call (guards
+  /// against a future Task 3 wiring regression where they get silently
+  /// swapped back to empty strings).
+  String? lastStartTopicId;
+  String? lastStartUserId;
 
   /// Test hook — clear a one-shot error so a Retry path can succeed.
   void clearStartError() {
@@ -98,6 +112,8 @@ class _StubQuizClient extends QuizClient {
     String mode = 'PRACTICE',
   }) async {
     startCalls++;
+    lastStartTopicId = topicId;
+    lastStartUserId = userId;
     if (_startError != null) throw _startError!;
     return _startResponse ??
         QuizSessionStart(
@@ -111,6 +127,9 @@ class _StubQuizClient extends QuizClient {
   @override
   Future<QuizNext> next(String sessionId) async {
     nextCalls++;
+    // Per-call error injection takes precedence over the sticky _nextError.
+    final perCall = _nextErrors.remove(nextCalls);
+    if (perCall != null) throw perCall;
     if (_nextError != null) throw _nextError!;
     if (_nextResponses.isEmpty) return _complete();
     return _nextResponses.removeAt(0);
@@ -149,6 +168,8 @@ void main() {
       );
       await tester.pumpWidget(_harness(VidyaPracticeSessionScreen(
         client: client,
+        topicId: 't-1',
+        userId: 'u-1',
         onCompleted: (_) {},
         onBack: () {},
       ),),);
@@ -157,6 +178,10 @@ void main() {
       expect(find.text('1 of 10'), findsOneWidget);
       expect(client.startCalls, 1);
       expect(client.nextCalls, 1);
+      // Constructor params must flow to the wire call — guards against a
+      // future Task 3 wiring change silently swapping them to ''.
+      expect(client.lastStartTopicId, 't-1');
+      expect(client.lastStartUserId, 'u-1');
     });
 
     testWidgets('answer + next advances to next question', (tester) async {
@@ -232,6 +257,59 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Recovered?'), findsOneWidget);
       expect(client.startCalls, 2);
+    });
+
+    testWidgets('mid-session error → retry calls next, not start',
+        (tester) async {
+      // Set up: start succeeds → next call #1 returns Q1 → after the user
+      // answers, next call #2 throws (transient) → Retry triggers next
+      // call #3 which returns Q2. Crucially `start()` must only ever be
+      // called once — _retry() must take the `_sessionId != null` branch
+      // and re-enter via _fetchNext, not _start.
+      final client = _StubQuizClient(
+        nextResponses: [
+          _q(idx: 0, stem: 'Q1 stem', choices: ['choice-a', 'choice-b', 'choice-c', 'choice-d']),
+          _q(idx: 1, stem: 'Q2 stem', choices: ['choice-a', 'choice-b', 'choice-c', 'choice-d']),
+        ],
+        // The 2nd next() call (after the answer submit) throws; #1 and #3
+        // pop from _nextResponses normally.
+        nextErrors: {
+          2: const QuizError('transient', QuizErrorCode.unknown),
+        },
+      );
+
+      await tester.pumpWidget(_harness(VidyaPracticeSessionScreen(
+        client: client,
+        onCompleted: (_) {},
+        onBack: () {},
+      ),),);
+      await tester.pumpAndSettle();
+      expect(find.text('Q1 stem'), findsOneWidget);
+      expect(client.startCalls, 1);
+      expect(client.nextCalls, 1);
+
+      // Submit an answer → triggers the 2nd next() which throws → banner.
+      await tester.tap(find.text('choice-b'));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('vidya.practice.session.submit')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('transient'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      // The throwing call still counted.
+      expect(client.nextCalls, 2);
+      // start() must NOT have been re-called by the failing next().
+      expect(client.startCalls, 1);
+
+      // Tap Retry → _retry() should take the `_sessionId != null` branch
+      // and call _fetchNext, NOT _start. Q2 should render.
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+
+      expect(client.startCalls, 1, reason: 'Retry must not re-invoke start()');
+      expect(client.nextCalls, 3, reason: 'Retry should advance via next()');
+      expect(find.text('Q2 stem'), findsOneWidget);
+      expect(find.text('2 of 10'), findsOneWidget);
     });
 
     testWidgets('close (✕) fires onBack', (tester) async {
