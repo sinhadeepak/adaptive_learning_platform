@@ -11,6 +11,7 @@ import 'package:http/testing.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/quiz/quiz_client.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_result_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_session_screen.dart';
 
 Widget _harness(Widget child) => MaterialApp(
@@ -60,12 +61,16 @@ class _StubQuizClient extends QuizClient {
     Object? nextError,
     Object? answerError,
     Map<int, Object>? nextErrors,
+    QuizSessionDetail? sessionResponse,
+    Object? sessionError,
   })  : _startResponse = startResponse,
         _nextResponses = List.of(nextResponses),
         _startError = startError,
         _nextError = nextError,
         _answerError = answerError,
         _nextErrors = Map.of(nextErrors ?? const {}),
+        _sessionResponse = sessionResponse,
+        _sessionError = sessionError,
         super(
           auth: AuthClient(
             baseUrl: 'http://stub',
@@ -84,10 +89,15 @@ class _StubQuizClient extends QuizClient {
   /// down every subsequent fetch.
   final Map<int, Object> _nextErrors;
 
+  final QuizSessionDetail? _sessionResponse;
+  Object? _sessionError;
+
   int startCalls = 0;
   int nextCalls = 0;
   int answerCalls = 0;
+  int sessionCalls = 0;
   int? lastAnswerIdx;
+  String? lastSessionId;
 
   /// Last topicId/userId echoed through start() — lets tests assert the
   /// screen's constructor params actually flow to the wire call (guards
@@ -103,6 +113,11 @@ class _StubQuizClient extends QuizClient {
 
   void clearNextError() {
     _nextError = null;
+  }
+
+  /// Test hook — clear a one-shot session() error so Retry can succeed.
+  void clearSessionError() {
+    _sessionError = null;
   }
 
   @override
@@ -154,6 +169,26 @@ class _StubQuizClient extends QuizClient {
       servedCount: answerCalls,
       correctCount: answerCalls,
     );
+  }
+
+  @override
+  Future<QuizSessionDetail> session(String sessionId) async {
+    sessionCalls++;
+    lastSessionId = sessionId;
+    if (_sessionError != null) throw _sessionError!;
+    return _sessionResponse ??
+        QuizSessionDetail(
+          sessionId: sessionId,
+          userId: 'u-1',
+          topicId: 't-1',
+          mode: 'PRACTICE',
+          strategy: 'random',
+          status: 'COMPLETED',
+          targetCount: 10,
+          servedCount: 10,
+          correctCount: 0,
+          items: const [],
+        );
   }
 }
 
@@ -328,6 +363,86 @@ void main() {
       await tester.tap(find.byIcon(Icons.close));
       await tester.pump();
       expect(backTaps, 1);
+    });
+  });
+
+  group('VidyaPracticeResultScreen — Phase 3c.full v1', () {
+    QuizSessionDetail summary({
+      int correct = 7,
+      int served = 10,
+    }) =>
+        QuizSessionDetail(
+          sessionId: 'sess-1',
+          userId: 'u-1',
+          topicId: 't-1',
+          mode: 'PRACTICE',
+          strategy: 'random',
+          status: 'COMPLETED',
+          targetCount: 10,
+          servedCount: served,
+          correctCount: correct,
+          items: const [],
+        );
+
+    testWidgets('renders score from fetched session summary',
+        (tester) async {
+      final client = _StubQuizClient(
+        sessionResponse: summary(correct: 7, served: 10),
+      );
+      await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
+        client: client,
+        sessionId: 'sess-1',
+        onDone: () {},
+      ),),);
+      await tester.pumpAndSettle();
+      expect(find.text('7 / 10'), findsOneWidget);
+      expect(find.text('PRACTICE COMPLETE'), findsOneWidget);
+      expect(client.sessionCalls, 1);
+      expect(client.lastSessionId, 'sess-1');
+    });
+
+    testWidgets('Done CTA fires onDone', (tester) async {
+      final client = _StubQuizClient(
+        sessionResponse: summary(correct: 4, served: 10),
+      );
+      var doneTaps = 0;
+      await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
+        client: client,
+        sessionId: 'sess-1',
+        onDone: () => doneTaps++,
+      ),),);
+      await tester.pumpAndSettle();
+      expect(find.text('4 / 10'), findsOneWidget);
+      await tester.tap(find.text('Done'));
+      await tester.pump();
+      expect(doneTaps, 1);
+    });
+
+    testWidgets('fetch error shows VidyaBanner + Retry recovers',
+        (tester) async {
+      final client = _StubQuizClient(
+        sessionResponse: summary(correct: 9, served: 10),
+        sessionError: const QuizError(
+          'Could not load session (500).',
+          QuizErrorCode.unknown,
+        ),
+      );
+      await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
+        client: client,
+        sessionId: 'sess-1',
+        onDone: () {},
+      ),),);
+      await tester.pumpAndSettle();
+      expect(find.textContaining("couldn't load"), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+
+      // Clear the error and tap Retry — the screen should call session()
+      // again and render the score.
+      client.clearSessionError();
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(find.text('9 / 10'), findsOneWidget);
+      expect(client.sessionCalls, 2);
     });
   });
 }
