@@ -39,6 +39,11 @@ class OpenAIProvider(AIProvider):
     ) -> dict[str, Any] | None:
         if not self.api_key:
             return None
+        # OpenAI strict json_schema mode requires `additionalProperties: false`
+        # on every object — Pydantic's default model_json_schema() does NOT
+        # emit it, so unprocessed Pydantic schemas get rejected with a 400.
+        # Walk the schema and patch every nested object before sending.
+        strict_schema = _to_openai_strict(schema)
         client = self._client()
         try:
             resp = await client.chat.completions.create(
@@ -52,13 +57,22 @@ class OpenAIProvider(AIProvider):
                     "type": "json_schema",
                     "json_schema": {
                         "name": schema_name,
-                        "schema": schema,
+                        "schema": strict_schema,
                         "strict": True,
                     },
                 },
             )
         except Exception as e:  # noqa: BLE001
-            log.warning("provider.openai.failed", extra={"err": str(e)[:200]})
+            # Log at WARNING with the full error text — silent None-return
+            # at this layer is convenient for the orchestrator's fallback
+            # logic, but invisible failures make ops impossible. The full
+            # 400 message ("In context=…, 'additionalProperties' is required")
+            # is exactly what an operator needs to diagnose schema drift.
+            log.warning(
+                "provider.openai.failed: %s",
+                str(e)[:500],
+                extra={"err": str(e)[:500], "schema_name": schema_name},
+            )
             return None
         finally:
             try:
@@ -133,3 +147,53 @@ class OpenAIProvider(AIProvider):
             message="Reachable. Key + model work.",
             latency_ms=int((time.monotonic() - t0) * 1000),
         )
+
+
+# ── Schema strict-mode adapter ───────────────────────────────────────
+
+
+def _to_openai_strict(schema: dict[str, Any]) -> dict[str, Any]:
+    """Make a Pydantic-emitted JSON schema compatible with OpenAI's
+    strict json_schema response_format.
+
+    OpenAI strict mode (`strict: true`) rejects schemas unless EVERY
+    object (root, nested, and inside `$defs`) carries
+    `additionalProperties: false`. Pydantic's `model_json_schema()`
+    doesn't emit this by default, so an unprocessed schema gets a
+    400 BadRequestError ("In context=…, 'additionalProperties' is
+    required to be supplied and to be false.").
+
+    This walks the schema tree and stamps `additionalProperties: false`
+    on every object node. Idempotent — safe to apply twice. Does not
+    re-write user-set `additionalProperties: true` because OpenAI
+    strict mode would reject those anyway; callers shouldn't be using
+    open-shape objects with strict mode.
+    """
+    import copy
+
+    out = copy.deepcopy(schema)
+    _strict_walk(out)
+    return out
+
+
+def _strict_walk(node: Any) -> None:
+    if isinstance(node, dict):
+        # Stamp every object schema. `type` may be missing (e.g. `$ref`
+        # nodes) — only touch dicts that look like object schemas.
+        if node.get("type") == "object" or "properties" in node:
+            node["additionalProperties"] = False
+            # OpenAI strict mode also demands `required` enumerates every
+            # property. Pydantic only lists fields without defaults; we
+            # force-include all keys here. `default` keywords on those
+            # properties are stripped below because strict mode rejects
+            # them too.
+            props = node.get("properties") or {}
+            if isinstance(props, dict) and props:
+                node["required"] = list(props.keys())
+        # Strict mode forbids `default` on any subschema.
+        node.pop("default", None)
+        for v in node.values():
+            _strict_walk(v)
+    elif isinstance(node, list):
+        for item in node:
+            _strict_walk(item)
