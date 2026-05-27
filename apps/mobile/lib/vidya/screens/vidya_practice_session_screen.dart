@@ -63,13 +63,10 @@ class VidyaPracticeSessionScreen extends StatefulWidget {
   /// where to go (usually `Navigator.pop`). No confirm dialog in v1.
   final VoidCallback onBack;
 
-  // Wiring note (Phase 3c.full v1): `QuizClient.start` requires
-  // `topicId` + `userId`, which the screen does not yet know how to
-  // source from the Vidya shell. v1 passes empty placeholders; Task 3
-  // will either (a) extend the constructor to accept them, or (b)
-  // introduce a thin wrapper that resolves them from the active
-  // user/profile. The screen contract intentionally stays minimal per
-  // the Phase 3c.full v1 plan.
+  /// Required. `topicId` selects the question pool (Phase 3c.full v1 uses
+  /// the seeded Mechanics UUID; v2 will source from the user's active
+  /// subject). `userId` comes from the authenticated `AuthClient.user.id`.
+  /// Both are forwarded verbatim to `QuizClient.start`.
   final String topicId;
   final String userId;
 
@@ -80,8 +77,8 @@ class VidyaPracticeSessionScreen extends StatefulWidget {
     this.questionCount = 10,
     required this.onCompleted,
     required this.onBack,
-    this.topicId = '',
-    this.userId = '',
+    required this.topicId,
+    required this.userId,
   });
 
   @override

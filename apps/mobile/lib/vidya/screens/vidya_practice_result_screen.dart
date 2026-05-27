@@ -44,6 +44,14 @@ class _VidyaPracticeResultScreenState
   QuizSessionDetail? _summary;
   String? _error;
 
+  /// Phase 3c.full v1.1 — single-shot guard against the race where the
+  /// session screen pushes us here via the sessionDone-409 completion path
+  /// before the server has finished writing the COMPLETED status. We retry
+  /// `session()` once after a short delay; if the second fetch still isn't
+  /// terminal we render anyway (best-effort). v2 should consider a proper
+  /// state machine if this becomes a real problem in production.
+  bool _didRetryStatus = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +61,18 @@ class _VidyaPracticeResultScreenState
   Future<void> _load() async {
     try {
       final s = await widget.client.session(widget.sessionId);
+      // If the session hasn't been marked COMPLETED yet (race with the
+      // sessionDone-409 completion path in the session screen), retry
+      // once after 500ms. EXPIRED is also terminal — don't retry on it.
+      // Best-effort; v2 should consider a real state machine.
+      if (s.status != 'COMPLETED' &&
+          s.status != 'EXPIRED' &&
+          !_didRetryStatus) {
+        _didRetryStatus = true;
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        if (!mounted) return;
+        return _load();
+      }
       if (mounted) setState(() => _summary = s);
     } on QuizError catch (e) {
       if (mounted) {
@@ -66,7 +86,10 @@ class _VidyaPracticeResultScreenState
   }
 
   Future<void> _retry() async {
-    setState(() => _error = null);
+    setState(() {
+      _error = null;
+      _didRetryStatus = false;
+    });
     await _load();
   }
 

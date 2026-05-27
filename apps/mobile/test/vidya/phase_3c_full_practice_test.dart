@@ -62,6 +62,7 @@ class _StubQuizClient extends QuizClient {
     Object? answerError,
     Map<int, Object>? nextErrors,
     QuizSessionDetail? sessionResponse,
+    List<QuizSessionDetail>? sessionResponses,
     Object? sessionError,
   })  : _startResponse = startResponse,
         _nextResponses = List.of(nextResponses),
@@ -70,6 +71,8 @@ class _StubQuizClient extends QuizClient {
         _answerError = answerError,
         _nextErrors = Map.of(nextErrors ?? const {}),
         _sessionResponse = sessionResponse,
+        _sessionResponses =
+            sessionResponses != null ? List.of(sessionResponses) : null,
         _sessionError = sessionError,
         super(
           auth: AuthClient(
@@ -90,6 +93,13 @@ class _StubQuizClient extends QuizClient {
   final Map<int, Object> _nextErrors;
 
   final QuizSessionDetail? _sessionResponse;
+
+  /// Phase 3c.full v1.1 — when set, session() pops responses from this
+  /// queue (FIFO). Lets a test exercise the IN_PROGRESS → COMPLETED
+  /// retry path. Once exhausted we fall back to `_sessionResponse` or
+  /// the default COMPLETED stub. `_sessionResponse` is preserved as the
+  /// single-response shortcut for backward compat with existing tests.
+  final List<QuizSessionDetail>? _sessionResponses;
   Object? _sessionError;
 
   int startCalls = 0;
@@ -176,6 +186,9 @@ class _StubQuizClient extends QuizClient {
     sessionCalls++;
     lastSessionId = sessionId;
     if (_sessionError != null) throw _sessionError!;
+    if (_sessionResponses != null && _sessionResponses.isNotEmpty) {
+      return _sessionResponses.removeAt(0);
+    }
     return _sessionResponse ??
         QuizSessionDetail(
           sessionId: sessionId,
@@ -228,6 +241,8 @@ void main() {
       );
       await tester.pumpWidget(_harness(VidyaPracticeSessionScreen(
         client: client,
+        topicId: 'topic-1',
+        userId: 'user-1',
         onCompleted: (_) {},
         onBack: () {},
       ),),);
@@ -253,6 +268,8 @@ void main() {
       String? completedSession;
       await tester.pumpWidget(_harness(VidyaPracticeSessionScreen(
         client: client,
+        topicId: 'topic-1',
+        userId: 'user-1',
         onCompleted: (sid) => completedSession = sid,
         onBack: () {},
       ),),);
@@ -274,6 +291,8 @@ void main() {
       );
       await tester.pumpWidget(_harness(VidyaPracticeSessionScreen(
         client: client,
+        topicId: 'topic-1',
+        userId: 'user-1',
         onCompleted: (_) {},
         onBack: () {},
       ),),);
@@ -315,6 +334,8 @@ void main() {
 
       await tester.pumpWidget(_harness(VidyaPracticeSessionScreen(
         client: client,
+        topicId: 'topic-1',
+        userId: 'user-1',
         onCompleted: (_) {},
         onBack: () {},
       ),),);
@@ -356,6 +377,8 @@ void main() {
       var backTaps = 0;
       await tester.pumpWidget(_harness(VidyaPracticeSessionScreen(
         client: client,
+        topicId: 'topic-1',
+        userId: 'user-1',
         onCompleted: (_) {},
         onBack: () => backTaps++,
       ),),);
@@ -371,6 +394,7 @@ void main() {
       int correct = 7,
       int served = 10,
       int target = 10,
+      String status = 'COMPLETED',
     }) =>
         QuizSessionDetail(
           sessionId: 'sess-1',
@@ -378,7 +402,7 @@ void main() {
           topicId: 't-1',
           mode: 'PRACTICE',
           strategy: 'random',
-          status: 'COMPLETED',
+          status: status,
           targetCount: target,
           servedCount: served,
           correctCount: correct,
@@ -462,6 +486,54 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('3 / 10'), findsOneWidget);
       expect(find.text('3 / 5'), findsNothing);
+    });
+
+    testWidgets(
+        'IN_PROGRESS summary triggers single retry, then renders (v1.1)',
+        (tester) async {
+      // Race case from M2: the session screen pushes us here via the
+      // sessionDone-409 completion path before the server has finished
+      // writing the COMPLETED status. The result screen should retry
+      // session() once after 500ms and render the second (COMPLETED)
+      // response — not the initial IN_PROGRESS payload.
+      final client = _StubQuizClient(
+        sessionResponses: [
+          summary(
+            status: 'IN_PROGRESS',
+            correct: 3,
+            served: 10,
+            target: 10,
+          ),
+          summary(
+            status: 'COMPLETED',
+            correct: 3,
+            served: 10,
+            target: 10,
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
+        client: client,
+        sessionId: 'sess-1',
+        onDone: () {},
+      ),),);
+
+      // First fetch returns IN_PROGRESS → screen is still in the
+      // retry-delay window and must NOT yet render the score.
+      await tester.pump();
+      expect(find.text('3 / 10'), findsNothing);
+
+      // Advance past the 500ms retry delay.
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+
+      expect(find.text('3 / 10'), findsOneWidget);
+      expect(
+        client.sessionCalls,
+        2,
+        reason: 'one initial fetch + one retry on IN_PROGRESS',
+      );
     });
   });
 }
