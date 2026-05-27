@@ -1,12 +1,22 @@
-// VidyaPracticeScreen — Phase 3c.full v2. Landing surface with three
-// practice mode cards (Quick / Focused / Mock). Quick + Focused now
-// wire to the session loop; Mock still snackbars (slice lands in v3).
+// VidyaPracticeScreen — Phase 3c.full v3.v1 (Quick + Focused + Mock).
+//
+// All three practice-mode cards now wire to the full session loop:
+//   - Quick   → VidyaPracticeSessionScreen (10 random questions)
+//   - Focused → VidyaFocusedIntroScreen → VidyaPracticeSessionScreen
+//                 (10 questions from the user's weakest concept)
+//   - Mock    → VidyaMockIntroScreen → VidyaMockSessionScreen
+//                 (full-length timed blueprint mock)
 //
 // Focused branches through VidyaFocusedIntroScreen first so the user
 // sees the resolved topic name + EWA before committing; the intro
 // screen hands back the topicId via onStart and we pushReplacement
 // into the session screen so back-from-Result lands on the Practice
 // landing (not on the intro).
+//
+// Mock additionally guards on `auth.user?.examId` before navigating;
+// when null we show an onboarding-nudge snackbar instead of a broken
+// flow. Quick/Focused don't need the guard because they don't need
+// the user's exam (Quick uses a seeded topic, Focused uses analytics).
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
