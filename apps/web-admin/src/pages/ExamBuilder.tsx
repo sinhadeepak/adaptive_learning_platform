@@ -477,6 +477,31 @@ function ReviewStep({ proposal, setProposal, busy, onBack, onSave }: ReviewProps
     setProposal({ ...proposal, subjects });
   }
 
+  function addSubject() {
+    // Pick a unique code that won't collide with existing subjects.
+    const used = new Set(proposal.subjects.map((s) => s.code));
+    let n = 1;
+    let code = `NEW_SUBJECT_${n}`;
+    while (used.has(code)) {
+      n += 1;
+      code = `NEW_SUBJECT_${n}`;
+    }
+    setProposal({
+      ...proposal,
+      subjects: [
+        ...proposal.subjects,
+        {
+          code,
+          name: "New subject",
+          description: null,
+          is_mandatory: true,
+          pool_code: null,
+          topics: [],
+        },
+      ],
+    });
+  }
+
   function patchPool(idx: number, patch: Partial<PoolDraft>) {
     const pools = proposal.pools.slice();
     pools[idx] = { ...pools[idx], ...patch };
@@ -606,6 +631,22 @@ function ReviewStep({ proposal, setProposal, busy, onBack, onSave }: ReviewProps
               onRemove={() => removeSubject(i)}
             />
           ))}
+          <button
+            type="button"
+            onClick={addSubject}
+            style={{
+              background: "transparent",
+              border: "1px dashed var(--rule)",
+              borderRadius: 8,
+              padding: 10,
+              color: "var(--accent)",
+              fontWeight: 600,
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            + Add subject
+          </button>
         </div>
       </div>
 
@@ -714,25 +755,124 @@ function SubjectRow({
         </button>
       </div>
       {open && (
-        <ul
+        <div
           style={{
             margin: "10px 0 0",
             padding: "10px 0 0 30px",
             borderTop: "1px solid var(--rule)",
-            fontSize: 12,
-            color: "var(--ink-2)",
-            listStyle: "decimal",
           }}
         >
-          {subject.topics.map((t) => (
-            <li key={t.code} style={{ marginBottom: 3 }}>
-              <strong style={{ color: "var(--ink)" }}>{t.title}</strong>
-              <span style={{ color: "var(--ink-4)", fontSize: 11, marginLeft: 6 }}>
-                {t.code}
-              </span>
-            </li>
-          ))}
-        </ul>
+          {subject.topics.length === 0 ? (
+            <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 8 }}>
+              No topics yet. Add one below.
+            </div>
+          ) : (
+            <ol
+              style={{
+                margin: 0,
+                padding: 0,
+                listStyle: "none",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}
+            >
+              {subject.topics.map((t, i) => (
+                <li
+                  key={`${t.code}-${i}`}
+                  style={{ display: "flex", alignItems: "center", gap: 8 }}
+                >
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "var(--ink-3)",
+                      width: 18,
+                      textAlign: "right",
+                    }}
+                  >
+                    {i + 1}.
+                  </span>
+                  <input
+                    value={t.title}
+                    onChange={(e) => {
+                      const topics = subject.topics.slice();
+                      topics[i] = { ...topics[i], title: e.target.value };
+                      onPatch({ topics });
+                    }}
+                    placeholder="Topic title"
+                    style={{ ...inlineInput, flex: 1, fontWeight: 500 }}
+                  />
+                  <input
+                    value={t.code}
+                    onChange={(e) => {
+                      const topics = subject.topics.slice();
+                      topics[i] = { ...topics[i], code: e.target.value };
+                      onPatch({ topics });
+                    }}
+                    placeholder="CODE"
+                    style={{
+                      ...inlineInput,
+                      width: 120,
+                      fontSize: 11,
+                      color: "var(--gold)",
+                      fontFamily: "monospace",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const topics = subject.topics.slice();
+                      topics.splice(i, 1);
+                      onPatch({ topics });
+                    }}
+                    aria-label={`Remove topic ${t.title}`}
+                    style={{
+                      background: "transparent",
+                      border: 0,
+                      color: "var(--bad)",
+                      cursor: "pointer",
+                      fontSize: 14,
+                    }}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              // Pick a unique topic code within this subject.
+              const used = new Set(subject.topics.map((t) => t.code));
+              let n = 1;
+              let code = `NEW_TOPIC_${n}`;
+              while (used.has(code)) {
+                n += 1;
+                code = `NEW_TOPIC_${n}`;
+              }
+              onPatch({
+                topics: [
+                  ...subject.topics,
+                  { code, title: "New topic", description: null },
+                ],
+              });
+            }}
+            style={{
+              marginTop: subject.topics.length === 0 ? 0 : 10,
+              background: "transparent",
+              border: "1px dashed var(--rule)",
+              borderRadius: 6,
+              padding: "6px 10px",
+              color: "var(--accent)",
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            + Add topic
+          </button>
+        </div>
       )}
     </div>
   );
