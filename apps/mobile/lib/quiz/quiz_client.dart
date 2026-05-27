@@ -264,6 +264,7 @@ class QuizItemSummary {
     this.stem,
     this.choices,
     this.explanation,
+    this.topicId,
   });
   final int itemIdx;
   final String questionId;
@@ -274,6 +275,13 @@ class QuizItemSummary {
   final String? stem;
   final List<String>? choices;
   final String? explanation;
+  // Phase 3c.full v2 — per-item topicId used by the result-screen
+  // breakdown. The backend doesn't emit this yet on GET
+  // /quiz/sessions/{id}.items; nullable so existing payloads keep
+  // parsing. When null at the screen layer we fall back to the
+  // session-level `topicId` so single-topic PRACTICE sessions still
+  // render a meaningful breakdown row.
+  final String? topicId;
 
   factory QuizItemSummary.fromJson(Map<String, dynamic> j) => QuizItemSummary(
         itemIdx: (j['itemIdx'] as num).toInt(),
@@ -285,5 +293,6 @@ class QuizItemSummary {
         stem: j['stem'] as String?,
         choices: (j['choices'] as List?)?.cast<String>(),
         explanation: j['explanation'] as String?,
+        topicId: j['topicId'] as String?,
       );
 }

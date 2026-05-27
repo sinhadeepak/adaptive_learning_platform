@@ -11,6 +11,7 @@ import 'package:http/testing.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/quiz/quiz_client.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_insights_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_result_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_session_screen.dart';
 
@@ -80,6 +81,23 @@ class _StubQuizClient extends QuizClient {
             httpClient: MockClient((req) async => http.Response('{}', 500)),
           ),
         );
+
+  /// Like the default ctor but lets the test supply its own AuthClient
+  /// — needed by Phase 3c.full v2 result-screen tests that mock
+  /// /catalog/topics/{id} for the BY TOPIC label resolution path.
+  _StubQuizClient.withAuth({
+    required AuthClient auth,
+    QuizSessionDetail? sessionResponse,
+  })  : _startResponse = null,
+        _nextResponses = [],
+        _startError = null,
+        _nextError = null,
+        _answerError = null,
+        _nextErrors = {},
+        _sessionResponse = sessionResponse,
+        _sessionResponses = null,
+        _sessionError = null,
+        super(auth: auth);
 
   final QuizSessionStart? _startResponse;
   final List<QuizNext> _nextResponses;
@@ -416,6 +434,7 @@ void main() {
       );
       await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
         client: client,
+        auth: client.auth,
         sessionId: 'sess-1',
         onDone: () {},
       ),),);
@@ -433,6 +452,7 @@ void main() {
       var doneTaps = 0;
       await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
         client: client,
+        auth: client.auth,
         sessionId: 'sess-1',
         onDone: () => doneTaps++,
       ),),);
@@ -454,6 +474,7 @@ void main() {
       );
       await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
         client: client,
+        auth: client.auth,
         sessionId: 'sess-1',
         onDone: () {},
       ),),);
@@ -480,6 +501,7 @@ void main() {
       );
       await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
         client: client,
+        auth: client.auth,
         sessionId: 'sess-1',
         onDone: () {},
       ),),);
@@ -515,6 +537,7 @@ void main() {
 
       await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
         client: client,
+        auth: client.auth,
         sessionId: 'sess-1',
         onDone: () {},
       ),),);
@@ -534,6 +557,226 @@ void main() {
         2,
         reason: 'one initial fetch + one retry on IN_PROGRESS',
       );
+    });
+  });
+
+  group('VidyaPracticeResultScreen — Phase 3c.full v2 (rich)', () {
+    /// Builds a QuizClient whose AuthClient.MockClient handles
+    /// /catalog/topics/{id} with the provided label map. Any other
+    /// route 500s so accidental network reach is loud.
+    _StubQuizClient buildClient({
+      required QuizSessionDetail sessionResponse,
+      Map<String, String> topicLabels = const {},
+    }) {
+      final mock = MockClient((req) async {
+        final p = req.url.path;
+        const prefix = '/catalog/topics/';
+        if (p.startsWith(prefix)) {
+          final id = p.substring(prefix.length);
+          final label = topicLabels[id];
+          if (label == null) {
+            return http.Response('{}', 404);
+          }
+          final body =
+              '{"id":"$id","subjectId":"s-1","title":"$label","questionCount":50,"tier":"FREE"}';
+          return http.Response(body, 200);
+        }
+        return http.Response('{}', 500);
+      });
+      final auth = AuthClient(baseUrl: 'http://stub', httpClient: mock);
+      final client = _StubQuizClient.withAuth(
+        auth: auth,
+        sessionResponse: sessionResponse,
+      );
+      return client;
+    }
+
+    QuizItemSummary item({
+      required int idx,
+      required String topicId,
+      required bool isCorrect,
+    }) =>
+        QuizItemSummary(
+          itemIdx: idx,
+          questionId: 'q-$idx',
+          answered: true,
+          isCorrect: isCorrect,
+          answerIdx: isCorrect ? 0 : 1,
+          correctIdx: 0,
+          topicId: topicId,
+        );
+
+    QuizSessionDetail summaryWithItems({
+      required List<QuizItemSummary> items,
+      int target = 5,
+      String topicId = 't-1',
+    }) {
+      var correct = 0;
+      for (final it in items) {
+        if (it.isCorrect ?? false) correct++;
+      }
+      return QuizSessionDetail(
+        sessionId: 'sess-1',
+        userId: 'u-1',
+        topicId: topicId,
+        mode: 'PRACTICE',
+        strategy: 'random',
+        status: 'COMPLETED',
+        targetCount: target,
+        servedCount: items.length,
+        correctCount: correct,
+        items: items,
+      );
+    }
+
+    testWidgets('renders per-topic breakdown from items', (tester) async {
+      final client = buildClient(
+        sessionResponse: summaryWithItems(
+          target: 5,
+          items: [
+            item(idx: 0, topicId: 'mech', isCorrect: true),
+            item(idx: 1, topicId: 'mech', isCorrect: false),
+            item(idx: 2, topicId: 'mech', isCorrect: true),
+            item(idx: 3, topicId: 'thermo', isCorrect: true),
+            item(idx: 4, topicId: 'thermo', isCorrect: true),
+          ],
+          topicId: 'mech',
+        ),
+        topicLabels: {'mech': 'Mechanics', 'thermo': 'Thermo'},
+      );
+
+      await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
+        client: client,
+        auth: client.auth,
+        sessionId: 'sess-1',
+        onDone: () {},
+      )));
+      await tester.pumpAndSettle();
+
+      // Eyebrow + topic-count rows.
+      expect(find.text('BY TOPIC'), findsOneWidget);
+      expect(find.text('Mechanics'), findsOneWidget);
+      expect(find.text('Thermo'), findsOneWidget);
+      // mech: 2 correct of 3 served; thermo: 2 of 2.
+      expect(find.text('2 / 3'), findsOneWidget);
+      expect(find.text('2 / 2'), findsOneWidget);
+    });
+
+    testWidgets('See insights CTA pushes VidyaInsightsScreen',
+        (tester) async {
+      final client = buildClient(
+        sessionResponse: summaryWithItems(
+          target: 2,
+          items: [
+            item(idx: 0, topicId: 'mech', isCorrect: true),
+            item(idx: 1, topicId: 'mech', isCorrect: false),
+          ],
+          topicId: 'mech',
+        ),
+        topicLabels: const {'mech': 'Mechanics'},
+      );
+
+      await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
+        client: client,
+        auth: client.auth,
+        sessionId: 'sess-1',
+        onDone: () {},
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(VidyaInsightsScreen), findsNothing);
+      await tester.tap(
+        find.byKey(const Key('vidya.practice.result.see-insights')),
+      );
+      // VidyaInsightsScreen kicks off async loads on mount; pump once
+      // to let the route transition land but don't wait for them.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byType(VidyaInsightsScreen), findsOneWidget);
+    });
+
+    testWidgets('empty items list → no breakdown section, just score + Done',
+        (tester) async {
+      final client = buildClient(
+        sessionResponse: QuizSessionDetail(
+          sessionId: 'sess-1',
+          userId: 'u-1',
+          topicId: 't-1',
+          mode: 'PRACTICE',
+          strategy: 'random',
+          status: 'COMPLETED',
+          targetCount: 10,
+          servedCount: 0,
+          correctCount: 0,
+          items: const [],
+        ),
+      );
+
+      await tester.pumpWidget(_harness(VidyaPracticeResultScreen(
+        client: client,
+        auth: client.auth,
+        sessionId: 'sess-1',
+        onDone: () {},
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.text('0 / 10'), findsOneWidget);
+      expect(find.text('BY TOPIC'), findsNothing);
+      expect(find.text('Done'), findsOneWidget);
+    });
+  });
+
+  group('computeTopicBreakdown (pure)', () {
+    QuizItemSummary mk({
+      required int idx,
+      String? topicId,
+      required bool isCorrect,
+    }) =>
+        QuizItemSummary(
+          itemIdx: idx,
+          questionId: 'q-$idx',
+          answered: true,
+          isCorrect: isCorrect,
+          answerIdx: isCorrect ? 0 : 1,
+          correctIdx: 0,
+          topicId: topicId,
+        );
+
+    test('groups items by topicId and counts correct/total', () {
+      final rows = computeTopicBreakdown([
+        mk(idx: 0, topicId: 'mech', isCorrect: true),
+        mk(idx: 1, topicId: 'mech', isCorrect: false),
+        mk(idx: 2, topicId: 'mech', isCorrect: true),
+        mk(idx: 3, topicId: 'thermo', isCorrect: true),
+        mk(idx: 4, topicId: 'thermo', isCorrect: true),
+      ]);
+      expect(rows.length, 2);
+      final byId = {for (final r in rows) r.topicId: r};
+      expect(byId['mech']!.correct, 2);
+      expect(byId['mech']!.total, 3);
+      expect(byId['thermo']!.correct, 2);
+      expect(byId['thermo']!.total, 2);
+    });
+
+    test('orders by total descending, then topicId alphabetical', () {
+      final rows = computeTopicBreakdown([
+        // 'zeta' has 2, 'alpha' has 2, 'mid' has 1, 'mech' has 3.
+        mk(idx: 0, topicId: 'mech', isCorrect: true),
+        mk(idx: 1, topicId: 'mech', isCorrect: true),
+        mk(idx: 2, topicId: 'mech', isCorrect: false),
+        mk(idx: 3, topicId: 'zeta', isCorrect: true),
+        mk(idx: 4, topicId: 'zeta', isCorrect: true),
+        mk(idx: 5, topicId: 'alpha', isCorrect: false),
+        mk(idx: 6, topicId: 'alpha', isCorrect: false),
+        mk(idx: 7, topicId: 'mid', isCorrect: true),
+      ]);
+      // mech (3) > alpha (2, tied) > zeta (2, tied) > mid (1).
+      expect(rows.map((r) => r.topicId).toList(),
+          ['mech', 'alpha', 'zeta', 'mid']);
+    });
+
+    test('handles empty list', () {
+      expect(computeTopicBreakdown(const []), isEmpty);
     });
   });
 }
