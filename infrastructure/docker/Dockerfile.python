@@ -48,13 +48,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /repo/services/${SERVICE}
 RUN useradd --create-home --shell /bin/bash app
-COPY --from=builder --chown=app:app /repo /repo
-COPY --chown=app:app infrastructure/docker/python-entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Optional: install the Claude Code CLI for services that use the
 # `claude_code` AI provider (currently only `learning`). Gated by a build
-# arg so other service images stay slim.
+# arg so other service images stay slim. Placed BEFORE the app-code COPY so
+# this expensive layer (Node + npm) is cached and not rebuilt on code changes.
 ARG INSTALL_CLAUDE_CODE=0
 RUN if [ "$INSTALL_CLAUDE_CODE" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
@@ -64,6 +62,10 @@ RUN if [ "$INSTALL_CLAUDE_CODE" = "1" ]; then \
       apt-get clean && rm -rf /var/lib/apt/lists/* && \
       mkdir -p /home/app/.claude && chown -R app:app /home/app/.claude ; \
     fi
+
+COPY --from=builder --chown=app:app /repo /repo
+COPY --chown=app:app infrastructure/docker/python-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 USER app
 
 EXPOSE 8000

@@ -32,6 +32,10 @@ log = logging.getLogger(__name__)
 _MAX_CONCURRENCY = 4
 _sema: asyncio.Semaphore | None = None
 
+# Short probe timeout for the admin Test button (health_check), so an
+# unauthenticated/hung CLI fails fast instead of blocking the request.
+_HEALTH_TIMEOUT_S = 30.0
+
 
 def _get_sema() -> asyncio.Semaphore:
     global _sema
@@ -68,9 +72,12 @@ class ClaudeCodeProvider(AIProvider):
     kind = "claude_code"
     display_name = "Claude Code (CLI)"
 
-    async def _run(self, prompt: str) -> str | None:
+    async def _run(self, prompt: str, *, timeout_s: float | None = None) -> str | None:
         """Run `claude -p` with the prompt on stdin; return the model's
-        text (`.result` from the JSON envelope) or None on any failure."""
+        text (`.result` from the JSON envelope) or None on any failure.
+
+        `timeout_s` overrides the instance default (used by health_check for
+        a short probe so a hung/unauthenticated CLI fails fast)."""
         claude = shutil.which("claude")
         if claude is None:
             log.warning("provider.claude_code.cli_missing")
@@ -101,7 +108,7 @@ class ClaudeCodeProvider(AIProvider):
             try:
                 out, err = await asyncio.wait_for(
                     proc.communicate(input=prompt.encode()),
-                    timeout=self.timeout_s,
+                    timeout=timeout_s if timeout_s is not None else self.timeout_s,
                 )
             except TimeoutError:
                 _kill(proc)
@@ -167,7 +174,9 @@ class ClaudeCodeProvider(AIProvider):
         if shutil.which("claude") is None:
             return HealthStatus(ok=False, message="claude CLI not found on PATH")
         t0 = time.monotonic()
-        raw = await self._run("Reply with the single word: ok")
+        # Short timeout: the admin Test button should fail fast if the CLI
+        # is missing/unauthenticated rather than block for the full call timeout.
+        raw = await self._run("Reply with the single word: ok", timeout_s=_HEALTH_TIMEOUT_S)
         if raw is None:
             return HealthStatus(
                 ok=False,
