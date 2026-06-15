@@ -81,7 +81,9 @@ class ClaudeCodeProvider(AIProvider):
             "--output-format", "json",
             "--model", self.model,
             "--allowedTools", "",          # no tools — pure text generation
-            "--mcp-config", "{}",          # load no MCP servers
+            # Load no MCP servers. The CLI's schema requires the mcpServers
+            # key, so an empty object ('{}') is rejected — pass an empty map.
+            "--mcp-config", '{"mcpServers": {}}',
             "--strict-mcp-config",
         ]
         async with _get_sema():

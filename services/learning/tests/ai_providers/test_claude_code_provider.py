@@ -148,3 +148,26 @@ def test_from_config_builds_claude_code():
     p = from_config({"kind": "claude_code", "model": "sonnet"})
     assert isinstance(p, ClaudeCodeProvider)
     assert p.model == "sonnet"
+
+
+@pytest.mark.asyncio
+async def test_run_passes_valid_mcp_config(monkeypatch):
+    # The CLI rejects --mcp-config '{}' (its schema requires a mcpServers
+    # key), so the value must be a valid object with that key. Guards
+    # against regressing to an empty object that fails at runtime.
+    captured: dict[str, tuple] = {}
+    monkeypatch.setattr(cc.shutil, "which", lambda _name: "/usr/bin/claude")
+
+    async def _capture_exec(*args, **_kwargs):
+        captured["args"] = args
+        return _FakeProc(stdout=_envelope("ok"))
+
+    monkeypatch.setattr(cc.asyncio, "create_subprocess_exec", _capture_exec)
+
+    p = ClaudeCodeProvider(model="sonnet")
+    await p.call_structured(system="", user="q", schema_name="S", schema={})
+
+    args = captured["args"]
+    assert "--mcp-config" in args
+    mcp_value = args[args.index("--mcp-config") + 1]
+    assert json.loads(mcp_value) == {"mcpServers": {}}
