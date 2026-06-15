@@ -49,26 +49,19 @@ def _kill(proc: asyncio.subprocess.Process) -> None:
 
 
 def _extract_json(text: str) -> dict[str, Any] | None:
-    """Pull the first balanced JSON object out of model text, tolerating
-    surrounding prose or ```code fences```."""
+    """Pull the first JSON object out of model text, tolerating surrounding
+    prose or ```code fences``` before/after it. Uses the stdlib decoder's
+    raw_decode so braces inside string values are handled correctly and any
+    trailing content after the object is ignored."""
     s = text.strip()
     start = s.find("{")
     if start == -1:
         return None
-    depth = 0
-    for i in range(start, len(s)):
-        ch = s[i]
-        if ch == "{":
-            depth += 1
-        elif ch == "}":
-            depth -= 1
-            if depth == 0:
-                try:
-                    obj = json.loads(s[start : i + 1])
-                except json.JSONDecodeError:
-                    return None
-                return obj if isinstance(obj, dict) else None
-    return None
+    try:
+        obj, _end = json.JSONDecoder().raw_decode(s, start)
+    except json.JSONDecodeError:
+        return None
+    return obj if isinstance(obj, dict) else None
 
 
 class ClaudeCodeProvider(AIProvider):

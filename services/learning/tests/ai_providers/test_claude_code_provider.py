@@ -112,3 +112,31 @@ async def test_health_check_not_logged_in(monkeypatch):
     p = ClaudeCodeProvider(model="sonnet")
     status = await p.health_check()
     assert status.ok is False
+
+
+@pytest.mark.asyncio
+async def test_call_structured_handles_braces_in_string_values(monkeypatch):
+    # A valid JSON payload whose string values contain { and } must parse.
+    payload = '{"code": "if (x) { return {1}; }", "n": 2}'
+    _patch_cli(monkeypatch, proc=_FakeProc(stdout=_envelope(payload)))
+    p = ClaudeCodeProvider(model="sonnet")
+    out = await p.call_structured(system="", user="q", schema_name="S", schema={})
+    assert out == {"code": "if (x) { return {1}; }", "n": 2}
+
+
+@pytest.mark.asyncio
+async def test_run_times_out_and_kills_process(monkeypatch):
+    # When the subprocess overruns, _run kills it and returns None.
+    _patch_cli(monkeypatch, proc=_FakeProc(stdout=_envelope("late")))
+
+    async def _boom(*_a, **_k):
+        raise TimeoutError
+
+    killed = {"called": False}
+    monkeypatch.setattr(cc.asyncio, "wait_for", _boom)
+    monkeypatch.setattr(cc, "_kill", lambda _proc: killed.__setitem__("called", True))
+
+    p = ClaudeCodeProvider(model="sonnet")
+    out = await p.call_structured(system="", user="q", schema_name="S", schema={})
+    assert out is None
+    assert killed["called"] is True
