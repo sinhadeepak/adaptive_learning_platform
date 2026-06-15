@@ -11,7 +11,14 @@ x-py-build: &py-build
 
 services:
   postgres:
-    image: postgres:15-alpine
+    # pgvector/pgvector:pg15 = stock PostgreSQL 15 + the `vector` extension,
+    # required by the AI Content Guardrail L3 similarity scan (migration 040
+    # runs CREATE EXTENSION vector). Drop-in for postgres:15 (same PG major,
+    # so the on-disk data format is compatible). NOTE: this image is Debian-
+    # based where the old image was Alpine (musl→glibc); on an existing
+    # pg-data volume Postgres may log a one-time collation-version warning.
+    # If text-index issues appear, REINDEX or recreate the volume (dev-reset).
+    image: pgvector/pgvector:pg15
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -172,7 +179,7 @@ services:
   learning:
     build:
       <<: *py-build
-      args: { SERVICE: learning, MODULE: learning.main }
+      args: { SERVICE: learning, MODULE: learning.main, INSTALL_CLAUDE_CODE: "1" }
     image: alp/learning:local
     ports: ["38101:8000"]
     environment:
@@ -227,6 +234,8 @@ services:
       opensearch: { condition: service_healthy }
       nats: { condition: service_healthy }
       minio-setup: { condition: service_completed_successfully }
+    volumes:
+      - claude-cli-creds:/home/app/.claude
 
   engagement:
     build:
@@ -396,3 +405,4 @@ volumes:
   nats-data:
   localstack-data:
   minio-data:
+  claude-cli-creds:

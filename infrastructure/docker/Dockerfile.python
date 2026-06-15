@@ -51,6 +51,18 @@ RUN useradd --create-home --shell /bin/bash app
 COPY --from=builder --chown=app:app /repo /repo
 COPY --chown=app:app infrastructure/docker/python-entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Optional: install the Claude Code CLI for services that use the
+# `claude_code` AI provider (currently only `learning`). Gated by a build
+# arg so other service images stay slim.
+ARG INSTALL_CLAUDE_CODE=0
+RUN if [ "$INSTALL_CLAUDE_CODE" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+      apt-get install -y --no-install-recommends nodejs && \
+      npm install -g @anthropic-ai/claude-code && \
+      apt-get clean && rm -rf /var/lib/apt/lists/* ; \
+    fi
 USER app
 
 EXPOSE 8000
