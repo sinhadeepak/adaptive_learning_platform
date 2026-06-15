@@ -140,3 +140,11 @@ async def test_run_times_out_and_kills_process(monkeypatch):
     out = await p.call_structured(system="", user="q", schema_name="S", schema={})
     assert out is None
     assert killed["called"] is True
+
+
+def test_from_config_builds_claude_code():
+    from learning.ai_providers.providers import from_config
+
+    p = from_config({"kind": "claude_code", "model": "sonnet"})
+    assert isinstance(p, ClaudeCodeProvider)
+    assert p.model == "sonnet"

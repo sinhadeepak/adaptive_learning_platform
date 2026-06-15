@@ -127,6 +127,9 @@ def from_config(row: dict[str, Any]) -> AIProvider | None:
     if kind == "anthropic":
         from learning.ai_providers.providers.anthropic import AnthropicProvider
         return AnthropicProvider(model=model, api_key=api_key, base_url=base_url)
+    if kind == "claude_code":
+        from learning.ai_providers.providers.claude_code import ClaudeCodeProvider
+        return ClaudeCodeProvider(model=model)
 
     log.warning("provider.from_config.unknown_kind", extra={"kind": kind})
     return None

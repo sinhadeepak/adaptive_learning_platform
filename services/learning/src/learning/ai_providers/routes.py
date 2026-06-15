@@ -45,7 +45,7 @@ def _require_admin(principal: JwtPrincipal) -> None:
 
 class ProviderEntry(BaseModel):
     id: str
-    kind: Literal["ollama", "openai", "anthropic"]
+    kind: Literal["ollama", "openai", "anthropic", "claude_code"]
     display_name: str
     enabled: bool
     priority: int
@@ -59,7 +59,7 @@ class ProviderEntry(BaseModel):
 
 
 class CreateProviderRequest(BaseModel):
-    kind: Literal["ollama", "openai", "anthropic"]
+    kind: Literal["ollama", "openai", "anthropic", "claude_code"]
     display_name: str = Field(min_length=1, max_length=80)
     enabled: bool = False
     priority: int = Field(default=100, ge=0, le=1000)
