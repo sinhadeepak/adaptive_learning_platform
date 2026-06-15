@@ -14,10 +14,11 @@
 
 import { useEffect, useState } from "react";
 
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
+import { Banner } from "../components/primitives";
 import { auth } from "../lib/api";
 
-type Kind = "ollama" | "openai" | "anthropic";
+type Kind = "ollama" | "openai" | "anthropic" | "claude_code";
 
 interface ProviderEntry {
   id: string;
@@ -135,28 +136,17 @@ export function AIProviders() {
   }
 
   return (
-    <AppShell title="AI providers">
+    <AdminShell
+      crumbs="Analyse · AI providers"
+      title="AI providers"
+      subtitle="Calls walk this list top-to-bottom. The first enabled provider that returns a usable response wins; on failure the next is tried. Keys are stored encrypted server-side (Fernet AES + HMAC) — paste them once, they don't round-trip back to the browser."
+      chips={<span className="vidya-shell__chip">Analyse</span>}
+    >
       <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1100 }}>
-        <div className="card" style={{ padding: 14, fontSize: 12, color: "var(--ink-2)" }}>
-          Calls walk this list top-to-bottom. The first <strong>enabled</strong> provider that
-          returns a usable response wins; on failure, the next in the list is tried. Priority
-          arrows reorder the chain. Keys are stored encrypted server-side
-          (Fernet AES + HMAC) — paste them once, they don't round-trip back to the browser.
-        </div>
-
         {error && (
-          <div
-            role="alert"
-            style={{
-              padding: 10,
-              border: "1px solid var(--bad, #f43f5e)",
-              borderRadius: 6,
-              color: "var(--bad, #f43f5e)",
-              fontSize: 13,
-            }}
-          >
+          <Banner tone="danger" role="alert">
             {error}
-          </div>
+          </Banner>
         )}
 
         {rows === null ? (
@@ -186,7 +176,7 @@ export function AIProviders() {
           </div>
         )}
       </div>
-    </AppShell>
+    </AdminShell>
   );
 }
 
@@ -229,7 +219,7 @@ function ProviderCard({
       style={{
         padding: 14,
         borderLeft: `3px solid ${
-          row.enabled ? "var(--good, #10c47a)" : "var(--ink-4, #3e4d6a)"
+          row.enabled ? "var(--good)" : "var(--ink-4)"
         }`,
       }}
     >
@@ -271,6 +261,13 @@ function ProviderCard({
               key on file: {row.key_hint ?? "(set)"}
             </div>
           )}
+          {row.kind === "claude_code" && (
+            <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
+              Runs the local <code>claude</code> CLI with its logged-in
+              subscription. No API key — run <code>claude login</code> inside
+              the container.
+            </div>
+          )}
         </div>
 
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
@@ -287,7 +284,12 @@ function ProviderCard({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: row.kind === "ollama" ? "1fr 1fr" : "1fr 1fr 1fr",
+          gridTemplateColumns:
+            row.kind === "claude_code"
+              ? "1fr"
+              : row.kind === "ollama"
+                ? "1fr 1fr"
+                : "1fr 1fr 1fr",
           gap: 10,
           marginBottom: 10,
         }}
@@ -302,27 +304,31 @@ function ProviderCard({
                 ? "gpt-4o-mini"
                 : row.kind === "anthropic"
                   ? "claude-haiku-4-5-20251001"
-                  : "llama3.1:8b"
+                  : row.kind === "claude_code"
+                    ? "sonnet"
+                    : "llama3.1:8b"
             }
             style={inputStyle}
           />
         </Field>
-        <Field
-          label={row.kind === "ollama" ? "Base URL (Ollama server)" : "Base URL (override, optional)"}
-        >
-          <input
-            type="text"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder={
-              row.kind === "ollama"
-                ? "http://host.docker.internal:11434"
-                : "leave blank for default"
-            }
-            style={inputStyle}
-          />
-        </Field>
-        {row.kind !== "ollama" && (
+        {row.kind !== "claude_code" && (
+          <Field
+            label={row.kind === "ollama" ? "Base URL (Ollama server)" : "Base URL (override, optional)"}
+          >
+            <input
+              type="text"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder={
+                row.kind === "ollama"
+                  ? "http://host.docker.internal:11434"
+                  : "leave blank for default"
+              }
+              style={inputStyle}
+            />
+          </Field>
+        )}
+        {row.kind !== "ollama" && row.kind !== "claude_code" && (
           <Field
             label={row.has_key ? "Replace API key" : "API key"}
             hint={
@@ -454,8 +460,9 @@ function arrowBtn(disabled: boolean): React.CSSProperties {
 function pill(kind: Kind): React.CSSProperties {
   const colors: Record<Kind, string> = {
     ollama: "rgba(34,212,238,0.18)",
-    openai: "rgba(16,196,122,0.18)",
+    openai: "var(--good-soft)",
     anthropic: "rgba(167,139,250,0.18)",
+    claude_code: "rgba(217,119,87,0.18)",
   };
   return {
     fontSize: 10,
