@@ -6,6 +6,8 @@ description: >
   + sub-questions; author records the audio (or runs TTS) to produce
   the actual playback file.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author.
   Generate ONE listening-comprehension question on the topic.
 

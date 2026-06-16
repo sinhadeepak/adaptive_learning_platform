@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { Banner, Pill } from "../components/primitives";
 import { auth } from "../lib/api";
 import { env } from "../lib/env";
@@ -91,7 +91,11 @@ export function TranslationsList() {
   }
 
   return (
-    <AppShell title="Translations" chips={[{ label: "Phase 5" }]}>
+    <AdminShell
+      crumbs="Quality · Translations"
+      title="Translations"
+      chips={<span className="vidya-shell__chip">Phase 5</span>}
+    >
       <div
         style={{
           display: "flex",
@@ -148,15 +152,7 @@ export function TranslationsList() {
         </select>
         <button
           onClick={applySearch}
-          style={{
-            padding: "6px 16px",
-            background: "var(--info)",
-            color: "white",
-            border: "1px solid var(--rule)",
-            borderRadius: 4,
-            cursor: "pointer",
-            fontWeight: 600,
-          }}
+          className="btn btn-primary"
         >
           Search
         </button>
@@ -172,42 +168,15 @@ export function TranslationsList() {
           overflow: "hidden",
         }}
       >
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table className="data-table">
           <thead>
-            <tr
-              style={{
-                background: "var(--card)",
-                color: "var(--ink-3)",
-                borderBottom: "1px solid var(--rule)",
-                textAlign: "left",
-              }}
-            >
-              <th style={{ padding: "10px 12px", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.04 }}>
-                Stem
-              </th>
-              <th style={{ padding: "10px 12px", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.04 }}>
-                Type
-              </th>
-              <th style={{ padding: "10px 12px", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.04 }}>
-                Status
-              </th>
-              <th style={{ padding: "10px 12px", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.04 }}>
-                Lang
-              </th>
-              <th style={{ padding: "10px 12px", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.04 }}>
-                Difficulty
-              </th>
-              <th
-                style={{
-                  padding: "10px 12px",
-                  fontSize: 11,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.04,
-                  textAlign: "right",
-                }}
-              >
-                Action
-              </th>
+            <tr>
+              <th>Stem</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Lang</th>
+              <th>Difficulty</th>
+              <th style={{ textAlign: "right" }}>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -240,14 +209,8 @@ export function TranslationsList() {
               </tr>
             )}
             {rows.map((q) => (
-              <tr
-                key={q.id}
-                style={{
-                  borderBottom: "1px solid var(--rule)",
-                  color: "var(--ink)",
-                }}
-              >
-                <td style={{ padding: "10px 12px", maxWidth: 600 }}>
+              <tr key={q.id}>
+                <td style={{ maxWidth: 600 }}>
                   <div
                     style={{
                       whiteSpace: "nowrap",
@@ -269,34 +232,25 @@ export function TranslationsList() {
                     {q.id}
                   </div>
                 </td>
-                <td style={{ padding: "10px 12px" }}>
+                <td>
                   <Pill tone="muted">{q.questionType ?? "MCQ_SINGLE"}</Pill>
                 </td>
-                <td style={{ padding: "10px 12px" }}>
+                <td>
                   <Pill tone={q.status === "PUBLISHED" ? "success" : "warning"}>
                     {q.status}
                   </Pill>
                 </td>
-                <td style={{ padding: "10px 12px", color: "var(--ink-2)" }}>
+                <td style={{ color: "var(--ink-2)" }}>
                   {q.language.toUpperCase()}
                 </td>
-                <td style={{ padding: "10px 12px", color: "var(--ink-2)" }}>
+                <td style={{ color: "var(--ink-2)" }}>
                   {q.difficultyB.toFixed(1)}
                 </td>
-                <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                <td style={{ textAlign: "right" }}>
                   <Link
                     to={`/translation-review/${q.id}`}
-                    style={{
-                      display: "inline-block",
-                      padding: "5px 12px",
-                      background: "var(--info)",
-                      color: "white",
-                      border: "1px solid var(--rule)",
-                      borderRadius: 4,
-                      textDecoration: "none",
-                      fontSize: 12,
-                      fontWeight: 600,
-                    }}
+                    className="btn btn-primary"
+                    style={{ fontSize: 12, textDecoration: "none" }}
                   >
                     Translations →
                   </Link>
@@ -356,7 +310,7 @@ export function TranslationsList() {
           </button>
         </div>
       </div>
-    </AppShell>
+    </AdminShell>
   );
 }
 

@@ -264,14 +264,14 @@ def test_draft_question_happy_path() -> None:
 
 
 def test_draft_question_request_rejects_unsupported_type_id() -> None:
-    """P5-S53: DraftQuestionRequest's Literal narrows valid type_ids to
-    the 9 objective + numeric types. Subjective / Visual / etc. fail
-    at request construction (Pydantic ValidationError) — the in-function
-    NotImplementedError path is now defence-in-depth only."""
+    """DraftQuestionRequest's Literal narrows valid type_ids to the 29
+    wired types. An unknown type_id fails at request construction
+    (Pydantic ValidationError) — the in-function NotImplementedError path
+    is now defence-in-depth only."""
     from pydantic import ValidationError as PydanticValidationError
 
     with pytest.raises(PydanticValidationError):
-        DraftQuestionRequest(type_id="ESSAY", topic="x")  # type: ignore[arg-type]
+        DraftQuestionRequest(type_id="NOT_A_REAL_TYPE", topic="x")  # type: ignore[arg-type]
 
 
 # ── expand_explanation + suggest_distractors ─────────────────────────────────
@@ -496,12 +496,12 @@ def test_route_draft_returns_payload_and_marker() -> None:
 
 
 def test_route_draft_unsupported_type_422() -> None:
-    """P5-S53: subjective/visual types are rejected by Pydantic Literal
-    validation at the request layer (422), not by the route handler."""
+    """Unknown type_ids are rejected by Pydantic Literal validation at the
+    request layer (422), not by the route handler."""
     client = TestClient(_make_app_with_gateway({}))
     resp = client.post(
         "/content/ai/draft",
-        json={"type_id": "ESSAY", "topic": "x"},
+        json={"type_id": "NOT_A_REAL_TYPE", "topic": "x"},
     )
     assert resp.status_code == 422  # FastAPI surfaces Pydantic errors as 422
 

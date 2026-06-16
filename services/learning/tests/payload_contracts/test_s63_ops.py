@@ -85,10 +85,18 @@ def test_audit_retention_module_imports() -> None:
     assert DEFAULT_INTERVAL_SECONDS == 7 * 24 * 3600
 
 
-def test_audit_retention_purge_once_handles_missing_db() -> None:
-    """Without a DB session, _purge_once swallows + returns -1 so
-    the loop doesn't crash."""
+def test_audit_retention_purge_once_handles_missing_db(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When the DB is unusable, _purge_once swallows + returns -1 so the
+    loop doesn't crash. Force the failure explicitly — the ambient test DB
+    is reachable, so we can't rely on a missing default DSN."""
     from learning.ai_gateway.audit_retention_task import _purge_once
+
+    def _no_db() -> None:
+        raise RuntimeError("no db in unit test")
+
+    monkeypatch.setattr("learning.content.db.sessionmaker", _no_db)
     n = _run(_purge_once(days=90))
     assert n == -1
 

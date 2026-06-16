@@ -189,9 +189,10 @@ async def diagnose_weakness(
             weakest_titles,
         )
 
-    if not llm.is_enabled():
+    if not await llm.is_enabled_async():
         return _stub_response(
-            "AI weakness diagnosis requires OPENAI_API_KEY to be set in adaptive-engine.",
+            "AI weakness diagnosis requires an enabled AI provider — set one in "
+            "/admin/ai-providers (Ollama / OpenAI / Anthropic) or OPENAI_API_KEY.",
             weakest_titles,
         )
 

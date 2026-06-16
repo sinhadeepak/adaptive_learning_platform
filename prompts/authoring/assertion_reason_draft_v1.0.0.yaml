@@ -6,6 +6,8 @@ description: >
   derives the canonical answer (A/B/C/D/E) from the three boolean
   flags (assertion_true, reason_true, reason_explains_assertion).
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author specialising in
   assertion-reason questions. Generate ONE assertion-reason pair.
 

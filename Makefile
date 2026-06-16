@@ -82,6 +82,20 @@ migrate-all: ## Apply alembic head across every service in the running stack.
 	done
 	@echo "→ quiz: go-migrate runs at container start (cmd/migrate up) — already applied by entrypoint"
 
+# ── test-db ─────────────────────────────────────────────────────────
+# Dedicated throwaway database for HOST pytest runs. The content/catalog
+# suites TRUNCATE content_schema, so they must never hit the seeded dev
+# `learning` DB. The learning test conftest auto-provisions this on first
+# `uv run pytest`; this target is the explicit / CI path. Idempotent.
+.PHONY: test-db
+test-db: ## Create + migrate the `learning_test` database used by host pytest runs.
+	@docker exec alp-local-postgres-1 psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='learning_test'" | grep -q 1 \
+		|| docker exec alp-local-postgres-1 psql -U postgres -c 'CREATE DATABASE "learning_test"'
+	@for cfg in alembic_content.ini alembic_catalog.ini alembic_doubts.ini; do \
+		echo "→ learning_test: $$cfg"; \
+		docker exec alp-local-learning-1 sh -c "cd /repo/services/learning && DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/learning_test alembic -c $$cfg upgrade head" || exit 1; \
+	done
+
 # ── local-up ────────────────────────────────────────────────────────
 # One-command bring-up: stack containers, every alembic head applied,
 # auth + content seed in place. Idempotent — re-running on a healthy

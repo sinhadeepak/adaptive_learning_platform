@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { AdminShell } from "../components/AdminShell";
+import { Banner, SkeletonRows } from "../components/primitives";
 import { type TutorAdminAction, marketplaceAdmin } from "../lib/api";
 
 export function TutorAdminActions() {
@@ -19,16 +21,23 @@ export function TutorAdminActions() {
   }, [userId]);
 
   return (
-    <main className="page" style={{ padding: 24, maxWidth: 760 }}>
-      <Link to="/tutors-admin">← Back to queue</Link>
-      <h1>
-        Tutor audit · <code>{userId?.slice(0, 8)}…</code>
-      </h1>
-
-      {error && <p className="banner banner-error">{error}</p>}
-      {actions === null && !error && <p>Loading…</p>}
+    <AdminShell
+      crumbs="Quality · Tutor moderation"
+      title={
+        <>
+          Tutor audit · <code>{userId?.slice(0, 8)}…</code>
+        </>
+      }
+      actions={
+        <Link to="/tutors-admin" className="btn btn-ghost">
+          ← Back to queue
+        </Link>
+      }
+    >
+      {error && <Banner tone="danger">{error}</Banner>}
+      {actions === null && !error && <SkeletonRows count={3} />}
       {actions !== null && actions.length === 0 && (
-        <p>No admin actions logged for this tutor.</p>
+        <Banner tone="info">No admin actions logged for this tutor.</Banner>
       )}
 
       {actions !== null && actions.length > 0 && (
@@ -57,6 +66,6 @@ export function TutorAdminActions() {
           ))}
         </ul>
       )}
-    </main>
+    </AdminShell>
   );
 }

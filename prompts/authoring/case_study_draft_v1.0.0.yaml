@@ -3,6 +3,8 @@ version: 1.0.0
 touchpoint: authoring
 description: Generate a case-study (real-world scenario) with sub-questions.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author.
   Generate ONE case-study question on the topic.
 

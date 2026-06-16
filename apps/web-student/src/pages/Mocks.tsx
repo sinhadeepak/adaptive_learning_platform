@@ -185,23 +185,13 @@ export function Mocks() {
     setParams(next, { replace: true });
   }
 
-  async function startMock(blueprintId: string) {
+  function startMock(blueprintId: string) {
     if (!user) return;
-    try {
-      const r = await auth.fetch(`/api/v1/quiz/sessions/mock-from-blueprint`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blueprintId, userId: user.id }),
-      });
-      if (!r.ok) {
-        setError(`Could not start mock (HTTP ${r.status}).`);
-        return;
-      }
-      const body = (await r.json()) as { sessionId: string };
-      navigate(`/quiz/${body.sessionId}`);
-    } catch (e) {
-      setError((e as Error).message);
-    }
+    // Launch the dedicated blueprint-driven exam player. MockExam creates
+    // the MOCK_BLUEPRINT session itself (pre-served items, sections, OMR
+    // answer sheet); the adaptive /quiz/<id> player walks items via /next
+    // and can't run a pre-served mock paper.
+    navigate(`/mock-exam?blueprintId=${encodeURIComponent(blueprintId)}`);
   }
 
   return (

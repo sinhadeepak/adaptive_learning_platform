@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
-import { AppShell } from "../components/AppShell";
-import { Banner, Pill } from "../components/primitives";
+import { AdminShell } from "../components/AdminShell";
+import {
+  Banner,
+  SectionHeader,
+  ServiceCard,
+  StatCard,
+  StatusPill,
+  type StatusTone,
+} from "../components/primitives";
 import {
   calibration,
   type CalibrationDashboardResponse,
@@ -14,7 +21,7 @@ import {
 // criteria below the kappa floor (0.7).
 // ─────────────────────────────────────────────────────────────────────────
 
-function kappaTone(k: number | null): "muted" | "danger" | "warning" | "success" {
+function kappaTone(k: number | null): StatusTone {
   if (k === null) return "muted";
   if (k < 0.5) return "danger";
   if (k < 0.7) return "warning";
@@ -22,75 +29,48 @@ function kappaTone(k: number | null): "muted" | "danger" | "warning" | "success"
 }
 
 function CriterionCard({ row }: { row: CalibrationCriterionStats }) {
+  const tone = row.auto_paused ? "danger" : kappaTone(row.kappa);
   return (
-    <div
-      style={{
-        padding: 16,
-        marginBottom: 12,
-        border: row.auto_paused
-          ? "2px solid var(--bad, #f43f5e)"
-          : "1px solid var(--rule)",
-        borderRadius: 8,
-        background: "var(--paper-2)",
-        color: "var(--ink)",
-      }}
+    <ServiceCard
+      name={row.criterion}
+      tone={tone}
+      badge={
+        <span className="badge-row">
+          <StatusPill tone={kappaTone(row.kappa)}>
+            κ {row.kappa === null ? "n/a" : row.kappa.toFixed(3)}
+          </StatusPill>
+          {row.auto_paused && <StatusPill tone="danger">Auto-paused</StatusPill>}
+        </span>
+      }
+      detail={`${row.sample_count.toLocaleString()} samples · AI vs human`}
     >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 8,
-        }}
-      >
-        <h3 style={{ fontSize: 15, margin: 0 }}>{row.criterion}</h3>
-        <div>
-          <Pill tone={kappaTone(row.kappa)}>
-            κ = {row.kappa === null ? "n/a" : row.kappa.toFixed(3)}
-          </Pill>
-          {row.auto_paused && (
-            <span style={{ marginLeft: 8 }}>
-              <Pill tone="danger">AUTO-PAUSED</Pill>
-            </span>
-          )}
-        </div>
-      </div>
-      <div style={{ fontSize: 12, opacity: 0.7 }}>
-        {row.sample_count} samples (AI vs human)
-      </div>
       {row.weekly_trend.length > 0 && (
-        <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>
-            Weekly trend
-          </div>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        <div className="svc-card__metrics">
+          <span className="card-sublabel">Weekly trend</span>
+          <div className="kappa-trend">
             {row.weekly_trend.map((w) => {
               const k = w.kappa;
-              const colour =
+              const barTone =
                 k === null
-                  ? "#cbd5e0"
+                  ? "none"
                   : k < 0.5
-                    ? "var(--bad, #f43f5e)"
+                    ? "danger"
                     : k < 0.7
-                      ? "var(--warn, #f59e0b)"
-                      : "var(--good, #10c47a)";
+                      ? "warning"
+                      : "success";
               return (
                 <div
                   key={w.week_start}
+                  className={`kappa-trend__bar kappa-trend__bar--${barTone}`}
+                  style={{ height: Math.max(6, (k ?? 0) * 40) }}
                   title={`${w.week_start}: κ=${k?.toFixed(3) ?? "n/a"} (n=${w.sample_count})`}
-                  style={{
-                    width: 12,
-                    height: Math.max(8, (k ?? 0) * 40),
-                    background: colour,
-                    borderRadius: 2,
-                  }}
                 />
               );
             })}
           </div>
         </div>
       )}
-    </div>
+    </ServiceCard>
   );
 }
 
@@ -108,74 +88,62 @@ export function CalibrationDashboard() {
     })();
   }, []);
 
+  const pausedCount = data?.autoPausedCriteria.length ?? 0;
+
   return (
-    <AppShell
-      title="AI Calibration Dashboard"
-      chips={[{ label: "Phase 5" }, { label: "ML Eng" }]}
+    <AdminShell
+      crumbs="AI calibration dashboard · ML Eng"
+      title="AI calibration"
+      subtitle="Per-criterion Cohen's κ over the last 12 weeks. Criteria below the floor auto-pause AI evaluation and route 100% to human graders."
+      chips={
+        <>
+          <span className="vidya-shell__chip">Phase 5</span>
+          <span className="vidya-shell__chip">ML Eng</span>
+        </>
+      }
     >
       {error && <Banner tone="danger">{error}</Banner>}
 
       {data && (
-        <>
-          <section
-            style={{
-              padding: 16,
-              marginBottom: 24,
-              background: "var(--paper-2)",
-              border: "1px solid var(--rule)",
-              borderRadius: 8,
-              color: "var(--ink)",
-            }}
-          >
-            <div style={{ display: "flex", gap: 24 }}>
-              <div>
-                <div style={{ fontSize: 11, opacity: 0.7, textTransform: "uppercase" }}>
-                  Kappa floor (auto-pause)
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 700 }}>
-                  {data.floorKappa.toFixed(2)}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, opacity: 0.7, textTransform: "uppercase" }}>
-                  Auto-paused criteria
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 700 }}>
-                  {data.autoPausedCriteria.length}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, opacity: 0.7, textTransform: "uppercase" }}>
-                  As of
-                </div>
-                <div style={{ fontSize: 14, marginTop: 6 }}>
-                  {new Date(data.asOf).toLocaleString()}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {data.autoPausedCriteria.length > 0 && (
-            <Banner tone="danger">
-              {data.autoPausedCriteria.length} criterion(s) below κ={data.floorKappa.toFixed(2)}
-              — AI evaluation auto-paused. ML Eng + Product alerted.
-            </Banner>
-          )}
-
-          <section style={{ marginTop: 24 }}>
-            <h2 style={{ fontSize: 16, marginBottom: 12 }}>Per-criterion kappa</h2>
-            {data.criteria.length === 0 && (
-              <Banner tone="info">
-                No calibration samples in the last 12 weeks. The first weekly batch
-                lands once the HYBRID evaluation pipeline accumulates samples.
-              </Banner>
-            )}
-            {data.criteria.map((c) => (
-              <CriterionCard key={c.criterion} row={c} />
-            ))}
-          </section>
-        </>
+        <div className="stat-grid">
+          <StatCard label="Kappa floor" value={data.floorKappa.toFixed(2)} />
+          <StatCard
+            label="Auto-paused criteria"
+            value={pausedCount}
+            tone={pausedCount > 0 ? "danger" : "muted"}
+          />
+          <StatCard
+            label="As of"
+            value={new Date(data.asOf).toLocaleString()}
+            mono
+          />
+        </div>
       )}
-    </AppShell>
+
+      {data && pausedCount > 0 && (
+        <Banner tone="danger">
+          {pausedCount} criterion(s) below κ={data.floorKappa.toFixed(2)} — AI
+          evaluation auto-paused for them. ML Eng + Product alerted.
+        </Banner>
+      )}
+
+      {data && (
+        <section className="dash-section">
+          <SectionHeader label="Per-criterion kappa" count={data.criteria.length} />
+          {data.criteria.length === 0 ? (
+            <Banner tone="info">
+              No calibration samples in the last 12 weeks. The first weekly batch
+              lands once the HYBRID evaluation pipeline accumulates samples.
+            </Banner>
+          ) : (
+            <div className="svc-grid">
+              {data.criteria.map((c) => (
+                <CriterionCard key={c.criterion} row={c} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+    </AdminShell>
   );
 }

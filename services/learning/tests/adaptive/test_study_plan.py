@@ -75,12 +75,25 @@ async def client(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
         yield c
 
 
-async def test_ai_status_disabled_without_key(client: AsyncClient) -> None:
+async def test_ai_status_disabled_when_no_ai_configured(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No env key AND no reachable admin provider chain → AI off, provider
+    'none'. ai-status now honors the admin chain (ai_provider_config), not
+    just OPENAI_API_KEY, so provider is no longer hardcoded 'openai'."""
+    from learning.adaptive import llm
+
+    def _boom() -> None:
+        raise RuntimeError("no db in unit test")
+
+    monkeypatch.setattr("learning.content.db.sessionmaker", _boom)
+    monkeypatch.setattr(llm.settings, "openai_api_key", "")
+
     r = await client.get("/adaptive/ai-status")
     assert r.status_code == 200
     body = r.json()
-    assert body["provider"] == "openai"
-    assert isinstance(body["enabled"], bool)
+    assert body["enabled"] is False
+    assert body["provider"] == "none"
 
 
 async def test_study_plan_heuristic_uses_mastery(client: AsyncClient) -> None:

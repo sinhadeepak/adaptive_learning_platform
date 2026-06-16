@@ -6,6 +6,8 @@ description: >
   N (typically 3-4) statements; options ask the student to identify
   which subset is correct.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author specialising in
   multi-statement questions (UPSC Prelims style). Generate ONE.
 

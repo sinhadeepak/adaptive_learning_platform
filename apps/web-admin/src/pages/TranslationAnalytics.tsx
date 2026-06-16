@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { AppShell } from "../components/AppShell";
-import { Banner, Pill } from "../components/primitives";
+import { AdminShell } from "../components/AdminShell";
+import { Banner, Pill, SectionHeader } from "../components/primitives";
 import {
   translationAnalytics,
   type TranslationAnalyticsResponse,
@@ -53,9 +53,15 @@ export function TranslationAnalytics() {
   }, [weeks]);
 
   return (
-    <AppShell
+    <AdminShell
+      crumbs="Analyse · Translation analytics"
       title="Translation Analytics"
-      chips={[{ label: "Phase 5" }, { label: "Operations" }]}
+      chips={
+        <>
+          <span className="vidya-shell__chip">Phase 5</span>
+          <span className="vidya-shell__chip">Operations</span>
+        </>
+      }
     >
       {error && <Banner tone="danger">{error}</Banner>}
 
@@ -94,56 +100,53 @@ export function TranslationAnalytics() {
             lead time p95 &lt; {data.targets.leadTimeP95HoursTarget}h
           </section>
 
-          <section style={{ marginBottom: 24 }}>
-            <h2 style={{ fontSize: 16, marginBottom: 8 }}>Per-language quality</h2>
+          <section className="dash-section">
+            <SectionHeader label="Per-language quality" count={data.perLanguage.length} />
             {data.perLanguage.length === 0 ? (
               <Banner tone="info">
                 No translations in the last {weeks} weeks. Pipeline is ready;
                 content team queues jobs as they go.
               </Banner>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <table className="data-table">
                 <thead>
-                  <tr style={{ borderBottom: "2px solid var(--rule, #e1e5ee)" }}>
-                    <th style={{ textAlign: "left", padding: 8 }}>Language</th>
-                    <th style={{ textAlign: "right", padding: 8 }}>Total</th>
-                    <th style={{ textAlign: "right", padding: 8 }}>Published</th>
-                    <th style={{ textAlign: "right", padding: 8 }}>Draft</th>
-                    <th style={{ textAlign: "right", padding: 8 }}>In review</th>
-                    <th style={{ textAlign: "right", padding: 8 }}>AI conf</th>
-                    <th style={{ textAlign: "right", padding: 8 }}>Acceptance</th>
-                    <th style={{ textAlign: "right", padding: 8 }}>Re-translation</th>
-                    <th style={{ textAlign: "right", padding: 8 }}>p50</th>
-                    <th style={{ textAlign: "right", padding: 8 }}>p95</th>
+                  <tr>
+                    <th>Language</th>
+                    <th style={{ textAlign: "right" }}>Total</th>
+                    <th style={{ textAlign: "right" }}>Published</th>
+                    <th style={{ textAlign: "right" }}>Draft</th>
+                    <th style={{ textAlign: "right" }}>In review</th>
+                    <th style={{ textAlign: "right" }}>AI conf</th>
+                    <th style={{ textAlign: "right" }}>Acceptance</th>
+                    <th style={{ textAlign: "right" }}>Re-translation</th>
+                    <th style={{ textAlign: "right" }}>p50</th>
+                    <th style={{ textAlign: "right" }}>p95</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.perLanguage.map((row) => (
-                    <tr
-                      key={row.language}
-                      style={{ borderBottom: "1px solid var(--rule)" }}
-                    >
-                      <td style={{ padding: 8, fontWeight: 600 }}>
+                    <tr key={row.language}>
+                      <td style={{ fontWeight: 600 }}>
                         {row.language.toUpperCase()}
                       </td>
-                      <td style={{ padding: 8, textAlign: "right" }}>
+                      <td style={{ textAlign: "right" }}>
                         {row.translationsTotal}
                       </td>
-                      <td style={{ padding: 8, textAlign: "right" }}>
+                      <td style={{ textAlign: "right" }}>
                         {row.translationsPublished}
                       </td>
-                      <td style={{ padding: 8, textAlign: "right" }}>
+                      <td style={{ textAlign: "right" }}>
                         {row.translationsDraft}
                       </td>
-                      <td style={{ padding: 8, textAlign: "right" }}>
+                      <td style={{ textAlign: "right" }}>
                         {row.translationsInReview}
                       </td>
-                      <td style={{ padding: 8, textAlign: "right" }}>
+                      <td style={{ textAlign: "right" }}>
                         {row.avgAiConfidence !== null
                           ? row.avgAiConfidence.toFixed(2)
                           : "—"}
                       </td>
-                      <td style={{ padding: 8, textAlign: "right" }}>
+                      <td style={{ textAlign: "right" }}>
                         <Pill
                           tone={targetTone(
                             row.acceptanceRate,
@@ -154,7 +157,7 @@ export function TranslationAnalytics() {
                           {pct(row.acceptanceRate)}
                         </Pill>
                       </td>
-                      <td style={{ padding: 8, textAlign: "right" }}>
+                      <td style={{ textAlign: "right" }}>
                         <Pill
                           tone={targetTone(
                             row.retranslationRate,
@@ -165,10 +168,10 @@ export function TranslationAnalytics() {
                           {pct(row.retranslationRate)}
                         </Pill>
                       </td>
-                      <td style={{ padding: 8, textAlign: "right" }}>
+                      <td style={{ textAlign: "right" }}>
                         {hours(row.leadTimeP50Hours)}
                       </td>
-                      <td style={{ padding: 8, textAlign: "right" }}>
+                      <td style={{ textAlign: "right" }}>
                         <Pill
                           tone={targetTone(
                             row.leadTimeP95Hours,
@@ -186,30 +189,30 @@ export function TranslationAnalytics() {
             )}
           </section>
 
-          <section>
-            <h2 style={{ fontSize: 16, marginBottom: 8 }}>Glossary growth</h2>
+          <section className="dash-section">
+            <SectionHeader label="Glossary growth" count={data.glossarySize.length} />
             {data.glossarySize.length === 0 ? (
               <Banner tone="info">
                 No glossary entries yet. Content team curates terminology as
                 translations expose new terms.
               </Banner>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <table className="data-table">
                 <thead>
-                  <tr style={{ borderBottom: "2px solid var(--rule, #e1e5ee)" }}>
-                    <th style={{ textAlign: "left", padding: 8 }}>Subject</th>
-                    <th style={{ textAlign: "left", padding: 8 }}>Source</th>
-                    <th style={{ textAlign: "left", padding: 8 }}>Target</th>
-                    <th style={{ textAlign: "right", padding: 8 }}>Entries</th>
+                  <tr>
+                    <th>Subject</th>
+                    <th>Source</th>
+                    <th>Target</th>
+                    <th style={{ textAlign: "right" }}>Entries</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.glossarySize.map((g) => (
                     <tr key={`${g.subject}-${g.sourceLang}-${g.targetLang}`}>
-                      <td style={{ padding: 8 }}>{g.subject}</td>
-                      <td style={{ padding: 8 }}>{g.sourceLang}</td>
-                      <td style={{ padding: 8 }}>{g.targetLang}</td>
-                      <td style={{ padding: 8, textAlign: "right" }}>
+                      <td>{g.subject}</td>
+                      <td>{g.sourceLang}</td>
+                      <td>{g.targetLang}</td>
+                      <td style={{ textAlign: "right" }}>
                         {g.entryCount}
                       </td>
                     </tr>
@@ -220,6 +223,6 @@ export function TranslationAnalytics() {
           </section>
         </>
       )}
-    </AppShell>
+    </AdminShell>
   );
 }

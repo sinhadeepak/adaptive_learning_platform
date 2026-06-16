@@ -6,6 +6,8 @@ description: >
   non-trivial — testing genuine understanding rather than wording
   tricks.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author. Generate ONE true/false
   question for the topic.
 

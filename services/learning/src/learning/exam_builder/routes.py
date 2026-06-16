@@ -22,7 +22,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from learning.adaptive.llm import call_structured, is_enabled as llm_enabled
+# AI generation routes through the admin-managed provider chain
+# (AI Providers screen → content_schema.ai_provider_config: Ollama /
+# OpenAI / Anthropic in priority order, keys encrypted server-side) —
+# never a bare OPENAI_API_KEY env var. _list_enabled tells us whether
+# any provider is switched on so we can 503 with an actionable message.
+from learning.ai_providers import call_structured
+from learning.ai_providers.fallback import _list_enabled
 from learning.catalog.db import get_session
 from learning.content.db import sessionmaker as content_sessionmaker
 from learning.content.repositories import insert_question
@@ -191,17 +197,6 @@ async def research(req: ResearchRequest, principal: PrincipalDep) -> ExamProposa
     admin reviews + edits before saving. No DB writes here.
     """
     _require_admin(principal)
-    if not llm_enabled():
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "code": "ai_unavailable",
-                "message": (
-                    "OPENAI_API_KEY is not configured on the learning service. "
-                    "Set it in docker-compose env or use the manual exam form."
-                ),
-            },
-        )
 
     user_prompt = (
         f"Exam name: {req.name}\n"
@@ -212,12 +207,25 @@ async def research(req: ResearchRequest, principal: PrincipalDep) -> ExamProposa
         + "\nProduce the structured JSON proposal."
     )
 
-    raw = await call_structured(
-        system=SYSTEM_PROMPT,
-        user=user_prompt,
-        schema_name="exam_proposal",
-        schema=PROPOSAL_SCHEMA,
-    )
+    async with content_sessionmaker()() as ai_sess:
+        if not await _list_enabled(ai_sess):
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "ai_unavailable",
+                    "message": (
+                        "No AI provider is enabled. Configure one on the "
+                        "AI Providers screen, or use the manual exam form."
+                    ),
+                },
+            )
+        raw = await call_structured(
+            ai_sess,
+            system=SYSTEM_PROMPT,
+            user=user_prompt,
+            schema_name="exam_proposal",
+            schema=PROPOSAL_SCHEMA,
+        )
     if raw is None:
         raise HTTPException(
             status_code=502,
@@ -799,11 +807,15 @@ async def seed_questions(
     /content/questions/{id}/submit + /review flow.
     """
     _require_admin(principal)
-    if not llm_enabled():
-        raise HTTPException(
-            status_code=503,
-            detail={"code": "ai_unavailable", "message": "OPENAI_API_KEY is not configured"},
-        )
+    async with content_sessionmaker()() as _probe_sess:
+        if not await _list_enabled(_probe_sess):
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "ai_unavailable",
+                    "message": "No AI provider is enabled. Configure one on the AI Providers screen.",
+                },
+            )
     if body.difficulty_max < body.difficulty_min:
         raise HTTPException(status_code=400, detail="difficulty_max must be ≥ difficulty_min")
 
@@ -864,6 +876,7 @@ async def seed_questions(
             )
             try:
                 draft = await call_structured(
+                    content_sess,
                     system=SEED_SYSTEM_PROMPT,
                     user=user_prompt,
                     schema_name="seed_questions",

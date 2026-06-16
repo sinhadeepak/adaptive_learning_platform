@@ -9,6 +9,11 @@ import "@alp/design-system/vidya/tokens.css";
 import "@alp/design-system/vidya/density-scalars.css";
 import "@alp/design-system/vidya/fonts.css";
 
+// Shared component CSS — provides the vidya-shell chrome (sidebar /
+// topbar / brand) plus pills, cards and form classes. Imported here
+// (not just via AppShell) so the chrome matches the web-admin app.
+import "@alp/ui/ui.css";
+
 import { App } from "./App";
 import { ThemeProvider } from "./lib/theme";
 

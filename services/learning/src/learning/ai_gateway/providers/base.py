@@ -36,6 +36,30 @@ class ProviderResult:
         self.model = model
 
 
+class EmbeddingResult:
+    """Embedding vectors + telemetry (parallels ProviderResult).
+
+    Not part of the core `Provider` Protocol — embedding support is
+    feature-detected by the Gateway via `hasattr(provider, "embed")` so
+    text-only providers (e.g. the admin chain) stay conformant.
+    """
+
+    __slots__ = ("vectors", "tokens_in", "latency_ms", "model")
+
+    def __init__(
+        self,
+        vectors: list[list[float]],
+        *,
+        tokens_in: int,
+        latency_ms: int,
+        model: str,
+    ):
+        self.vectors = vectors
+        self.tokens_in = tokens_in
+        self.latency_ms = latency_ms
+        self.model = model
+
+
 class Provider(Protocol):
     """Provider interface. Async — every real provider does network I/O.
 

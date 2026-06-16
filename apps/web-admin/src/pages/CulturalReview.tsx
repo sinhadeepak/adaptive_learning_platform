@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { Banner } from "../components/primitives";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -21,9 +21,16 @@ export function CulturalReview() {
   const [showRationale, setShowRationale] = useState(true);
 
   return (
-    <AppShell
+    <AdminShell
+      crumbs="Quality · Cultural review"
       title="Cultural Review Queue"
-      chips={[{ label: "Phase 5" }, { label: "Senior reviewer" }]}
+      subtitle="Translations flagged for politically, religiously, or regionally sensitive content. SLA is 5 working days."
+      chips={
+        <>
+          <span className="vidya-shell__chip">Phase 5</span>
+          <span className="vidya-shell__chip">Senior reviewer</span>
+        </>
+      }
     >
       <Banner tone="info">
         <strong>5-day SLA</strong> · Cultural reviewers handle translations
@@ -151,7 +158,7 @@ export function CulturalReview() {
           </div>
         </div>
       </section>
-    </AppShell>
+    </AdminShell>
   );
 }
 

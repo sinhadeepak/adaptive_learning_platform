@@ -56,6 +56,7 @@ const NAV: NavGroup[] = [
     items: [
       { href: "/analytics/drill", label: "Analytics drill", icon: <IconSearch /> },
       { href: "/platform-analytics", label: "Platform analytics", icon: <IconChart /> },
+      { href: "/translation-analytics", label: "Translation analytics", icon: <IconGlobe /> },
       { href: "/ai-providers", label: "AI providers", icon: <IconCircuit /> },
       { href: "/ai-cost", label: "AI cost", icon: <IconRupee /> },
       { href: "/calibration-dashboard", label: "Calibration", icon: <IconTarget /> },
@@ -65,9 +66,10 @@ const NAV: NavGroup[] = [
     heading: "Quality",
     items: [
       { href: "/translation-review", label: "Translations", icon: <IconGlobe /> },
-      { href: "/t-review", label: "T-review", icon: <IconCheck /> },
       { href: "/cultural-review", label: "Cultural review", icon: <IconHeart /> },
       { href: "/grader-queue", label: "Grader queue", icon: <IconPen /> },
+      { href: "/tutors-admin", label: "Tutor moderation", icon: <IconCheck /> },
+      { href: "/ratings-mod", label: "Rating moderation", icon: <IconStar /> },
     ],
   },
   {
@@ -306,6 +308,13 @@ function IconPen() {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
       <path d="M2 14l3-1 8-8-2-2-8 8-1 3zM10 4l2 2" />
+    </svg>
+  );
+}
+function IconStar() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M8 2l1.8 3.7 4 .6-2.9 2.8.7 4L8 11.2 4.4 13.1l.7-4L2.2 6.3l4-.6L8 2z" strokeLinejoin="round" />
     </svg>
   );
 }

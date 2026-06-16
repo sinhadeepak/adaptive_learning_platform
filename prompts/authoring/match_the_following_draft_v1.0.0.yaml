@@ -4,6 +4,8 @@ touchpoint: authoring
 description: >
   Generate a Match-the-Following question with 4-6 left/right pairs.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author.
   Generate ONE Match-the-Following question on the topic.
 

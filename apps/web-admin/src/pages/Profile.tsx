@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { Banner, Pill, SkeletonRows } from "../components/primitives";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -49,19 +49,19 @@ export function Profile() {
 
   if (error) {
     return (
-      <AppShell title="Profile">
+      <AdminShell crumbs="Account · Profile" title="Profile">
         <Banner tone="danger" role="alert">
           {error}
         </Banner>
-      </AppShell>
+      </AdminShell>
     );
   }
 
   if (!profile) {
     return (
-      <AppShell title="Profile">
+      <AdminShell crumbs="Account · Profile" title="Profile">
         <SkeletonRows count={3} />
-      </AppShell>
+      </AdminShell>
     );
   }
 
@@ -76,71 +76,64 @@ export function Profile() {
       : { tone: "muted" as const, label: "No admin scope" };
 
   return (
-    <AppShell title="Profile">
-      <section className="ai-header" aria-label="Admin profile">
-        <div className="ai-header-left">
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              alignItems: "center",
-              flexWrap: "wrap",
-              marginBottom: 4,
-            }}
+    <AdminShell
+      crumbs="Account · Profile"
+      title={fullName}
+      subtitle={
+        <>
+          <strong>{user.email}</strong>
+          {user.phone ? ` · ${user.phone}` : ""} ·{" "}
+          {user.emailVerifiedAt ? "Email verified" : "Email pending verification"}
+          {isPlatform ? (
+            <>
+              {" "}· <strong>Every action you take on this surface is
+              logged immutably to the audit trail.</strong>
+            </>
+          ) : null}
+        </>
+      }
+      chips={
+        <>
+          <Pill tone={adminPill.tone}>{adminPill.label}</Pill>
+          {user.role ? <Pill tone="muted">{user.role}</Pill> : null}
+        </>
+      }
+      actions={
+        <>
+          <Link to="/settings" className="btn btn-ghost">
+            Settings
+          </Link>
+          <Link to="/audit" className="btn btn-ghost">
+            Audit log →
+          </Link>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => void logout()}
           >
-            <span className="ai-pill">◈ ADMIN PROFILE</span>
-            <Pill tone={adminPill.tone}>{adminPill.label}</Pill>
-            {user.role ? <Pill tone="muted">{user.role}</Pill> : null}
-          </div>
-          <h1 className="ai-header-name">
-            <span className="ai-header-name-accent">{fullName}</span>
-          </h1>
-          <p className="ai-header-sub">
-            <strong>{user.email}</strong>
-            {user.phone ? ` · ${user.phone}` : ""} ·{" "}
-            {user.emailVerifiedAt ? "Email verified" : "Email pending verification"}
-            {isPlatform ? (
-              <>
-                {" "}· <strong>Every action you take on this surface is
-                logged immutably to the audit trail.</strong>
-              </>
-            ) : null}
-          </p>
-          <div className="ai-header-btns">
-            <Link to="/settings" className="btn-ai">
-              ◈ Settings
-            </Link>
-            <Link to="/audit" className="btn btn-ghost">
-              Audit log →
-            </Link>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => void logout()}
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-        <div className="ai-header-stats" style={{ alignItems: "center" }}>
-          <div
-            style={{
-              width: 90,
-              height: 90,
-              borderRadius: "50%",
-              background:
-                "linear-gradient(135deg, var(--bad), var(--warn))",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 38,
-              fontWeight: 800,
-              color: "#fff",
-            }}
-            aria-hidden
-          >
-            {initial}
-          </div>
+            Sign out
+          </button>
+        </>
+      }
+    >
+      <section aria-label="Admin profile identity" style={{ display: "flex", alignItems: "center", gap: "var(--sp-4)", marginBottom: "var(--sp-4)" }}>
+        <div
+          style={{
+            width: 90,
+            height: 90,
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, var(--bad), var(--warn))",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 38,
+            fontWeight: 800,
+            color: "var(--paper)",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        >
+          {initial}
         </div>
       </section>
 
@@ -290,6 +283,6 @@ export function Profile() {
           </Link>
         </section>
       </div>
-    </AppShell>
+    </AdminShell>
   );
 }

@@ -6,6 +6,8 @@ description: >
   emits the labels list + diagram description. Author uploads diagram
   and places label targets.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author.
   Generate ONE diagram-label question structure on the topic.
 

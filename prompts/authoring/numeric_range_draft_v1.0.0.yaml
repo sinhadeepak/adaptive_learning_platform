@@ -6,6 +6,8 @@ description: >
   accepted). Used when the answer depends on assumptions the student
   may make differently.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author. Generate ONE numeric
   range question for the topic.
 

@@ -14,10 +14,11 @@
  * churn (and copy-paste) of 7 separate pages.
  */
 
+import React from "react";
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { Banner, Pill, SkeletonRows } from "../components/primitives";
 import {
   institution,
@@ -46,59 +47,44 @@ export function InstituteAnalytics() {
   const [tab, setTab] = useState<Tab>("overview");
   if (!tenantId) {
     return (
-      <AppShell title="Institute">
-        <main className="page" style={{ padding: 24 }}>
-          <Pill tone="danger">Missing tenant id.</Pill>
-        </main>
-      </AppShell>
+      <AdminShell crumbs="Analyse · Institute analytics" title="Institute analytics">
+        <Pill tone="danger">Missing tenant id.</Pill>
+      </AdminShell>
     );
   }
   return (
-    <AppShell title={`Institute ${tenantId.slice(0, 8)}`}>
-      <main className="page" style={{ padding: 24 }}>
-        <Link to="/tenants" style={{ color: "var(--ink-3)", fontSize: 12 }}>
-          ← All institutes
-        </Link>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginTop: 12,
-          }}
-        >
-          <h1 style={{ margin: 0 }}>
-            Institute <code>{tenantId.slice(0, 8)}</code>
-          </h1>
+    <AdminShell
+      crumbs="Analyse · Institute analytics"
+      title={<>Institute <code>{tenantId.slice(0, 8)}</code></>}
+      chips={<span className="vidya-shell__chip">Analytics</span>}
+      actions={
+        <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <Link to="/tenants" className="btn btn-ghost">
+            ← All institutes
+          </Link>
           {/* Phase 1A.5 — link into the six-level analytics drill scoped
               to this tenant. */}
           <Link
             to={`/analytics/drill?tenant=${encodeURIComponent(tenantId)}`}
-            style={{
-              padding: "8px 14px",
-              background: "var(--info, #4F87F6)",
-              color: "white",
-              borderRadius: 6,
-              fontSize: 13,
-              fontWeight: 600,
-              textDecoration: "none",
-            }}
+            className="btn btn-primary"
+            style={{ textDecoration: "none" }}
           >
             🔍 Open hierarchical drill →
           </Link>
-        </div>
-        <TabBar tab={tab} setTab={setTab} />
-        {tab === "overview" && <OverviewTab tenantId={tenantId} />}
-        {tab === "cohorts" && <CohortsTab tenantId={tenantId} />}
-        {tab === "teachers" && <TeachersTab tenantId={tenantId} />}
-        {tab === "subjects" && <SubjectsTab tenantId={tenantId} />}
-        {tab === "trend" && <TrendTab tenantId={tenantId} />}
-        {tab === "marketplace" && <MarketplaceTab tenantId={tenantId} />}
-        {tab === "benchmark" && <BenchmarkTab tenantId={tenantId} />}
-        {tab === "interventions" && <InterventionEfficacyTab tenantId={tenantId} />}
-        {tab === "report" && <OutcomesReportTab tenantId={tenantId} />}
-      </main>
-    </AppShell>
+        </span>
+      }
+    >
+      <TabBar tab={tab} setTab={setTab} />
+      {tab === "overview" && <OverviewTab tenantId={tenantId} />}
+      {tab === "cohorts" && <CohortsTab tenantId={tenantId} />}
+      {tab === "teachers" && <TeachersTab tenantId={tenantId} />}
+      {tab === "subjects" && <SubjectsTab tenantId={tenantId} />}
+      {tab === "trend" && <TrendTab tenantId={tenantId} />}
+      {tab === "marketplace" && <MarketplaceTab tenantId={tenantId} />}
+      {tab === "benchmark" && <BenchmarkTab tenantId={tenantId} />}
+      {tab === "interventions" && <InterventionEfficacyTab tenantId={tenantId} />}
+      {tab === "report" && <OutcomesReportTab tenantId={tenantId} />}
+    </AdminShell>
   );
 }
 
@@ -283,7 +269,7 @@ function OutcomesReportTab({ tenantId }: { tenantId: string }) {
           style={{
             padding: "8px 16px",
             background: "var(--gold)",
-            color: "#fff",
+            color: "white",
             borderRadius: 6,
             textDecoration: "none",
             fontSize: 13,
@@ -338,7 +324,7 @@ function TabBar({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
           onClick={() => setTab(t.key)}
           style={{
             background: tab === t.key ? "var(--gold)" : "var(--card-1)",
-            color: tab === t.key ? "#fff" : "var(--ink-2)",
+            color: tab === t.key ? "white" : "var(--ink-2)",
             border: "1px solid var(--rule)",
             padding: "6px 12px",
             borderRadius: 6,
@@ -559,7 +545,7 @@ function TrendTab({ tenantId }: { tenantId: string }) {
             onClick={() => setDays(d)}
             style={{
               background: days === d ? "var(--gold)" : "var(--card-1)",
-              color: days === d ? "#fff" : "var(--ink-2)",
+              color: days === d ? "white" : "var(--ink-2)",
               border: "1px solid var(--rule)",
               padding: "4px 10px",
               borderRadius: 4,

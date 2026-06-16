@@ -110,3 +110,7 @@ infrastructure/k8s/charts/*/charts/
 
 # DB backups (binary dumps + plain SQL — never commit)
 backups/
+
+# Mobile APKs (served from web-student/public/ — never commit the binary)
+*.apk
+*.apk.sha1

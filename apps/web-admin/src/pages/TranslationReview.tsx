@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { Banner, Pill } from "../components/primitives";
 import {
   translation,
@@ -228,20 +228,16 @@ export function TranslationReview() {
   }
 
   return (
-    <AppShell title="Translation Review" chips={[{ label: "Phase 5" }]}>
-      <div style={{ marginBottom: 12 }}>
-        <Link
-          to="/translation-review"
-          style={{
-            fontSize: 13,
-            color: "var(--ink-2)",
-            textDecoration: "none",
-          }}
-        >
+    <AdminShell
+      crumbs="Quality · Translation review"
+      title="Translation review"
+      chips={<span className="vidya-shell__chip">Phase 5</span>}
+      actions={
+        <Link to="/translation-review" className="btn btn-ghost">
           ← Back to questions
         </Link>
-      </div>
-
+      }
+    >
       {error && <Banner tone="danger">{error}</Banner>}
 
       <section style={{ marginBottom: 16 }}>
@@ -435,7 +431,7 @@ export function TranslationReview() {
               disabled={busy || selected.status === "PUBLISHED"}
               style={{
                 padding: "8px 16px",
-                background: "var(--good, #10c47a)",
+                background: "var(--good)",
                 color: "white",
                 border: "1px solid var(--rule)",
                 borderRadius: 4,
@@ -450,7 +446,7 @@ export function TranslationReview() {
               disabled={busy || selected.status === "REJECTED"}
               style={{
                 padding: "8px 16px",
-                background: "var(--bad, #f43f5e)",
+                background: "var(--bad)",
                 color: "white",
                 border: "1px solid var(--rule)",
                 borderRadius: 4,
@@ -463,7 +459,7 @@ export function TranslationReview() {
           </div>
         </section>
       )}
-    </AppShell>
+    </AdminShell>
   );
 }
 

@@ -14,10 +14,16 @@ Behaviour:
 
 from __future__ import annotations
 
+import hashlib
 import time
 from typing import Any, Callable
 
-from learning.ai_gateway.providers.base import Provider, ProviderError, ProviderResult
+from learning.ai_gateway.providers.base import (
+    EmbeddingResult,
+    Provider,
+    ProviderError,
+    ProviderResult,
+)
 
 
 class StubProvider(Provider):
@@ -68,5 +74,33 @@ class StubProvider(Provider):
             tokens_in=len(str(user)),
             tokens_out=len(str(data)),
             latency_ms=latency_ms,
+            model=model,
+        )
+
+    async def embed(
+        self,
+        *,
+        model: str,
+        texts: list[str],
+        timeout_ms: int,
+    ) -> EmbeddingResult:
+        """Deterministic pseudo-embeddings for the no-API-key dev stack.
+
+        Identical text → identical vector; different text → effectively
+        orthogonal. Dimensionality fixed at 1536 to match the
+        questions.embedding column. Not semantically meaningful — real
+        similarity needs the OpenAI provider."""
+        dims = 8  # short, deterministic; padded out below
+        vectors: list[list[float]] = []
+        for text in texts:
+            digest = hashlib.sha256(text.encode("utf-8")).digest()
+            seed = [b / 255.0 for b in digest[:dims]]
+            # Tile the seed up to 1536 dims so cosine works on full-length
+            # vectors without storing 1536 distinct bytes.
+            vectors.append([seed[i % dims] for i in range(1536)])
+        return EmbeddingResult(
+            vectors=vectors,
+            tokens_in=sum(len(t) for t in texts),
+            latency_ms=1,
             model=model,
         )

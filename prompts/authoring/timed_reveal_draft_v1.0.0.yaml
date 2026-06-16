@@ -3,6 +3,8 @@ version: 1.0.0
 touchpoint: authoring
 description: Generate an MCQ with a per-question timer (timed-reveal mode).
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author.
   Generate ONE timed-reveal MCQ on the topic.
 

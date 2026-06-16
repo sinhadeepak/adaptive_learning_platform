@@ -377,14 +377,14 @@ export function AnalyticsDrill() {
                     r.isWeak ? (
                       <span
                         style={{
-                          color: "var(--bad, #f43f5e)",
+                          color: "var(--bad)",
                           fontWeight: 600,
                         }}
                       >
                         Weak
                       </span>
                     ) : (
-                      <span style={{ color: "var(--good, #10C47A)" }}>
+                      <span style={{ color: "var(--good)" }}>
                         OK
                       </span>
                     ),

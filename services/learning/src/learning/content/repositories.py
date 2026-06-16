@@ -131,6 +131,7 @@ async def list_questions(
     topic_id: str | None = None,
     subject_id: str | None = None,
     exam_id: str | None = None,
+    guardrail_filter: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
@@ -150,6 +151,12 @@ async def list_questions(
     if question_type is not None:
         where.append("question_type = :qtype")
         params["qtype"] = question_type
+    # AI Content Guardrail moderator sub-queue. Only references the
+    # guardrail_status column (migration 040) when a filter is supplied,
+    # so default listings stay backward-compatible pre-migration.
+    if guardrail_filter is not None:
+        where.append("guardrail_status = :gstatus")
+        params["gstatus"] = guardrail_filter
     if search:
         # ILIKE on stem; %s collation makes it case-insensitive on
         # ASCII. Hindi text would need a separate plain-text index +
@@ -217,6 +224,29 @@ async def get_question(session: AsyncSession, question_id: str) -> dict[str, Any
     )
     row = res.mappings().first()
     return _row_to_dict(row) if row else None
+
+
+async def mark_guardrail_status(
+    session: AsyncSession, question_id: str, status_value: str
+) -> bool:
+    """Best-effort: stamp questions.guardrail_status (migration 040).
+
+    Called AFTER the create_question insert has committed, on its own
+    transaction, so a missing column (pre-migration) or any failure
+    rolls back only this statement — never the question insert. Returns
+    True on success, False if the column/row isn't writable yet."""
+    try:
+        res = await session.execute(
+            text(
+                f"UPDATE {SCHEMA}.questions SET guardrail_status = :gs WHERE id = :id"
+            ),
+            {"gs": status_value, "id": question_id},
+        )
+        await session.commit()
+        return bool(res.rowcount)
+    except Exception:  # noqa: BLE001 — column may not exist pre-migration
+        await session.rollback()
+        return False
 
 
 async def submit_for_review(session: AsyncSession, question_id: str, by_user: str) -> bool:

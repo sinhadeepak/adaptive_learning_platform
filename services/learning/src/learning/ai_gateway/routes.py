@@ -13,8 +13,11 @@ routes are open in dev and gated by the upstream API gateway in prod.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from learning.ai_gateway.audit_log import purge_older_than_days
@@ -26,6 +29,9 @@ from learning.ai_gateway.cost_dashboard import (
 from learning.content.db import sessionmaker as content_sessionmaker
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+log = logging.getLogger(__name__)
+CONTENT_SCHEMA = "content_schema"
 
 
 class RollupOut(BaseModel):
@@ -125,6 +131,94 @@ async def post_audit_log_purge(
             detail={"code": "purge_failed", "message": str(e)},
         ) from e
     return PurgeResponse(rowsDeleted=deleted, days=req.days)
+
+
+# ── /admin/ai/guardrail/metrics — AI Content Guardrail rollup ────────────────
+
+
+class GuardrailMetricsRow(BaseModel):
+    type_id: str | None = None
+    total: int
+    passed: int
+    review: int
+    failed: int
+    avg_confidence: float | None = None
+    avg_similarity: float | None = None
+
+
+class GuardrailMetricsResponse(BaseModel):
+    windowDays: int
+    overall: GuardrailMetricsRow
+    byType: list[GuardrailMetricsRow]
+    escalations: int  # final FAIL rows (3rd-attempt give-ups)
+
+
+@router.get("/ai/guardrail/metrics", response_model=GuardrailMetricsResponse)
+async def get_guardrail_metrics(
+    window_days: int = Query(default=7, ge=1, le=90, alias="windowDays"),
+    session: AsyncSession = Depends(_audit_session),
+) -> GuardrailMetricsResponse:
+    """Pass/fail/review rates, avg confidence + similarity, and escalation
+    count over a window — from the guardrail trace columns on
+    ai_generation_jobs (migration 041). PLATFORM_ADMIN-gated upstream.
+
+    Degrades to zeros if migration 041 hasn't been applied yet."""
+    base_where = (
+        "guardrail_status IS NOT NULL "
+        "AND created_at > now() - make_interval(days => :days)"
+    )
+    agg = (
+        "COUNT(*) AS total, "
+        "COUNT(*) FILTER (WHERE guardrail_status='PASS') AS passed, "
+        "COUNT(*) FILTER (WHERE guardrail_status='REVIEW') AS review, "
+        "COUNT(*) FILTER (WHERE guardrail_status='FAIL') AS failed, "
+        "AVG(audit_confidence)::float AS avg_confidence, "
+        "AVG(similarity_score)::float AS avg_similarity"
+    )
+    try:
+        overall_row = (
+            await session.execute(
+                text(
+                    f"SELECT {agg} FROM {CONTENT_SCHEMA}.ai_generation_jobs "
+                    f"WHERE {base_where} AND guardrail_layer <> 'final'"
+                ),
+                {"days": window_days},
+            )
+        ).mappings().one()
+        by_type_rows = (
+            await session.execute(
+                text(
+                    f"SELECT prompt_template_id AS type_id, {agg} "
+                    f"FROM {CONTENT_SCHEMA}.ai_generation_jobs "
+                    f"WHERE {base_where} AND guardrail_layer <> 'final' "
+                    f"GROUP BY prompt_template_id ORDER BY total DESC"
+                ),
+                {"days": window_days},
+            )
+        ).mappings().all()
+        escalations = (
+            await session.execute(
+                text(
+                    f"SELECT COUNT(*) AS n FROM {CONTENT_SCHEMA}.ai_generation_jobs "
+                    f"WHERE {base_where} AND guardrail_layer='final' "
+                    f"AND guardrail_status='FAIL'"
+                ),
+                {"days": window_days},
+            )
+        ).scalar() or 0
+    except Exception as e:  # noqa: BLE001 — pre-migration / DB down → zeros
+        log.warning("guardrail metrics query failed: %s", e)
+        empty = GuardrailMetricsRow(total=0, passed=0, review=0, failed=0)
+        return GuardrailMetricsResponse(
+            windowDays=window_days, overall=empty, byType=[], escalations=0,
+        )
+
+    return GuardrailMetricsResponse(
+        windowDays=window_days,
+        overall=GuardrailMetricsRow(**dict(overall_row)),
+        byType=[GuardrailMetricsRow(**dict(r)) for r in by_type_rows],
+        escalations=int(escalations),
+    )
 
 
 # ── /admin/ops/infra — local stack health rollup ─────────────────────────────

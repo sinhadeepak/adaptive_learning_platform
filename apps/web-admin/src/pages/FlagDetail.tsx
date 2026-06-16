@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { flags, type FlagDetail as FlagDetailT } from "../lib/api";
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { Banner, BoolPill, SkeletonRows } from "../components/primitives";
 
 export function FlagDetail() {
@@ -53,7 +53,7 @@ export function FlagDetail() {
 
   if (!flag) {
     return (
-      <AppShell title={name || "Flag"} actions={action}>
+      <AdminShell crumbs="Operate · Feature flags" title={name || "Flag"} actions={action}>
         {error ? (
           <Banner tone="danger" role="alert">
             {error}
@@ -61,17 +61,18 @@ export function FlagDetail() {
         ) : (
           <SkeletonRows count={3} />
         )}
-      </AppShell>
+      </AdminShell>
     );
   }
 
   return (
-    <AppShell
+    <AdminShell
+      crumbs="Operate · Feature flags"
       title={flag.name}
       chips={
-        flag.dangerCritical
-          ? [{ label: "DANGER-CRITICAL" }]
-          : []
+        flag.dangerCritical ? (
+          <span className="vidya-shell__chip">DANGER-CRITICAL</span>
+        ) : undefined
       }
       actions={action}
     >
@@ -264,6 +265,6 @@ export function FlagDetail() {
           </div>
         )}
       </section>
-    </AppShell>
+    </AdminShell>
   );
 }

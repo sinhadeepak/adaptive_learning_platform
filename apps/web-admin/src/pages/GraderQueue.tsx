@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { AppShell } from "../components/AppShell";
-import { Banner, Pill } from "../components/primitives";
+import { AdminShell } from "../components/AdminShell";
+import { Banner, Pill, StatCard } from "../components/primitives";
 import { auth } from "../lib/api";
 import { env } from "../lib/env";
 
@@ -21,6 +21,7 @@ import { env } from "../lib/env";
 interface CalibrationItem {
   id: string;
   stem: string;
+  answer: string;
   rubric: { id: string; text: string; weight: number }[];
   gold_verdict: { criterion_id: string; satisfied: number }[];
 }
@@ -46,6 +47,7 @@ interface QueueResponse {
 }
 
 interface GraderVerdict {
+  itemId: string;
   criterionId: string;
   satisfied: number;
   note: string;
@@ -75,6 +77,7 @@ function CalibrationWarmUp({
 
   function next(): void {
     const recorded: GraderVerdict[] = item.rubric.map((c) => ({
+      itemId: item.id,
       criterionId: c.id,
       satisfied: response[c.id],
       note: "",
@@ -83,13 +86,21 @@ function CalibrationWarmUp({
     setVerdicts(updated);
     setResponse({});
     if (idx + 1 >= items.length) {
-      const goldFlat = items.flatMap((it) => it.gold_verdict);
+      // Match each verdict to the gold for the SAME item — criterion
+      // ids (c1/c2) repeat across items, so a flat find() would compare
+      // against the wrong item's gold.
       let agree = 0;
-      for (const v of updated) {
-        const gold = goldFlat.find((g) => g.criterion_id === v.criterionId);
-        if (gold && Math.abs(gold.satisfied - v.satisfied) < 0.25) agree += 1;
+      let total = 0;
+      for (const it of items) {
+        for (const gold of it.gold_verdict) {
+          total += 1;
+          const v = updated.find(
+            (x) => x.itemId === it.id && x.criterionId === gold.criterion_id,
+          );
+          if (v && Math.abs(gold.satisfied - v.satisfied) < 0.25) agree += 1;
+        }
       }
-      const passed = agree / updated.length >= 0.85;
+      const passed = total > 0 && agree / total >= 0.85;
       onComplete(passed);
     } else {
       setIdx(idx + 1);
@@ -116,7 +127,25 @@ function CalibrationWarmUp({
       </h3>
 
       <h4 style={{ fontSize: 13, marginBottom: 8, color: "var(--ink-2)" }}>
-        Rubric
+        Student answer
+      </h4>
+      <blockquote
+        style={{
+          margin: "0 0 16px",
+          padding: "10px 14px",
+          background: "var(--card)",
+          borderLeft: "3px solid var(--rule-2)",
+          borderRadius: 4,
+          fontSize: 13,
+          lineHeight: 1.5,
+          color: "var(--ink-2)",
+        }}
+      >
+        {item.answer}
+      </blockquote>
+
+      <h4 style={{ fontSize: 13, marginBottom: 8, color: "var(--ink-2)" }}>
+        Rubric — score each criterion against the answer
       </h4>
       {item.rubric.map((c) => (
         <div
@@ -160,16 +189,8 @@ function CalibrationWarmUp({
       <button
         onClick={next}
         disabled={!allRated}
-        style={{
-          marginTop: 12,
-          padding: "8px 16px",
-          background: allRated ? "var(--info)" : "var(--paper-2)",
-          color: allRated ? "white" : "var(--ink-3)",
-          border: "1px solid var(--rule)",
-          borderRadius: 4,
-          cursor: allRated ? "pointer" : "not-allowed",
-          fontWeight: 600,
-        }}
+        className={allRated ? "btn btn-primary" : "btn btn-ghost"}
+        style={{ marginTop: 12 }}
       >
         {idx + 1 === items.length ? "Finish warm-up" : "Next"}
       </button>
@@ -220,18 +241,15 @@ function QueuePanel({
         Grading queue
       </h2>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <StatCard label="Pending review (low-confidence AI)"
-                  value={queue.pendingReviewCount.toString()} />
-        <StatCard label="Calibration samples awaiting human"
-                  value={queue.calibrationSampleCount.toString()} />
+      <div className="stat-grid" style={{ marginBottom: 16 }}>
+        <StatCard
+          label="Pending review (low-confidence AI)"
+          value={queue.pendingReviewCount}
+        />
+        <StatCard
+          label="Calibration samples awaiting human"
+          value={queue.calibrationSampleCount}
+        />
       </div>
 
       {!activeItem && (
@@ -359,32 +377,14 @@ function QueuePanel({
             <button
               onClick={submit}
               disabled={satisfied === "" || busy}
-              style={{
-                padding: "8px 16px",
-                background:
-                  satisfied !== "" && !busy
-                    ? "var(--info)"
-                    : "var(--paper-2)",
-                color: satisfied !== "" && !busy ? "white" : "var(--ink-3)",
-                border: "1px solid var(--rule)",
-                borderRadius: 4,
-                cursor: satisfied !== "" && !busy ? "pointer" : "not-allowed",
-                fontWeight: 600,
-              }}
+              className={satisfied !== "" && !busy ? "btn btn-primary" : "btn btn-ghost"}
             >
               {busy ? "Submitting…" : "Submit verdict"}
             </button>
             <button
               onClick={onPullNext}
               disabled={busy}
-              style={{
-                padding: "8px 16px",
-                background: "var(--card)",
-                color: "var(--ink)",
-                border: "1px solid var(--rule)",
-                borderRadius: 4,
-                cursor: busy ? "not-allowed" : "pointer",
-              }}
+              className="btn btn-ghost"
             >
               Skip / refresh queue
             </button>
@@ -392,32 +392,6 @@ function QueuePanel({
         </div>
       )}
     </section>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        padding: 12,
-        background: "var(--card)",
-        border: "1px solid var(--rule)",
-        borderRadius: 6,
-        color: "var(--ink)",
-      }}
-    >
-      <div
-        style={{
-          fontSize: 11,
-          color: "var(--ink-3)",
-          textTransform: "uppercase",
-          letterSpacing: 0.04,
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ fontSize: 24, fontWeight: 700, marginTop: 4 }}>{value}</div>
-    </div>
   );
 }
 
@@ -514,7 +488,16 @@ export function GraderQueue() {
   }
 
   return (
-    <AppShell title="Grader Queue" chips={[{ label: "Phase 5" }, { label: "Grader" }]}>
+    <AdminShell
+      crumbs="Quality · Grader queue"
+      title="Grader Queue"
+      chips={
+        <>
+          <span className="vidya-shell__chip">Phase 5</span>
+          <span className="vidya-shell__chip">Grader</span>
+        </>
+      }
+    >
       <Banner tone="info">
         <strong>Anonymised grading.</strong> You won't see student ids, names,
         ages, or prior performance. Per-criterion verdicts (0 / 0.5 / 1) feed
@@ -571,29 +554,14 @@ export function GraderQueue() {
           <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
             <button
               onClick={() => setCalibrationFailed(false)}
-              style={{
-                padding: "8px 16px",
-                background: "var(--info)",
-                color: "white",
-                border: "1px solid var(--rule)",
-                borderRadius: 4,
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
+              className="btn btn-primary"
             >
               Retry calibration
             </button>
             <a
               href="/calibration-dashboard"
-              style={{
-                padding: "8px 16px",
-                background: "var(--card)",
-                color: "var(--ink)",
-                border: "1px solid var(--rule)",
-                borderRadius: 4,
-                textDecoration: "none",
-                fontWeight: 600,
-              }}
+              className="btn btn-ghost"
+              style={{ textDecoration: "none" }}
             >
               Open calibration dashboard
             </a>
@@ -623,6 +591,6 @@ export function GraderQueue() {
           />
         </>
       )}
-    </AppShell>
+    </AdminShell>
   );
 }

@@ -885,6 +885,33 @@ QC2=$(curl -s -X POST "$LEARNING_URL/content/ai/quality-check" \
 assert "quality-check round-trip is idempotent (cache hit on second call)" \
   bash -c "echo '$QC1' | python3 -c \"import sys,json; d=json.load(sys.stdin); assert isinstance(d.get('warnings'), list)\""
 
+# -- 37. AI provider status + Content Guardrail enforcement -----------------
+
+echo "==> AI provider status + Content Guardrail (409)"
+
+# (a) /adaptive/ai-status must reflect the admin provider chain, never a
+# hardcoded 'openai'. When an admin provider is enabled it reports that
+# provider's display name; otherwise 'none' (or 'OpenAI' with a static key).
+ENABLED_PROVIDER=$(psql_q learning \
+  "SELECT display_name FROM content_schema.ai_provider_config WHERE enabled = TRUE ORDER BY priority, created_at LIMIT 1" \
+  | head -1)
+AI_STATUS=$(curl -s -H "Authorization: Bearer $TEACHER_TOKEN" "$LEARNING_URL/adaptive/ai-status")
+pyassert "ai-status shape: enabled bool + provider string" "$AI_STATUS" \
+  "import sys,json; d=json.load(sys.stdin); assert isinstance(d.get('enabled'),bool) and isinstance(d.get('provider'),str)"
+pyassert "ai-status provider reflects admin chain (not hardcoded 'openai')" "$AI_STATUS" \
+  "import sys,json; d=json.load(sys.stdin); exp='$ENABLED_PROVIDER'.strip(); assert (d['provider']==exp) if exp else (d['provider'] in ('none','OpenAI')), d['provider']"
+
+# (b) AI Content Guardrail: a FAIL verdict carried in ai_origin.guardrail must
+# be rejected with 409 at the create boundary, before any catalog/DB write.
+GR_BODY=$(printf '{"topicId":"%s","stem":"Smoke guardrail enforcement check stem","choices":["A","B","C","D"],"correctIdx":0,"aiOrigin":{"guardrail":{"status":"FAIL","fail_reason":"smoke"}}}' "$MECHANICS_TOPIC")
+GR_RESP=$(curl -s -w $'\n%{http_code}' -X POST "$LEARNING_URL/content/questions" \
+  -H "Authorization: Bearer $TEACHER_TOKEN" -H "Content-Type: application/json" -d "$GR_BODY")
+GR_CODE=$(printf '%s' "$GR_RESP" | tail -1)
+GR_JSON=$(printf '%s' "$GR_RESP" | sed '$d')
+assert "guardrail FAIL marker rejected at create (409)" bash -c "[ '$GR_CODE' = '409' ]"
+pyassert "guardrail 409 problem code is guardrail_failed" "$GR_JSON" \
+  "import sys,json; d=json.load(sys.stdin); assert d['detail']['code']=='guardrail_failed'"
+
 # -- summary ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then

@@ -19,10 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from learning.content import events
 from learning.content.catalog_client import authorize_topic
 from learning.content.db import sessionmaker
+from learning.content.guardrail_enforcement import guardrail_admission
 from learning.content.repositories import (
     get_question,
     insert_question,
     list_questions,
+    mark_guardrail_status,
     review,
     submit_for_review,
 )
@@ -105,6 +107,17 @@ async def create_question(
     if body.correctIdx >= len(body.choices):
         raise _problem("invalid_correct_idx", "correctIdx out of range", http_status=400)
 
+    # AI Content Guardrail — unbypassable DRAFT-write enforcement. A FAIL
+    # verdict (carried in ai_origin.guardrail) can never reach DRAFT. Run
+    # before the catalog/DB hops so a rejected question burns no resources.
+    admission = guardrail_admission(body.aiOrigin)
+    if not admission.admit:
+        raise _problem(
+            admission.code or "guardrail_failed",
+            admission.reason or "Question failed the AI content guardrail.",
+            http_status=status.HTTP_409_CONFLICT,
+        )
+
     # Topic scope check — catalog is the source of truth for educator
     # assignments. Forward the inbound bearer so catalog can identify
     # the same principal we just verified. PLATFORM_ADMIN bypass is
@@ -151,6 +164,11 @@ async def create_question(
         ai_origin=body.aiOrigin,
     )
     await session.commit()
+    # Stamp the guardrail outcome so a REVIEW lands in the moderator
+    # sub-queue. Best-effort on a fresh transaction — never blocks the
+    # create (already committed above).
+    if admission.guardrail_status is not None:
+        await mark_guardrail_status(session, row["id"], admission.guardrail_status)
     return _to_detail(row)
 
 
@@ -165,6 +183,9 @@ async def list_questions_endpoint(
     topic_id: Annotated[str | None, Query(alias="topic_id")] = None,
     subject_id: Annotated[str | None, Query(alias="subject_id")] = None,
     exam_id: Annotated[str | None, Query(alias="exam_id")] = None,
+    guardrail: Annotated[
+        str | None, Query(alias="guardrail", pattern="^(PASS|REVIEW|FAIL)$")
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> QuestionList:
@@ -182,6 +203,9 @@ async def list_questions_endpoint(
         author = None
     else:
         author = principal.user_id
+    # The guardrail sub-queue (e.g. ?guardrail=REVIEW) is a moderator view.
+    if guardrail is not None:
+        _require_role(principal, "MODERATOR", "INSTITUTION_ADMIN", "PLATFORM_ADMIN")
     rows, total = await list_questions(
         session,
         created_by=author,
@@ -191,6 +215,7 @@ async def list_questions_endpoint(
         topic_id=topic_id,
         subject_id=subject_id,
         exam_id=exam_id,
+        guardrail_filter=guardrail,
         limit=limit,
         offset=offset,
     )

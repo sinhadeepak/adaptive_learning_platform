@@ -3,6 +3,8 @@ version: 1.0.0
 touchpoint: authoring
 description: Generate a multi-blank fill-in question.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author.
   Generate ONE multi-blank fill-in question on the topic.
 

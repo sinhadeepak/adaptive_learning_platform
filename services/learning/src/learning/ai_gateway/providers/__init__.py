@@ -8,6 +8,7 @@ when no API key is configured.
 from __future__ import annotations
 
 from learning.ai_gateway.providers.base import (
+    EmbeddingResult,
     Provider,
     ProviderError,
     ProviderResult,
@@ -19,6 +20,7 @@ __all__ = [
     "Provider",
     "ProviderError",
     "ProviderResult",
+    "EmbeddingResult",
     "OpenAIProvider",
     "StubProvider",
 ]

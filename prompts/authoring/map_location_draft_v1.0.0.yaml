@@ -3,6 +3,8 @@ version: 1.0.0
 touchpoint: authoring
 description: Generate a map-location (locate-on-map) question.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author.
   Generate ONE map-location question on the topic.
 

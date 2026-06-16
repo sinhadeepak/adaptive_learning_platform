@@ -1,7 +1,7 @@
 # AI Gateway routing config — Phase 5 + Phase 7 admin chain.
 #
 # Touchpoints (fixed set; ADR amendment required to add):
-#   authoring · quality_check · evaluation · translation · vision
+#   authoring · quality_check · evaluation · translation · vision · embedding
 #
 # Each touchpoint's primary provider is the **admin-managed chain**
 # (Ollama → OpenAI → Anthropic, in priority order set at
@@ -43,6 +43,15 @@ routing:
     primary:    { provider: admin_chain, model: auto, max_tokens: 1000 }
     fallback:   { provider: openai,      model: gpt-4o,  max_tokens: 1000 }
     timeout_ms: 20000
+
+  # AI Content Guardrail L3 similarity scan. OpenAI primary (the admin
+  # chain has no embeddings endpoint); stub fallback keeps the dev stack
+  # working without a key. max_tokens unused by the embeddings path but
+  # required by the schema.
+  embedding:
+    primary:    { provider: openai, model: text-embedding-3-small, max_tokens: 1 }
+    fallback:   { provider: stub,   model: stub-embed, max_tokens: 1 }
+    timeout_ms: 15000
 
 rate_limits:
   per_creator_per_day:

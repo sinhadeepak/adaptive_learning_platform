@@ -3,6 +3,8 @@ version: 1.0.0
 touchpoint: authoring
 description: Generate an MCQ that branches to easier/harder topics based on the answer.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author.
   Generate ONE adaptive-difficulty MCQ on the topic.
 

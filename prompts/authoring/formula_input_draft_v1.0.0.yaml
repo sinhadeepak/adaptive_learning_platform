@@ -5,6 +5,8 @@ description: >
   Generate a formula-input question (JEE Adv style). Student types a
   symbolic expression; the engine compares for sympy equivalence.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author specialising in symbolic
   algebra questions. Generate ONE formula-input question.
 

@@ -184,7 +184,10 @@ async def suggest_queries(
     )
     if out is not None:
         out["source"] = "ai"
-        out["model"] = "openai-default"
+        # Report the admin-configured provider that served (best-effort),
+        # not a hardcoded "openai" — the call routes through the admin
+        # chain (ai_provider_config) via llm.call_structured.
+        out["model"] = await llm.active_provider() or "ai"
         out["prompt_template_id"] = PROMPT_TEMPLATE_ID
         out["prompt_template_version"] = PROMPT_TEMPLATE_VERSION
         return out

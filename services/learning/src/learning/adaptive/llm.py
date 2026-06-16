@@ -75,6 +75,40 @@ async def is_enabled_async() -> bool:
         return False
 
 
+async def active_provider() -> str | None:
+    """Best-effort label of the AI path that would actually serve a call.
+
+    Returns the highest-priority *enabled* row's display_name from the
+    admin provider chain; else "OpenAI" when a legacy env key is set;
+    else None (no AI reachable). Used by `/adaptive/ai-status` and the
+    resource-suggestion response so the UI reports the real provider
+    instead of a hardcoded "openai". It reflects the configured top
+    provider, not a guaranteed served-by (the chain may fall through on
+    failure), which is accurate enough for status/labelling.
+    """
+    try:
+        from sqlalchemy import text as _t
+
+        from learning.content.db import sessionmaker as _sm
+
+        async with _sm()() as sess:
+            row = (
+                await sess.execute(
+                    _t(
+                        "SELECT display_name FROM content_schema.ai_provider_config "
+                        " WHERE enabled = TRUE ORDER BY priority, created_at LIMIT 1"
+                    )
+                )
+            ).first()
+            if row is not None:
+                return str(row[0])
+    except Exception:  # noqa: BLE001 — DB unreachable → fall back to env key
+        pass
+    if settings.openai_api_key:
+        return "OpenAI"
+    return None
+
+
 async def call_structured(
     *,
     system: str,

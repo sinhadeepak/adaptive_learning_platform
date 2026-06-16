@@ -3,6 +3,8 @@ version: 1.0.0
 touchpoint: authoring
 description: Generate a reading-comprehension passage with sub-questions.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author.
   Generate ONE comprehension passage + sub-questions on the topic.
 

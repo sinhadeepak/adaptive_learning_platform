@@ -5,6 +5,8 @@ description: >
   Generate a video-question structure. AI emits a video brief +
   sub-questions; author produces / sources the actual video.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author.
   Generate ONE video-question on the topic.
 

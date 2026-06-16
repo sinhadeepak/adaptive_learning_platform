@@ -11,9 +11,11 @@ from httpx import ASGITransport, AsyncClient
 
 from learning.main import app
 
+# Dedicated test DB (catalog seeds come from its migrations). Root
+# tests/conftest.py provisions it; this is a standalone-run fallback.
 os.environ.setdefault(
     "CATALOG_DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:35432/catalog",
+    "postgresql+asyncpg://postgres:postgres@localhost:35432/learning_test",
 )
 
 pytestmark = pytest.mark.asyncio
@@ -31,12 +33,15 @@ async def client() -> AsyncIterator[AsyncClient]:
         yield c
 
 
-async def test_list_exams_returns_seeded_four(client: AsyncClient) -> None:
+async def test_list_exams_includes_core_seeded(client: AsyncClient) -> None:
     r = await client.get("/catalog/exams")
     assert r.status_code == 200
     exams = r.json()
-    codes = sorted(e["code"] for e in exams)
-    assert codes == ["CAT", "JEE_MAIN", "NEET", "UPSC_CSE"]
+    codes = {e["code"] for e in exams}
+    # The 4 original competitive exams must be present. Post-ADR-0005 the
+    # consolidated DB also carries the CBSE-board exams seeded by the content
+    # migrations, so assert a subset rather than exact equality.
+    assert {"CAT", "JEE_MAIN", "NEET", "UPSC_CSE"} <= codes
     assert all({"id", "code", "name"} <= set(e.keys()) for e in exams)
 
 
@@ -46,9 +51,11 @@ async def test_subjects_under_jee_main(client: AsyncClient) -> None:
     subjects = r.json()
     names = [s["name"] for s in subjects]
     assert names == ["Physics", "Chemistry", "Mathematics"]
-    # Physics should have 3 topics seeded (Mechanics, Thermodynamics, Electrostatics).
+    # Physics carries the full JEE syllabus: the 3 original sample topics
+    # (Mechanics, Thermodynamics, Electrostatics) plus the chapter-level
+    # expansion from migration 027.
     physics = next(s for s in subjects if s["name"] == "Physics")
-    assert physics["topicCount"] == 3
+    assert physics["topicCount"] >= 20
 
 
 async def test_topics_under_physics(client: AsyncClient) -> None:
@@ -56,7 +63,11 @@ async def test_topics_under_physics(client: AsyncClient) -> None:
     assert r.status_code == 200
     topics = r.json()
     titles = [t["title"] for t in topics]
-    assert titles == ["Mechanics", "Thermodynamics", "Electrostatics"]
+    # The original sample topics stay first (sort_order 1-3); the full
+    # chapter list (migration 027) follows.
+    assert titles[:3] == ["Mechanics", "Thermodynamics", "Electrostatics"]
+    assert len(titles) >= 20
+    assert "Ray Optics" in titles
     # Tier defaults to FREE
     assert all(t["tier"] == "FREE" for t in topics)
 

@@ -12,6 +12,13 @@ import "@alp/design-system/vidya/fonts.css";
 // the custom-properties cascade resolves.
 import "@alp/ui/ui.css";
 
+// Shared chrome stylesheets. Loaded globally at the entry point (not from a
+// layout component) so the admin grid/table utilities in styles/shell.css and
+// the form/button classes in design-system/shell.css stay available to every
+// page regardless of which shell is mounted. Admin overrides come last.
+import "@alp/design-system/shell.css";
+import "./styles/shell.css";
+
 import { App } from "./App";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

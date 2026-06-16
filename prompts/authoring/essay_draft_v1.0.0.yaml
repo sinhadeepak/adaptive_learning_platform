@@ -3,6 +3,8 @@ version: 1.0.0
 touchpoint: authoring
 description: Generate an essay question with rubric.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author.
   Generate ONE essay-style question on the topic.
 

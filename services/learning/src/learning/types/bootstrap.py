@@ -33,12 +33,17 @@ from learning.types.objective.handlers import (
     MultiStatementHandler,
     TrueFalseHandler,
 )
-from learning.types.registry import freeze_registry, register_handler
+from learning.types.registry import freeze_registry, is_frozen, register_handler
 
 
 def register_all_v1_handlers() -> None:
-    """Register every v1 deterministic handler. Idempotent only at
-    process boundary — calling twice raises (registry is read-only)."""
+    """Register every v1 deterministic handler.
+
+    No-op when the registry is already frozen, so repeated calls in one
+    process are safe (e.g. multiple TestClient lifespans in a test run).
+    The first call registers all handlers and freezes the registry."""
+    if is_frozen():
+        return
     # Objective family (5)
     register_handler(MCQSingleHandler())
     register_handler(MCQMultiHandler())

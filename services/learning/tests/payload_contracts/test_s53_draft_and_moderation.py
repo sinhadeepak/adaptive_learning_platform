@@ -214,7 +214,7 @@ def test_draft_unsupported_type_raises() -> None:
         template_id="mcq_single_draft", schema_name="DraftMCQ", canned={},
     )
     with pytest.raises(Exception):  # Pydantic ValidationError on Literal
-        DraftQuestionRequest(type_id="ESSAY", topic="x")
+        DraftQuestionRequest(type_id="NOT_A_REAL_TYPE", topic="x")
 
 
 # ── Image moderation: decide_verdict ─────────────────────────────────────────

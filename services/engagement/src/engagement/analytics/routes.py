@@ -1318,16 +1318,24 @@ async def institution_teacher_effectiveness(tenant_id: str):
             await s.execute(
                 _t(
                     """
-                    SELECT educator_id::text AS educator_id,
-                           SUM(n_students)              AS n_students,
-                           AVG(avg_readiness)           AS avg_readiness,
-                           AVG(delta_readiness_7d)      AS delta_7d,
-                           AVG(delta_readiness_30d)     AS delta_30d
+                    SELECT ta.educator_id::text       AS educator_id,
+                           SUM(ta.n_students)          AS n_students,
+                           AVG(ta.avg_readiness)       AS avg_readiness,
+                           AVG(ta.delta_readiness_7d)  AS delta_7d,
+                           AVG(ta.delta_readiness_30d) AS delta_30d
                       FROM analytics_schema.teacher_aggregates ta
-                     INNER JOIN identity_schema.users u
-                             ON u.id = ta.educator_id
-                            AND u.tenant_id = CAST(:tid AS uuid)
-                     WHERE snapshot_date = (
+                     -- Scope to the tenant via the cohort→tenant mapping
+                     -- engagement owns (institution_aggregates). The
+                     -- educator→tenant link lives in identity's users
+                     -- table — a separate database engagement cannot
+                     -- join; referencing identity_schema.users here 500s
+                     -- with UndefinedTableError.
+                     WHERE ta.cohort_id IN (
+                          SELECT cohort_id
+                            FROM analytics_schema.institution_aggregates
+                           WHERE tenant_id = CAST(:tid AS uuid)
+                     )
+                       AND ta.snapshot_date = (
                           SELECT MAX(snapshot_date)
                             FROM analytics_schema.teacher_aggregates
                      )

@@ -18,9 +18,12 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any, Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from learning.ai_authoring.guardrail import GuardrailEngine, GuardrailVerdict
+from learning.ai_authoring.guardrail.prompt_injection import GUARDRAIL_PREAMBLE
 from learning.ai_gateway import AIGateway
 from learning.ai_gateway.quotas import QuotaExceededError
 
@@ -330,6 +333,11 @@ class AIDraftMarker(BaseModel):
 
     Reviewer queue renders edit_distance per field so zero-edit
     drafts trigger tighter scrutiny.
+
+    `guardrail` carries the AI Content Guardrail verdict computed at
+    generation time. It travels in questions.ai_origin JSONB and is
+    re-enforced at the DRAFT-write boundary (create_question) so a FAIL
+    can never reach DRAFT.
     """
 
     original_payload: dict[str, Any]
@@ -339,6 +347,7 @@ class AIDraftMarker(BaseModel):
     created_at: datetime
     author_edited: bool = False
     edit_distance: dict[str, int] = Field(default_factory=dict)
+    guardrail: GuardrailVerdict | None = None
 
 
 # ── Operations ───────────────────────────────────────────────────────────────
@@ -428,6 +437,7 @@ async def draft_question(
     *,
     request: DraftQuestionRequest,
     creator_id: str | None = None,
+    engine: GuardrailEngine | None = None,
 ) -> tuple[BaseModel, AIDraftMarker]:
     """Produce a complete typed payload via the AI Gateway.
 
@@ -435,6 +445,12 @@ async def draft_question(
     + output schema. Returns (validated payload, AI_DRAFT marker).
     Caller persists both: the payload onto content_schema.questions
     (JSONB), the marker onto questions.ai_origin.
+
+    When an `engine` is supplied and enabled, generation runs through the
+    AI Content Guardrail (L1 preamble already injected here via
+    `guardrail_preamble`, then L2 self-audit + L3 similarity + retry). The
+    resulting verdict lands on `marker.guardrail`. When no engine is given
+    (or the kill-switch is off) generation behaves exactly as before.
 
     QuotaExceededError propagates when the creator is over their
     daily cap (default 50/day). Caller surfaces as 429 with reset_at.
@@ -451,15 +467,34 @@ async def draft_question(
         "exam": request.exam,
         "syllabus_chapter": request.syllabus_chapter or "",
         "source_material": request.source_material or "",
+        # L1 — injected into authoring templates that carry the
+        # {guardrail_preamble} placeholder. Harmless extra for any that
+        # don't (the gateway forwards unreferenced inputs).
+        "guardrail_preamble": GUARDRAIL_PREAMBLE,
     }
-    draft = await gateway.call(
-        touchpoint="authoring",
-        prompt_template_id=template_id,
-        prompt_template_version="1.0.0",
-        prompt_inputs=inputs,
-        schema=schema,
-        creator_id=creator_id,
-    )
+
+    async def _generate(_attempt: int) -> BaseModel:
+        return await gateway.call(
+            touchpoint="authoring",
+            prompt_template_id=template_id,
+            prompt_template_version="1.0.0",
+            prompt_inputs=inputs,
+            schema=schema,
+            creator_id=creator_id,
+        )
+
+    verdict: GuardrailVerdict | None = None
+    if engine is not None and engine.config.enabled:
+        draft, verdict = await engine.run(
+            _generate,
+            type_id=request.type_id,
+            topic=request.topic,
+            group_id=str(uuid4()),
+            creator_id=creator_id,
+        )
+    else:
+        draft = await _generate(1)
+
     marker = AIDraftMarker(
         original_payload=draft.model_dump(),
         prompt_template_id=template_id,
@@ -468,6 +503,7 @@ async def draft_question(
         created_at=datetime.now(tz=UTC),
         author_edited=False,
         edit_distance={},
+        guardrail=verdict,
     )
     return draft, marker
 

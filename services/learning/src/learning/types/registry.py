@@ -71,6 +71,13 @@ def freeze_registry() -> None:
     _FROZEN = True
 
 
+def is_frozen() -> bool:
+    """True once the registry has been bootstrapped + locked. Lets
+    `register_all_v1_handlers()` be a no-op on repeat calls (e.g. when
+    multiple TestClient lifespans boot in one test process)."""
+    return _FROZEN
+
+
 def get_handler(type_id: str) -> QuestionTypeHandler:
     """Look up a handler. Raises KeyError if unknown."""
     if type_id not in _HANDLERS:

@@ -301,7 +301,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 task.cancel()
                 try:
                     await task
-                except Exception:  # noqa: BLE001
+                # BaseException, not Exception: awaiting a cancelled task
+                # raises asyncio.CancelledError (a BaseException). Without
+                # this, lifespan teardown under TestClient leaks the
+                # CancelledError and fails the test at teardown.
+                except BaseException:  # noqa: BLE001
                     pass
         await _try("photo_doubt_limiter.close", app.state.photo_doubt_limiter.close)
         await _try("adaptive.flags.close", close_adaptive_flags)

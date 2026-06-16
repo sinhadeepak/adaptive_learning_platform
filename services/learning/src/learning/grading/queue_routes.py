@@ -275,6 +275,11 @@ async def submit_grade(
 class CalibrationSetItem(BaseModel):
     id: str
     stem: str
+    # The sample student answer the grader scores against the rubric.
+    # Without this the warm-up is ungradeable (the grader can only
+    # guess), which is why the gold below is a deliberate mix of
+    # 1 / 0.5 / 0 keyed to what `answer` actually demonstrates.
+    answer: str
     rubric: list[dict[str, Any]]
     gold_verdict: list[dict[str, Any]]
 
@@ -285,6 +290,9 @@ class CalibrationSetResponse(BaseModel):
 
 # Static set of pre-graded calibration items. Real implementation would
 # pull from a curated table; v1 ships the 3 items the grader UI uses.
+# Each item pairs a sample answer with the expert ("gold") per-criterion
+# verdict for THAT answer — a spread of full / partial / miss so the
+# warm-up genuinely tests grader judgement (not "mark everything 1").
 _CALIBRATION_ITEMS: list[CalibrationSetItem] = [
     CalibrationSetItem(
         id="cal-1",
@@ -292,10 +300,19 @@ _CALIBRATION_ITEMS: list[CalibrationSetItem] = [
             "In 80 words, explain why the sky appears blue. Reference a "
             "specific physical phenomenon."
         ),
+        answer=(
+            "The sky looks blue because of Rayleigh scattering. Air "
+            "molecules scatter sunlight, and the scattering is inversely "
+            "proportional to the fourth power of wavelength, so shorter "
+            "blue wavelengths scatter far more than red. That scattered "
+            "blue light reaches our eyes from every direction."
+        ),
         rubric=[
             {"id": "c1", "text": "Names Rayleigh scattering", "weight": 50},
             {"id": "c2", "text": "Connects to wavelength dependence", "weight": 50},
         ],
+        # Strong answer: names Rayleigh scattering AND ties it to the
+        # λ⁻⁴ wavelength dependence → both criteria fully satisfied.
         gold_verdict=[
             {"criterion_id": "c1", "satisfied": 1.0},
             {"criterion_id": "c2", "satisfied": 1.0},
@@ -307,6 +324,13 @@ _CALIBRATION_ITEMS: list[CalibrationSetItem] = [
             "Discuss the doctrine of basic structure (50 words). "
             "Cite at least one landmark case."
         ),
+        answer=(
+            "The basic structure doctrine holds that Parliament's power to "
+            "amend the Constitution cannot extend to destroying its "
+            "fundamental framework — features such as judicial review and "
+            "federalism are beyond amendment. It was laid down by the "
+            "Supreme Court in a landmark 1973 ruling."
+        ),
         rubric=[
             {"id": "c1", "text": "Defines basic structure doctrine", "weight": 50},
             {
@@ -315,9 +339,11 @@ _CALIBRATION_ITEMS: list[CalibrationSetItem] = [
                 "weight": 50,
             },
         ],
+        # Defines the doctrine well (c1 = full) but only alludes to a
+        # "1973 ruling" without naming Kesavananda Bharati (c2 = miss).
         gold_verdict=[
             {"criterion_id": "c1", "satisfied": 1.0},
-            {"criterion_id": "c2", "satisfied": 1.0},
+            {"criterion_id": "c2", "satisfied": 0.0},
         ],
     ),
     CalibrationSetItem(
@@ -326,13 +352,21 @@ _CALIBRATION_ITEMS: list[CalibrationSetItem] = [
             "Derive Newton's second law from the principle of "
             "conservation of momentum."
         ),
+        answer=(
+            "Momentum is p = mv. The rate of change of momentum equals the "
+            "applied force, so F = dp/dt. Expanding, F = m(dv/dt) + "
+            "v(dm/dt)."
+        ),
         rubric=[
             {"id": "c1", "text": "States dp/dt = F", "weight": 50},
             {"id": "c2", "text": "Reduces to F=ma for constant mass", "weight": 50},
         ],
+        # States F = dp/dt (c1 = full) and reaches the product-rule
+        # expansion but stops short of reducing to F = ma for constant
+        # mass (c2 = partial).
         gold_verdict=[
             {"criterion_id": "c1", "satisfied": 1.0},
-            {"criterion_id": "c2", "satisfied": 1.0},
+            {"criterion_id": "c2", "satisfied": 0.5},
         ],
     ),
 ]

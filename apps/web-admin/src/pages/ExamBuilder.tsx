@@ -248,9 +248,9 @@ export function ExamBuilder() {
             role="alert"
             style={{
               padding: 10,
-              border: "1px solid var(--bad, #f43f5e)",
+              border: "1px solid var(--bad)",
               borderRadius: 6,
-              color: "var(--bad, #f43f5e)",
+              color: "var(--bad)",
               fontSize: 13,
             }}
           >
@@ -330,11 +330,11 @@ function Stepper({ step }: { step: Step }) {
               borderRadius: 999,
               background:
                 i === idx
-                  ? "var(--info, #4F87F6)"
+                  ? "var(--info)"
                   : i < idx
-                    ? "var(--good, #10C47A)"
+                    ? "var(--good)"
                     : "var(--paper-2)",
-              color: i <= idx ? "#fff" : "var(--ink-3)",
+              color: i <= idx ? "var(--paper)" : "var(--ink-3)",
             }}
           >
             {s.label}

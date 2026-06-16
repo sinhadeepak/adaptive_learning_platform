@@ -6,6 +6,8 @@ description: >
   legitimate correct answers (JEE Advanced style). Author reviews;
   artifact lands as AI_DRAFT.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author specialising in advanced
   multi-correct MCQs. Generate ONE multi-correct MCQ for the topic.
 

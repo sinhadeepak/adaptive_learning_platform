@@ -226,6 +226,63 @@ class AIGateway:
             f"template={prompt_template_id}@{prompt_template_version}"
         )
 
+    async def embed(
+        self,
+        *,
+        texts: list[str],
+        model: str | None = None,
+        creator_id: str | None = None,
+    ) -> list[list[float]]:
+        """Generate embeddings for `texts` via the `embedding` touchpoint.
+
+        Mirrors `call()` for quota + telemetry but skips schema validation
+        (embeddings are raw float vectors). Providers that don't implement
+        `embed` (e.g. the admin chain) are skipped so the touchpoint falls
+        through to an embedding-capable provider. Per the ADR-0019
+        amendment for the AI Content Guardrail L3 similarity scan.
+        """
+        touchpoint = "embedding"
+        if touchpoint not in self.routing.routing:
+            raise AIGatewayError("no routing config for touchpoint 'embedding'")
+        await self._quotas.check(touchpoint=touchpoint, creator_id=creator_id)
+
+        tp_routing = self.routing.routing[touchpoint]
+        for attempt_role, provider_cfg in _candidates(tp_routing):
+            provider = self._get_provider(provider_cfg.provider)
+            embed_fn = getattr(provider, "embed", None)
+            if embed_fn is None:
+                continue  # text-only provider — try the fallback
+            started = time.monotonic()
+            try:
+                result = await embed_fn(
+                    model=model or provider_cfg.model,
+                    texts=texts,
+                    timeout_ms=tp_routing.timeout_ms,
+                )
+                record_call(
+                    touchpoint=touchpoint,
+                    provider=provider.name,
+                    status="success",
+                    latency_ms=result.latency_ms,
+                    tokens_in=result.tokens_in,
+                    tokens_out=0,
+                    creator_id=creator_id,
+                )
+                return result.vectors
+            except ProviderError as e:
+                err_latency_ms = int((time.monotonic() - started) * 1000)
+                record_call(
+                    touchpoint=touchpoint,
+                    provider=provider.name,
+                    status=f"error:{attempt_role}",
+                    latency_ms=err_latency_ms,
+                )
+                if not e.retryable and attempt_role == "fallback":
+                    break
+                continue
+
+        raise AIGatewayError("all providers failed for touchpoint=embedding")
+
     # ── Provider resolution ──────────────────────────────────────────────
 
     def _get_provider(self, name: str) -> Provider:

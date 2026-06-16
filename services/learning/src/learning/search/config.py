@@ -11,7 +11,9 @@ class Settings(BaseSettings):
     port: int = Field(default=38005)
 
     database_url: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:35432/search"
+        # Post-ADR-0005 consolidation: search metadata lives in the `learning`
+        # database. Containers override via SEARCH_DATABASE_URL.
+        default="postgresql+asyncpg://postgres:postgres@localhost:35432/learning"
     )
     redis_url: str = Field(default="redis://localhost:36379/0")
     nats_url: str = Field(default="nats://localhost:34222")

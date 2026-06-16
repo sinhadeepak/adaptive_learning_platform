@@ -14,13 +14,17 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, Field
 
-# 5 touchpoints. New touchpoints require an ADR amendment.
+# 6 touchpoints. New touchpoints require an ADR amendment.
+# `embedding` added per the ADR-0019 amendment for the AI Content
+# Guardrail (L3 similarity scan) — keeps embedding generation behind the
+# single gateway door rather than a direct OpenAI call.
 Touchpoint = Literal[
     "authoring",
     "quality_check",
     "evaluation",
     "translation",
     "vision",
+    "embedding",
 ]
 
 ProviderName = Literal["openai", "stub", "admin_chain"]
@@ -95,6 +99,7 @@ def default_stub_config() -> RoutingConfig:
                 "evaluation",
                 "translation",
                 "vision",
+                "embedding",
             )
         },
         rate_limits=RateLimits(),

@@ -7,6 +7,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { AdminShell } from "../components/AdminShell";
+import { Banner, SkeletonRows } from "../components/primitives";
 import { type TutorQueueItem, marketplaceAdmin } from "../lib/api";
 
 function paiseToRupees(p: number): string {
@@ -57,21 +59,19 @@ export function TutorModerationQueue() {
   }
 
   return (
-    <main className="page" style={{ padding: 24, maxWidth: 960 }}>
-      <h1>Tutor moderation queue</h1>
-      <p style={{ color: "var(--ink-3)" }}>
-        Tutors who have completed KYC and are awaiting platform-admin
-        approval. Decisions are logged to the audit table per ADR-0007.
-      </p>
-
-      {error && <p className="banner banner-error">{error}</p>}
-      {items === null && !error && <p>Loading…</p>}
+    <AdminShell
+      crumbs="Quality · Tutor moderation"
+      title="Tutor moderation"
+      subtitle="Tutors who have completed KYC and are awaiting platform-admin approval. Decisions are logged to the audit table per ADR-0007."
+    >
+      {error && <Banner tone="danger">{error}</Banner>}
+      {items === null && !error && <SkeletonRows count={4} />}
       {items !== null && items.length === 0 && (
-        <p>The queue is empty — no tutors awaiting approval.</p>
+        <Banner tone="info">The queue is empty — no tutors awaiting approval.</Banner>
       )}
 
       {items !== null && items.length > 0 && (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table className="data-table">
           <thead>
             <tr>
               <th align="left">Tutor</th>
@@ -83,18 +83,16 @@ export function TutorModerationQueue() {
           <tbody>
             {items.map((t) => (
               <tr key={t.userId} style={{ borderTop: "1px solid var(--rule)" }}>
-                <td style={{ padding: "8px 4px" }}>
+                <td>
                   <strong>{t.displayName}</strong>
                   <br />
                   <small style={{ color: "var(--ink-3)" }}>{t.headline}</small>
                   <br />
                   <Link to={`/tutors-admin/${t.userId}`}>View audit</Link>
                 </td>
-                <td style={{ padding: "8px 4px" }}>{paiseToRupees(t.hourlyRatePaise)}/hr</td>
-                <td style={{ padding: "8px 4px" }}>
-                  {new Date(t.appliedAt).toLocaleDateString()}
-                </td>
-                <td style={{ padding: "8px 4px" }}>
+                <td>{paiseToRupees(t.hourlyRatePaise)}/hr</td>
+                <td>{new Date(t.appliedAt).toLocaleDateString()}</td>
+                <td>
                   <button
                     type="button"
                     disabled={busyId === t.userId}
@@ -116,6 +114,6 @@ export function TutorModerationQueue() {
           </tbody>
         </table>
       )}
-    </main>
+    </AdminShell>
   );
 }

@@ -46,7 +46,7 @@ async def test_explain_correct_answer(client: AsyncClient) -> None:
     assert body["common_pitfall"]
 
 
-async def test_explain_wrong_answer_addresses_pick(client: AsyncClient) -> None:
+async def test_explain_wrong_answer_is_canonical(client: AsyncClient) -> None:
     r = await client.post(
         "/adaptive/explain",
         json={
@@ -58,8 +58,11 @@ async def test_explain_wrong_answer_addresses_pick(client: AsyncClient) -> None:
     )
     assert r.status_code == 200
     body = r.json()
-    # Heuristic should reference the wrong pick by name.
-    assert "22" in body["common_pitfall"]
+    # Explanations are canonical per question — picked_idx is not part of
+    # the cache key and is never referenced (see explain.py). The heuristic
+    # still returns a substantive, non-empty pitfall.
+    assert body["source"] == "heuristic"
+    assert body["common_pitfall"]
 
 
 async def test_explain_unanswered(client: AsyncClient) -> None:

@@ -5,6 +5,8 @@ description: >
   Generate a numeric decimal question with absolute tolerance.
   Tolerance reflects the precision implied by the stem.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author. Generate ONE numeric
   decimal question for the topic.
 

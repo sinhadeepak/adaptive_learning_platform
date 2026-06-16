@@ -50,7 +50,11 @@ _MASTERY = [
 async def client(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
     monkeypatch.setattr("learning.adaptive.weakness.fetch_topic_catalog", _stub_catalog)
     monkeypatch.setattr("learning.adaptive.weakness.fetch_mastery", _stub_mastery)
-    monkeypatch.setattr("learning.adaptive.llm.is_enabled", lambda: False)
+
+    async def _llm_off() -> bool:
+        return False
+
+    monkeypatch.setattr("learning.adaptive.llm.is_enabled_async", _llm_off)
 
     async def _no_llm(**_: Any) -> None:
         return None
@@ -60,7 +64,7 @@ async def client(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
         yield c
 
 
-async def _stub_catalog(_exam: str | None = None) -> list[dict[str, Any]]:
+async def _stub_catalog(exam_code: str | None = None) -> list[dict[str, Any]]:
     return _CATALOG
 
 
@@ -138,7 +142,11 @@ async def test_weakness_uses_llm_when_enabled(
         }
 
     monkeypatch.setattr("learning.adaptive.weakness.fetch_user_answered_items", _enough)
-    monkeypatch.setattr("learning.adaptive.llm.is_enabled", lambda: True)
+
+    async def _llm_on() -> bool:
+        return True
+
+    monkeypatch.setattr("learning.adaptive.llm.is_enabled_async", _llm_on)
     monkeypatch.setattr("learning.adaptive.weakness.llm.call_structured", _fake_llm)
 
     r = await client.get("/adaptive/weakness-diagnosis/u-1")

@@ -3,8 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { AuthError } from "@alp/auth-client";
 import { useAuth } from "../lib/auth-provider";
 import { Banner } from "../components/primitives";
-import "@alp/design-system/shell.css";
-import "../styles/shell.css";
 
 export function Login() {
   const { login } = useAuth();
@@ -38,13 +36,21 @@ export function Login() {
   }
 
   return (
-    <div className="auth-page app-shell">
+    <div className="auth-page">
       <main className="auth-card">
         <div className="auth-mark">
-          <div className="sidebar-mark">A</div>
-          <span className="sidebar-mark-text">Admin</span>
+          <span className="vidya-shell__brand-mark">V</span>
+          <span className="vidya-shell__brand-name" style={{ fontSize: 18 }}>
+            v<em>⌑</em>dya <span style={{ color: "var(--ink-3)" }}>Admin</span>
+          </span>
         </div>
-        <h1 className="page-greeting" style={{ marginBottom: "var(--sp-1)" }}>
+        <h1
+          className="page-greeting"
+          style={{
+            marginBottom: "var(--sp-1)",
+            fontFamily: "var(--font-display)",
+          }}
+        >
           Admin sign-in
         </h1>
         <p className="page-subhead">

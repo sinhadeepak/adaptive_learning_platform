@@ -27,6 +27,7 @@ from learning.ai_authoring.draft import (
     expand_explanation,
     suggest_distractors,
 )
+from learning.ai_authoring.guardrail import GuardrailEngine
 from learning.ai_authoring.quality_checks import QualityWarning, run_quality_checks
 from learning.ai_gateway import AIGateway, AIGatewayError
 from learning.ai_gateway.quotas import QuotaExceededError
@@ -56,6 +57,42 @@ def get_gateway(request: Request) -> AIGateway:
     return gw
 
 
+def build_guardrail_engine(gateway: AIGateway) -> GuardrailEngine:
+    """Construct the AI Content Guardrail engine from env-configured
+    thresholds. Draft-time runs L1 (preamble) + L2 (self-audit); the full
+    L3 vector scan + Redis bank commit happen at the DRAFT-write boundary
+    (create_question) on the final, possibly-edited stem. A Redis hash
+    store is wired here when reachable so exact-duplicate stems are caught
+    at draft time too; failures degrade to L1+L2 only."""
+    from learning.ai_authoring.guardrail.similarity import RedisHashStore
+    from learning.ai_authoring.guardrail.trace_sink import AiGenerationJobsTraceSink
+    from learning.content.config import guardrail_config, settings
+
+    hash_store = None
+    try:
+        import redis.asyncio as aioredis
+
+        hash_store = RedisHashStore(aioredis.from_url(settings.redis_url))
+    except Exception:  # noqa: BLE001 — Redis is optional at draft time
+        hash_store = None
+
+    return GuardrailEngine(
+        gateway,
+        config=guardrail_config(),
+        hash_store=hash_store,
+        trace_sink=AiGenerationJobsTraceSink(),
+    )
+
+
+def get_guardrail_engine(request: Request) -> GuardrailEngine | None:
+    """Dependency — returns a guardrail engine, or None when the gateway
+    is unavailable (the route already 503s via get_gateway in that case)."""
+    gw = getattr(request.app.state, "ai_gateway", None)
+    if gw is None:
+        return None
+    return build_guardrail_engine(gw)
+
+
 # ── /draft ───────────────────────────────────────────────────────────────────
 
 
@@ -71,6 +108,7 @@ class DraftResponse(BaseModel):
 async def post_draft(
     req: DraftQuestionRequest,
     gateway: AIGateway = Depends(get_gateway),
+    engine: GuardrailEngine | None = Depends(get_guardrail_engine),
 ) -> DraftResponse:
     """Generate an AI_DRAFT MCQ payload.
 
@@ -78,12 +116,15 @@ async def post_draft(
     the draft + marker; the author edits and submits via the standard
     `POST /content/questions` flow, where the marker lands on
     `questions.ai_origin` and edit_distance is computed at submit time.
+    The marker carries the AI Content Guardrail verdict (re-enforced at
+    the DRAFT-write boundary).
     """
     try:
         draft, marker = await draft_question(
             gateway,
             request=req,
             creator_id=None,  # auth wires in S45; for now anonymous quota
+            engine=engine,
         )
     except NotImplementedError as e:
         raise _problem(
@@ -152,6 +193,7 @@ class BulkDraftResponse(BaseModel):
 async def post_bulk_draft(
     req: BulkDraftRequest,
     gateway: AIGateway = Depends(get_gateway),
+    engine: GuardrailEngine | None = Depends(get_guardrail_engine),
 ) -> BulkDraftResponse:
     """Generate `count` AI drafts in parallel for the same (type, topic).
 
@@ -180,7 +222,7 @@ async def post_bulk_draft(
         async with sem:
             try:
                 draft, marker = await draft_question(
-                    gateway, request=base_req, creator_id=None,
+                    gateway, request=base_req, creator_id=None, engine=engine,
                 )
                 return BulkDraftItem(
                     index=idx,

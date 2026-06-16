@@ -306,7 +306,7 @@ async def project_rank(
 
     commentary: dict[str, str] | None = None
     source = "heuristic"
-    if llm.is_enabled():
+    if await llm.is_enabled_async():
         commentary = await _ai_commentary(
             exam_name=cal["name"],
             rank=rank,

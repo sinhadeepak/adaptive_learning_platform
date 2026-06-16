@@ -5,7 +5,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { Banner, Pill, SkeletonRows } from "../components/primitives";
 import {
   cohorts as cohortsApi,
@@ -185,18 +185,24 @@ export function TenantCohorts() {
   }, [members]);
 
   return (
-    <AppShell title={tenant?.name ?? "Tenant"}>
-      <main className="page" style={{ padding: 24, maxWidth: 1400 }}>
-        {/* ── Header bar ── */}
-        <div style={headerBar}>
+    <AdminShell
+      crumbs="Operate · Institutions"
+      title={tenant?.name ?? "Cohorts"}
+      subtitle={
+        <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {tenant?.kind && <Pill tone="muted">{tenant.kind}</Pill>}
+          <code style={metaCode}>{tenantId?.slice(0, 8)}…</code>
+        </span>
+      }
+      chips={<span className="vidya-shell__chip">Cohorts</span>}
+      actions={
+        <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <Link
             to={tenantId ? `/institutions?id=${tenantId}` : "/institutions"}
-            className="row-link"
-            style={{ fontSize: 12, color: "var(--ink-3)", textDecoration: "none" }}
+            className="btn btn-ghost"
           >
             ← Back to tenant
           </Link>
-          <div style={{ flex: 1 }} />
           {tenantId && (
             <Link
               to={`/institutes/${tenantId}/analytics`}
@@ -206,22 +212,16 @@ export function TenantCohorts() {
               📊 Open analytics →
             </Link>
           )}
+        </span>
+      }
+    >
+      {error && (
+        <div style={{ margin: "12px 0" }}>
+          <Banner tone="danger" role="alert">{error}</Banner>
         </div>
+      )}
 
-        {/* ── Tenant title + meta ── */}
-        <h1 style={{ margin: "12px 0 4px", fontSize: 26 }}>{tenant?.name ?? "Cohorts"}</h1>
-        <div style={metaRow}>
-          {tenant?.kind && <Pill tone="muted">{tenant.kind}</Pill>}
-          <code style={metaCode}>{tenantId?.slice(0, 8)}…</code>
-        </div>
-
-        {error && (
-          <div style={{ margin: "12px 0" }}>
-            <Banner tone="danger" role="alert">{error}</Banner>
-          </div>
-        )}
-
-        <section style={layoutGrid}>
+      <section style={layoutGrid}>
           {/* ── Left rail: cohort list ───────────────────────── */}
           <aside className="card" style={cardPad}>
             <div style={sectionHeader}>
@@ -513,7 +513,6 @@ export function TenantCohorts() {
             )}
           </section>
         </section>
-      </main>
 
       {/* ─── Modals ───────────────────────────────────────────── */}
       {showCohortModal && (
@@ -608,7 +607,7 @@ export function TenantCohorts() {
           </form>
         </Modal>
       )}
-    </AppShell>
+    </AdminShell>
   );
 }
 
@@ -695,22 +694,6 @@ function Modal({
 }
 
 // ── Inline styles (only what shell.css doesn't already cover) ─────────
-
-const headerBar: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  paddingBottom: 8,
-};
-
-const metaRow: React.CSSProperties = {
-  display: "flex",
-  gap: 8,
-  alignItems: "center",
-  marginBottom: 16,
-  color: "var(--ink-3)",
-  fontSize: 12,
-};
 
 const metaCode: React.CSSProperties = {
   fontFamily: "var(--font-mono)",
@@ -810,7 +793,7 @@ const cohortPill: React.CSSProperties = {
 };
 
 const cohortPillActive: React.CSSProperties = {
-  background: "rgba(244,63,94,0.10)",
+  background: "var(--bad-soft)",
   borderColor: "var(--info)", // admin theme aliases this to red
   color: "var(--ink)",
 };

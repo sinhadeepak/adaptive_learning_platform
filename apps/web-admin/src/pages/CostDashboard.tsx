@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { AppShell } from "../components/AppShell";
-import { Banner, Pill } from "../components/primitives";
+import { AdminShell } from "../components/AdminShell";
+import { Banner, Pill, SectionHeader, StatCard } from "../components/primitives";
 import {
   cost,
   type CostDashboardResponse,
@@ -20,15 +20,7 @@ function fmtUsd(n: number): string {
 
 function RollupCard({ title, rollup }: { title: string; rollup: CostRollup }) {
   return (
-    <div
-      style={{
-        padding: 16,
-        borderRadius: 8,
-        background: "var(--paper-2)",
-        border: "1px solid var(--rule)",
-        color: "var(--ink)",
-      }}
-    >
+    <div className="card" style={{ padding: 16 }}>
       <div
         style={{
           fontSize: 12,
@@ -108,12 +100,30 @@ export function CostDashboard() {
   const topCreators = data?.month.topCreators ?? [];
 
   return (
-    <AppShell title="AI Cost Dashboard" chips={[{ label: "Phase 5" }, { label: "Admin" }]}>
+    <AdminShell
+      crumbs="Analyse · AI cost"
+      title="AI Cost Dashboard"
+      chips={
+        <>
+          <span className="vidya-shell__chip">Phase 5</span>
+          <span className="vidya-shell__chip">Admin</span>
+        </>
+      }
+      actions={
+        <button
+          onClick={() => void reload()}
+          className="btn btn-ghost"
+        >
+          Refresh
+        </button>
+      }
+    >
       {error && <Banner tone="danger">{error}</Banner>}
+      {loading && <p className="dash-lede">Refreshing…</p>}
 
       {data?.alerts && data.alerts.length > 0 && (
-        <section style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Budget alerts</h2>
+        <section className="dash-section">
+          <SectionHeader label="Budget alerts" count={data.alerts.length} />
           {data.alerts.map((a) => (
             <Banner
               key={`${a.period}-${a.thresholdPct}`}
@@ -127,42 +137,46 @@ export function CostDashboard() {
       )}
 
       {data && (
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 16,
-            marginBottom: 24,
-          }}
-        >
-          <RollupCard title="Today" rollup={data.day} />
-          <RollupCard title="This week" rollup={data.week} />
-          <RollupCard title="This month" rollup={data.month} />
+        <section className="dash-section">
+          <SectionHeader label="Rolling spend" />
+          <div className="stat-grid">
+            <StatCard label="Today" value={fmtUsd(data.day.totalUsd)} mono />
+            <StatCard label="This week" value={fmtUsd(data.week.totalUsd)} mono />
+            <StatCard label="This month" value={fmtUsd(data.month.totalUsd)} mono />
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 16,
+              marginTop: 16,
+            }}
+          >
+            <RollupCard title="Today" rollup={data.day} />
+            <RollupCard title="This week" rollup={data.week} />
+            <RollupCard title="This month" rollup={data.month} />
+          </div>
         </section>
       )}
 
       {topCreators.length > 0 && (
-        <section style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Top creators (last 30 days)</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <section className="dash-section">
+          <SectionHeader label="Top creators (last 30 days)" count={topCreators.length} />
+          <table className="data-table">
             <thead>
-              <tr style={{ borderBottom: "1px solid var(--rule)" }}>
-                <th style={{ textAlign: "left", padding: 8 }}>Creator</th>
-                <th style={{ textAlign: "right", padding: 8 }}>Cost (USD)</th>
+              <tr>
+                <th>Creator</th>
+                <th style={{ textAlign: "right" }}>Cost (USD)</th>
               </tr>
             </thead>
             <tbody>
               {topCreators.map((c) => (
-                <tr
-                  key={c.creatorId}
-                  style={{ borderBottom: "1px solid var(--rule)" }}
-                >
-                  <td style={{ padding: 8, fontFamily: "monospace", fontSize: 12 }}>
+                <tr key={c.creatorId}>
+                  <td style={{ fontFamily: "monospace", fontSize: 12 }}>
                     {c.creatorId}
                   </td>
                   <td
                     style={{
-                      padding: 8,
                       textAlign: "right",
                       fontVariantNumeric: "tabular-nums",
                     }}
@@ -177,13 +191,12 @@ export function CostDashboard() {
       )}
 
       <section
+        className="dash-section"
         style={{
-          marginTop: 24,
           padding: 16,
           background: "var(--paper-2)",
           border: "1px solid var(--rule)",
           borderRadius: 8,
-          color: "var(--ink)",
         }}
       >
         <h3 style={{ fontSize: 14, marginBottom: 8, color: "var(--ink)" }}>
@@ -195,15 +208,7 @@ export function CostDashboard() {
         </p>
         <button
           onClick={() => void handlePurge()}
-          style={{
-            padding: "8px 16px",
-            background: "var(--info)",
-            color: "white",
-            border: "1px solid var(--rule)",
-            borderRadius: 6,
-            cursor: "pointer",
-            fontWeight: 600,
-          }}
+          className="btn btn-primary"
         >
           Purge audit log (&gt; 90 days)
         </button>
@@ -215,24 +220,6 @@ export function CostDashboard() {
           </span>
         )}
       </section>
-
-      <div style={{ marginTop: 16, fontSize: 12, color: "var(--ink-3)" }}>
-        {loading && "Refreshing…"}
-        <button
-          onClick={() => void reload()}
-          style={{
-            marginLeft: 12,
-            padding: "4px 10px",
-            background: "var(--card)",
-            color: "var(--ink)",
-            border: "1px solid var(--rule)",
-            borderRadius: 4,
-            cursor: "pointer",
-          }}
-        >
-          Refresh
-        </button>
-      </div>
-    </AppShell>
+    </AdminShell>
   );
 }

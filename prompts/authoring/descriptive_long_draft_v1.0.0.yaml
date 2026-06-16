@@ -3,6 +3,8 @@ version: 1.0.0
 touchpoint: authoring
 description: Generate a descriptive long-answer question with rubric (subject-knowledge focused).
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author.
   Generate ONE descriptive long-answer question on the topic.
 

@@ -193,20 +193,10 @@ export function ExamDetail() {
     }
     setActionError(null);
     setStartingMock(true);
-    try {
-      const r = await auth.fetch("/api/v1/quiz/sessions/mock-from-blueprint", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blueprintId: latestBlueprint.id, userId: user.id }),
-      });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const body = (await r.json()) as { sessionId: string };
-      navigate(`/quiz/${body.sessionId}`);
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Couldn't start the mock");
-    } finally {
-      setStartingMock(false);
-    }
+    // Launch the dedicated blueprint-driven exam player. MockExam creates
+    // the MOCK_BLUEPRINT session itself (pre-served items, sections, OMR
+    // answer sheet); the adaptive /quiz/<id> player can't run a mock paper.
+    navigate(`/mock-exam?blueprintId=${encodeURIComponent(latestBlueprint.id)}`);
   }, [examId, latestBlueprint, navigate, user?.id]);
 
   // Exam meta

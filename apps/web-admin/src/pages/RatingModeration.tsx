@@ -5,6 +5,8 @@
 
 import { useState } from "react";
 
+import { AdminShell } from "../components/AdminShell";
+import { Banner } from "../components/primitives";
 import { ratingModeration } from "../lib/api";
 
 interface Rating {
@@ -68,14 +70,11 @@ export function RatingModeration() {
   }
 
   return (
-    <main className="page" style={{ padding: 24, maxWidth: 800 }}>
-      <h1>Rating moderation</h1>
-      <p style={{ color: "var(--ink-3)" }}>
-        Hidden ratings are excluded from the public aggregate but kept in
-        the database. The hide action is logged in the admin-actions
-        audit table.
-      </p>
-
+    <AdminShell
+      crumbs="Quality · Rating moderation"
+      title="Rating moderation"
+      subtitle="Hidden ratings are excluded from the public aggregate but kept in the database. The hide action is logged in the admin-actions audit table."
+    >
       <fieldset style={{ marginBottom: 16 }}>
         <legend>Lookup</legend>
         <label>
@@ -97,7 +96,7 @@ export function RatingModeration() {
         </button>
       </fieldset>
 
-      {error && <p className="banner banner-error">{error}</p>}
+      {error && <Banner tone="danger">{error}</Banner>}
 
       {aggregate && (
         <>
@@ -134,6 +133,6 @@ export function RatingModeration() {
           </ul>
         </>
       )}
-    </main>
+    </AdminShell>
   );
 }

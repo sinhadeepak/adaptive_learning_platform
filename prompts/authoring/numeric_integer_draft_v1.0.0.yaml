@@ -5,6 +5,8 @@ description: >
   Generate a JEE/GATE-style numeric integer question. Answer must be
   a single positive or negative integer.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author. Generate ONE numeric
   integer question for the topic.
 

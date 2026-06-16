@@ -101,20 +101,28 @@ def test_scrub_passes_through_non_strings() -> None:
 # ── Routing config ───────────────────────────────────────────────────────────
 
 
-def test_default_stub_config_routes_all_touchpoints_to_stub() -> None:
+def test_default_stub_config_routes_to_admin_chain_with_stub_fallback() -> None:
+    # Phase 7: the default config routes every touchpoint primary to the
+    # admin-managed chain (Ollama/OpenAI/Anthropic by priority), with the
+    # in-process stub as fallback so the dev stack works without config.
     cfg = default_stub_config()
-    for tp in ("authoring", "quality_check", "evaluation", "translation", "vision"):
+    for tp in ("authoring", "quality_check", "evaluation", "translation", "vision", "embedding"):
         assert tp in cfg.routing
-        assert cfg.routing[tp].primary.provider == "stub"
+        assert cfg.routing[tp].primary.provider == "admin_chain"
+        assert cfg.routing[tp].fallback is not None
+        assert cfg.routing[tp].fallback.provider == "stub"
 
 
 def test_load_routing_yaml_real_config() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     yaml_path = repo_root / "config" / "ai_routing.yaml"
     cfg = load_routing(yaml_path)
-    # OpenAI primary across all 5 touchpoints per user direction
+    # Phase 7: admin-managed chain is primary across the text touchpoints.
     for tp in ("authoring", "quality_check", "evaluation", "translation", "vision"):
-        assert cfg.routing[tp].primary.provider == "openai"
+        assert cfg.routing[tp].primary.provider == "admin_chain"
+    # The embedding touchpoint (AI Content Guardrail L3) routes to OpenAI —
+    # the admin chain has no embeddings endpoint.
+    assert cfg.routing["embedding"].primary.provider == "openai"
 
 
 def test_routing_rejects_unknown_provider() -> None:

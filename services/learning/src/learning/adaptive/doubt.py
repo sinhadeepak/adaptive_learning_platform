@@ -129,6 +129,11 @@ async def _match_topic_id(suggested: str) -> str | None:
 async def solve_doubt(*, image_data_url: str) -> dict[str, Any]:
     """Resolve a photographed doubt end-to-end. Always returns the bundle shape
     the UI expects, even when the LLM is disabled (stub) or errors (stub)."""
+    # Intentionally the sync env-key gate (NOT is_enabled_async): photo-doubt
+    # uses call_vision_structured, which is vision and requires env-key OpenAI.
+    # The admin provider chain (text-only here) can't serve image input, so
+    # gating on the admin chain would claim "AI on" then fail at the vision
+    # call. Routing vision through the chain is a separate, larger change.
     if not llm.is_enabled():
         return _stub_response()
 

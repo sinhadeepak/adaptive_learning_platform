@@ -16,7 +16,7 @@ from uuid import uuid4
 
 os.environ.setdefault(
     "CONTENT_DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:35432/content",
+    "postgresql+asyncpg://postgres:postgres@localhost:35432/learning_test",
 )
 os.environ.setdefault(
     "CONTENT_JWT_SECRET",

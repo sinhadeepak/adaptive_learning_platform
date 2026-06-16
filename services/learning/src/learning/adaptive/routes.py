@@ -213,8 +213,17 @@ async def post_select_next(req: SelectNextRequest) -> SelectNextResponse:
 
 @router.get("/adaptive/ai-status")
 async def ai_status() -> dict[str, bool | str]:
-    """Tells the UI whether to show 'AI-powered' chrome or fall back to heuristic copy."""
-    return {"enabled": llm.is_enabled(), "provider": "openai"}
+    """Tells the UI whether to show 'AI-powered' chrome or fall back to heuristic copy.
+
+    Honors the admin-managed provider chain (ai_provider_config), not just
+    the legacy OPENAI_API_KEY — so enabling Ollama/OpenAI/Anthropic in
+    /admin/ai-providers turns AI chrome on even with no env key, and the
+    reported provider reflects what's actually configured to serve.
+    """
+    return {
+        "enabled": await llm.is_enabled_async(),
+        "provider": await llm.active_provider() or "none",
+    }
 
 
 @router.get("/adaptive/study-plan/{user_id}")

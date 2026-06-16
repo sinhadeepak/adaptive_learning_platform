@@ -957,7 +957,20 @@ func (svc *SessionService) Answer(logger *slog.Logger) http.HandlerFunc {
 		if qtype == "" {
 			qtype = "MCQ_SINGLE"
 		}
-		if qtype == "MCQ_SINGLE" {
+		// Inline answer-idx grading. MCQ_SINGLE always grades here; so does
+		// any other choice-rendered deterministic type (TRUE_FALSE,
+		// ASSERTION_REASON, MULTI_STATEMENT, …) when the client submits a
+		// bare choice index instead of a typed responsePayload. Quiz Go
+		// mirrors choices + correct_idx for every type, so answer-idx
+		// equality is authoritative for a selected choice (ADR-0018). We
+		// only defer to alp-learning's typed grader when the client sends a
+		// responsePayload Quiz Go can't grade locally (ESSAY, NUMERIC_*,
+		// MATCH_THE_FOLLOWING, FILL_BLANK_*, …). This keeps the adaptive
+		// player (which only ever submits answerIdx) working for every
+		// choice-based type instead of 503-ing on a null grading payload.
+		inlineGradable := qtype == "MCQ_SINGLE" ||
+			(len(req.ResponsePayload) == 0 && len(q.Choices) > 0)
+		if inlineGradable {
 			if int(req.AnswerIdx) >= len(q.Choices) {
 				writeProblem(w, http.StatusBadRequest, "invalid_answer",
 					"answerIdx out of range for question choices")
@@ -965,18 +978,28 @@ func (svc *SessionService) Answer(logger *slog.Logger) http.HandlerFunc {
 			}
 			isCorrect = req.AnswerIdx == q.CorrectIdx
 		} else {
-			// Polymorphic types — Quiz Go only mirrors
-			// choices/correct_idx; alp-learning is the source of truth
-			// for the typed payload. Quiz Go submits an empty payload;
-			// /grading/grade does id-based lookup against
-			// content_schema.questions (P5-S50).
+			// Polymorphic typed types (ESSAY, NUMERIC_*, MATCH_*, …) route
+			// to alp-learning's typed grader. Quiz Go mirrors the full
+			// canonical payload (P7 migration 013), so forward it directly
+			// rather than relying on id-based lookup against
+			// content_schema.questions (P5-S50). That lookup 400s (→ 503
+			// here) in any environment where the polymorphic bank was
+			// seeded into quiz_schema but not content_schema (e.g. local
+			// dev). Empty-payload fallback (id lookup) is kept for legacy
+			// MCQ rows whose mirror is NULL.
 			if svc.learningClient == nil {
 				writeProblem(w, http.StatusServiceUnavailable,
 					"grading_unavailable",
 					"Quiz Go has no learning client configured for non-MCQ grading")
 				return
 			}
-			payload := map[string]any{} // empty -> grading service does id-based lookup (P5-S50)
+			payload := map[string]any{}
+			if len(q.Payload) > 0 {
+				if err := json.Unmarshal(q.Payload, &payload); err != nil {
+					logger.Error("payload_unmarshal.failed", "err", err, "qid", q.ID)
+					payload = map[string]any{} // fall back to id-based lookup
+				}
+			}
 			res, gradeErr := svc.learningClient.GradeRemote(
 				r.Context(),
 				"", // bearer not required for internal grading

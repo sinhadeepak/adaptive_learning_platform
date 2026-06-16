@@ -3,6 +3,8 @@ version: 1.0.0
 touchpoint: authoring
 description: Generate a KBC-style MCQ with lifeline metadata.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author writing in the
   Kaun-Banega-Crorepati / quiz-show register: punchy stem, 4 options,
   one correct.

@@ -13,7 +13,12 @@ import os
 import time
 from typing import Any
 
-from learning.ai_gateway.providers.base import Provider, ProviderError, ProviderResult
+from learning.ai_gateway.providers.base import (
+    EmbeddingResult,
+    Provider,
+    ProviderError,
+    ProviderResult,
+)
 
 
 class OpenAIProvider(Provider):
@@ -104,6 +109,39 @@ class OpenAIProvider(Provider):
             data=parsed.model_dump() if hasattr(parsed, "model_dump") else dict(parsed),
             tokens_in=int(getattr(usage, "prompt_tokens", 0) or 0),
             tokens_out=int(getattr(usage, "completion_tokens", 0) or 0),
+            latency_ms=latency_ms,
+            model=model,
+        )
+
+    async def embed(
+        self,
+        *,
+        model: str,
+        texts: list[str],
+        timeout_ms: int,
+    ) -> EmbeddingResult:
+        """Generate embeddings via the OpenAI embeddings endpoint.
+
+        Used by the AI Content Guardrail L3 similarity scan. Routed through
+        the Gateway's `embedding` touchpoint so it stays behind the single
+        ADR-0019 door."""
+        timeout_s = timeout_ms / 1000.0
+        started = time.monotonic()
+        try:
+            response = await self._client.embeddings.create(
+                model=model,
+                input=texts,
+                timeout=timeout_s,
+            )
+        except Exception as e:
+            raise ProviderError(self.name, f"{type(e).__name__}: {e}", retryable=True) from e
+
+        latency_ms = int((time.monotonic() - started) * 1000)
+        vectors = [list(item.embedding) for item in response.data]
+        usage = getattr(response, "usage", None)
+        return EmbeddingResult(
+            vectors=vectors,
+            tokens_in=int(getattr(usage, "prompt_tokens", 0) or 0),
             latency_ms=latency_ms,
             model=model,
         )

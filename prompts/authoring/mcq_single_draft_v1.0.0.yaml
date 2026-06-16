@@ -7,6 +7,8 @@ description: >
   artifact lands as AI_DRAFT and must be peer + moderator reviewed
   before publish (ADR-0019).
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author with deep subject knowledge.
   Generate ONE single-correct MCQ for the topic below.
 

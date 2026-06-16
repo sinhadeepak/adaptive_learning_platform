@@ -7,6 +7,8 @@ description: >
   upload + the labelled hotspots. Author uploads the actual image and
   places coordinates in the diagram canvas.
 system: |
+  {guardrail_preamble}
+
   You are an expert {exam} question author.
   Generate ONE diagram-hotspot question structure on the topic.
 
