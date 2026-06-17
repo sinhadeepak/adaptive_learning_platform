@@ -9,12 +9,25 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { AppShell } from "../components/AppShell";
+import { Banner, Pill, type PillTone } from "../components/primitives";
 import { analytics, type CohortAtRiskItem } from "../lib/api";
 
-function bandColor(band: string): string {
-  if (band === "HIGH") return "var(--bad, #F43F5E)";
-  if (band === "MEDIUM") return "var(--info, #4F87F6)";
-  return "var(--ink-3, #3E4D6A)";
+function bandTone(band: string): PillTone {
+  if (band === "HIGH") return "danger";
+  if (band === "MEDIUM") return "info";
+  return "muted";
+}
+
+function Meter({ pct, tone }: { pct: number; tone?: "good" | "warn" | "bad" }) {
+  const cls = tone ? ` pa-meter__fill--${tone}` : "";
+  return (
+    <span className="pa-meter">
+      <span className="pa-meter__track">
+        <span className={`pa-meter__fill${cls}`} style={{ width: `${pct}%` }} />
+      </span>
+      <span className="pa-meter__val">{pct}%</span>
+    </span>
+  );
 }
 
 export function CohortAtRisk() {
@@ -64,14 +77,18 @@ export function CohortAtRisk() {
           </button>
         </fieldset>
 
-        {error && <p className="banner banner-error">{error}</p>}
+        {error && (
+          <Banner tone="danger" role="alert">
+            {error}
+          </Banner>
+        )}
 
         {items !== null && items.length === 0 && (
           <p>No at-risk students in this cohort. ✓</p>
         )}
 
         {items !== null && items.length > 0 && (
-          <table className="leaderboard">
+          <table className="data-table">
             <thead>
               <tr>
                 <th>Student</th>
@@ -90,19 +107,20 @@ export function CohortAtRisk() {
                     </Link>
                   </td>
                   <td>
-                    <span
-                      className="pill"
-                      style={{
-                        background: bandColor(it.riskBand),
-                        color: "white",
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                      }}
-                    >
-                      {it.riskBand}
-                    </span>
+                    <Pill tone={bandTone(it.riskBand)}>{it.riskBand}</Pill>
                   </td>
-                  <td>{(it.score * 100).toFixed(0)}%</td>
+                  <td>
+                    <Meter
+                      pct={Math.round(it.score * 100)}
+                      tone={
+                        it.riskBand === "HIGH"
+                          ? "bad"
+                          : it.riskBand === "MEDIUM"
+                            ? "warn"
+                            : undefined
+                      }
+                    />
+                  </td>
                   <td>{it.interventionKind ?? "—"}</td>
                   <td>{it.computedAt.slice(0, 10)}</td>
                 </tr>

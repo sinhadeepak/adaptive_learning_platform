@@ -168,8 +168,20 @@ class MapLocationHandler(BaseHandler):
         if r.click_lat is None or r.click_lng is None:
             return self._resolution(qid, "UNATTEMPTED", 0, 1)
 
-        polygon_pts = [pt.model_dump() for pt in p.correct_region.points]
-        ok = point_in_geo_polygon(r.click_lat, r.click_lng, polygon_pts)
+        # Radius model (preferred): correct when the click is within
+        # tolerance_deg of the target. Distance is planar in decimal
+        # degrees — consistent with point_in_geo_polygon's v1 approach and
+        # accurate enough at India scale (1° ≈ 100-111 km). The polygon
+        # model is the fallback for region-shaped answers.
+        if p.has_radius_target():
+            dist = (
+                (r.click_lat - p.target_lat) ** 2
+                + (r.click_lng - p.target_lng) ** 2
+            ) ** 0.5
+            ok = dist <= p.tolerance_deg
+        else:
+            polygon_pts = [pt.model_dump() for pt in p.correct_region.points]
+            ok = point_in_geo_polygon(r.click_lat, r.click_lng, polygon_pts)
         per_part = [
             PartDetail(
                 id="click",

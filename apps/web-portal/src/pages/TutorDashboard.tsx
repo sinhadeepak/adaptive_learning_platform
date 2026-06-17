@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { AppShell } from "../components/AppShell";
+import { StatCard, SectionHeader } from "../components/primitives";
 import { type TutorProfile, marketplace } from "../lib/api";
 
 const STATUS_COPY: Record<TutorProfile["applicationStatus"], string> = {
@@ -105,14 +106,13 @@ export function TutorDashboard() {
     return (
       <AppShell title="Tutor dashboard">
         <div className="pg-shell">
-          <div className="pg-stat-strip">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="pg-stat" style={{ opacity: 0.5 }} aria-hidden>
-                <div className="pg-stat-label">Loading</div>
-                <div className="pg-stat-value">—</div>
-              </div>
-            ))}
-          </div>
+          <section className="dash-section">
+            <div className="stat-grid">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <StatCard key={i} label="Loading" value="…" />
+              ))}
+            </div>
+          </section>
         </div>
       </AppShell>
     );
@@ -147,45 +147,36 @@ export function TutorDashboard() {
         </header>
 
         {/* KPI strip — profile basics */}
-        <div className="pg-stat-strip">
-          <div className="pg-stat">
-            <div className="pg-stat-label">Hourly rate</div>
-            <div className="pg-stat-value" style={{ color: "var(--good)" }}>
-              ₹{(profile.hourlyRatePaise / 100).toLocaleString("en-IN")}
-            </div>
-            <div className="pg-stat-delta">per session hour</div>
+        <section className="dash-section">
+          <SectionHeader label="Profile basics" />
+          <div className="stat-grid">
+            <StatCard
+              label="Hourly rate"
+              value={`₹${(profile.hourlyRatePaise / 100).toLocaleString("en-IN")}`}
+              tone="success"
+              hint="per session hour"
+            />
+            <StatCard
+              label="Topics taught"
+              value={profile.topicIds.length}
+              hint={profile.topicIds.length === 0 ? "none yet" : "subject expertise"}
+            />
+            <StatCard
+              label="Availability windows"
+              value={profile.availability.length}
+              hint="weekly slots"
+            />
+            <StatCard
+              label="Qualifications"
+              value={profile.qualifications.length}
+              hint="verified credentials"
+            />
           </div>
-          <div className="pg-stat">
-            <div className="pg-stat-label">Topics taught</div>
-            <div className="pg-stat-value" style={{ color: "var(--info)" }}>
-              {profile.topicIds.length}
-            </div>
-            <div className="pg-stat-delta">
-              {profile.topicIds.length === 0 ? "none yet" : "subject expertise"}
-            </div>
-          </div>
-          <div className="pg-stat">
-            <div className="pg-stat-label">Availability windows</div>
-            <div className="pg-stat-value" style={{ color: "var(--accent)" }}>
-              {profile.availability.length}
-            </div>
-            <div className="pg-stat-delta">weekly slots</div>
-          </div>
-          <div className="pg-stat">
-            <div className="pg-stat-label">Qualifications</div>
-            <div className="pg-stat-value" style={{ color: "var(--gold)" }}>
-              {profile.qualifications.length}
-            </div>
-            <div className="pg-stat-delta">verified credentials</div>
-          </div>
-        </div>
+        </section>
 
         {/* Application-state panel */}
-        <section className="pg-section">
-          <h2 className="pg-section-title">
-            Application status
-            <span className="pg-section-title-sub">{status.replace(/_/g, " ")}</span>
-          </h2>
+        <section className="dash-section">
+          <SectionHeader label="Application status" count={status.replace(/_/g, " ")} />
           <p
             style={{
               fontSize: 13,

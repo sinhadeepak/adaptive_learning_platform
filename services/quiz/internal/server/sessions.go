@@ -723,6 +723,88 @@ type itemDTO struct {
 	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
+// answerKeyFields are payload keys that reveal the correct answer or
+// grading internals. They are stripped before a question payload is sent
+// to the student client (the pre-answer answer-key leak fix). Grading is
+// unaffected: it reads the original payload from the store, not this DTO.
+//
+// Only keys that NO client renderer reads are listed here. Canonical
+// renderers derive blank counts from `{{n}}`/`___` markers in the stem
+// (not `accepted`), and the map renderer captures a free click (not the
+// `target_*` coords), so those answer fields are safe to strip. Fields
+// shown to the student by design — `rubric`, `key_concepts`, `word_bank`,
+// the map `label` — are intentionally NOT stripped.
+var answerKeyFields = []string{
+	"correct_id",
+	"correct_ids",
+	"correct_option_id",
+	"correct",
+	"correct_pairs",
+	"correct_order",
+	"correct_assignments",
+	"correct_markers",
+	"model_answer",
+	"is_correct",
+	"explanation",
+	"accepted",              // FILL_BLANK_SINGLE answer (multi/cloze in blanks[])
+	"target_lat",            // MAP_LOCATION answer coords
+	"target_lng",
+	"tolerance_deg",
+	"low",                   // NUMERIC_RANGE acceptable bounds = the answer
+	"high",
+	"target_expression",     // FORMULA_INPUT canonical answer expression
+	"correct_statement_ids", // MULTI_STATEMENT answer
+}
+
+// studentPayload returns a copy of raw with answer-key fields removed so a
+// served question never ships its own answer to the browser. raw is
+// returned unchanged when empty or not a JSON object (a malformed payload
+// is surfaced by the client renderer's error boundary, not here).
+func studentPayload(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return raw
+	}
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return raw
+	}
+	stripped := false
+	for _, k := range answerKeyFields {
+		if _, ok := obj[k]; ok {
+			delete(obj, k)
+			stripped = true
+		}
+	}
+	// FILL_BLANK_MULTI / CLOZE carry the answer inside blanks[].accepted —
+	// strip it from each blank (the renderer reads stem markers, not blanks).
+	if rawBlanks, ok := obj["blanks"]; ok {
+		var blanks []map[string]json.RawMessage
+		if json.Unmarshal(rawBlanks, &blanks) == nil {
+			changed := false
+			for _, b := range blanks {
+				if _, has := b["accepted"]; has {
+					delete(b, "accepted")
+					changed = true
+				}
+			}
+			if changed {
+				if nb, mErr := json.Marshal(blanks); mErr == nil {
+					obj["blanks"] = nb
+					stripped = true
+				}
+			}
+		}
+	}
+	if !stripped {
+		return raw
+	}
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return raw
+	}
+	return out
+}
+
 // Next returns the current unanswered item if one is already served (resume
 // semantics), otherwise serves the next question and records it.
 func (svc *SessionService) Next(logger *slog.Logger) http.HandlerFunc {
@@ -767,7 +849,7 @@ func (svc *SessionService) Next(logger *slog.Logger) http.HandlerFunc {
 					Stem:         q.Stem,
 					Choices:      q.Choices,
 					QuestionType: q.QuestionType,
-					Payload:      q.Payload,
+					Payload:      studentPayload(q.Payload),
 				},
 			})
 			return
@@ -804,7 +886,7 @@ func (svc *SessionService) Next(logger *slog.Logger) http.HandlerFunc {
 					Stem:         q.Stem,
 					Choices:      q.Choices,
 					QuestionType: q.QuestionType,
-					Payload:      q.Payload,
+					Payload:      studentPayload(q.Payload),
 				},
 			})
 			return
@@ -839,7 +921,7 @@ func (svc *SessionService) Next(logger *slog.Logger) http.HandlerFunc {
 				Stem:         q.Stem,
 				Choices:      q.Choices,
 				QuestionType: q.QuestionType,
-				Payload:      q.Payload,
+				Payload:      studentPayload(q.Payload),
 			},
 		})
 	}
@@ -906,7 +988,7 @@ func (svc *SessionService) Items(logger *slog.Logger) http.HandlerFunc {
 				Stem:         q.Stem,
 				Choices:      q.Choices,
 				QuestionType: q.QuestionType,
-				Payload:      q.Payload,
+				Payload:      studentPayload(q.Payload),
 			})
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -1485,6 +1567,11 @@ type itemSummary struct {
 	Choices     []string `json:"choices,omitempty"`
 	CorrectIdx  *int16   `json:"correctIdx,omitempty"`
 	Explanation *string  `json:"explanation,omitempty"`
+	// QuestionType lets the results UI decide whether the answerIdx /
+	// correctIdx letters are meaningful. They only are for MCQ_SINGLE
+	// (and untyped legacy) — every other type is answered with a typed
+	// response payload, so answerIdx is a meaningless zero default.
+	QuestionType string `json:"questionType,omitempty"`
 }
 
 // Get returns the full session state with served-item history (resume / review).
@@ -1516,11 +1603,17 @@ func (svc *SessionService) Get(logger *slog.Logger) http.HandlerFunc {
 			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load items")
 			return
 		}
-		// When the session is SUBMITTED, hydrate each item with the question
-		// content (stem + choices + correctIdx + explanation) so QuizResult can
-		// render a real teaching moment without N round-trips. For active
-		// sessions we still hide correctIdx/explanation to avoid leaking the
-		// answer mid-quiz.
+		// Hydrate each item with its question content (stem + choices +
+		// correctIdx + explanation) so QuizResult can render a real teaching
+		// moment without N round-trips. We hydrate when the session is
+		// SUBMITTED, OR per-item for any item the user has already ANSWERED:
+		// an answered item's stem + correct answer were already revealed to
+		// the student (the answer endpoint returns correctIdx), so this leaks
+		// nothing — while unanswered items (e.g. not-yet-reached questions in
+		// a pre-served mock) stay hidden to preserve mid-quiz integrity.
+		// Practice sessions complete without an explicit SUBMITTED transition,
+		// so the per-item gate is what makes their results page show real
+		// questions instead of placeholders.
 		hydrate := sess.Status == domain.StatusSubmitted
 		summaries := make([]itemSummary, 0, len(items))
 		for _, it := range items {
@@ -1531,13 +1624,14 @@ func (svc *SessionService) Get(logger *slog.Logger) http.HandlerFunc {
 				IsCorrect:  it.IsCorrect,
 				Answered:   it.IsAnswered(),
 			}
-			if hydrate {
+			if hydrate || it.IsAnswered() {
 				if q, qerr := svc.store.GetQuestion(r.Context(), it.QuestionID); qerr == nil {
 					s.Stem = q.Stem
 					s.Choices = q.Choices
 					ci := q.CorrectIdx
 					s.CorrectIdx = &ci
 					s.Explanation = q.Explanation
+					s.QuestionType = q.QuestionType
 				}
 			}
 			summaries = append(summaries, s)

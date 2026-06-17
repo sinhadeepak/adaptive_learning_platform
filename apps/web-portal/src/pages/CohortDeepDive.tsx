@@ -13,6 +13,18 @@ import { useParams, Link } from "react-router-dom";
 
 import { AppShell } from "../components/AppShell";
 import { Pill, SkeletonRows } from "../components/primitives";
+
+function Meter({ pct, tone }: { pct: number; tone?: "good" | "warn" | "bad" }) {
+  const cls = tone ? ` pa-meter__fill--${tone}` : "";
+  return (
+    <span className="pa-meter">
+      <span className="pa-meter__track">
+        <span className={`pa-meter__fill${cls}`} style={{ width: `${pct}%` }} />
+      </span>
+      <span className="pa-meter__val">{pct}%</span>
+    </span>
+  );
+}
 import {
   teacherAnalytics,
   type TopicHeatmapRow,
@@ -151,7 +163,7 @@ function HeatmapTab({ cohortId }: { cohortId: string }) {
       <p style={{ color: "var(--ink-3)", fontSize: 12, marginTop: 0 }}>
         Per-topic class mastery, weakest first. Use this to pick what to re-teach next.
       </p>
-      <table className="leaderboard">
+      <table className="data-table">
         <thead>
           <tr>
             <th>Topic</th>
@@ -162,35 +174,11 @@ function HeatmapTab({ cohortId }: { cohortId: string }) {
         <tbody>
           {rows.map((r) => {
             const pct = Math.round(r.avgEwa * 100);
-            const tone = pct >= 70 ? "var(--good)" : pct >= 40 ? "var(--info)" : "var(--bad)";
+            const tone = pct >= 70 ? "good" : pct >= 40 ? undefined : "bad";
             return (
               <tr key={r.topicId}>
                 <td>{r.topicTitle || r.topicId.slice(0, 8)}</td>
-                <td>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div
-                      style={{
-                        flex: 1,
-                        height: 6,
-                        background: "var(--card-3)",
-                        borderRadius: 3,
-                        position: "relative",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${pct}%`,
-                          height: "100%",
-                          background: tone,
-                          borderRadius: 3,
-                        }}
-                      />
-                    </div>
-                    <span style={{ color: tone, fontWeight: 700, minWidth: 36, textAlign: "right" }}>
-                      {pct}%
-                    </span>
-                  </div>
-                </td>
+                <td><Meter pct={pct} tone={tone} /></td>
                 <td>{r.nStudents}</td>
               </tr>
             );
@@ -279,7 +267,7 @@ function EngagementTab({ cohortId }: { cohortId: string }) {
     return <p style={{ color: "var(--ink-3)" }}>No students in this cohort.</p>;
   }
   return (
-    <table className="leaderboard">
+    <table className="data-table">
       <thead>
         <tr>
           <th>Student</th>

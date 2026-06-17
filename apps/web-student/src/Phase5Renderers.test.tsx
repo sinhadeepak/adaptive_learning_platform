@@ -25,6 +25,9 @@ import {
 import {
   EssayRenderer,
 } from "./components/renderers/SubjectiveRenderer";
+import {
+  SequencingRenderer,
+} from "./components/renderers/MatchingRenderer";
 import { QuestionRenderer } from "./components/renderers";
 import { RadarChart } from "./components/RadarChart";
 import { ConfidenceSlider } from "./components/ConfidenceSlider";
@@ -99,6 +102,38 @@ test("MCQMultiRenderer toggles selection on checkbox click", () => {
   );
   fireEvent.click(screen.getByText("3"));
   expect(onChange).toHaveBeenCalledWith({ selected_ids: ["A", "B"] });
+});
+
+// ── SEQUENCING ─────────────────────────────────────────────────────────────
+
+test("SequencingRenderer seeds the default order so an unchanged answer is submittable", () => {
+  const onChange = vi.fn();
+  render(
+    <SequencingRenderer
+      payload={{ stem: "Order these", items: ["At rest", "Apply force", "Accelerate"] }}
+      value={null}
+      onChange={onChange}
+    />,
+  );
+  // Without touching the up/down controls, the renderer must emit the
+  // initial ordering — otherwise the parent's responsePayload stays null
+  // and Submit is disabled even though the shown order is a valid answer.
+  expect(onChange).toHaveBeenCalledWith({ ordered_ids: ["i0", "i1", "i2"] });
+});
+
+test("SequencingRenderer reorders on move-down", () => {
+  const onChange = vi.fn();
+  render(
+    <SequencingRenderer
+      payload={{ stem: "Order these", items: ["A", "B", "C"] }}
+      value={{ ordered_ids: ["i0", "i1", "i2"] }}
+      onChange={onChange}
+    />,
+  );
+  // First row's ↓ swaps i0 and i1.
+  const downButtons = screen.getAllByText("↓");
+  fireEvent.click(downButtons[0]);
+  expect(onChange).toHaveBeenCalledWith({ ordered_ids: ["i1", "i0", "i2"] });
 });
 
 // ── TRUE_FALSE ─────────────────────────────────────────────────────────────

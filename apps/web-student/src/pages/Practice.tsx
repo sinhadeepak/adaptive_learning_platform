@@ -391,6 +391,14 @@ export function Practice() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const pageTab = searchParams.get("tab") ?? "practice";
+
+  // Safety net: this hub does not scope to a single topic. A stray/bookmarked
+  // `/practice?topic=<id>` link (the old Study Map target) is redirected to
+  // that topic's page so the user never lands here on unrelated content.
+  const topicParam = searchParams.get("topic");
+  useEffect(() => {
+    if (topicParam) navigate(`/catalog/topic/${topicParam}`, { replace: true });
+  }, [topicParam, navigate]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [mastery, setMastery] = useState<MasteryListResponse["topics"] | null>(null);
   const [streak, setStreak] = useState<StreakResponse | null>(null);

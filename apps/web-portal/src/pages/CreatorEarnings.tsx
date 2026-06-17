@@ -1,7 +1,7 @@
 // Creator earnings dashboard — production-grade redesign (2026-05-11).
 //
-// Layout: pg-shell → pg-header → period filter → pg-stat-strip with the
-// 3 headline numbers (Total net, Courses net, Tutor sessions net) →
+// Layout: pg-shell → pg-header → period filter → shared stat-grid with
+// the 3 headline numbers (Total net, Courses net, Tutor sessions net) →
 // detail cards split 2-up using pg-section. Replaces a 800px-wide
 // centered column with a stretched full-width layout consistent with
 // the rest of the portal.
@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { AppShell } from "../components/AppShell";
+import { StatCard, SectionHeader } from "../components/primitives";
 import { type Earnings, creatorEarnings } from "../lib/api";
 
 function paiseToRupees(p: number): string {
@@ -84,66 +85,39 @@ export function CreatorEarnings() {
         {error && <p className="banner banner-error">{error}</p>}
 
         {earnings === null && !error && (
-          <div className="pg-stat-strip">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="pg-stat" style={{ opacity: 0.5 }} aria-hidden>
-                <div className="pg-stat-label">Loading…</div>
-                <div className="pg-stat-value">—</div>
-              </div>
-            ))}
-          </div>
+          <section className="dash-section">
+            <div className="stat-grid">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <StatCard key={i} label="Loading…" value="…" />
+              ))}
+            </div>
+          </section>
         )}
 
         {earnings && (
           <>
             {/* Headline KPIs */}
-            <div className="pg-stat-strip">
-              <div
-                className="pg-stat"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(16,196,122,0.10), rgba(16,196,122,0.02))",
-                  border: "1px solid rgba(16,196,122,0.30)",
-                }}
-              >
-                <div className="pg-stat-label">Total net</div>
-                <div
-                  className="pg-stat-value"
-                  style={{ color: "var(--good)" }}
-                >
-                  {paiseToRupees(earnings.totalNetPaise)}
-                </div>
-                <div className="pg-stat-delta">
-                  {fmtDate(earnings.periodStart)} → {fmtDate(earnings.periodEnd)}
-                </div>
+            <section className="dash-section">
+              <SectionHeader label="Net revenue" />
+              <div className="stat-grid">
+                <StatCard
+                  label="Total net"
+                  value={paiseToRupees(earnings.totalNetPaise)}
+                  tone="success"
+                  hint={`${fmtDate(earnings.periodStart)} → ${fmtDate(earnings.periodEnd)}`}
+                />
+                <StatCard
+                  label="Courses net"
+                  value={paiseToRupees(earnings.courseNetPaise)}
+                  hint={`${earnings.courseCount} purchase${earnings.courseCount === 1 ? "" : "s"}`}
+                />
+                <StatCard
+                  label="Tutor sessions net"
+                  value={paiseToRupees(earnings.sessionNetPaise)}
+                  hint={`${earnings.sessionCount} session${earnings.sessionCount === 1 ? "" : "s"}`}
+                />
               </div>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Courses net</div>
-                <div
-                  className="pg-stat-value"
-                  style={{ color: "var(--info)" }}
-                >
-                  {paiseToRupees(earnings.courseNetPaise)}
-                </div>
-                <div className="pg-stat-delta">
-                  {earnings.courseCount} purchase
-                  {earnings.courseCount === 1 ? "" : "s"}
-                </div>
-              </div>
-              <div className="pg-stat">
-                <div className="pg-stat-label">Tutor sessions net</div>
-                <div
-                  className="pg-stat-value"
-                  style={{ color: "var(--accent)" }}
-                >
-                  {paiseToRupees(earnings.sessionNetPaise)}
-                </div>
-                <div className="pg-stat-delta">
-                  {earnings.sessionCount} session
-                  {earnings.sessionCount === 1 ? "" : "s"}
-                </div>
-              </div>
-            </div>
+            </section>
 
             {/* Detail breakdown */}
             <div
@@ -154,13 +128,10 @@ export function CreatorEarnings() {
               }}
             >
               <section className="pg-section" style={{ marginBottom: 0 }}>
-                <h2 className="pg-section-title">
-                  Courses
-                  <span className="pg-section-title-sub">
-                    {earnings.courseCount} purchase
-                    {earnings.courseCount === 1 ? "" : "s"}
-                  </span>
-                </h2>
+                <SectionHeader
+                  label="Courses"
+                  count={`${earnings.courseCount} purchase${earnings.courseCount === 1 ? "" : "s"}`}
+                />
                 <div className="pg-fields">
                   <div>
                     <div className="pg-field-label">Gross revenue</div>
@@ -187,13 +158,10 @@ export function CreatorEarnings() {
               </section>
 
               <section className="pg-section" style={{ marginBottom: 0 }}>
-                <h2 className="pg-section-title">
-                  Tutor sessions
-                  <span className="pg-section-title-sub">
-                    {earnings.sessionCount} session
-                    {earnings.sessionCount === 1 ? "" : "s"}
-                  </span>
-                </h2>
+                <SectionHeader
+                  label="Tutor sessions"
+                  count={`${earnings.sessionCount} session${earnings.sessionCount === 1 ? "" : "s"}`}
+                />
                 <div className="pg-fields">
                   <div>
                     <div className="pg-field-label">Gross revenue</div>

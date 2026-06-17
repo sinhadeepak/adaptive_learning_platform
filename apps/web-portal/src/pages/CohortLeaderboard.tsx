@@ -8,12 +8,25 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { AppShell } from "../components/AppShell";
+import { Banner, Pill, SectionHeader, StatCard } from "../components/primitives";
 import {
   analytics,
   type CohortLeaderboardRow,
   type CohortSummary,
 } from "../lib/api";
 import { env } from "../lib/env";
+
+function Meter({ pct, tone }: { pct: number; tone?: "good" | "warn" | "bad" }) {
+  const cls = tone ? ` pa-meter__fill--${tone}` : "";
+  return (
+    <span className="pa-meter">
+      <span className="pa-meter__track">
+        <span className={`pa-meter__fill${cls}`} style={{ width: `${pct}%` }} />
+      </span>
+      <span className="pa-meter__val">{pct}%</span>
+    </span>
+  );
+}
 
 interface LeaderboardFrame {
   cohortId: string;
@@ -105,40 +118,39 @@ export function CohortLeaderboard() {
           }}
         >
           <h1>Cohort Leaderboard</h1>
-          <span
-            className={`pill ${live ? "pill-success" : "pill-neutral"}`}
-            title="Updates every ~5s while connected"
-          >
-            {live ? "● LIVE" : "○ Snapshot"}
+          <span title="Updates every ~5s while connected">
+            <Pill tone={live ? "success" : "muted"}>
+              {live ? "● LIVE" : "○ Snapshot"}
+            </Pill>
           </span>
         </div>
-        {error && <p className="banner banner-error">{error}</p>}
+        {error && (
+          <Banner tone="danger" role="alert">
+            {error}
+          </Banner>
+        )}
 
         {/* Sprint 13 S13-D — headline summary tiles. */}
         {summary && (
-          <section
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-              gap: 12,
-              marginTop: 16,
-              marginBottom: 16,
-            }}
-          >
-            <SummaryTile label="Members" value={summary.memberCount} />
-            <SummaryTile
-              label="Started"
-              value={`${summary.startedCount} · ${summary.completionPct}%`}
-            />
-            <SummaryTile
-              label="Avg readiness"
-              value={`${summary.avgReadinessPct}%`}
-            />
-            <SummaryTile
-              label="At risk"
-              value={summary.atRisk.length}
-              hint={summary.atRisk.length > 0 ? "see top of list" : undefined}
-            />
+          <section className="dash-section" style={{ marginTop: 16, marginBottom: 16 }}>
+            <SectionHeader label="Cohort summary" />
+            <div className="stat-grid">
+              <StatCard label="Members" value={summary.memberCount} />
+              <StatCard
+                label="Started"
+                value={`${summary.startedCount} · ${summary.completionPct}%`}
+              />
+              <StatCard
+                label="Avg readiness"
+                value={`${summary.avgReadinessPct}%`}
+              />
+              <StatCard
+                label="At risk"
+                value={summary.atRisk.length}
+                tone={summary.atRisk.length > 0 ? "danger" : "muted"}
+                hint={summary.atRisk.length > 0 ? "see top of list" : undefined}
+              />
+            </div>
           </section>
         )}
 
@@ -147,7 +159,7 @@ export function CohortLeaderboard() {
           <p>No members in this cohort yet.</p>
         )}
         {rows !== null && rows.length > 0 && (
-          <table className="leaderboard">
+          <table className="data-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -167,13 +179,13 @@ export function CohortLeaderboard() {
                       <code>{r.userId.slice(0, 8)}…</code>
                     </Link>
                     {r.role !== "STUDENT" && (
-                      <span className="pill pill-neutral" style={{ marginLeft: 8 }}>
-                        {r.role}
+                      <span style={{ marginLeft: 8 }}>
+                        <Pill tone="muted">{r.role}</Pill>
                       </span>
                     )}
                   </td>
                   <td>
-                    {r.started ? `${Math.round(r.score * 100)}%` : "—"}
+                    {r.started ? <Meter pct={Math.round(r.score * 100)} /> : "—"}
                   </td>
                   <td>{r.started ? r.nTopics : "—"}</td>
                   <td>
@@ -186,34 +198,5 @@ export function CohortLeaderboard() {
         )}
       </main>
     </AppShell>
-  );
-}
-
-function SummaryTile({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string | number;
-  hint?: string;
-}) {
-  return (
-    <div
-      style={{
-        padding: 12,
-        border: "1px solid var(--rule)",
-        borderRadius: 8,
-        background: "var(--card-1, #fff)",
-      }}
-    >
-      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>{value}</div>
-      {hint && (
-        <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
-          {hint}
-        </div>
-      )}
-    </div>
   );
 }

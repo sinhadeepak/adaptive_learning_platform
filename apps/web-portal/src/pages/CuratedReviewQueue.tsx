@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { AppShell } from "../components/AppShell";
 import { auth } from "../lib/api";
 
 interface PendingItem {
@@ -71,85 +72,83 @@ export function CuratedReviewQueue() {
   }
 
   return (
-    <div style={{ maxWidth: 1080, margin: "0 auto", padding: "24px 16px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22 }}>Curated tests — review queue</h1>
-          <p style={{ marginTop: 4, color: "var(--ink-3)", fontSize: 13 }}>
-            Approve to publish to the student Library, or reject to send
-            back to the author.
-          </p>
-        </div>
-        <Link to="/curated/new" style={{ fontSize: 13 }}>
+    <AppShell
+      title="Curated tests — review queue"
+      subtitle="Approve to publish to the student Library, or reject to send back to the author."
+      actions={
+        <Link to="/curated/new" className="btn btn-ghost">
           New test →
         </Link>
-      </div>
+      }
+    >
+      <div className="dash-section" style={{ maxWidth: 1080 }}>
+        {error && (
+          <div style={{ padding: 12, marginBottom: 12, background: "var(--bad-soft-soft)", color: "var(--bad)", borderRadius: 8 }}>
+            {error}
+          </div>
+        )}
 
-      {error && (
-        <div style={{ padding: 12, marginBottom: 12, background: "var(--bad-soft-soft)", color: "var(--bad)", borderRadius: 8 }}>
-          {error}
-        </div>
-      )}
-
-      {items === null && <div>Loading…</div>}
-      {items !== null && items.length === 0 && (
-        <div style={{ padding: 24, textAlign: "center", border: "1px dashed var(--rule)", borderRadius: 8, color: "var(--ink-3)" }}>
-          No tests pending review. 🎉
-        </div>
-      )}
-      {items !== null && items.length > 0 && (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--rule)" }}>
-              <th style={{ padding: 8 }}>Name</th>
-              <th style={{ padding: 8 }}>Shape</th>
-              <th style={{ padding: 8 }}>Marking</th>
-              <th style={{ padding: 8 }}>Submitted</th>
-              <th style={{ padding: 8 }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((it) => (
-              <tr key={it.id} style={{ borderBottom: "1px solid var(--rule)" }}>
-                <td style={{ padding: 8 }}>
-                  <div style={{ fontWeight: 600 }}>{it.name}</div>
-                  <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
-                    {it.sections.length} section{it.sections.length === 1 ? "" : "s"} —{" "}
-                    {it.sections.map((s) => `${s.n_questions}Q ${s.difficulty_band}`).join(" · ")}
-                  </div>
-                </td>
-                <td style={{ padding: 8, fontSize: 13 }}>
-                  {it.totalQuestions} Q · {it.totalMinutes} min
-                </td>
-                <td style={{ padding: 8, fontSize: 13 }}>
-                  +{it.marksCorrect} / −{it.marksNegative}
-                </td>
-                <td style={{ padding: 8, fontSize: 12, color: "var(--ink-3)" }}>
-                  {it.createdAt ? new Date(it.createdAt).toLocaleString() : "?"}
-                </td>
-                <td style={{ padding: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => act(it.id, "approve")}
-                    disabled={busy === it.id + ":approve"}
-                    style={{ padding: "4px 10px", background: "var(--good)", color: "#fff", borderRadius: 6, marginRight: 6 }}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => act(it.id, "reject")}
-                    disabled={busy === it.id + ":reject"}
-                    style={{ padding: "4px 10px", background: "var(--bad)", color: "#fff", borderRadius: 6 }}
-                  >
-                    Reject
-                  </button>
-                </td>
+        {items === null && <div>Loading…</div>}
+        {items !== null && items.length === 0 && (
+          <div style={{ padding: 24, textAlign: "center", border: "1px dashed var(--rule)", borderRadius: 8, color: "var(--ink-3)" }}>
+            No tests pending review. 🎉
+          </div>
+        )}
+        {items !== null && items.length > 0 && (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Shape</th>
+                <th>Marking</th>
+                <th>Submitted</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
+            </thead>
+            <tbody>
+              {items.map((it) => (
+                <tr key={it.id}>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{it.name}</div>
+                    <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                      {it.sections.length} section{it.sections.length === 1 ? "" : "s"} —{" "}
+                      {it.sections.map((s) => `${s.n_questions}Q ${s.difficulty_band}`).join(" · ")}
+                    </div>
+                  </td>
+                  <td style={{ fontSize: 13 }}>
+                    {it.totalQuestions} Q · {it.totalMinutes} min
+                  </td>
+                  <td style={{ fontSize: 13 }}>
+                    +{it.marksCorrect} / −{it.marksNegative}
+                  </td>
+                  <td style={{ fontSize: 12, color: "var(--ink-3)" }}>
+                    {it.createdAt ? new Date(it.createdAt).toLocaleString() : "?"}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => act(it.id, "approve")}
+                      disabled={busy === it.id + ":approve"}
+                      className="btn btn-primary"
+                      style={{ marginRight: 6 }}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => act(it.id, "reject")}
+                      disabled={busy === it.id + ":reject"}
+                      className="btn btn-ghost"
+                    >
+                      Reject
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </AppShell>
   );
 }

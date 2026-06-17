@@ -32,12 +32,19 @@ import { useAuth } from "../lib/auth-provider";
 import { VidyaShell } from "../components/vidya/VidyaShell";
 import { QuestionMap, type QMapState } from "../components/vidya/dashboardParts";
 import { Sparkline } from "@alp/ui";
+import { QuestionRenderer } from "../components/renderers";
+import { RendererErrorBoundary } from "../components/RendererErrorBoundary";
 
 interface QuizItem {
   itemIdx: number;
   questionId: string;
   stem: string;
   choices: string[];
+  // P5 — present for non-MCQ types. When absent / "MCQ_SINGLE" the
+  // legacy lettered-choices path renders; otherwise the polymorphic
+  // QuestionRenderer drives the answer surface off `payload`.
+  questionType?: string;
+  payload?: Record<string, unknown>;
 }
 
 interface NextResponse {
@@ -92,6 +99,13 @@ export function Quiz() {
   const [verdict, setVerdict] = useState<AnswerResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  // Typed-answer value for non-MCQ renderers (numeric, matching, …).
+  const [responsePayload, setResponsePayload] = useState<unknown>(null);
+  // Explicit load/submit states so a failed fetch shows an error +
+  // retry instead of a permanent "Loading next question…" spinner.
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [topic, setTopic] = useState<Topic | null>(null);
@@ -119,7 +133,11 @@ export function Quiz() {
     if (!sessionId) return;
     setVerdict(null);
     setSelectedIdx(null);
+    setResponsePayload(null);
     setHintShown(false);
+    setSubmitError(null);
+    setLoadError(null);
+    setLoading(true);
     try {
       const r = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/next`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -129,9 +147,18 @@ export function Quiz() {
         navigate(`/quiz/${sessionId}/result`);
       } else if (data.item) {
         setItem(data.item);
+      } else {
+        // IN_PROGRESS but no item and not done — surface, don't hang.
+        setLoadError("No question was returned for this session.");
       }
-    } catch {
-      /* leave existing item visible */
+    } catch (e) {
+      setLoadError(
+        e instanceof Error
+          ? `Couldn't load the next question (${e.message}).`
+          : "Couldn't load the next question.",
+      );
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -173,20 +200,37 @@ export function Quiz() {
   }, [session?.topicId, user?.id]);
 
   async function submit() {
-    if (!sessionId || !item || submitting || selectedIdx === null) return;
+    if (!sessionId || !item || submitting) return;
+    const isMcqItem = !item.questionType || item.questionType === "MCQ_SINGLE";
+    // MCQ needs a selected choice; typed questions need a response payload.
+    if (isMcqItem) {
+      if (selectedIdx === null) return;
+    } else if (responsePayload === null || responsePayload === undefined) {
+      return;
+    }
     setSubmitting(true);
+    setSubmitError(null);
     try {
+      // MCQ grades server-side off the choice index; typed questions
+      // ship the renderer's response payload to the typed grader.
+      const body = isMcqItem
+        ? { itemIdx: item.itemIdx, answerIdx: selectedIdx }
+        : { itemIdx: item.itemIdx, responsePayload };
       const r = await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/answers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemIdx: item.itemIdx, answerIdx: selectedIdx }),
+        body: JSON.stringify(body),
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = (await r.json()) as AnswerResponse;
       setVerdict(data);
       void fetchSession();
-    } catch {
-      /* surface inline only */
+    } catch (e) {
+      setSubmitError(
+        e instanceof Error
+          ? `Couldn't submit your answer (${e.message}). Please try again.`
+          : "Couldn't submit your answer. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -217,6 +261,14 @@ export function Quiz() {
   const avgTime = Math.max(elapsed, 30); // crude — real metric comes from session events
   const difficulty = ability ? Math.min(1, 0.5 + (1 - ability.ewa) * 0.4) : 0.71;
   const theta = ability ? +(ability.ewa * 2 - 1).toFixed(2) : 0.79;
+
+  // MCQ_SINGLE (and untyped legacy items) use the lettered-choices UI +
+  // answerIdx submit; every other type renders via QuestionRenderer and
+  // submits a response payload.
+  const isMcq = !item?.questionType || item.questionType === "MCQ_SINGLE";
+  const canSubmit = isMcq
+    ? selectedIdx !== null
+    : responsePayload !== null && responsePayload !== undefined;
 
   const qmapItems: Array<{ index: number; state: QMapState }> = useMemo(() => {
     const out: Array<{ index: number; state: QMapState }> = [];
@@ -308,45 +360,119 @@ export function Quiz() {
             </span>
           </div>
 
-          {item ? (
-            <div className="vidya-question__stem">
-              <MathText text={item.stem} />
+          {loadError ? (
+            <div
+              role="alert"
+              style={{
+                padding: 16,
+                background: "var(--paper-2, #fff8f8)",
+                border: "1px solid var(--bad, #f43f5e)",
+                borderRadius: 8,
+                color: "var(--ink, #1f2937)",
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>
+                ⚠ {loadError}
+              </div>
+              <button
+                type="button"
+                className="vidya-shell__primary"
+                onClick={() => void fetchNext()}
+              >
+                Retry
+              </button>
             </div>
-          ) : (
+          ) : !item ? (
             <p className="vidya-question__stem" style={{ color: "var(--ink-3)" }}>
-              Loading next question…
+              {loading ? "Loading next question…" : "No question available."}
             </p>
+          ) : (
+            <>
+              <div className="vidya-question__stem">
+                <MathText text={item.stem} />
+              </div>
+
+              {isMcq ? (
+                <ol className="vidya-question__choices">
+                  {(item.choices ?? []).map((choice, i) => {
+                    const letter = String.fromCharCode(65 + i);
+                    const sel = selectedIdx === i;
+                    const isCorrect =
+                      verdict !== null && verdict.correctIdx === i;
+                    const isWrong =
+                      verdict !== null && sel && !verdict.isCorrect;
+                    return (
+                      <li key={i}>
+                        <button
+                          type="button"
+                          className={`vidya-question__choice${
+                            sel ? " vidya-question__choice--sel" : ""
+                          }${isCorrect ? " vidya-question__choice--correct" : ""}${
+                            isWrong ? " vidya-question__choice--wrong" : ""
+                          }`}
+                          disabled={verdict !== null || paused}
+                          onClick={() => setSelectedIdx(i)}
+                        >
+                          <span className="vidya-question__choice-letter">{letter}</span>
+                          <span className="vidya-question__choice-text">
+                            <MathText text={choice} inline />
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              ) : (
+                <div className="vidya-question__typed" style={{ marginTop: 16 }}>
+                  <RendererErrorBoundary
+                    resetKey={`${item.questionId}:${item.itemIdx}`}
+                    onSkip={() => void skip()}
+                  >
+                    <QuestionRenderer
+                      typeId={item.questionType!}
+                      payload={item.payload ?? {}}
+                      value={responsePayload}
+                      onChange={setResponsePayload}
+                      language="en"
+                      disabled={verdict !== null || paused}
+                      sessionId={sessionId}
+                      questionId={item.questionId}
+                    />
+                  </RendererErrorBoundary>
+                </div>
+              )}
+
+              {verdict && !isMcq && (
+                <div
+                  role="status"
+                  style={{
+                    marginTop: 16,
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    fontWeight: 600,
+                    fontSize: 14,
+                    background: verdict.isCorrect
+                      ? "var(--good-soft, #ecfdf5)"
+                      : "var(--bad-soft, #fef2f2)",
+                    color: verdict.isCorrect
+                      ? "var(--good, #059669)"
+                      : "var(--bad, #dc2626)",
+                  }}
+                >
+                  {verdict.isCorrect ? "✓ Correct" : "✗ Not quite"}
+                </div>
+              )}
+            </>
           )}
 
-          <ol className="vidya-question__choices">
-            {(item?.choices ?? []).map((choice, i) => {
-              const letter = String.fromCharCode(65 + i);
-              const sel = selectedIdx === i;
-              const isCorrect =
-                verdict !== null && verdict.correctIdx === i;
-              const isWrong =
-                verdict !== null && sel && !verdict.isCorrect;
-              return (
-                <li key={i}>
-                  <button
-                    type="button"
-                    className={`vidya-question__choice${
-                      sel ? " vidya-question__choice--sel" : ""
-                    }${isCorrect ? " vidya-question__choice--correct" : ""}${
-                      isWrong ? " vidya-question__choice--wrong" : ""
-                    }`}
-                    disabled={verdict !== null || paused}
-                    onClick={() => setSelectedIdx(i)}
-                  >
-                    <span className="vidya-question__choice-letter">{letter}</span>
-                    <span className="vidya-question__choice-text">
-                      <MathText text={choice} inline />
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
+          {submitError && (
+            <p
+              role="alert"
+              style={{ color: "var(--bad, #dc2626)", fontSize: 13, marginTop: 12 }}
+            >
+              {submitError}
+            </p>
+          )}
 
           <div className="vidya-question__actions">
             <button
@@ -376,7 +502,7 @@ export function Quiz() {
                 <button
                   className="vidya-shell__primary"
                   onClick={() => void submit()}
-                  disabled={selectedIdx === null || submitting || paused}
+                  disabled={!canSubmit || submitting || paused}
                 >
                   → Submit answer
                 </button>

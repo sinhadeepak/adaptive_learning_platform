@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { AppShell } from "../components/AppShell";
+import { SectionHeader } from "../components/primitives";
 import {
   type Course,
   type CourseLesson,
@@ -184,8 +185,7 @@ export function CourseAuthor() {
 
   return (
     <AppShell title={isNew ? "New course" : "Edit course"}>
-      <main className="page" style={{ padding: 24, maxWidth: 1280 }}>
-        <h1>{isNew ? "New course" : "Edit course"}</h1>
+      <div className="dash-section" style={{ maxWidth: 1280 }}>
         {locked && (
           <p className="banner">
             Course is in <strong>{course?.status}</strong> — only price + cover
@@ -197,48 +197,51 @@ export function CourseAuthor() {
 
         <div style={{ display: "grid", gridTemplateColumns: isNew ? "1fr" : "minmax(0,1fr) minmax(0,1fr)", gap: 24 }}>
           <section>
-            <fieldset style={{ marginBottom: 16 }}>
-              <legend>Course meta</legend>
-              <label>
-                Title{" "}
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
-                  maxLength={240}
-                />
-              </label>
-              <label>
-                Short description (shown on listing cards){" "}
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  maxLength={4000}
-                  rows={3}
-                />
-              </label>
-              <label>
-                Price (₹){" "}
-                <input
-                  type="number"
-                  min={49}
-                  max={4999}
-                  value={priceRs}
-                  onChange={(e) => setPriceRs(parseInt(e.target.value || "0", 10))}
-                />{" "}
-                <small>= {rupeesToPaise(priceRs).toLocaleString()} paise</small>
-              </label>
-            </fieldset>
+            <SectionHeader label="Course meta" />
+            <div className="form-field">
+              <label className="form-label">Title</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                maxLength={240}
+                className="form-input"
+              />
+            </div>
+            <div className="form-field">
+              <label className="form-label">Short description (shown on listing cards)</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                maxLength={4000}
+                rows={3}
+                className="form-input"
+              />
+            </div>
+            <div className="form-field">
+              <label className="form-label">Price (₹)</label>
+              <input
+                type="number"
+                min={49}
+                max={4999}
+                value={priceRs}
+                onChange={(e) => setPriceRs(parseInt(e.target.value || "0", 10))}
+                className="form-input"
+                style={{ width: 160 }}
+              />{" "}
+              <small>= {rupeesToPaise(priceRs).toLocaleString()} paise</small>
+            </div>
 
-            <fieldset style={{ marginBottom: 16 }}>
-              <legend>Course body (legacy markdown — used when no modules)</legend>
+            <SectionHeader label="Course body (legacy markdown — used when no modules)" />
+            <div className="form-field">
               <textarea
                 value={contentMd}
                 onChange={(e) => setContentMd(e.target.value)}
                 rows={12}
                 maxLength={200000}
                 disabled={!!locked}
+                className="form-input"
                 style={{ width: "100%", fontFamily: "monospace" }}
                 placeholder="Plain markdown for courses without modules."
               />
@@ -246,13 +249,13 @@ export function CourseAuthor() {
                 If this course has any modules + lessons (right pane), students see the structured
                 view instead. Use this body for short courses without modules.
               </small>
-            </fieldset>
+            </div>
 
             <button
               type="button"
               onClick={save}
               disabled={submitting || !title.trim()}
-              className="btn-primary"
+              className="btn btn-primary"
             >
               {submitting ? "Saving…" : isNew ? "Create draft" : "Save changes"}
             </button>
@@ -356,7 +359,7 @@ export function CourseAuthor() {
             </section>
           )}
         </div>
-      </main>
+      </div>
     </AppShell>
   );
 }

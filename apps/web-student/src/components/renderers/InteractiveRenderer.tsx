@@ -83,7 +83,7 @@ export const KBCLifelineRenderer: Renderer<KBCLifelinePayload, KBCLifelineRespon
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-        {payload.available_lifelines.map((kind) => {
+        {(payload.available_lifelines ?? []).map((kind) => {
           const on = used.has(kind);
           return (
             <button
@@ -236,7 +236,7 @@ export const TimedRevealRenderer: Renderer<TimedRevealPayload, TimedRevealRespon
       </p>
 
       <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-        {payload.reveal_schedule.map((step, idx) => {
+        {(payload.reveal_schedule ?? []).map((step, idx) => {
           const unlocked = elapsed >= step.at_seconds;
           return (
             <div

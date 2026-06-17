@@ -37,8 +37,18 @@ interface ItemSummary {
   stem?: string;
   choices?: string[];
   correctIdx?: number;
+  explanation?: string;
+  questionType?: string;
   bValue?: number;
   timeSpentSec?: number;
+}
+
+// answerIdx / correctIdx letters are only meaningful for single-choice MCQ
+// (and untyped legacy items). Every other type is answered with a typed
+// response payload, so the stored answerIdx is a meaningless zero default —
+// showing "You picked A / Correct A" there is misleading.
+function isChoiceAnswer(questionType?: string): boolean {
+  return !questionType || questionType === "MCQ_SINGLE";
 }
 
 interface SessionDetail {
@@ -206,7 +216,7 @@ export function QuizResult() {
       `Mastery on ${topic?.title ?? "this topic"} ↑ ${Math.max(5, readinessLift * 2)}% → ${
         masteryPct ?? "—"
       }% — ${masteryPct && masteryPct >= 70 ? "approaching strong" : "still weak; another session recommended."}`,
-      `Carnot cycle now classified as ${
+      `${topic?.title ?? "This chapter"} now classified as ${
         correct / Math.max(1, total) >= 0.7 ? "strong (≥70%)" : "developing"
       }.`,
       `Your θ for this chapter moved from ${(
@@ -307,9 +317,11 @@ export function QuizResult() {
                   const realTime = pq?.timeSeconds ?? it.timeSpentSec ?? t;
                   const answerLetter = letterFor(realAnswerIdx ?? undefined);
                   const correctLetterReal = letterFor(realCorrectIdx ?? undefined);
-                  const stemText =
-                    it.stem?.split("·")?.[0]?.slice(0, 50) ??
-                    questionPlaceholder(it.itemIdx);
+                  const stemText = it.stem
+                    ? it.stem.length > 64
+                      ? `${it.stem.slice(0, 64)}…`
+                      : it.stem
+                    : `Question ${it.itemIdx + 1}`;
                   return (
                     <tr
                       key={it.itemIdx}
@@ -337,21 +349,32 @@ export function QuizResult() {
                       <td className="vidya-breakdown__time">{realTime}s</td>
                       <td className="vidya-breakdown__b">b = {realB.toFixed(2)}</td>
                       <td className="vidya-breakdown__answer">
-                        <span
-                          className={
-                            it.isCorrect === true
-                              ? "vidya-breakdown__letter vidya-breakdown__letter--good"
-                              : realAnswerIdx === undefined || realAnswerIdx === null
-                                ? "vidya-breakdown__letter vidya-breakdown__letter--mute"
-                                : "vidya-breakdown__letter vidya-breakdown__letter--bad"
-                          }
-                        >
-                          {answerLetter}
-                        </span>
-                        <span className="vidya-breakdown__letter-sep">/</span>
-                        <span className="vidya-breakdown__letter vidya-breakdown__letter--good">
-                          {correctLetterReal}
-                        </span>
+                        {isChoiceAnswer(it.questionType) ? (
+                          <>
+                            <span
+                              className={
+                                it.isCorrect === true
+                                  ? "vidya-breakdown__letter vidya-breakdown__letter--good"
+                                  : realAnswerIdx === undefined || realAnswerIdx === null
+                                    ? "vidya-breakdown__letter vidya-breakdown__letter--mute"
+                                    : "vidya-breakdown__letter vidya-breakdown__letter--bad"
+                              }
+                            >
+                              {answerLetter}
+                            </span>
+                            <span className="vidya-breakdown__letter-sep">/</span>
+                            <span className="vidya-breakdown__letter vidya-breakdown__letter--good">
+                              {correctLetterReal}
+                            </span>
+                          </>
+                        ) : (
+                          // Typed-answer question (map / numeric / fill-in /
+                          // matching …) — letters don't apply; the ✓/✗ column
+                          // already carries the verdict.
+                          <span className="vidya-breakdown__letter vidya-breakdown__letter--mute">
+                            —
+                          </span>
+                        )}
                       </td>
                       <td className="vidya-breakdown__chev" aria-hidden>›</td>
                     </tr>
@@ -390,13 +413,13 @@ export function QuizResult() {
           <section className="vidya-next">
             <div className="vidya-next__eyebrow">Next session</div>
             <div className="vidya-next__title">
-              Heat transfer · 10 questions
+              More {topic?.title ?? "practice"} · {total} questions
             </div>
             <div className="vidya-next__meta">
-              Predicted lift +5 pts · ~16 min
+              Keep the momentum on this chapter
             </div>
             <Link
-              to="/practice"
+              to={session?.topicId ? `/catalog/topic/${session.topicId}` : "/practice"}
               className="vidya-shell__primary"
               style={{ width: "100%", justifyContent: "center" }}
             >
@@ -447,24 +470,6 @@ function letterFor(idx: number | undefined): string {
   return String.fromCharCode(65 + idx);
 }
 
-function questionPlaceholder(idx: number): string {
-  const stems = [
-    "First law · enthalpy",
-    "Carnot cycle efficiency",
-    "Isothermal vs adiabatic",
-    "Entropy change · phase tx",
-    "Heat capacity ratio",
-    "Reversible processes",
-    "Carnot · 80% efficiency",
-    "Stirling cycle PV diagram",
-    "Second law · entropy uni",
-    "Internal energy diatomic",
-    "Enthalpy of formation",
-    "Free energy ΔG",
-  ];
-  return stems[idx % stems.length]!;
-}
-
 /* ── QuestionDrawer ───────────────────────────────────────────
    Slide-in right rail showing the deep-dive for a single
    question. Backend doesn't expose the question stem to
@@ -500,6 +505,7 @@ function QuestionDrawer({
   const subjectId = (topicId && topicTitles[topicId]?.subjectId) ?? sessionTopic?.subjectId ?? null;
   const verdict: "correct" | "wrong" | "skipped" =
     item.isCorrect === true ? "correct" : item.isCorrect === false ? "wrong" : "skipped";
+  const choiceAnswer = isChoiceAnswer(item.questionType);
 
   return (
     <>
@@ -549,34 +555,86 @@ function QuestionDrawer({
           ) : null}
         </div>
 
-        {/* Your answer vs correct */}
-        <section className="vidya-drawer__section">
-          <h3 className="vidya-drawer__h3">Your answer</h3>
-          <div className="vidya-drawer__answers">
-            <div className="vidya-drawer__answer-row">
-              <span className="vidya-drawer__answer-label">You picked</span>
-              <span
-                className={`vidya-drawer__answer-letter vidya-drawer__answer-letter--${verdict === "correct" ? "good" : verdict === "skipped" ? "mute" : "bad"}`}
+        {/* The actual question stem (hydrated for answered items). */}
+        {item.stem ? (
+          <section className="vidya-drawer__section">
+            <h3 className="vidya-drawer__h3">Question</h3>
+            <p style={{ fontSize: 15, lineHeight: 1.55, margin: 0 }}>{item.stem}</p>
+            {item.choices && item.choices.length > 0 ? (
+              <ol
+                style={{
+                  margin: "10px 0 0",
+                  paddingLeft: 0,
+                  listStyle: "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                }}
               >
-                {answerIdx !== undefined && answerIdx !== null
-                  ? letterFor(answerIdx)
-                  : "—"}
-              </span>
+                {item.choices.map((choice, i) => {
+                  const isCorrect = correctIdx === i;
+                  // Only mark "picked" for choice questions — for typed
+                  // answers answerIdx is a meaningless zero default.
+                  const isPicked = choiceAnswer && answerIdx === i;
+                  return (
+                    <li
+                      key={i}
+                      style={{
+                        fontSize: 14,
+                        color: isCorrect
+                          ? "var(--good)"
+                          : isPicked
+                            ? "var(--bad)"
+                            : "var(--ink-2)",
+                        fontWeight: isCorrect || isPicked ? 600 : 400,
+                      }}
+                    >
+                      {letterFor(i)}. {choice}
+                      {isCorrect ? " ✓" : isPicked ? " ✗" : ""}
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : null}
+          </section>
+        ) : null}
+
+        {/* Your answer vs correct — letters only make sense for single-
+            choice MCQ. Typed-answer types (map / numeric / fill-in / …)
+            convey the result via the verdict pill + the highlighted
+            answer in the Question block above. */}
+        {choiceAnswer ? (
+          <section className="vidya-drawer__section">
+            <h3 className="vidya-drawer__h3">Your answer</h3>
+            <div className="vidya-drawer__answers">
+              <div className="vidya-drawer__answer-row">
+                <span className="vidya-drawer__answer-label">You picked</span>
+                <span
+                  className={`vidya-drawer__answer-letter vidya-drawer__answer-letter--${verdict === "correct" ? "good" : verdict === "skipped" ? "mute" : "bad"}`}
+                >
+                  {answerIdx !== undefined && answerIdx !== null
+                    ? letterFor(answerIdx)
+                    : "—"}
+                </span>
+              </div>
+              <div className="vidya-drawer__answer-row">
+                <span className="vidya-drawer__answer-label">Correct</span>
+                <span className="vidya-drawer__answer-letter vidya-drawer__answer-letter--good">
+                  {correctIdx !== undefined && correctIdx !== null
+                    ? letterFor(correctIdx)
+                    : "—"}
+                </span>
+              </div>
             </div>
-            <div className="vidya-drawer__answer-row">
-              <span className="vidya-drawer__answer-label">Correct</span>
-              <span className="vidya-drawer__answer-letter vidya-drawer__answer-letter--good">
-                {correctIdx !== undefined && correctIdx !== null
-                  ? letterFor(correctIdx)
-                  : "—"}
-              </span>
-            </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
         {/* AI feedback — synthesized from the data we have */}
         <section className="vidya-drawer__feedback">
           <div className="vidya-drawer__feedback-eyebrow">◆ Vidya AI feedback</div>
+          {item.explanation ? (
+            <p style={{ marginTop: 0 }}>{item.explanation}</p>
+          ) : null}
           <p>{buildFeedback({ verdict, b, time, topicTitle, topicMastery: sessionTopicMastery })}</p>
           <p className="vidya-drawer__feedback-meta">
             Backed by your θ on {topicTitle}{" "}
@@ -592,7 +650,7 @@ function QuestionDrawer({
           <div className="vidya-drawer__links">
             {topicId ? (
               <Link
-                to={`/practice?topic=${encodeURIComponent(topicId)}`}
+                to={`/catalog/topic/${encodeURIComponent(topicId)}`}
                 className="vidya-drawer__link"
                 onClick={onClose}
               >

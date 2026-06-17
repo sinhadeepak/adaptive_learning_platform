@@ -412,7 +412,7 @@ export const PictorialIdentifyRenderer: Renderer<
         />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {payload.options.map((opt) => {
+        {(payload.options ?? []).map((opt) => {
           const selected = value?.selected_id === opt.id;
           return (
             <label

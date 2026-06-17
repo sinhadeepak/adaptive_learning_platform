@@ -72,6 +72,40 @@ async def test_publish_payload_shape(monkeypatch: pytest.MonkeyPatch) -> None:
     assert payload["difficulty_b"] == 0.7
     assert payload["language"] == "hi"
     assert payload["reviewed_at"] == "2026-04-25T12:00:00+00:00"
+    # MCQ row with no typed payload omits the key (choices suffice).
+    assert "payload" not in payload
+
+
+@pytest.mark.asyncio
+async def test_publish_carries_typed_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Non-MCQ questions must ship their renderer payload on the wire so
+    Quiz can mirror it into quiz_schema (the #3 fix)."""
+    fake = _FakeJS()
+    monkeypatch.setattr(events, "_js", fake)
+    typed = {
+        "list_a": [{"id": "1", "text": "H2O"}],
+        "list_b": [{"id": "a", "text": "Water"}],
+        "correct_pairs": [{"left_id": "1", "right_id": "a"}],
+    }
+    await events.publish_question_published(
+        {
+            "id": "aaa",
+            "topic_id": "bbb",
+            "stem": "Match the following",
+            "choices": [],
+            "correct_idx": 0,
+            "difficulty_b": 0.5,
+            "language": "en",
+            "reviewed_by": "ccc",
+            "reviewed_at": datetime(2026, 4, 25, 12, 0, tzinfo=UTC),
+            "question_type": "MATCH_THE_FOLLOWING",
+            "payload": typed,
+        }
+    )
+    _, payload = fake.calls[0]
+    assert payload["question_type"] == "MATCH_THE_FOLLOWING"
+    # Carried verbatim as a JSON object (not a re-encoded string).
+    assert payload["payload"] == typed
 
 
 @pytest.mark.asyncio

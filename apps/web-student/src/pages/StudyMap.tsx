@@ -76,6 +76,38 @@ export function StudyMap() {
   const [topicsBySubject, setTopicsBySubject] = useState<Record<string, Topic[]>>({});
   const [mastery, setMastery] = useState<Map<string, { ewa: number; n: number }>>(new Map());
   const [examMeta, setExamMeta] = useState<ExamMeta | null>(null);
+  // Immediate-start CTAs ("Start session →", "AI choose for me"). startingId
+  // holds the topic id mid-flight so the buttons can disable; startErr
+  // surfaces a 422 ("no questions yet") or network failure inline.
+  const [startingId, setStartingId] = useState<string | null>(null);
+  // Keyed by topic id so the error renders next to the row/card that failed.
+  const [startErr, setStartErr] = useState<{ topicId: string; msg: string } | null>(null);
+
+  // Start a practice session for a specific topic and jump into the quiz.
+  // Mirrors TopicDetail.startQuiz — the canonical sessions/start pattern.
+  async function startPractice(topicId: string) {
+    if (!user || startingId) return;
+    setStartErr(null);
+    setStartingId(topicId);
+    try {
+      const r = await auth.fetch("/api/v1/quiz/sessions/start", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ topicId, userId: user.id, mode: "PRACTICE" }),
+      });
+      if (r.status === 422) {
+        setStartErr({ topicId, msg: "No practice questions for this chapter yet." });
+        return;
+      }
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const { sessionId } = (await r.json()) as { sessionId: string };
+      navigate(`/quiz/${sessionId}`);
+    } catch {
+      setStartErr({ topicId, msg: "Couldn't start practice. Please try again." });
+    } finally {
+      setStartingId(null);
+    }
+  }
 
   // Exam meta — drives subtitle + right-rail labels. The /catalog/exams
   // endpoint returns either a bare array OR { exams: [...] }; tolerate
@@ -285,9 +317,9 @@ export function StudyMap() {
         <button
           type="button"
           className="vidya-shell__primary"
+          disabled={!recommended || startingId !== null}
           onClick={() => {
-            if (recommended) navigate(`/practice?topic=${recommended.id}`);
-            else navigate("/practice");
+            if (recommended) void startPractice(recommended.id);
           }}
         >
           ⚡ AI choose for me
@@ -337,7 +369,13 @@ export function StudyMap() {
                   )}
                   <ol className="vidya-chapters__list">
                     {subjectChapters.map((c) => (
-                      <ChapterRowView key={c.id} c={c} />
+                      <ChapterRowView
+                        key={c.id}
+                        c={c}
+                        onStart={startPractice}
+                        startingId={startingId}
+                        startErr={startErr}
+                      />
                     ))}
                   </ol>
                 </div>
@@ -379,10 +417,19 @@ export function StudyMap() {
               </div>
               <button
                 className="vidya-rec__cta"
-                onClick={() => navigate(`/practice?topic=${recommended.id}`)}
+                disabled={startingId !== null}
+                onClick={() => void startPractice(recommended.id)}
               >
-                Start session →
+                {startingId === recommended.id ? "Starting…" : "Start session →"}
               </button>
+              {startErr?.topicId === recommended.id ? (
+                <p
+                  role="alert"
+                  style={{ color: "var(--bad)", fontSize: 13, marginTop: 10 }}
+                >
+                  {startErr.msg}
+                </p>
+              ) : null}
             </section>
           ) : null}
 
@@ -425,10 +472,21 @@ export function StudyMap() {
 
 /* ── Per-chapter row ─────────────────────────────────────────── */
 
-function ChapterRowView({ c }: { c: ChapterRow }) {
+function ChapterRowView({
+  c,
+  onStart,
+  startingId,
+  startErr,
+}: {
+  c: ChapterRow;
+  onStart: (topicId: string) => void;
+  startingId: string | null;
+  startErr: { topicId: string; msg: string } | null;
+}) {
   const navigate = useNavigate();
   const bucket = chapterBucket(c.ewa, c.locked);
   const pct = c.ewa >= 0 ? Math.round(c.ewa * 100) : 0;
+  const isStarting = startingId === c.id;
   return (
     <li
       className={`vidya-chapters__row${c.locked ? " vidya-chapters__row--locked" : ""}`}
@@ -442,7 +500,26 @@ function ChapterRowView({ c }: { c: ChapterRow }) {
 
       <div className="vidya-chapters__main">
         <div className="vidya-chapters__title-row">
-          <span className="vidya-chapters__name">{c.title}</span>
+          {c.locked ? (
+            <span className="vidya-chapters__name">{c.title}</span>
+          ) : (
+            <button
+              type="button"
+              className="vidya-chapters__name"
+              onClick={() => navigate(`/catalog/topic/${c.id}`)}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                font: "inherit",
+                color: "inherit",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
+              {c.title}
+            </button>
+          )}
           {c.isFocus ? (
             <span className="vidya-chapters__tag vidya-chapters__tag--focus">
               ◈ AI focus
@@ -469,13 +546,30 @@ function ChapterRowView({ c }: { c: ChapterRow }) {
         <span className="vidya-chapters__qs">{c.qsDone} qs done</span>
       </div>
 
-      <button
-        className="vidya-chapters__action"
-        disabled={c.locked}
-        onClick={() => navigate(`/practice?topic=${c.id}`)}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+          gap: 4,
+        }}
       >
-        {c.locked ? "Locked" : bucket === "dev" || bucket === "weak" ? "Practice" : "Refresh"}
-      </button>
+        <button
+          className="vidya-chapters__action"
+          disabled={c.locked || isStarting}
+          onClick={() => !c.locked && onStart(c.id)}
+        >
+          {c.locked ? "Locked" : isStarting ? "Starting…" : "Start Practice"}
+        </button>
+        {startErr?.topicId === c.id ? (
+          <span
+            role="alert"
+            style={{ color: "var(--bad)", fontSize: 12, textAlign: "right" }}
+          >
+            {startErr.msg}
+          </span>
+        ) : null}
+      </div>
     </li>
   );
 }

@@ -31,14 +31,11 @@ export function TeacherDashboard() {
   }, [user]);
 
   return (
-    <AppShell title="Teacher Dashboard">
+    <AppShell
+      title="Teacher Dashboard"
+      subtitle="One row per assigned cohort with rolling readiness deltas. Drill into a cohort for topic heatmap, trend chart, engagement and assignment compliance."
+    >
       <main className="page" style={{ padding: 24 }}>
-        <h1 style={{ marginTop: 0 }}>My cohorts</h1>
-        <p style={{ color: "var(--ink-3)", marginTop: -8, marginBottom: 24 }}>
-          One row per assigned cohort with rolling readiness deltas. Drill into a
-          cohort for topic heatmap, trend chart, engagement and assignment
-          compliance.
-        </p>
         {error && <Pill tone="danger">Error: {error}</Pill>}
         {!cohorts ? (
           <SkeletonRows count={5} />
@@ -48,7 +45,7 @@ export function TeacherDashboard() {
             cohort, it will appear here.
           </p>
         ) : (
-          <table className="leaderboard">
+          <table className="data-table">
             <thead>
               <tr>
                 <th>Cohort</th>

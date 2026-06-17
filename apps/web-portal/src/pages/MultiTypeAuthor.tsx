@@ -508,13 +508,13 @@ export function MultiTypeAuthor() {
               gap: 12,
             }}
           >
-            <label style={{ fontSize: 13, fontWeight: 500 }}>
-              <div style={{ marginBottom: 4 }}>Exam *</div>
+            <div className="form-field">
+              <label className="form-label">Exam *</label>
               <select
                 value={examId}
                 onChange={(e) => setExamId(e.target.value)}
                 required
-                style={{ width: "100%", padding: "6px 8px", borderRadius: 4 }}
+                className="form-input"
               >
                 <option value="">— select exam —</option>
                 {exams.map((ex) => (
@@ -523,15 +523,15 @@ export function MultiTypeAuthor() {
                   </option>
                 ))}
               </select>
-            </label>
-            <label style={{ fontSize: 13, fontWeight: 500 }}>
-              <div style={{ marginBottom: 4 }}>Subject *</div>
+            </div>
+            <div className="form-field">
+              <label className="form-label">Subject *</label>
               <select
                 value={subjectId}
                 onChange={(e) => setSubjectId(e.target.value)}
                 disabled={!examId}
                 required
-                style={{ width: "100%", padding: "6px 8px", borderRadius: 4 }}
+                className="form-input"
               >
                 <option value="">
                   {examId ? "— select subject —" : "(pick exam first)"}
@@ -542,15 +542,15 @@ export function MultiTypeAuthor() {
                   </option>
                 ))}
               </select>
-            </label>
-            <label style={{ fontSize: 13, fontWeight: 500 }}>
-              <div style={{ marginBottom: 4 }}>Topic *</div>
+            </div>
+            <div className="form-field">
+              <label className="form-label">Topic *</label>
               <select
                 value={topicId}
                 onChange={(e) => setTopicId(e.target.value)}
                 disabled={!subjectId}
                 required
-                style={{ width: "100%", padding: "6px 8px", borderRadius: 4 }}
+                className="form-input"
               >
                 <option value="">
                   {subjectId
@@ -565,37 +565,30 @@ export function MultiTypeAuthor() {
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
           </div>
         </section>
 
         {/* ── Type picker ───────────────────────────────────────── */}
         <section style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 13, fontWeight: 500 }}>
-            Question type
-          </label>
-          <select
-            value={typeId}
-            onChange={(e) => {
-              setTypeId(e.target.value);
-              setWarnings([]);
-            }}
-            style={{
-              display: "block",
-              marginTop: 4,
-              padding: "6px 8px",
-              border: "1px solid var(--rule, #e1e5ee)",
-              borderRadius: 4,
-              fontSize: 13,
-              minWidth: 280,
-            }}
-          >
-            {allTypes.map((t) => (
-              <option key={t.type_id} value={t.type_id}>
-                {t.type_id} ({t.family})
-              </option>
-            ))}
-          </select>
+          <div className="form-field">
+            <label className="form-label">Question type</label>
+            <select
+              value={typeId}
+              onChange={(e) => {
+                setTypeId(e.target.value);
+                setWarnings([]);
+              }}
+              className="form-input"
+              style={{ minWidth: 280 }}
+            >
+              {allTypes.map((t) => (
+                <option key={t.type_id} value={t.type_id}>
+                  {t.type_id} ({t.family})
+                </option>
+              ))}
+            </select>
+          </div>
           {meta && (
             <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
               <Pill tone={meta.evaluation_mode === "DETERMINISTIC" ? "success" : "info"}>
@@ -656,26 +649,17 @@ export function MultiTypeAuthor() {
 
         {/* ── Stem ───────────────────────────────────────────────── */}
         <section style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 13, fontWeight: 500 }}>
-            Stem
-          </label>
-          <textarea
-            value={stem}
-            onChange={(e) => setStem(e.target.value)}
-            rows={3}
-            required
-            style={{
-              display: "block",
-              width: "100%",
-              marginTop: 4,
-              padding: 8,
-              border: "1px solid var(--rule, #e1e5ee)",
-              borderRadius: 4,
-              fontSize: 14,
-              fontFamily: "inherit",
-              resize: "vertical",
-            }}
-          />
+          <div className="form-field">
+            <label className="form-label">Stem</label>
+            <textarea
+              value={stem}
+              onChange={(e) => setStem(e.target.value)}
+              rows={3}
+              required
+              className="form-input"
+              style={{ resize: "vertical" }}
+            />
+          </div>
         </section>
 
         {/* ── Per-family fields ──────────────────────────────────── */}
@@ -1686,41 +1670,31 @@ export function MultiTypeAuthor() {
 
         {/* ── Explanation ───────────────────────────────────────── */}
         <section style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 13, fontWeight: 500 }}>Explanation</label>
-          <textarea
-            value={explanation}
-            onChange={(e) => setExplanation(e.target.value)}
-            rows={3}
-            style={{
-              display: "block",
-              width: "100%",
-              marginTop: 4,
-              padding: 8,
-              border: "1px solid var(--rule, #e1e5ee)",
-              borderRadius: 4,
-              fontSize: 14,
-              fontFamily: "inherit",
-            }}
-          />
+          <div className="form-field">
+            <label className="form-label">Explanation</label>
+            <textarea
+              value={explanation}
+              onChange={(e) => setExplanation(e.target.value)}
+              rows={3}
+              className="form-input"
+            />
+          </div>
         </section>
 
         {/* ── Language ──────────────────────────────────────────── */}
         <section style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 13, fontWeight: 500 }}>
-            Primary language{" "}
-          </label>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as "en" | "hi")}
-            style={{
-              padding: "6px 8px",
-              borderRadius: 4,
-              border: "1px solid var(--rule, #e1e5ee)",
-            }}
-          >
-            <option value="en">English</option>
-            <option value="hi">हिन्दी (Hindi)</option>
-          </select>
+          <div className="form-field">
+            <label className="form-label">Primary language</label>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as "en" | "hi")}
+              className="form-input"
+              style={{ maxWidth: 240 }}
+            >
+              <option value="en">English</option>
+              <option value="hi">हिन्दी (Hindi)</option>
+            </select>
+          </div>
         </section>
 
         {/* ── Quality check ─────────────────────────────────────── */}
@@ -1728,14 +1702,7 @@ export function MultiTypeAuthor() {
           <button
             type="button"
             onClick={() => void runQualityCheck()}
-            style={{
-              padding: "6px 12px",
-              background: "var(--paper-2, #f8f9fc)",
-              border: "1px solid var(--rule, #e1e5ee)",
-              borderRadius: 4,
-              cursor: "pointer",
-              fontSize: 13,
-            }}
+            className="btn btn-ghost"
           >
             🔍 Run quality checks
           </button>
@@ -1761,33 +1728,14 @@ export function MultiTypeAuthor() {
           <button
             type="submit"
             disabled={submitting || !stem.trim()}
-            style={{
-              padding: "8px 16px",
-              background:
-                submitting || !stem.trim()
-                  ? "var(--ink-4, #cbd5e0)"
-                  : "var(--info, #4f87f6)",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor:
-                submitting || !stem.trim() ? "not-allowed" : "pointer",
-              fontSize: 13,
-            }}
+            className="btn btn-primary"
           >
             {submitting ? "Submitting…" : "Save draft"}
           </button>
           <button
             type="button"
             onClick={() => navigate(-1)}
-            style={{
-              padding: "8px 16px",
-              background: "transparent",
-              border: "1px solid var(--rule, #e1e5ee)",
-              borderRadius: 4,
-              cursor: "pointer",
-              fontSize: 13,
-            }}
+            className="btn btn-ghost"
           >
             Cancel
           </button>

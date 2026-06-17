@@ -296,6 +296,35 @@ def test_map_unattempted() -> None:
     assert res.status == "UNATTEMPTED"
 
 
+# Radius model — the shape the seed authors (target point + tolerance_deg).
+
+
+def _map_radius_payload() -> dict:
+    # Ahmedabad with a 0.5° (~55 km) tolerance — no polygon, no stem.
+    return {
+        "target_lat": 23.02,
+        "target_lng": 72.57,
+        "tolerance_deg": 0.5,
+        "label": "Ahmedabad",
+    }
+
+
+def test_map_radius_within_tolerance() -> None:
+    h = MapLocationHandler()
+    res = _run(h.evaluate(_map_radius_payload(), {
+        "question_id": "q1", "click_lat": 23.0, "click_lng": 72.6,
+    }, "en"))
+    assert res.status == "CORRECT"
+
+
+def test_map_radius_outside_tolerance() -> None:
+    h = MapLocationHandler()
+    res = _run(h.evaluate(_map_radius_payload(), {
+        "question_id": "q1", "click_lat": 23.8, "click_lng": 69.5,
+    }, "en"))
+    assert res.status == "INCORRECT"
+
+
 # ── PICTORIAL_IDENTIFY handler ───────────────────────────────────────────────
 
 

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { AppShell } from "../components/AppShell";
+import { StatCard, SectionHeader } from "../components/primitives";
 import { type CreatorProfile, creator } from "../lib/api";
 
 const STATUS_COPY: Record<CreatorProfile["applicationStatus"], string> = {
@@ -84,27 +85,32 @@ export function CreatorDashboard() {
   }
   if (!profile) return null;
 
+  const statusTone: "success" | "warning" | "danger" | "muted" =
+    profile.applicationStatus === "ACTIVE" ||
+    profile.applicationStatus === "APPROVED"
+      ? "success"
+      : profile.applicationStatus === "REJECTED" ||
+          profile.applicationStatus === "SUSPENDED"
+        ? "danger"
+        : profile.applicationStatus === "KYC_PENDING"
+          ? "warning"
+          : "muted";
+
   return (
-    <AppShell title="Creator dashboard">
+    <AppShell title="Creator dashboard" subtitle={profile.headline}>
       <main className="page" style={{ padding: 24, maxWidth: 760 }}>
         <h1>{profile.displayName}</h1>
-        <p style={{ color: "var(--ink-3)" }}>{profile.headline}</p>
 
-        <section
-          style={{
-            padding: 16,
-            border: "1px solid var(--rule)",
-            borderRadius: 8,
-            margin: "16px 0",
-          }}
-        >
-          <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
-            Application status
+        <section className="dash-section" style={{ margin: "16px 0" }}>
+          <SectionHeader label="Onboarding" />
+          <div className="stat-grid">
+            <StatCard
+              label="Application status"
+              value={profile.applicationStatus.replace(/_/g, " ")}
+              tone={statusTone}
+              hint={STATUS_COPY[profile.applicationStatus]}
+            />
           </div>
-          <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
-            {profile.applicationStatus}
-          </div>
-          <p style={{ marginTop: 8 }}>{STATUS_COPY[profile.applicationStatus]}</p>
         </section>
 
         {error && <p className="banner banner-error">{error}</p>}

@@ -124,6 +124,15 @@ async def publish_question_published(question: dict[str, Any]) -> None:
     qtype = question.get("question_type")
     if qtype and qtype != "MCQ_SINGLE":
         payload["question_type"] = qtype
+    # Phase 7 — typed renderer payload (rubric, markers, word_count_range,
+    # numeric tolerances, …). Quiz mirrors this into quiz_schema so the
+    # student renderer has the data for non-MCQ types; without it the
+    # dispatcher fires against an empty payload and renders nothing. Sent
+    # as a JSON object so the Go subscriber's RawMessage decodes an object,
+    # not a quoted string. Omitted for legacy MCQ rows (choices suffice).
+    typed_payload = question.get("payload")
+    if typed_payload:
+        payload["payload"] = typed_payload
     try:
         await _js.publish(SUBJECT_QUESTION_PUBLISHED, json.dumps(payload).encode("utf-8"))
         log.info("content published question %s", question["id"])

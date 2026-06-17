@@ -39,7 +39,7 @@ export const MCQSingleRenderer: Renderer<MCQSinglePayload, MCQSingleResponse> = 
         {payload.stem}
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {payload.options.map((opt) => {
+        {(payload.options ?? []).map((opt) => {
           const selected = value?.selected_id === opt.id;
           return (
             <label
@@ -115,7 +115,7 @@ export const MCQMultiRenderer: Renderer<MCQMultiPayload, MCQMultiResponse> = ({
         Select all correct options. {payload.partial_credit ? "Partial credit applies." : "All correct, none incorrect."}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {payload.options.map((opt) => {
+        {(payload.options ?? []).map((opt) => {
           const isSelected = selected.has(opt.id);
           return (
             <label

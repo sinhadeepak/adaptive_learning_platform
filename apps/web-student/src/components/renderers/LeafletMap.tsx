@@ -74,7 +74,7 @@ export function LeafletMap({
   onChange,
   disabled,
 }: LeafletMapProps): ReactNode {
-  const view = VIEWS[baseMap] ?? VIEWS.world;
+  const view = VIEWS[baseMap] ?? VIEWS.india;
 
   // Re-render the map when the base_map changes — Leaflet's
   // MapContainer is uncontrolled by default; key forces remount.
@@ -100,9 +100,14 @@ export function LeafletMap({
         style={{ width: "100%", height: "100%" }}
         scrollWheelZoom
       >
+        {/* Label-free basemap (CARTO Positron "no labels"): place names
+            are intentionally hidden so a MAP_LOCATION question can't be
+            answered by simply reading the city name off the tile. Free,
+            no API key. */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
+          subdomains="abcd"
         />
         <ClickCapture onChange={onChange} disabled={disabled} />
         {value && (

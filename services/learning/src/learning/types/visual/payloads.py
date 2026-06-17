@@ -149,19 +149,43 @@ class GeoPolygon(BaseModel):
 
 
 class MapLocationPayload(BaseModel):
-    stem: str = Field(min_length=8, max_length=2000)
+    # stem lives on the question row; optional here. (Authoring may also
+    # embed it in the payload, so we still accept it.)
+    stem: str | None = Field(default=None, max_length=2000)
     base_map: Literal["india", "world", "custom"] = "india"
     custom_map_media_id: str | None = None  # if base_map == "custom"
-    correct_region: GeoPolygon
+    # Two ways to specify the correct answer (at least one is required):
+    #   1. Radius model (preferred, what the seed authors): a target point
+    #      + tolerance in decimal degrees. A click is correct when it falls
+    #      within `tolerance_deg` of (target_lat, target_lng). This is the
+    #      "drop a pin near the place" model — exact precision isn't needed.
+    #   2. Polygon model: a closed region the click must fall inside.
+    target_lat: float | None = Field(default=None, ge=-90.0, le=90.0)
+    target_lng: float | None = Field(default=None, ge=-180.0, le=180.0)
+    tolerance_deg: float | None = Field(default=None, gt=0.0, le=45.0)
+    correct_region: GeoPolygon | None = None
+    label: str | None = None  # human name of the target (authoring aid)
     explanation: str | None = Field(default=None, max_length=4000)
 
+    def has_radius_target(self) -> bool:
+        return (
+            self.target_lat is not None
+            and self.target_lng is not None
+            and self.tolerance_deg is not None
+        )
+
     @model_validator(mode="after")
-    def _custom_map_consistency(self) -> "MapLocationPayload":
+    def _consistency(self) -> "MapLocationPayload":
         if self.base_map == "custom" and not self.custom_map_media_id:
             raise ValueError("base_map='custom' requires custom_map_media_id")
         if self.base_map != "custom" and self.custom_map_media_id:
             raise ValueError(
                 "custom_map_media_id only allowed when base_map='custom'"
+            )
+        if not self.has_radius_target() and self.correct_region is None:
+            raise ValueError(
+                "MAP_LOCATION requires either target_lat+target_lng+"
+                "tolerance_deg or correct_region"
             )
         return self
 

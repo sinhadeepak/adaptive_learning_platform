@@ -48,6 +48,14 @@ def _row_to_dict(r: Any) -> dict[str, Any]:
     # etc.) still hand-roll their own row mapping.
     if "question_type" in r.keys():
         out["question_type"] = r["question_type"] or "MCQ_SINGLE"
+    # Phase 7 — typed renderer payload (JSONB). Optional because some
+    # legacy SELECTs don't request it. asyncpg decodes JSONB to a dict;
+    # fall back to json.loads for any driver/path that hands back a str.
+    if "payload" in r.keys():
+        payload = r["payload"]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        out["payload"] = payload
     return out
 
 
@@ -217,7 +225,7 @@ async def get_question(session: AsyncSession, question_id: str) -> dict[str, Any
             f"SELECT id, topic_id, stem, choices, correct_idx, difficulty_b, "
             f"discrimination_a, guessing_c, language, status, explanation, "
             f"created_by, created_at, submitted_at, reviewed_by, reviewed_at, review_notes, "
-            f"exam_year, paper_session, pyq_flag, question_type "
+            f"exam_year, paper_session, pyq_flag, question_type, payload "
             f"FROM {SCHEMA}.questions WHERE id = :id"
         ),
         {"id": question_id},

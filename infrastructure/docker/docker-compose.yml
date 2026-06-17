@@ -52,7 +52,18 @@ services:
       - node.name=opensearch
       - discovery.type=single-node
       - bootstrap.memory_lock=true
+      # Security plugin is intentionally OFF for the local stack: every
+      # service talks to OpenSearch over plain http://opensearch:9200 with
+      # no TLS/auth. The node is only reachable on the compose network +
+      # localhost (port 39200), never the public internet — so the plugin's
+      # "installed but disabled … can expose passwords" WARN is expected
+      # noise. The logger line below mutes just that logger (org.opensearch
+      # .security, which also covers the SSLConfig sub-logger) so startup
+      # logs stay clean; it changes no behaviour. Enabling real security
+      # here would require TLS certs + an admin password + credentialed
+      # clients across all services — out of scope for local dev.
       - DISABLE_SECURITY_PLUGIN=true
+      - logger.org.opensearch.security=ERROR
       - OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g
     ulimits:
       memlock: { soft: -1, hard: -1 }

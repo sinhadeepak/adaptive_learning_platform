@@ -14,6 +14,18 @@ import { Link, useParams } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { Pill, SkeletonRows } from "../components/primitives";
 import { auth } from "../lib/api";
+
+function Meter({ pct, tone }: { pct: number; tone?: "good" | "warn" | "bad" }) {
+  const cls = tone ? ` pa-meter__fill--${tone}` : "";
+  return (
+    <span className="pa-meter">
+      <span className="pa-meter__track">
+        <span className={`pa-meter__fill${cls}`} style={{ width: `${pct}%` }} />
+      </span>
+      <span className="pa-meter__val">{pct}%</span>
+    </span>
+  );
+}
 import { env } from "../lib/env";
 import { useAuth } from "../lib/auth-provider";
 import { teacherAnalytics } from "../lib/analytics-api";
@@ -187,7 +199,7 @@ export function StudentDeepDive() {
               any row to send a nudge that appears in their Guided Next Steps with a
               "from {viewer?.firstName ?? "you"}" badge.
             </p>
-            <table className="leaderboard">
+            <table className="data-table">
               <thead>
                 <tr>
                   <th>Topic</th>
@@ -199,13 +211,13 @@ export function StudentDeepDive() {
               <tbody>
                 {topics.flatMap((t) => {
                   const pct = Math.round(t.ewa * 100);
-                  const tone = pct >= 70 ? "success" : pct >= 40 ? "info" : "danger";
+                  const meterTone = pct >= 70 ? "good" : pct >= 40 ? undefined : "bad";
                   const isOpen = diagnoseTopic === t.topicId;
                   const rows = [
                     <tr key={t.topicId}>
                       <td>{t.topicTitle ?? t.topicId.slice(0, 8)}</td>
                       <td>
-                        <Pill tone={tone}>{pct}%</Pill>
+                        <Meter pct={pct} tone={meterTone} />
                       </td>
                       <td>{t.n}</td>
                       <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>

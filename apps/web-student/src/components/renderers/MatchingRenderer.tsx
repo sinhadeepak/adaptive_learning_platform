@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { ReactNode } from "react";
 import type { Renderer } from "./types";
 
@@ -51,7 +52,7 @@ export const MatchTheFollowingRenderer: Renderer<MatchPayload, MatchResponse> = 
           </tr>
         </thead>
         <tbody>
-          {payload.list_a.map((left) => (
+          {(payload.list_a ?? []).map((left) => (
             <tr
               key={left.id}
               style={{ borderBottom: "1px solid var(--rule, #f0f2f6)" }}
@@ -72,7 +73,7 @@ export const MatchTheFollowingRenderer: Renderer<MatchPayload, MatchResponse> = 
                   }}
                 >
                   <option value="">— pick —</option>
-                  {payload.list_b.map((right) => (
+                  {(payload.list_b ?? []).map((right) => (
                     <option key={right.id} value={right.id}>
                       {right.id}. {right.text}
                     </option>
@@ -114,6 +115,21 @@ export const SequencingRenderer: Renderer<SequencingPayload, SequencingResponse>
       typeof it === "string" ? { id: `i${i}`, text: it } : it,
   );
   const order = value?.ordered_ids ?? normItems.map((it) => it.id);
+
+  // Seed the default order as the response on mount (and whenever the item
+  // set changes, e.g. the next question loads). Unlike match/classify whose
+  // default state is "nothing picked", a sequencing list is shown already
+  // ordered — that initial order is itself a valid answer. Without seeding,
+  // a student who accepts the shown order never triggers onChange, so the
+  // parent's responsePayload stays null and Submit is disabled. Guarded on
+  // `!value` so it never clobbers a student's reorder or a graded answer.
+  const defaultIds = normItems.map((it) => it.id).join("|");
+  useEffect(() => {
+    if (!disabled && !value) {
+      onChange({ ordered_ids: normItems.map((it) => it.id) });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultIds]);
 
   function moveUp(idx: number) {
     if (idx === 0) return;
@@ -201,8 +217,8 @@ export interface ClassificationPayload {
     | { id: string; text: string }
     | { text: string; category?: string }
   )[];
-  // Categories: {id,label} or plain string (seed).
-  categories: ({ id: string; label: string } | string)[];
+  // Categories: canonical {id,text}, legacy {id,label}, or plain string.
+  categories: ({ id: string; text?: string; label?: string } | string)[];
   explanation?: string;
 }
 
@@ -228,7 +244,7 @@ export const ClassificationRenderer: Renderer<ClassificationPayload, Classificat
     (c, i) =>
       typeof c === "string"
         ? { id: `c${i}`, label: c }
-        : { id: c.id, label: c.label },
+        : { id: c.id, label: c.text ?? c.label ?? c.id },
   );
 
   const map = new Map<string, string>(
