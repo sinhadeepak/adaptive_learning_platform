@@ -20,6 +20,7 @@ async def test_batch_tables_exist(content_session):
         INSERT INTO content_schema.translation_batches
           (id, created_by, status, total_tasks, target_langs)
         VALUES ('00000000-0000-0000-0000-0000000000b1', NULL, 'QUEUED', 1, ARRAY['hi'])
+        ON CONFLICT (id) DO NOTHING
     """))
     await content_session.execute(text("""
         INSERT INTO content_schema.translation_batch_tasks
@@ -27,6 +28,7 @@ async def test_batch_tables_exist(content_session):
         VALUES ('00000000-0000-0000-0000-0000000000c1',
                 '00000000-0000-0000-0000-0000000000b1',
                 '00000000-0000-0000-0000-0000000000d1', 'hi', 'PENDING')
+        ON CONFLICT (id) DO NOTHING
     """))
     n = (await content_session.execute(
         text("SELECT count(*) FROM content_schema.translation_batch_tasks WHERE batch_id = :b"),
