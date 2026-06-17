@@ -3,8 +3,15 @@ import type { ReactNode } from "react";
 import { useAuth } from "./auth-provider";
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
   const location = useLocation();
+
+  // Hard-refresh on a deep link: tokens are still in localStorage but
+  // the in-memory user hasn't rehydrated. Hold rendering until the
+  // bootstrap finishes — otherwise we'd Navigate to /login, and
+  // GuestOnlyRoute on /login would immediately bounce to /home,
+  // dropping the original URL.
+  if (loading) return null;
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ returnTo: location.pathname + location.search }} />;
@@ -24,7 +31,11 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
 }
 
 export function GuestOnlyRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+  // Same rehydrate-window guard as ProtectedRoute — without it, /login
+  // would render briefly while tokens are loading and could trigger an
+  // unwanted state flash before redirecting to /home.
+  if (loading) return null;
   if (isAuthenticated) return <Navigate to="/home" replace />;
   return <>{children}</>;
 }

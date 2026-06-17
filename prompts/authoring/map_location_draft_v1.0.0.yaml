@@ -1,0 +1,32 @@
+id: map_location_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate a map-location (locate-on-map) question.
+system: |
+  {guardrail_preamble}
+
+  You are an expert {exam} question author.
+  Generate ONE map-location question on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: instruction like "Locate [PLACE/FEATURE] on the map." Include any helpful context.
+  - map_type: short identifier of which base map to use. Pick from:
+      "physical-india", "political-india", "world-political", "world-physical",
+      "europe-political", "asia-political", "africa-political", "americas-political",
+      "india-states", "india-rivers", "india-mountains", "india-monsoon".
+  - target_label: the canonical name of the place / feature being located.
+  - acceptable_radius_km: integer radius (50-300 km) within which the student's pin counts as correct.
+  - One-paragraph explanation about geographic / historical significance.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftMapLocation

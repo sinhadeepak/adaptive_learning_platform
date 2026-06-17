@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="640" height="480" role="img" aria-label="Diagram placeholder">
+  <!-- Local seed-media placeholder. Seed payloads ship URLs like
+       /seed-media/<exam>-<topic>-<n>.svg that don't yet have real assets;
+       nginx falls back to this single placeholder so DIAGRAM_HOTSPOT /
+       DIAGRAM_LABEL / PICTORIAL_IDENTIFY renderers still have something
+       sized correctly to draw their hotspots on top of. The 640x480
+       viewBox matches the renderer's default canvas dimensions.
+
+       Text is deliberately type-neutral: this same asset backs
+       PICTORIAL_IDENTIFY (answered via the option list below the image,
+       NOT by clicking) and DIAGRAM_LABEL (answered via the marker
+       dropdowns). The click-based types (DIAGRAM_HOTSPOT / MAP_LOCATION)
+       already carry a "click the location…" instruction in their stem,
+       so the placeholder must not imply an interaction that doesn't apply
+       to every type that shows it. -->
+  <defs>
+    <pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#E2E8F0" stroke-width="1"/>
+    </pattern>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#EEF2FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#bg)"/>
+  <rect width="100%" height="100%" fill="url(#g)"/>
+  <g transform="translate(320 220)" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" fill="#334155">
+    <circle r="48" fill="#FFFFFF" stroke="#94A3B8" stroke-width="2"/>
+    <text y="6" font-size="36" font-weight="700" fill="#475569">◌</text>
+    <text y="90" font-size="16" font-weight="600">Reference image unavailable</text>
+    <text y="116" font-size="12" fill="#64748B">Answer using the options below.</text>
+  </g>
+</svg>

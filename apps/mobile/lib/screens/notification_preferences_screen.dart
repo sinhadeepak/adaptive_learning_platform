@@ -2,6 +2,7 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../aurora/widgets/widgets.dart';
 import '../widgets/alp_card.dart';
 
 /// Per-type mute toggles. Server-side filter: producers consult the user's
@@ -63,7 +64,7 @@ class _NotificationPreferencesScreenState
     (
       id: 'assignment.new',
       label: 'New assignments',
-      description: "Bell ping when your educator publishes a new assignment to your cohort.",
+      description: 'Bell ping when your educator publishes a new assignment to your cohort.',
     ),
   ];
 
@@ -103,16 +104,11 @@ class _NotificationPreferencesScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        backgroundColor: AlpColors.bgSurface1,
-      ),
-      body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator(color: AlpColors.colorAi))
-            : ListView(
+    return AuroraScaffold(
+      appBar: const AuroraAppBar(title: 'Notifications'),
+      body: _loading
+          ? const Center(child: AuroraSpinner(size: 32))
+          : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 children: [
                   const Padding(
@@ -120,7 +116,7 @@ class _NotificationPreferencesScreenState
                     child: Text(
                       "Mute the categories you don't want pinging your inbox bell. "
                       'Changes take effect for future events; already-delivered '
-                      "notifications stay in your inbox until you mark them read.",
+                      'notifications stay in your inbox until you mark them read.',
                       style: TextStyle(color: AlpColors.textMuted, fontSize: 13, height: 1.45),
                     ),
                   ),
@@ -136,7 +132,6 @@ class _NotificationPreferencesScreenState
                                 Text(
                                   kind.label,
                                   style: const TextStyle(
-                                    color: AlpColors.textPrimary,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -167,7 +162,6 @@ class _NotificationPreferencesScreenState
                   ],
                 ],
               ),
-      ),
     );
   }
 }

@@ -3,8 +3,13 @@ import type { ReactNode } from "react";
 import { useAuth } from "./auth-provider";
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
+  // Hold rendering during the rehydrate window — without this, a hard
+  // refresh on /analytics (or any deep link) lands on /questions
+  // because GuestOnlyRoute on the in-between /login redirect bounces
+  // straight to the home route.
+  if (loading) return null;
   if (!isAuthenticated) {
     return (
       <Navigate
@@ -18,7 +23,8 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
 }
 
 export function GuestOnlyRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return null;
   if (isAuthenticated) return <Navigate to="/questions" replace />;
   return <>{children}</>;
 }

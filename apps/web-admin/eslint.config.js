@@ -92,6 +92,16 @@ export default [
       // TS's type-vs-value namespacing makes the base rule too strict
       // (e.g. `type Language = "en"` and `function Language() {}` coexist).
       "no-redeclare": "off",
+      // Vidya v1 hex-literal gate — see apps/web-student/eslint.config.js
+      // for the rationale + escalation plan.
+      "no-restricted-syntax": [
+        "warn",
+        {
+          selector: "Literal[value=/^#[0-9A-Fa-f]{3,8}$/]",
+          message:
+            "Vidya: hard-coded hex disallowed in TSX. Use var(--paper)/--ink/--accent/--gold/--good/--warn/--bad/--info or set color in CSS.",
+        },
+      ],
     },
   },
   {

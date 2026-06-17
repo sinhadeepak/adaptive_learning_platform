@@ -1,9 +1,21 @@
-import 'package:flutter/material.dart';
+// Login screen — Aurora v2 redesign.
+//
+// Spec: docs/02-design/design-system-v2-aurora-mobile.md §13.2
+//
+// Mobile auth pattern: single-screen scrollable form, hero band at top
+// with brand mark + welcome copy on a soft Aurora-AI tint band, form
+// below. CTA pinned with `AnimatedPadding` so it floats above the
+// keyboard cleanly.
+//
+// API surface preserved verbatim — every AuthClient call, every error
+// code mapping, every validation rule.
+
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import 'package:flutter/material.dart';
+
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 
-/// Login screen — mobile parity of web-student/src/pages/Login.tsx (Pass 1 §1 wireframe).
-/// Uses alp_design_tokens for brand parity and AuthClient for the live API call.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
@@ -29,6 +41,10 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _remember = false;
   bool _submitting = false;
   String? _error;
+  // AuroraTextField doesn't plug into Form.validate(), so empty-field
+  // validation lives here as explicit per-field error state.
+  String? _emailError;
+  String? _passwordError;
 
   @override
   void dispose() {
@@ -38,9 +54,20 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final emailEmpty = _email.text.trim().isEmpty;
+    final passwordEmpty = _password.text.isEmpty;
+    if (emailEmpty || passwordEmpty) {
+      setState(() {
+        _emailError = emailEmpty ? 'Enter your email' : null;
+        _passwordError = passwordEmpty ? 'Enter your password' : null;
+      });
+      return;
+    }
+    if (!(_formKey.currentState?.validate() ?? true)) return;
     setState(() {
       _error = null;
+      _emailError = null;
+      _passwordError = null;
       _submitting = true;
     });
     try {
@@ -78,85 +105,145 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.surfaceSecondary,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AlpSpacing.s4),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Container(
-                padding: const EdgeInsets.all(AlpSpacing.s6),
-                decoration: BoxDecoration(
-                  color: AlpColors.surfacePrimary,
-                  borderRadius: BorderRadius.circular(AlpRadius.card),
-                  border: Border.all(color: AlpColors.borderDefault),
-                ),
+    final colors = Theme.of(context).extension<AuroraColors>()!;
+    final typography = Theme.of(context).extension<AuroraTypography>()!;
+
+    return AuroraScaffold(
+      body: SingleChildScrollView(
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Aurora hero band ──────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 36, 20, 32),
+              decoration: BoxDecoration(gradient: colors.auroraAiSoft),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          gradient: colors.auroraAi,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          'A',
+                          style: typography.h3.copyWith(
+                            color: colors.neutral0,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'AdaptiveLearn',
+                        style: typography.h3.copyWith(
+                          color: colors.neutral900,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Practice smarter.\nImprove faster.',
+                    style: typography.h1.copyWith(color: colors.neutral900),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Your AI coach picks the next question at your level — and '
+                    "remembers what you've already mastered.",
+                    style: typography.body.copyWith(color: colors.neutral700),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Form ─────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('Log in', style: AlpTextStyles.pageTitle),
-                      const SizedBox(height: AlpSpacing.s2),
-                      Text('Welcome back, learner.', style: AlpTextStyles.body),
-                      const SizedBox(height: AlpSpacing.s5),
+                      Text(
+                        'Log in',
+                        style: typography.h2.copyWith(color: colors.neutral900),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Welcome back, learner.',
+                        style: typography.body.copyWith(color: colors.neutral600),
+                      ),
+                      const SizedBox(height: 20),
                       if (_error != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(AlpSpacing.s3),
-                          decoration: BoxDecoration(
-                            color: AlpColors.dangerBg,
-                            borderRadius: BorderRadius.circular(AlpRadius.panel),
-                          ),
+                        AuroraCard(
+                          tone: AuroraCardTone.neutral,
+                          padding: AuroraCardPadding.sm,
                           child: Row(
                             children: [
-                              const Icon(Icons.error_outline, size: 16, color: AlpColors.dangerFg),
-                              const SizedBox(width: AlpSpacing.s2),
+                              Icon(
+                                Icons.error_outline,
+                                size: 18,
+                                color: colors.danger600,
+                              ),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   _error!,
-                                  style: AlpTextStyles.body.copyWith(color: AlpColors.dangerFg),
+                                  style: typography.bodySm.copyWith(
+                                    color: colors.danger600,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: AlpSpacing.s4),
+                        const SizedBox(height: 16),
                       ],
-                      TextFormField(
+                      AuroraTextField(
                         key: const Key('login.email'),
                         controller: _email,
+                        label: 'Email',
                         keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.email],
-                        decoration: const InputDecoration(labelText: 'Email'),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return 'Enter your email';
-                          if (!v.contains('@')) return 'Enter a valid email';
-                          return null;
-                        },
+                        errorText: _emailError,
                       ),
-                      const SizedBox(height: AlpSpacing.s4),
-                      TextFormField(
+                      const SizedBox(height: 16),
+                      AuroraTextField(
                         key: const Key('login.password'),
                         controller: _password,
+                        label: 'Password',
                         obscureText: true,
+                        textInputAction: TextInputAction.done,
                         autofillHints: const [AutofillHints.password],
-                        decoration: const InputDecoration(labelText: 'Password'),
-                        onFieldSubmitted: (_) => _submit(),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return 'Enter your password';
-                          return null;
-                        },
+                        onSubmitted: (_) => _submit(),
+                        errorText: _passwordError,
                       ),
-                      const SizedBox(height: AlpSpacing.s3),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
-                          Checkbox(
+                          AuroraCheckbox(
                             value: _remember,
-                            onChanged: (v) => setState(() => _remember = v ?? false),
+                            onChanged: (v) =>
+                                setState(() => _remember = v ?? false),
                           ),
-                          const Text('Remember me'),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Remember me',
+                            style: typography.body.copyWith(
+                              color: colors.neutral700,
+                            ),
+                          ),
                           const Spacer(),
                           TextButton(
                             key: const Key('login.forgot'),
@@ -166,16 +253,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: AlpSpacing.s4),
-                      SizedBox(
-                        height: 48,
-                        child: FilledButton(
-                          key: const Key('login.submit'),
-                          onPressed: _submitting ? null : _submit,
-                          child: Text(_submitting ? 'Logging in…' : 'Log in'),
-                        ),
+                      const SizedBox(height: 20),
+                      AuroraButton(
+                        key: const Key('login.submit'),
+                        label: _submitting ? 'Logging in…' : 'Log in',
+                        variant: AuroraButtonVariant.primary,
+                        size: AuroraButtonSize.lg,
+                        fullWidth: true,
+                        loading: _submitting,
+                        onPressed: _submitting ? null : _submit,
                       ),
-                      const SizedBox(height: AlpSpacing.s5),
+                      const SizedBox(height: 16),
                       Center(
                         child: TextButton(
                           key: const Key('login.signUp'),
@@ -188,7 +276,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

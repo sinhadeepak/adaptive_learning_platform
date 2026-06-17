@@ -16,6 +16,8 @@ import uuid
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from engagement.analytics import realtime
 
 

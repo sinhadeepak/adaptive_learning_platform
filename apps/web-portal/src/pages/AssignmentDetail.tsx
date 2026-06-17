@@ -5,11 +5,24 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { AppShell } from "../components/AppShell";
+import { Banner, Pill } from "../components/primitives";
 import {
   type Assignment,
   type LeaderboardRow,
   assignments as assignmentsApi,
 } from "../lib/api";
+
+function Meter({ pct, tone }: { pct: number; tone?: "good" | "warn" | "bad" }) {
+  const cls = tone ? ` pa-meter__fill--${tone}` : "";
+  return (
+    <span className="pa-meter">
+      <span className="pa-meter__track">
+        <span className={`pa-meter__fill${cls}`} style={{ width: `${pct}%` }} />
+      </span>
+      <span className="pa-meter__val">{pct}%</span>
+    </span>
+  );
+}
 
 export function AssignmentDetail() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
@@ -33,18 +46,20 @@ export function AssignmentDetail() {
     <AppShell title="Assignment">
       <main className="page" style={{ padding: 24 }}>
         <Link to="/assignments">← Back to assignments</Link>
-        {error && <p className="banner banner-error">{error}</p>}
+        {error && (
+          <Banner tone="danger" role="alert">
+            {error}
+          </Banner>
+        )}
         {assignment && (
           <>
             <h1>{assignment.title}</h1>
             <div className="meta-row">
-              <span
-                className={`pill ${assignment.publishedAt ? "pill-success" : "pill-neutral"}`}
-              >
+              <Pill tone={assignment.publishedAt ? "success" : "muted"}>
                 {assignment.publishedAt ? "PUBLISHED" : "DRAFT"}
-              </span>
+              </Pill>
               {assignment.dueAt && <span>Due {assignment.dueAt.slice(0, 10)}</span>}
-              <span>Cohort {assignment.cohortId.slice(0, 8)}…</span>
+              <span>Cohort <code>{assignment.cohortId.slice(0, 8)}…</code></span>
             </div>
             {assignment.description && (
               <p style={{ marginTop: 12 }}>{assignment.description}</p>
@@ -56,7 +71,7 @@ export function AssignmentDetail() {
             ) : leaderboard.length === 0 ? (
               <p>No completions yet.</p>
             ) : (
-              <table className="leaderboard">
+              <table className="data-table">
                 <thead>
                   <tr>
                     <th>#</th>
@@ -76,7 +91,7 @@ export function AssignmentDetail() {
                       <td>
                         {row.correctCount}/{row.totalCount}
                       </td>
-                      <td>{row.accuracyPct}%</td>
+                      <td><Meter pct={row.accuracyPct} /></td>
                       <td>{row.completedAt.slice(0, 10)}</td>
                     </tr>
                   ))}

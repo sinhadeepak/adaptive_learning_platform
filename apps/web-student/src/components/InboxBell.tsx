@@ -52,9 +52,9 @@ export function InboxBell() {
         width: 36,
         height: 36,
         borderRadius: 999,
-        background: "var(--bg-surface-2)",
-        border: "1px solid var(--border-default)",
-        color: "var(--text-primary)",
+        background: "var(--card-2)",
+        border: "1px solid var(--rule)",
+        color: "var(--ink)",
         textDecoration: "none",
         fontSize: 16,
         marginLeft: 8,
@@ -67,7 +67,7 @@ export function InboxBell() {
             position: "absolute",
             top: -4,
             right: -4,
-            background: "var(--color-red, #ef4444)",
+            background: "var(--bad, #ef4444)",
             color: "#fff",
             fontSize: 10,
             fontWeight: 700,
@@ -78,7 +78,7 @@ export function InboxBell() {
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            border: "2px solid var(--bg-base, #0f172a)",
+            border: "2px solid var(--paper, #0f172a)",
           }}
         >
           {unread > 99 ? "99+" : unread}

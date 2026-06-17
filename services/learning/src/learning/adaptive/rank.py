@@ -212,7 +212,12 @@ async def _ai_commentary(
     return out
 
 
-async def project_rank(*, user_id: str, exam_code: str) -> dict[str, Any]:
+async def project_rank(
+    *,
+    user_id: str,
+    exam_code: str,
+    exam_id: str | None = None,
+) -> dict[str, Any]:
     cal = EXAM_CALIBRATION.get(exam_code.upper())
     if cal is None:
         return {
@@ -231,9 +236,63 @@ async def project_rank(*, user_id: str, exam_code: str) -> dict[str, Any]:
     n_topics = int(readiness.get("nTopics", 0) or 0)
     n_attempts = sum(int(m.get("n", 0) or 0) for m in mastery)
 
-    percentile = readiness_to_percentile(r_score)
+    # Sprint 31 (P4-S31) — cohort-driven percentile when sufficient cohort
+    # data exists; honest fallback to the hardcoded readiness lookup
+    # otherwise. Per ADR-0015. The exam_id is required to fetch the
+    # distribution; when caller doesn't supply it we stay on the fallback
+    # path (preserves pre-S31 behaviour).
+    percentile_source = "fallback"
+    cohort_size = 0
+    if exam_id is not None:
+        try:
+            from engagement_pkg_compat import _percentile_from_cohort  # noqa: F401
+        except ModuleNotFoundError:
+            pass
+        # Inline the cohort lookup to avoid circular imports.
+        try:
+            from learning.adaptive.cohort_client import (
+                buckets_to_distribution_rows,
+                fetch_cohort_distribution,
+            )
+
+            # Pure-function percentile helper lives in engagement, but we
+            # don't depend on it at runtime; re-implement the shape locally
+            # to keep alp-learning's deps tight.
+            cohort = await fetch_cohort_distribution(exam_id)
+            buckets = cohort.get("buckets") or []
+            cohort_size = int(cohort.get("totalUsers") or 0)
+            if cohort_size >= 50 and buckets:
+                rows = buckets_to_distribution_rows(buckets)
+                user_bucket = (
+                    0.0
+                    if r_score <= 0
+                    else min(0.95, (int(r_score / 0.05) * 0.05))
+                )
+                below = sum(
+                    int(r["user_count"]) for r in rows
+                    if float(r["readiness_bucket"]) < user_bucket
+                )
+                percentile = 100.0 * below / cohort_size
+                percentile_source = "cohort"
+            else:
+                percentile = readiness_to_percentile(r_score)
+        except Exception as err:
+            log.warning("rank.cohort_lookup_failed", error=str(err), exam_id=exam_id)
+            percentile = readiness_to_percentile(r_score)
+    else:
+        percentile = readiness_to_percentile(r_score)
+
     rank = percentile_to_rank(percentile, cal["totalCandidates"])
-    confidence_label, half_width = confidence_from_attempts(n_attempts)
+    if percentile_source == "cohort":
+        # Confidence band derives from cohort size when on cohort path.
+        if cohort_size < 50:
+            confidence_label, half_width = "low", 0.40
+        elif cohort_size < 250:
+            confidence_label, half_width = "medium", 0.20
+        else:
+            confidence_label, half_width = "high", 0.10
+    else:
+        confidence_label, half_width = confidence_from_attempts(n_attempts)
     rank_low = max(1, math.floor(rank * (1 - half_width)))
     rank_high = math.ceil(rank * (1 + half_width))
 
@@ -247,7 +306,7 @@ async def project_rank(*, user_id: str, exam_code: str) -> dict[str, Any]:
 
     commentary: dict[str, str] | None = None
     source = "heuristic"
-    if llm.is_enabled():
+    if await llm.is_enabled_async():
         commentary = await _ai_commentary(
             exam_name=cal["name"],
             rank=rank,
@@ -289,4 +348,8 @@ async def project_rank(*, user_id: str, exam_code: str) -> dict[str, Any]:
         "commentary": commentary,
         "examContext": cal["context"],
         "source": source,
+        # Sprint 31 (P4-S31) — honest disclosure of which percentile path
+        # produced the prediction.
+        "percentileSource": percentile_source,
+        "cohortSize": cohort_size,
     }

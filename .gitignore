@@ -1,6 +1,10 @@
 # OS
 .DS_Store
 Thumbs.db
+# Windows alternate-data-stream metadata created on download; per-machine artefact.
+*:Zone.Identifier
+# MS Office lock files (created while a .docx/.xlsx/.pptx is open)
+~$*
 
 # Editors
 .idea/
@@ -103,3 +107,10 @@ infrastructure/k8s/charts/*/charts/
 
 # Local agent state (per-machine, not for the repo)
 .claude/
+
+# DB backups (binary dumps + plain SQL — never commit)
+backups/
+
+# Mobile APKs (served from web-student/public/ — never commit the binary)
+*.apk
+*.apk.sha1

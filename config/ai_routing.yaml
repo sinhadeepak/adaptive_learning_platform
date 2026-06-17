@@ -1,0 +1,63 @@
+# AI Gateway routing config — Phase 5 + Phase 7 admin chain.
+#
+# Touchpoints (fixed set; ADR amendment required to add):
+#   authoring · quality_check · evaluation · translation · vision · embedding
+#
+# Each touchpoint's primary provider is the **admin-managed chain**
+# (Ollama → OpenAI → Anthropic, in priority order set at
+# /admin/ai-providers). Fallback to direct OpenAI when the admin
+# chain has no enabled rows AND a static OpenAI key is available;
+# otherwise the gateway raises (caller surfaces as 502).
+#
+# `provider: admin_chain` resolves to AdminChainProvider (a Phase-5
+# Provider façade over the Phase-7 ai_providers chain). `model: auto`
+# is opaque — the admin row's model field is what actually drives
+# the call.
+
+routing:
+  authoring:
+    primary:    { provider: admin_chain, model: auto, max_tokens: 2000 }
+    fallback:   { provider: stub,        model: stub-v1, max_tokens: 2000 }
+    timeout_ms: 30000
+    cost_target_per_call_usd: 0.05
+
+  quality_check:
+    primary:    { provider: admin_chain, model: auto, max_tokens: 800 }
+    fallback:   { provider: stub,        model: stub-v1, max_tokens: 800 }
+    timeout_ms: 15000
+    cost_target_per_call_usd: 0.005
+
+  evaluation:
+    primary:    { provider: admin_chain, model: auto, max_tokens: 1500 }
+    fallback:   { provider: openai,      model: gpt-4o,  max_tokens: 1500 }
+    timeout_ms: 30000
+    cost_target_per_call_usd: 0.03
+
+  translation:
+    primary:    { provider: admin_chain, model: auto, max_tokens: 1500 }
+    fallback:   { provider: openai,      model: gpt-4o-mini, max_tokens: 1500 }
+    timeout_ms: 15000
+    cost_target_per_call_usd: 0.01
+
+  vision:
+    primary:    { provider: admin_chain, model: auto, max_tokens: 1000 }
+    fallback:   { provider: openai,      model: gpt-4o,  max_tokens: 1000 }
+    timeout_ms: 20000
+
+  # AI Content Guardrail L3 similarity scan. OpenAI primary (the admin
+  # chain has no embeddings endpoint); stub fallback keeps the dev stack
+  # working without a key. max_tokens unused by the embeddings path but
+  # required by the schema.
+  embedding:
+    primary:    { provider: openai, model: text-embedding-3-small, max_tokens: 1 }
+    fallback:   { provider: stub,   model: stub-embed, max_tokens: 1 }
+    timeout_ms: 15000
+
+rate_limits:
+  per_creator_per_day:
+    authoring: 50
+    quality_check: unlimited
+    translation: 100
+  platform_per_minute:
+    authoring: 200
+    evaluation: 500

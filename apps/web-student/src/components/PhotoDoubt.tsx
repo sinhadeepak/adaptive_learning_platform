@@ -97,7 +97,7 @@ export function PhotoDoubt() {
         <h2 className="section-heading">Stuck on a problem? Snap it</h2>
         <span className="pill pill-info">◈ AI doubt-solver</span>
       </div>
-      <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>
+      <p style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 4 }}>
         Photograph a handwritten or printed question. The AI tutor reads it,
         works through the solution, and gives you 3 calibrated similar problems
         from your topic.
@@ -118,7 +118,7 @@ export function PhotoDoubt() {
           onClick={pickFile}
           style={{
             marginTop: 10,
-            background: "linear-gradient(90deg, var(--color-blue), var(--color-purple))",
+            background: "linear-gradient(90deg, var(--info), var(--accent))",
             color: "white",
             border: "none",
             padding: "10px 18px",
@@ -146,16 +146,16 @@ export function PhotoDoubt() {
             style={{
               width: 180,
               borderRadius: 6,
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: "1px solid var(--rule-2)",
             }}
           />
           <div>
             {loading ? (
-              <div style={{ fontSize: 13, color: "var(--text-faint)" }}>
+              <div style={{ fontSize: 13, color: "var(--ink-4)" }}>
                 Reading the question and working out the solution…
               </div>
             ) : error ? (
-              <div style={{ fontSize: 13, color: "var(--color-red)" }}>{error}</div>
+              <div style={{ fontSize: 13, color: "var(--bad)" }}>{error}</div>
             ) : result ? (
               <DoubtResult result={result} />
             ) : null}
@@ -165,8 +165,8 @@ export function PhotoDoubt() {
               style={{
                 marginTop: 10,
                 background: "transparent",
-                border: "1px solid rgba(255,255,255,0.1)",
-                color: "var(--text-muted)",
+                border: "1px solid var(--rule-2)",
+                color: "var(--ink-3)",
                 padding: "6px 14px",
                 borderRadius: 4,
                 fontSize: 12,
@@ -185,10 +185,10 @@ export function PhotoDoubt() {
 function DoubtResult({ result }: { result: DoubtResponse }) {
   const confTone =
     result.confidence === "high"
-      ? "var(--color-green)"
+      ? "var(--good)"
       : result.confidence === "medium"
-      ? "var(--color-amber)"
-      : "var(--color-red)";
+      ? "var(--warn)"
+      : "var(--bad)";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -198,7 +198,7 @@ function DoubtResult({ result }: { result: DoubtResponse }) {
           gap: 10,
           alignItems: "center",
           fontSize: 11,
-          color: "var(--text-faint)",
+          color: "var(--ink-4)",
         }}
       >
         <span
@@ -206,8 +206,8 @@ function DoubtResult({ result }: { result: DoubtResponse }) {
             background:
               result.source === "ai"
                 ? "rgba(79,135,246,0.15)"
-                : "rgba(255,255,255,0.04)",
-            color: result.source === "ai" ? "var(--color-blue)" : "var(--text-faint)",
+                : "var(--card)",
+            color: result.source === "ai" ? "var(--info)" : "var(--ink-4)",
             padding: "2px 8px",
             borderRadius: 3,
           }}
@@ -221,14 +221,14 @@ function DoubtResult({ result }: { result: DoubtResponse }) {
 
       {result.extracted_question ? (
         <div>
-          <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-4)", marginBottom: 4 }}>
             Question read from your photo
           </div>
           <div
             style={{
               fontSize: 13,
               padding: "8px 12px",
-              background: "rgba(255,255,255,0.03)",
+              background: "var(--card)",
               borderRadius: 4,
               fontFamily: "Georgia, serif",
             }}
@@ -240,7 +240,7 @@ function DoubtResult({ result }: { result: DoubtResponse }) {
 
       {result.solution_steps.length > 0 ? (
         <div>
-          <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-4)", marginBottom: 4 }}>
             Solution
           </div>
           <ol
@@ -262,7 +262,7 @@ function DoubtResult({ result }: { result: DoubtResponse }) {
 
       {result.final_answer ? (
         <div>
-          <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-4)", marginBottom: 4 }}>
             Final answer
           </div>
           <div
@@ -271,7 +271,7 @@ function DoubtResult({ result }: { result: DoubtResponse }) {
               fontWeight: 600,
               padding: "6px 12px",
               background: "rgba(16,196,122,0.08)",
-              borderLeft: "2px solid var(--color-green)",
+              borderLeft: "2px solid var(--good)",
               borderRadius: 4,
             }}
           >
@@ -282,7 +282,7 @@ function DoubtResult({ result }: { result: DoubtResponse }) {
 
       {result.similar_problems.length > 0 ? (
         <div>
-          <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 6 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-4)", marginBottom: 6 }}>
             3 similar problems from your topic bank
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -297,11 +297,11 @@ function DoubtResult({ result }: { result: DoubtResponse }) {
                 style={{
                   fontSize: 12,
                   padding: "6px 10px",
-                  background: "rgba(255,255,255,0.03)",
+                  background: "var(--card)",
                   borderRadius: 4,
                   color: "inherit",
                   textDecoration: "none",
-                  borderLeft: "2px solid var(--color-blue)",
+                  borderLeft: "2px solid var(--info)",
                 }}
               >
                 {p.stem}

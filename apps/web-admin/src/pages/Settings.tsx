@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { Banner, SkeletonRows } from "../components/primitives";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -87,21 +87,30 @@ export function Settings() {
     }
   }
 
+  const subtitle = (
+    <>
+      Personal preferences for your admin account. Platform-wide settings
+      (plans, pricing, channel toggles, syllabus overrides) live on the{" "}
+      <strong>Configuration</strong> page (Phase 2). Feature flags are on the{" "}
+      <Link to="/flags" className="auth-link">Flags</Link> screen.
+    </>
+  );
+
   if (error && !profile) {
     return (
-      <AppShell title="Settings">
+      <AdminShell crumbs="Account · Settings" title="Settings">
         <Banner tone="danger" role="alert">
           {error}
         </Banner>
-      </AppShell>
+      </AdminShell>
     );
   }
 
   if (!profile) {
     return (
-      <AppShell title="Settings">
+      <AdminShell crumbs="Account · Settings" title="Settings">
         <SkeletonRows count={3} />
-      </AppShell>
+      </AdminShell>
     );
   }
 
@@ -109,25 +118,16 @@ export function Settings() {
   const isPlatform = profile.user.adminAccessLevel === "PLATFORM";
 
   return (
-    <AppShell title="Settings">
-      <section className="ai-header" aria-label="Admin settings">
-        <div className="ai-header-left">
-          <span className="ai-pill">◈ ADMIN ACCOUNT &amp; PREFERENCES</span>
-          <h1 className="ai-header-name">Settings</h1>
-          <p className="ai-header-sub">
-            Personal preferences for your admin account. Platform-wide settings
-            (plans, pricing, channel toggles, syllabus overrides) live on the{" "}
-            <strong>Configuration</strong> page (Phase 2). Feature flags are on
-            the <Link to="/flags" className="auth-link">Flags</Link> screen.
-          </p>
-          <div className="ai-header-btns">
-            <Link to="/profile" className="btn btn-ghost">
-              ← Back to profile
-            </Link>
-          </div>
-        </div>
-      </section>
-
+    <AdminShell
+      crumbs="Account · Settings"
+      title="Settings"
+      subtitle={subtitle}
+      actions={
+        <Link to="/profile" className="btn btn-ghost">
+          ← Back to profile
+        </Link>
+      }
+    >
       {error ? (
         <div style={{ marginTop: "var(--sp-4)" }}>
           <Banner tone="danger" role="alert">
@@ -222,13 +222,6 @@ export function Settings() {
               <dd>{profile.user.adminAccessLevel ?? "NONE"}</dd>
             </div>
           </dl>
-          <div
-            style={{ display: "flex", gap: 8, marginTop: "var(--sp-3)", flexWrap: "wrap" }}
-          >
-            <Link to="/forgot-password" className="btn btn-ghost">
-              Change password
-            </Link>
-          </div>
         </section>
 
         <section className="topic-section">
@@ -276,11 +269,11 @@ export function Settings() {
 
         <section
           className="topic-section"
-          style={{ borderColor: "rgba(244,63,94,0.18)" }}
+          style={{ borderColor: "var(--bad-soft)" }}
         >
           <h2
             className="topic-section-title"
-            style={{ color: "var(--color-red)" }}
+            style={{ color: "var(--bad)" }}
           >
             Sign out
           </h2>
@@ -299,14 +292,14 @@ export function Settings() {
             onClick={() => void onSignOut()}
             disabled={signingOut}
             style={{
-              borderColor: "rgba(244,63,94,0.32)",
-              color: "var(--color-red)",
+              borderColor: "var(--bad-soft)",
+              color: "var(--bad)",
             }}
           >
             {signingOut ? "Signing out…" : "Sign out of this device"}
           </button>
         </section>
       </div>
-    </AppShell>
+    </AdminShell>
   );
 }

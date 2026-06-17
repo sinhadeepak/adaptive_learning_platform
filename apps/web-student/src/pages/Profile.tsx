@@ -1,18 +1,26 @@
+// Profile — Vidya v1 rewrite (2026-05-17).
+//
+// Spec: docs/02-design/design-system/04_components.md §04.a
+//       + Vidya v1 mockup — Account · Profile.
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
+//
+// Layout:
+//   ┌─ topbar: ACCOUNT · PROFILE / "Your profile" / ... ─────────┐
+//   │  ┌── hero card: identity (avatar, name, email, actions) ───┐
+//   │  └──────────────────────────────────────────────────────────┘
+//   │  ┌── exams card ──────────┐ ┌── stats card ───────────────┐
+//   │  └────────────────────────┘ └────────────────────────────┘
+//   │  ┌── achievements card ─────────────────────────────────────┐
+//   │  └──────────────────────────────────────────────────────────┘
+//   │  ┌── account + preferences card ───────────────────────────┐
+//   │  └──────────────────────────────────────────────────────────┘
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { ActivityHeatmap } from "../components/ActivityHeatmap";
-import { AppShell } from "../components/AppShell";
 import { setCachedAvatar } from "../lib/avatar";
-import { Banner, Pill, SkeletonRows } from "../components/dashboard";
-
-// ─────────────────────────────────────────────────────────────────────────
-// Profile — the "your account" overview screen.
-// Reached from the sidebar avatar / footer or the Profile nav item.
-// Mirrors the AI-first dashboard chrome (PRs #56-61): gradient hero +
-// stat tiles + content cards.
-// ─────────────────────────────────────────────────────────────────────────
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface User {
   id: string;
@@ -64,6 +72,17 @@ const LANG_NAME: Record<string, string> = {
   hi: "हिन्दी (Hindi)",
   hinglish: "Hinglish",
 };
+
+function daysUntil(iso: string | null): { label: string; tone: "info" | "warn" | "danger" | "muted" } {
+  if (!iso) return { label: "No target date", tone: "muted" };
+  const d = new Date(iso);
+  const days = Math.ceil((d.getTime() - Date.now()) / 86400000);
+  if (days < 0) return { label: `${-days} days past`, tone: "muted" };
+  if (days === 0) return { label: "Today!", tone: "danger" };
+  if (days < 30) return { label: `${days} days left`, tone: "danger" };
+  if (days < 90) return { label: `${days} days left`, tone: "warn" };
+  return { label: `${days} days left`, tone: "info" };
+}
 
 export function Profile() {
   const { user: authUser, logout } = useAuth();
@@ -177,93 +196,113 @@ export function Profile() {
 
   if (error) {
     return (
-      <AppShell title="Profile">
-        <Banner tone="danger" role="alert">
-          {error}
-        </Banner>
-      </AppShell>
+      <VidyaShell
+        crumbs="ACCOUNT · PROFILE"
+        title="Your profile"
+        subtitle="Snapshot of who you are on ALP"
+      >
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <span className="vidya-card-block__title">Error</span>
+          </div>
+          <p style={{ color: "var(--bad)", margin: 0 }}>{error}</p>
+        </section>
+      </VidyaShell>
     );
   }
 
   if (!profile) {
     return (
-      <AppShell title="Profile">
-        <SkeletonRows count={3} />
-      </AppShell>
+      <VidyaShell
+        crumbs="ACCOUNT · PROFILE"
+        title="Your profile"
+        subtitle="Snapshot of who you are on ALP"
+      >
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <span className="vidya-card-block__title">Loading…</span>
+          </div>
+          <p style={{ color: "var(--ink-3)", margin: 0 }}>Fetching your profile…</p>
+        </section>
+      </VidyaShell>
     );
   }
 
   const user = profile.user;
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || "Learner";
   const initial = (user.firstName || "?").slice(0, 1).toUpperCase();
-  const onboardingPill =
-    user.onboardingState === "ONBOARDED"
-      ? { tone: "success" as const, label: "Onboarded" }
-      : user.onboardingState === "EXAM_SELECTED"
-        ? { tone: "warning" as const, label: "In progress" }
-        : { tone: "info" as const, label: "New" };
+  const verified = !!user.emailVerifiedAt;
 
   return (
-    <AppShell title="Profile">
-      {/* ── Hero ────────────────────────────────────────────────── */}
-      <section className="ai-header" aria-label="Profile">
-        <div className="ai-header-left">
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              alignItems: "center",
-              flexWrap: "wrap",
-              marginBottom: 4,
-            }}
-          >
-            <span className="ai-pill">◈ ADAPTIVELEARN PROFILE</span>
-            <Pill tone={onboardingPill.tone}>{onboardingPill.label}</Pill>
-            {user.role ? <Pill tone="muted">{user.role}</Pill> : null}
-          </div>
-          <h1 className="ai-header-name">
-            <span className="ai-header-name-accent">{fullName}</span>
-          </h1>
-          <p className="ai-header-sub">
-            <strong>{user.email}</strong>
-            {user.phone ? ` · ${user.phone}` : ""} ·{" "}
-            {user.emailVerifiedAt ? "Email verified" : "Email pending verification"}
-          </p>
-          <div className="ai-header-btns">
-            <Link to="/settings" className="btn-ai">
-              ◈ Settings
-            </Link>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => void logout()}
-            >
-              Sign out
-            </button>
+    <VidyaShell
+      crumbs="ACCOUNT · PROFILE"
+      title="Your profile"
+      subtitle="Snapshot of who you are on ALP"
+      actions={
+        <button
+          type="button"
+          className="vidya-shell__chip"
+          onClick={() => void logout()}
+        >
+          Sign out
+        </button>
+      }
+    >
+      {/* ── HERO card — identity, avatar, upload/remove ──────────── */}
+      <section className="vidya-card-block">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">Identity</h2>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link to="/settings" className="vidya-shell__chip">⚙ Settings</Link>
+            {!verified && (
+              <button
+                type="button"
+                className="vidya-shell__chip"
+                onClick={async () => {
+                  try {
+                    await auth.fetch("/api/v1/auth/resend-verification", { method: "POST" });
+                    alert("Verification email resent.");
+                  } catch {
+                    alert("Couldn't send right now.");
+                  }
+                }}
+              >
+                Resend verification
+              </button>
+            )}
           </div>
         </div>
-        <div className="ai-header-stats" style={{ alignItems: "center" }}>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 20,
+            flexWrap: "wrap",
+          }}
+        >
+          {/* Avatar with upload affordance */}
           <label
             htmlFor="avatar-input"
             title={profile.avatarUrl ? "Replace avatar" : "Upload avatar"}
             style={{
               position: "relative",
-              width: 90,
-              height: 90,
+              width: 80,
+              height: 80,
               borderRadius: "50%",
               background: profile.avatarUrl
                 ? `center/cover url(${profile.avatarUrl})`
-                : "linear-gradient(135deg, var(--color-blue), var(--color-purple))",
+                : "linear-gradient(135deg, var(--info), var(--accent))",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 38,
+              fontSize: 32,
               fontWeight: 800,
-              color: "#fff",
+              color: "var(--paper)",
               fontFamily: "var(--font-display)",
               cursor: avatarBusy ? "wait" : "pointer",
               overflow: "hidden",
-              border: profile.avatarUrl ? "2px solid var(--color-blue)" : "none",
+              flexShrink: 0,
             }}
           >
             {profile.avatarUrl ? null : initial}
@@ -284,97 +323,210 @@ export function Profile() {
                 position: "absolute",
                 bottom: -2,
                 right: -2,
-                background: "var(--color-blue)",
-                color: "#fff",
-                width: 26,
-                height: 26,
+                background: "var(--info)",
+                color: "var(--paper)",
+                width: 24,
+                height: 24,
                 borderRadius: "50%",
-                fontSize: 13,
+                fontSize: 12,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                border: "2px solid var(--bg-base)",
+                border: "2px solid var(--paper)",
               }}
               aria-hidden
             >
               {avatarBusy ? "…" : "✎"}
             </span>
           </label>
-          {profile.avatarUrl ? (
-            <button
-              type="button"
-              onClick={removeAvatar}
-              disabled={avatarBusy}
+
+          {/* Name / email / verification / role */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
               style={{
-                marginTop: 8,
-                background: "transparent",
-                border: 0,
-                color: "var(--text-muted)",
-                fontSize: 11,
-                cursor: "pointer",
-                fontFamily: "inherit",
+                fontSize: 20,
+                fontWeight: 700,
+                color: "var(--ink)",
+                letterSpacing: "-0.01em",
+                marginBottom: 4,
               }}
             >
-              Remove avatar
-            </button>
-          ) : null}
+              {fullName}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 8 }}>
+              {user.email}
+              {user.phone ? ` · ${user.phone}` : ""}
+              {" · "}
+              {verified ? (
+                <span style={{ color: "var(--good)" }}>✓ Verified</span>
+              ) : (
+                <span style={{ color: "var(--warn)" }}>Email pending</span>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: 0.5,
+                  textTransform: "uppercase",
+                  background: "var(--accent)",
+                  color: "var(--paper)",
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                }}
+              >
+                {user.role ?? "STUDENT"}
+              </span>
+              {profile.avatarUrl && (
+                <button
+                  type="button"
+                  onClick={removeAvatar}
+                  disabled={avatarBusy}
+                  className="vidya-shell__chip"
+                >
+                  Remove avatar
+                </button>
+              )}
+            </div>
+          </div>
+
         </div>
       </section>
 
-      {/* ── Stat tiles ─────────────────────────────────────────── */}
-      <section
-        className="topic-stats"
-        style={{ marginTop: "var(--sp-4)" }}
-        aria-label="Profile stats"
-      >
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-amber)" }}>
-            {streak?.currentStreak ?? 0} 🔥
+      {/* ── EXAMS + STATS row ────────────────────────────────────── */}
+      <div className="vidya-grid-2">
+        {/* Exams card */}
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <h2 className="vidya-card-block__title">My exams</h2>
+            <Link to="/onboarding/exam" className="vidya-shell__chip">
+              + Add
+            </Link>
           </div>
-          <div className="topic-stat-lbl">Current streak</div>
-          <div className="topic-stat-foot">
-            best: {streak?.longestStreak ?? 0} day{streak?.longestStreak === 1 ? "" : "s"}
-          </div>
-        </div>
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-blue)" }}>
-            {profile.exams.length}
-          </div>
-          <div className="topic-stat-lbl">Active exams</div>
-          <div className="topic-stat-foot">
-            {profile.exams.length === 0 ? "none yet" : "tracked"}
-          </div>
-        </div>
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-green)" }}>
-            {topicsTracked ?? 0}
-          </div>
-          <div className="topic-stat-lbl">Topics in motion</div>
-          <div className="topic-stat-foot">analytics-tracked</div>
-        </div>
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-ai)" }}>
-            {LANG_NAME[profile.preferences.language] ?? profile.preferences.language}
-          </div>
-          <div className="topic-stat-lbl">Language</div>
-          <div className="topic-stat-foot">change in settings</div>
-        </div>
-      </section>
+          {profile.exams.length === 0 ? (
+            <div>
+              <p style={{ fontSize: 13, color: "var(--ink-3)", margin: "0 0 12px", lineHeight: 1.5 }}>
+                Pick an exam to lock in your prep target.
+              </p>
+              <Link to="/onboarding/exam" className="vidya-shell__chip vidya-shell__chip--on">
+                Pick an exam →
+              </Link>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {profile.exams.map((e) => {
+                const meta = examsMeta[e.examId];
+                const cd = daysUntil(e.targetDate);
+                const toneColor =
+                  cd.tone === "danger" ? "var(--bad)"
+                  : cd.tone === "warn" ? "var(--warn)"
+                  : cd.tone === "info" ? "var(--info)"
+                  : "var(--ink-3)";
+                return (
+                  <Link
+                    key={e.examId}
+                    to={`/exams/${e.examId}`}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 0",
+                      borderBottom: "1px solid var(--rule)",
+                      textDecoration: "none",
+                      color: "var(--ink)",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>
+                        {meta?.name ?? e.examName ?? "Exam"}
+                      </div>
+                      {meta?.subtitle && (
+                        <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                          {meta.subtitle}
+                        </div>
+                      )}
+                      {e.targetDate && (
+                        <div style={{ fontSize: 11, color: "var(--ink-4)" }}>
+                          {new Date(e.targetDate).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: toneColor,
+                        whiteSpace: "nowrap",
+                        marginLeft: 8,
+                      }}
+                    >
+                      {cd.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
-      {/* ── Achievements ──────────────────────────────────────── */}
-      <section className="topic-section" style={{ marginTop: "var(--sp-5)" }}>
-        <h2 className="topic-section-title">
-          Achievements · {achievements.length}
-        </h2>
+        {/* Stats card */}
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <h2 className="vidya-card-block__title">Stats</h2>
+          </div>
+          <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--warn)" }}>
+                {streak?.currentStreak ?? 0}🔥
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Current streak</div>
+              <div style={{ fontSize: 11, color: "var(--ink-4)" }}>
+                best {streak?.longestStreak ?? 0} day{streak?.longestStreak === 1 ? "" : "s"}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--info)" }}>
+                {profile.exams.length}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Active exams</div>
+              <div style={{ fontSize: 11, color: "var(--ink-4)" }}>
+                {profile.exams.length === 0 ? "pick one to get started" : "tracked above"}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--good)" }}>
+                {topicsTracked ?? 0}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Topics in motion</div>
+              <div style={{ fontSize: 11, color: "var(--ink-4)" }}>analytics-tracked</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--accent)" }}>
+                {achievements.length}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Achievements</div>
+              <div style={{ fontSize: 11, color: "var(--ink-4)" }}>
+                {achievements.length === 0 ? "earn your first badge" : "unlocked"}
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* ── ACHIEVEMENTS card ─────────────────────────────────────── */}
+      <section className="vidya-card-block">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">Achievements</h2>
+          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>{achievements.length} earned</span>
+        </div>
+
         {achievements.length > 0 ? (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 10,
-              marginBottom: 16,
-            }}
-          >
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
             {achievements.map((a) => {
               const meta = badgeFor(a);
               return (
@@ -384,21 +536,15 @@ export function Profile() {
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 8,
-                    padding: "8px 12px",
+                    gap: 6,
+                    padding: "6px 10px",
                     borderRadius: 999,
                     background: meta.bg,
                     border: `1px solid ${meta.border}`,
                   }}
                 >
-                  <span style={{ fontSize: 20 }}>{meta.icon}</span>
-                  <span
-                    style={{
-                      color: "var(--text-primary)",
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                  >
+                  <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                  <span style={{ color: "var(--ink)", fontSize: 12, fontWeight: 600 }}>
                     {meta.label}
                   </span>
                 </div>
@@ -406,35 +552,30 @@ export function Profile() {
             })}
           </div>
         ) : (
-          <p
-            style={{
-              color: "var(--text-muted)",
-              fontSize: 13,
-              margin: "0 0 var(--sp-3) 0",
-            }}
-          >
+          <p style={{ fontSize: 13, color: "var(--ink-3)", margin: "0 0 12px", lineHeight: 1.5 }}>
             No badges yet — start practicing to unlock the first one.
           </p>
         )}
+
         {(() => {
           const earned = new Set(achievements.map((a) => a.kind));
-          const locked = ALL_BADGE_KINDS.filter((k) => !earned.has(k.kind)).slice(0, 4);
+          const locked = ALL_BADGE_KINDS.filter((k) => !earned.has(k.kind)).slice(0, 3);
           if (locked.length === 0) return null;
           return (
             <div>
               <div
                 style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
+                  fontSize: 10,
+                  color: "var(--ink-4)",
                   fontWeight: 700,
                   letterSpacing: 0.6,
                   textTransform: "uppercase",
-                  marginBottom: 8,
+                  marginBottom: 6,
                 }}
               >
                 Up next
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {locked.map((meta) => (
                   <div
                     key={meta.kind}
@@ -442,22 +583,16 @@ export function Profile() {
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: 8,
-                      padding: "8px 12px",
+                      gap: 6,
+                      padding: "6px 10px",
                       borderRadius: 999,
-                      background: "var(--bg-surface-1)",
-                      border: "1px dashed var(--border-default)",
+                      background: "var(--paper-2)",
+                      border: "1px dashed var(--rule)",
                       opacity: 0.55,
                     }}
                   >
-                    <span style={{ fontSize: 18, filter: "grayscale(0.8)" }}>{meta.icon}</span>
-                    <span
-                      style={{
-                        color: "var(--text-muted)",
-                        fontSize: 13,
-                        fontWeight: 500,
-                      }}
-                    >
+                    <span style={{ fontSize: 14, filter: "grayscale(0.8)" }}>{meta.icon}</span>
+                    <span style={{ color: "var(--ink-3)", fontSize: 12, fontWeight: 500 }}>
                       {meta.label}
                     </span>
                   </div>
@@ -468,124 +603,104 @@ export function Profile() {
         })()}
       </section>
 
-      {/* ── Activity heatmap ───────────────────────────────────── */}
-      <section className="topic-section" style={{ marginTop: "var(--sp-5)" }}>
-        <h2 className="topic-section-title">Activity · last 30 days</h2>
-        <ActivityHeatmap />
-      </section>
-
-      {/* ── Sections ───────────────────────────────────────────── */}
-      <div style={{ marginTop: "var(--sp-5)" }}>
-        <section className="topic-section">
-          <h2 className="topic-section-title">Account</h2>
-          <dl className="kv-list" style={{ padding: 0, gap: "var(--sp-5)" }}>
+      {/* ── ACCOUNT + PREFERENCES row ─────────────────────────────── */}
+      <div className="vidya-grid-2">
+        {/* Account details card */}
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <h2 className="vidya-card-block__title">Account</h2>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div>
-              <dt>Full name</dt>
-              <dd>{fullName}</dd>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Full name</div>
+              <div style={{ fontSize: 13, color: "var(--ink)" }}>{fullName}</div>
             </div>
             <div>
-              <dt>Email</dt>
-              <dd>{user.email}</dd>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Email</div>
+              <div style={{ fontSize: 13, color: "var(--ink)" }}>{user.email}</div>
             </div>
             <div>
-              <dt>Phone</dt>
-              <dd>{user.phone ?? "—"}</dd>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Phone</div>
+              <div style={{ fontSize: 13, color: user.phone ? "var(--ink)" : "var(--ink-4)" }}>{user.phone ?? "Not set"}</div>
             </div>
             <div>
-              <dt>Locale</dt>
-              <dd>{user.locale ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>Member since</dt>
-              <dd>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Member since</div>
+              <div style={{ fontSize: 13, color: user.createdAt ? "var(--ink)" : "var(--ink-4)" }}>
                 {user.createdAt
-                  ? new Date(user.createdAt).toLocaleDateString()
+                  ? new Date(user.createdAt).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })
                   : "—"}
-              </dd>
+              </div>
             </div>
-            <div>
-              <dt>Email verified</dt>
-              <dd>{user.emailVerifiedAt ? "Yes" : "Pending"}</dd>
-            </div>
-          </dl>
+          </div>
         </section>
 
-        <section className="topic-section">
-          <h2 className="topic-section-title">My exams</h2>
-          {profile.exams.length === 0 ? (
-            <p className="topic-section-body">
-              You haven't picked an exam yet.{" "}
-              <Link to="/onboarding/exam" className="auth-link">
-                Pick one →
-              </Link>
-            </p>
-          ) : (
-            <ul className="row-list">
-              {profile.exams.map((e) => {
-                const meta = examsMeta[e.examId];
-                return (
-                  <li key={e.examId}>
-                    <Link to={`/exams/${e.examId}`} className="row-link">
-                      <div className="row-link-body">
-                        <p className="row-link-title">
-                          {meta?.name ?? "Exam"}
-                        </p>
-                        <p className="row-link-meta">
-                          {meta?.subtitle ?? "Prep target"}
-                          {e.targetDate
-                            ? ` · target ${new Date(e.targetDate).toLocaleDateString()}`
-                            : " · no target date"}
-                        </p>
-                      </div>
-                      <span className="chevron" aria-hidden>
-                        ›
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-
-        <section className="topic-section">
-          <h2 className="topic-section-title">Preferences</h2>
-          <dl className="kv-list" style={{ padding: 0, gap: "var(--sp-5)" }}>
+        {/* Preferences card */}
+        <section className="vidya-card-block">
+          <div className="vidya-card-block__head">
+            <h2 className="vidya-card-block__title">Preferences</h2>
+            <Link to="/settings" className="vidya-shell__chip">Edit</Link>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div>
-              <dt>Language</dt>
-              <dd>
-                {LANG_NAME[profile.preferences.language] ??
-                  profile.preferences.language}
-              </dd>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Language</div>
+              <div style={{ fontSize: 13, color: "var(--ink)" }}>
+                {LANG_NAME[profile.preferences.language] ?? profile.preferences.language}
+              </div>
             </div>
             <div>
-              <dt>Daily goal</dt>
-              <dd>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Daily goal</div>
+              <div style={{ fontSize: 13, color: profile.preferences.dailyGoalMinutes ? "var(--ink)" : "var(--ink-4)" }}>
                 {profile.preferences.dailyGoalMinutes
                   ? `${profile.preferences.dailyGoalMinutes} min/day`
-                  : "not set"}
-              </dd>
+                  : "Not set"}
+              </div>
             </div>
             <div>
-              <dt>Onboarding</dt>
-              <dd>{user.onboardingState ?? "—"}</dd>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Onboarding</div>
+              <div style={{ fontSize: 13 }}>
+                {user.onboardingState === "ONBOARDED" ? (
+                  <span style={{ color: "var(--good)" }}>✓ Complete</span>
+                ) : user.onboardingState === "EXAM_SELECTED" ? (
+                  <span style={{ color: "var(--warn)" }}>In progress</span>
+                ) : (
+                  <span style={{ color: "var(--ink-3)" }}>New</span>
+                )}
+              </div>
             </div>
-          </dl>
-          <div style={{ display: "flex", gap: 8, marginTop: "var(--sp-3)" }}>
-            <Link to="/settings" className="btn btn-primary">
-              Edit preferences
-            </Link>
+            <div>
+              <div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Locale</div>
+              <div style={{ fontSize: 13, color: user.locale ? "var(--ink)" : "var(--ink-4)" }}>
+                {user.locale ?? "Not set"}
+              </div>
+            </div>
           </div>
         </section>
       </div>
-    </AppShell>
+
+      {/* TODO(profile): Recent Activity is currently an empty-state placeholder.
+          Wire to /api/v1/quiz/sessions?userId=<user.id>&limit=5 (or whichever
+          endpoint /history uses) in a follow-up. */}
+      {/* ── RECENT ACTIVITY card ──────────────────────────────────── */}
+      <section className="vidya-card-block">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">Recent activity</h2>
+          <Link to="/history" className="vidya-shell__chip">View all</Link>
+        </div>
+        <p style={{ fontSize: 13, color: "var(--ink-3)", margin: "0 0 12px", lineHeight: 1.5 }}>
+          Your recent quizzes will appear here once you start practising.
+        </p>
+        <Link to="/practice" className="vidya-shell__chip vidya-shell__chip--on">
+          Start practising →
+        </Link>
+      </section>
+    </VidyaShell>
   );
 }
 
-// Static catalog of every badge kind the platform can award. The "Up next"
-// section subtracts the user's earned set from this list to show what's
-// available to chase. Order matters — early entries are typically the
-// easiest to earn so they show first when a new student lands.
 const ALL_BADGE_KINDS: Array<{ kind: string; label: string; icon: string }> = [
   { kind: "first_session", label: "First session", icon: "🎯" },
   { kind: "streak_3", label: "3-day streak", icon: "🔥" },
@@ -599,17 +714,11 @@ const ALL_BADGE_KINDS: Array<{ kind: string; label: string; icon: string }> = [
   { kind: "streak_14", label: "14-day streak", icon: "🔥" },
   { kind: "questions_250", label: "250 questions answered", icon: "❓" },
   { kind: "streak_30", label: "30-day streak", icon: "🔥" },
-  { kind: "sessions_100", label: "100 sessions", icon: "📚" },
-  { kind: "mocks_10", label: "10 mock tests", icon: "🎓" },
-  { kind: "questions_1000", label: "1,000 questions answered", icon: "❓" },
-  { kind: "streak_60", label: "60-day streak", icon: "🔥" },
-  { kind: "streak_100", label: "100-day streak", icon: "🔥" },
-  { kind: "mocks_25", label: "25 mock tests", icon: "🎓" },
-  { kind: "sessions_500", label: "500 sessions", icon: "📚" },
-  { kind: "questions_5000", label: "5,000 questions answered", icon: "❓" },
-  { kind: "streak_365", label: "365-day streak", icon: "🔥" },
 ];
 
+// TODO(design-system): badgeFor's rgba() literals predate the Vidya colour
+// token system. Migrate to var(--warn-tint) / var(--accent-tint) etc. when
+// those tokens land.
 function badgeFor(a: {
   kind: string;
   payload: Record<string, unknown>;
@@ -625,67 +734,29 @@ function badgeFor(a: {
     };
   }
   if (a.kind === "first_session") {
-    return {
-      icon: "🎯",
-      label: "First session",
-      bg: "rgba(99,102,241,0.10)",
-      border: "rgba(99,102,241,0.40)",
-    };
+    return { icon: "🎯", label: "First session", bg: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.40)" };
   }
   if (a.kind === "daily_goal_first") {
-    return {
-      icon: "✓",
-      label: "Daily goal hit",
-      bg: "rgba(34,197,94,0.10)",
-      border: "rgba(34,197,94,0.40)",
-    };
+    return { icon: "✓", label: "Daily goal hit", bg: "rgba(34,197,94,0.10)", border: "rgba(34,197,94,0.40)" };
   }
   if (a.kind === "mock_first") {
-    return {
-      icon: "🎓",
-      label: "First mock test",
-      bg: "rgba(168,85,247,0.10)",
-      border: "rgba(168,85,247,0.40)",
-    };
+    return { icon: "🎓", label: "First mock test", bg: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.40)" };
   }
   if (a.kind.startsWith("mocks_")) {
     const n = parseInt(a.kind.slice("mocks_".length), 10) || 0;
-    return {
-      icon: "🎓",
-      label: `${n} mock tests`,
-      bg: "rgba(168,85,247,0.10)",
-      border: "rgba(168,85,247,0.40)",
-    };
+    return { icon: "🎓", label: `${n} mock tests`, bg: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.40)" };
   }
   if (a.kind.startsWith("sessions_")) {
     const n = parseInt(a.kind.slice("sessions_".length), 10) || 0;
-    return {
-      icon: "📚",
-      label: `${n} sessions`,
-      bg: "rgba(34,197,94,0.10)",
-      border: "rgba(34,197,94,0.40)",
-    };
+    return { icon: "📚", label: `${n} sessions`, bg: "rgba(34,197,94,0.10)", border: "rgba(34,197,94,0.40)" };
   }
   if (a.kind.startsWith("questions_")) {
     const n = parseInt(a.kind.slice("questions_".length), 10) || 0;
-    return {
-      icon: "❓",
-      label: `${n} questions answered`,
-      bg: "rgba(99,102,241,0.10)",
-      border: "rgba(99,102,241,0.40)",
-    };
+    return { icon: "❓", label: `${n} questions answered`, bg: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.40)" };
   }
-  return {
-    icon: "🏆",
-    label: a.kind.replace(/_/g, " "),
-    bg: "rgba(99,102,241,0.10)",
-    border: "rgba(99,102,241,0.40)",
-  };
+  return { icon: "🏆", label: a.kind.replace(/_/g, " "), bg: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.40)" };
 }
 
-// Client-side downscale via canvas. Caps the longest edge to `maxEdge`,
-// preserves aspect ratio, and re-encodes as JPEG @ 0.85 quality so the
-// resulting data URL stays under the backend's 400KB cap.
 async function downscaleImage(file: File, maxEdge: number): Promise<string> {
   const url = URL.createObjectURL(file);
   try {

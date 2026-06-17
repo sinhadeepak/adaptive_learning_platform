@@ -217,6 +217,7 @@ class User {
     required this.role,
     required this.onboardingState,
     this.tenantId,
+    this.examId,
   });
   final String id;
   final String email;
@@ -225,6 +226,14 @@ class User {
   final String role;
   final String onboardingState;
   final String? tenantId;
+
+  /// The user's selected exam id (e.g. NEET, JEE). Nullable because the
+  /// field landed in Phase 3c.full v3 Task 3 ahead of the full
+  /// onboarding wiring. Until a future task populates this via
+  /// `AuthClient.setUser(u.copyWith(examId: ...))` after a
+  /// `/profile/exams` fetch, `examId` is `null` in production and the
+  /// Vidya Mock Test card surfaces an onboarding-nudge snackbar.
+  final String? examId;
   factory User.fromJson(Map<String, dynamic> json) => User(
         id: json['id'] as String,
         email: json['email'] as String,
@@ -233,6 +242,30 @@ class User {
         role: json['role'] as String,
         onboardingState: json['onboardingState'] as String,
         tenantId: json['tenantId'] as String?,
+        examId: json['examId'] as String?,
+      );
+
+  /// Produce a copy with one or more fields overridden. Used by callers
+  /// that resolved a profile update (name edit, daily-goal confirm,
+  /// /profile/exams fetch) so subsequent screens can read the fresh
+  /// values via `auth.user.*`. Critically, any field NOT passed is
+  /// preserved from `this` — so callers don't have to remember to
+  /// re-thread `examId` on every edit.
+  User copyWith({
+    String? firstName,
+    String? lastName,
+    String? onboardingState,
+    String? examId,
+  }) =>
+      User(
+        id: id,
+        email: email,
+        firstName: firstName ?? this.firstName,
+        lastName: lastName ?? this.lastName,
+        role: role,
+        onboardingState: onboardingState ?? this.onboardingState,
+        tenantId: tenantId,
+        examId: examId ?? this.examId,
       );
 }
 

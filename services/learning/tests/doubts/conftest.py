@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import os
 
-# Default DSN for local dev — tests can override via env if pointed at a
-# different stack.
+# Dedicated throwaway test DB — these tests TRUNCATE doubts_schema, so they must
+# never hit the seeded dev `learning` DB. Root tests/conftest.py provisions
+# `learning_test`; this setdefault is a standalone-run fallback.
 os.environ.setdefault(
     "DOUBTS_DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:35432/doubts",
+    "postgresql+asyncpg://postgres:postgres@localhost:35432/learning_test",
 )
 os.environ.setdefault(
     "DOUBTS_JWT_SECRET",

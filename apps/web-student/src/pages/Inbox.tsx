@@ -1,16 +1,18 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { auth } from "../lib/api";
-import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
-import { Banner, Pill, SkeletonRows } from "../components/dashboard";
-
+// Inbox — Vidya v1 redesign.
+//
 // In-app notification inbox. Sources from notification service:
 //   GET /notifications/inbox/{userId}     — list + unreadCount
 //   POST /notifications/{id}/read         — mark single
 //   POST /notifications/inbox/{userId}/mark-all-read — bulk
 // Backend `read_at` is the source of truth so unread state is consistent
 // across web + mobile. No localStorage shadow.
+
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { auth } from "../lib/api";
+import { useAuth } from "../lib/auth-provider";
+import { VidyaShell } from "../components/vidya/VidyaShell";
+import { Pill, SkeletonRows } from "../components/dashboard";
 
 interface NotificationItem {
   id: string;
@@ -84,52 +86,54 @@ export function Inbox() {
     }
   }
 
-  return (
-    <AppShell title={`Inbox${unread > 0 ? ` · ${unread} unread` : ""}`}>
-      {error ? <Banner tone="danger" role="alert">{error}</Banner> : null}
+  const chips = (
+    <>
+      {(["all", "unread"] as const).map((f) => (
+        <button
+          key={f}
+          type="button"
+          className={`vidya-shell__chip${filter === f ? " vidya-shell__chip--on" : ""}`}
+          onClick={() => setFilter(f)}
+        >
+          {f === "unread" ? `Unread${unread > 0 ? ` (${unread})` : ""}` : "All"}
+        </button>
+      ))}
+    </>
+  );
 
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          marginBottom: "var(--sp-3)",
-          flexWrap: "wrap",
-        }}
-      >
-        {(["all", "unread"] as const).map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => setFilter(f)}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 999,
-              border: `1px solid ${filter === f ? "var(--color-blue)" : "var(--border-default)"}`,
-              background: filter === f ? "var(--color-blue)" : "transparent",
-              color: filter === f ? "#fff" : "var(--text-primary)",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              textTransform: "capitalize",
-            }}
-          >
-            {f === "unread" ? `Unread${unread > 0 ? ` (${unread})` : ""}` : "All"}
-          </button>
-        ))}
-        <span style={{ flex: 1 }} />
-        {unread > 0 ? (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={markAll}
-            disabled={busy}
-          >
-            {busy ? "Marking…" : "Mark all read"}
-          </button>
-        ) : null}
-      </div>
+  const actions = unread > 0 ? (
+    <button
+      type="button"
+      className="vidya-shell__primary"
+      onClick={markAll}
+      disabled={busy}
+    >
+      {busy ? "Marking…" : "Mark all read"}
+    </button>
+  ) : null;
+
+  return (
+    <VidyaShell
+      crumbs="ME · INBOX"
+      title="Inbox"
+      subtitle="Updates, alerts, and reminders."
+      chips={chips}
+      actions={actions}
+    >
+      {error ? (
+        <div
+          role="alert"
+          style={{
+            background: "var(--bad)",
+            color: "var(--paper)",
+            padding: "var(--sp-3)",
+            borderRadius: "var(--radius-2)",
+            margin: "0 0 var(--sp-3) 0",
+          }}
+        >
+          {error}
+        </div>
+      ) : null}
 
       {items === null ? (
         <SkeletonRows count={4} />
@@ -138,16 +142,16 @@ export function Inbox() {
           style={{
             padding: "var(--sp-5)",
             textAlign: "center",
-            color: "var(--text-muted)",
-            border: "1px dashed var(--border-default)",
+            color: "var(--ink-3)",
+            border: "1px dashed var(--rule)",
             borderRadius: 12,
-            background: "var(--bg-surface-1)",
+            background: "var(--card-1)",
           }}
         >
           <div style={{ fontSize: 36, marginBottom: 8 }}>
             {filter === "unread" ? "🎉" : "🔕"}
           </div>
-          <div style={{ color: "var(--text-primary)", fontWeight: 600, marginBottom: 6 }}>
+          <div style={{ color: "var(--ink)", fontWeight: 600, marginBottom: 6 }}>
             {filter === "unread"
               ? "All caught up"
               : "No notifications yet"}
@@ -175,8 +179,8 @@ export function Inbox() {
             const body = (
               <div
                 style={{
-                  background: isUnread ? "var(--bg-surface-2)" : "var(--bg-surface-1)",
-                  border: `1px solid ${isUnread ? "var(--color-blue)" : "var(--border-default)"}`,
+                  background: isUnread ? "var(--card-2)" : "var(--card-1)",
+                  border: `1px solid ${isUnread ? "var(--info)" : "var(--rule)"}`,
                   borderRadius: 12,
                   padding: "var(--sp-3)",
                   cursor: link ? "pointer" : "default",
@@ -193,21 +197,21 @@ export function Inbox() {
                       width: 8,
                       height: 8,
                       borderRadius: 999,
-                      background: "var(--color-blue)",
+                      background: "var(--info)",
                     }}
                   />
                 ) : null}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <Pill tone={isUnread ? "info" : "muted"}>{prettyType(n.type)}</Pill>
                   <span style={{ flex: 1 }} />
-                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                  <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
                     {relative(n.createdAt)}
                   </span>
                 </div>
                 <div
                   style={{
                     marginTop: 8,
-                    color: "var(--text-primary)",
+                    color: "var(--ink)",
                     fontSize: 14,
                     lineHeight: 1.45,
                   }}
@@ -233,7 +237,7 @@ export function Inbox() {
           })}
         </ol>
       )}
-    </AppShell>
+    </VidyaShell>
   );
 }
 

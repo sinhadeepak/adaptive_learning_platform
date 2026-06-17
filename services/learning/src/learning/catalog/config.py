@@ -10,7 +10,9 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO")
     port: int = Field(default=38004)
 
-    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:35432/catalog")
+    # Post-ADR-0005 consolidation: catalog is a schema in the `learning`
+    # database. Containers override via CATALOG_DATABASE_URL.
+    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:35432/learning")
     redis_url: str = Field(default="redis://localhost:36379/0")
     nats_url: str = Field(default="nats://localhost:34222")
 

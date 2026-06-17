@@ -163,6 +163,11 @@ async def build_study_plan(user_id: str, exam_code: str | None = None) -> dict[s
     readiness = await fetch_readiness(user_id)
     topics = await fetch_topic_catalog(exam_code)
     enriched = _enrich_topics_with_mastery(topics, mastery)
+    # Sprint 26 (P4-S26) — annotate each topic with its prereq depth so the
+    # heuristic + LLM both see "shallow first" ordering. Best-effort: if the
+    # prereq graph load fails, every topic stays at depth 0 (the historical
+    # behaviour).
+    enriched = await _annotate_prereq_depth(enriched)
 
     user_payload = _format_user_context(
         user_id=user_id,
@@ -182,6 +187,27 @@ async def build_study_plan(user_id: str, exam_code: str | None = None) -> dict[s
         return plan
 
     return _heuristic_study_plan(enriched, readiness)
+
+
+async def _annotate_prereq_depth(
+    topics: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Decorate each topic with `prereqDepth` (int). Pure-function fallback
+    when the catalog DB isn't reachable or the prereq graph is empty."""
+    try:
+        # Lazy imports to keep the module's existing dependency graph clean.
+        from learning.catalog.db import sessionmaker as catalog_sessionmaker
+        from learning.prereqs.repositories import load_graph
+        from learning.prereqs.traversal import prereq_depth as _depth
+
+        async with catalog_sessionmaker()() as session:
+            graph = await load_graph(session)
+        for t in topics:
+            t["prereqDepth"] = _depth(graph, t.get("topicId", ""))
+    except Exception:
+        for t in topics:
+            t.setdefault("prereqDepth", 0)
+    return topics
 
 
 async def build_guided_next_steps(user_id: str, exam_code: str | None = None) -> dict[str, Any]:
@@ -265,7 +291,14 @@ def _heuristic_study_plan(
     candidates = [t for t in topics if t["questionCount"] > 0]
     if not candidates:
         candidates = topics
-    weakest = sorted(candidates, key=lambda t: t["ewa"])[:5]
+    # Sprint 26 (P4-S26) — secondary sort by prereq depth so foundational
+    # topics get scheduled before topics that depend on them. EWA ascending
+    # is still the dominant signal; prereqDepth breaks ties for equally-weak
+    # topics. Defaults to 0 when the prereq graph isn't loaded.
+    weakest = sorted(
+        candidates,
+        key=lambda t: (t["ewa"], t.get("prereqDepth", 0)),
+    )[:5]
 
     priorities = [
         {

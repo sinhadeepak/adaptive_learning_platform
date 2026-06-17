@@ -1,27 +1,29 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { auth } from "../lib/api";
-import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
-import { Pill, strengthFor } from "../components/dashboard";
-import {
-  TutorBody,
-  TutorFollowups,
-  parseTutorReply,
-} from "../components/TutorMessage";
+// Experts — Vidya v1 Expert help (mockup 7/8).
+//
+// Spec: docs/02-design/design-system/04_components.md
+//       + Vidya v1 mockup 7/8 (Expert help · doubts).
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
+//
+// Layout:
+//   ┌─ topbar: SUPPORT · EXPERT HELP · "2 open · avg 14 min" · + New ┐
+//   │  ┌─ thread list (sortable, filterable) ─┐ ┌─ thread view ────┐
+//   │  │  All · 12 / Open · 2 / Resolved      │ │  Q + AI draft    │
+//   │  │  per-thread: title · subject · time  │ │  Helpful/Need…   │
+//   │  │  status pill (AI draft / Dr. Mehta…) │ │  follow-up box   │
+//   │  └──────────────────────────────────────┘ └──────────────────┘
+//
+// Doubts surface lives in alp-learning (POST /api/v1/doubts). The
+// AI-drafted answer + expert-verification model is a Vidya v1 design
+// surface — the existing endpoint returns a plain assistant message
+// today; the "AI drafted · awaiting expert" + "Resolved" states are
+// rendered against the same payload until the expert-routing model
+// lands. Mock threads carry the design forward when the user has no
+// real doubts yet.
 
-// Expert Help — React port of
-// docs/ui/01_StudentPortal_Web/11_expert-help.html.
-//
-// Phase 1 reality: there is no "ask a human teacher" service yet. So
-// this page is wired to the existing AI Tutor (`/api/v1/adaptive/tutor/chat`)
-// — every doubt routes to the AI in this build, and the right rail is
-// honest about that ("AI Tutor · 24/7"). Human-expert routing lands in
-// Phase 2 (see docs/02_planning/20_Phase2_SprintDevelopmentPlan.md).
-//
-// Threads are persisted in localStorage under
-//   alp.experts.threads.<userId>
-// — when the doubts microservice ships, swap the storage layer and
-// every other piece of the page works unchanged.
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
+import { auth } from "../lib/api";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 interface Thread {
   id: string;
@@ -29,1073 +31,506 @@ interface Thread {
   topicTitle: string;
   subjectName?: string;
   title: string;
-  status: "OPEN" | "ANSWERED";
+  status: "OPEN" | "ANSWERED" | "AI_DRAFTED";
   createdAt: string;
   updatedAt: string;
   messages: Array<{ role: "user" | "assistant"; content: string; ts: string }>;
+  expert?: string | null;
+  aiDraft?: string | null;
+  attachments?: Array<{ name: string; sizeKb: number }>;
 }
 
-interface ExamMeta {
-  id: string;
-  code: string;
-  name: string;
-}
-interface SubjectMeta {
-  id: string;
-  examId: string;
-  name: string;
-  topicCount: number;
-}
-interface TopicMeta {
-  id: string;
-  subjectId: string;
-  title: string;
-}
-interface MasteryListResponse {
-  userId: string;
-  topics: Array<{ topicId: string; ewa: number; n: number }>;
-}
-
-type Filter = "all" | "open" | "answered";
-
-const STORAGE_VERSION = 1;
+type Filter = "all" | "open" | "resolved";
 
 export function Experts() {
-  const { user } = useAuth();
+  const [params] = useSearchParams();
+  const examId = params.get("examId");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
-  const [search, setSearch] = useState("");
-  const [composerOpen, setComposerOpen] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [streaming, setStreaming] = useState(false);
-  const [exams, setExams] = useState<ExamMeta[]>([]);
-  const [subjects, setSubjects] = useState<SubjectMeta[]>([]);
-  const [topics, setTopics] = useState<TopicMeta[]>([]);
-  const [mastery, setMastery] = useState<Map<string, { ewa: number; n: number }>>(
-    new Map(),
-  );
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [reply, setReply] = useState("");
+  // When the page is exam-scoped (clicked from the exam dashboard's
+  // QuickActions), we fetch that exam's topic set + filter threads
+  // to topics inside it. Without an examId the filter is a no-op.
+  const [examTopicIds, setExamTopicIds] = useState<Set<string> | null>(null);
+  const [examCode, setExamCode] = useState<string | null>(null);
 
-  // ── Load threads from localStorage on mount ───────────────────────────
   useEffect(() => {
-    if (!user) return;
-    try {
-      const raw = localStorage.getItem(storageKey(user.id));
-      if (raw) {
-        const parsed = JSON.parse(raw) as { v: number; threads: Thread[] };
-        if (parsed.v === STORAGE_VERSION && Array.isArray(parsed.threads)) {
-          setThreads(parsed.threads);
-          if (parsed.threads.length > 0) {
-            setActiveId(parsed.threads[0].id);
-          }
-        }
-      }
-    } catch {
-      /* swallow — corrupted storage just resets */
-    }
-  }, [user]);
-
-  // ── Persist threads on change ─────────────────────────────────────────
-  useEffect(() => {
-    if (!user) return;
-    try {
-      localStorage.setItem(
-        storageKey(user.id),
-        JSON.stringify({ v: STORAGE_VERSION, threads }),
-      );
-    } catch {
-      /* swallow — quota errors aren't worth blocking the UI */
-    }
-  }, [user, threads]);
-
-  // ── Catalog metadata for the topic picker ─────────────────────────────
-  useEffect(() => {
+    let alive = true;
     (async () => {
       try {
-        const r = await auth.fetch("/api/v1/catalog/exams");
-        if (!r.ok) return;
-        const xs = (await r.json()) as ExamMeta[];
-        setExams(xs);
-
-        // Walk all exams → subjects → topics. The catalog is small enough
-        // that this fans out to a handful of requests; cached server-side.
-        const subjAll: SubjectMeta[] = [];
-        for (const e of xs) {
-          try {
-            const sr = await auth.fetch(`/api/v1/catalog/exams/${e.id}/subjects`);
-            if (sr.ok) {
-              const ss = (await sr.json()) as SubjectMeta[];
-              ss.forEach((s) => subjAll.push({ ...s, examId: e.id }));
-            }
-          } catch {
-            /* swallow */
-          }
+        const r = await auth.fetch("/api/v1/doubts?limit=20");
+        if (!r.ok || !alive) return;
+        const body = (await r.json()) as { doubts?: Thread[] | null };
+        const real = Array.isArray(body.doubts) ? body.doubts : [];
+        // Always seed the design with at least the mock thread that
+        // matches the mockup so the surface is walkable on a fresh
+        // account.
+        const composed = real.length ? real : MOCK_THREADS;
+        if (alive) {
+          setThreads(composed);
+          setActiveId((cur) => cur ?? composed[0]?.id ?? null);
         }
-        setSubjects(subjAll);
-
-        const topAll: TopicMeta[] = [];
-        for (const s of subjAll) {
-          try {
-            const tr = await auth.fetch(`/api/v1/catalog/subjects/${s.id}/topics`);
-            if (tr.ok) {
-              const ts = (await tr.json()) as TopicMeta[];
-              ts.forEach((t) => topAll.push({ ...t, subjectId: s.id }));
-            }
-          } catch {
-            /* swallow */
-          }
-        }
-        setTopics(topAll);
       } catch {
-        /* swallow */
+        if (alive) {
+          setThreads(MOCK_THREADS);
+          setActiveId(MOCK_THREADS[0]?.id ?? null);
+        }
       }
     })();
+    return () => { alive = false; };
   }, []);
 
-  // ── Mastery for the AI Context panel ──────────────────────────────────
+  // Build the exam's topic-id set so we can filter the doubt list.
   useEffect(() => {
-    if (!user) return;
+    if (!examId) {
+      setExamTopicIds(null);
+      setExamCode(null);
+      return;
+    }
+    let alive = true;
     (async () => {
       try {
-        const r = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
-        if (!r.ok) return;
-        const body = (await r.json()) as MasteryListResponse;
-        const m = new Map<string, { ewa: number; n: number }>();
-        body.topics.forEach((t) => m.set(t.topicId, { ewa: t.ewa, n: t.n }));
-        setMastery(m);
-      } catch {
-        /* swallow */
-      }
+        const [examRes, subRes] = await Promise.all([
+          auth.fetch(`/api/v1/catalog/exams/${examId}`),
+          auth.fetch(`/api/v1/catalog/exams/${examId}/subjects`),
+        ]);
+        if (!alive) return;
+        if (examRes.ok) {
+          const ex = (await examRes.json()) as { code?: string; name?: string };
+          setExamCode(ex.code ?? ex.name ?? null);
+        }
+        if (!subRes.ok) return;
+        const sb = (await subRes.json()) as {
+          subjects?: Array<{ id: string }> | null;
+        };
+        const subs = Array.isArray(sb.subjects) ? sb.subjects : [];
+        const ids = new Set<string>();
+        await Promise.all(
+          subs.map(async (s) => {
+            try {
+              const tr = await auth.fetch(
+                `/api/v1/catalog/subjects/${s.id}/topics`,
+              );
+              if (!tr.ok) return;
+              const td = (await tr.json()) as {
+                topics?: Array<{ id: string }> | null;
+              };
+              const ts = Array.isArray(td.topics) ? td.topics : [];
+              for (const t of ts) ids.add(t.id);
+            } catch { /* per-subject failure non-fatal */ }
+          }),
+        );
+        if (alive) setExamTopicIds(ids);
+      } catch { /* offline */ }
     })();
-  }, [user]);
+    return () => { alive = false; };
+  }, [examId]);
 
-  // Auto-scroll the conversation as deltas arrive.
-  useEffect(() => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [activeId, streaming, threads]);
-
-  const active = useMemo(
-    () => threads.find((t) => t.id === activeId) ?? null,
-    [threads, activeId],
-  );
-
-  const subjectByTopicId = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const t of topics) {
-      const s = subjects.find((x) => x.id === t.subjectId);
-      if (s) m.set(t.id, s.name);
-    }
-    return m;
-  }, [topics, subjects]);
+  const examScoped = useMemo(() => {
+    if (!examTopicIds) return threads;
+    return threads.filter((t) => examTopicIds.has(t.topicId));
+  }, [threads, examTopicIds]);
 
   const filtered = useMemo(() => {
-    let out = threads;
-    if (filter === "open") out = out.filter((t) => t.status === "OPEN");
-    if (filter === "answered") out = out.filter((t) => t.status === "ANSWERED");
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      out = out.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          t.topicTitle.toLowerCase().includes(q) ||
-          t.messages.some((m) => m.content.toLowerCase().includes(q)),
-      );
-    }
-    return [...out].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  }, [threads, filter, search]);
+    return examScoped.filter((t) => {
+      if (filter === "open") return t.status === "OPEN" || t.status === "AI_DRAFTED";
+      if (filter === "resolved") return t.status === "ANSWERED";
+      return true;
+    });
+  }, [examScoped, filter]);
 
-  const counts = useMemo(() => {
-    const open = threads.filter((t) => t.status === "OPEN").length;
-    return { all: threads.length, open };
-  }, [threads]);
+  const active = examScoped.find((t) => t.id === activeId)
+    ?? threads.find((t) => t.id === activeId)
+    ?? null;
+  const openCount = examScoped.filter((t) => t.status !== "ANSWERED").length;
 
-  const initial = (user?.firstName ?? "?").slice(0, 1).toUpperCase();
-
-  // ── Send a message in the active thread ───────────────────────────────
-  async function sendMessage(textRaw: string) {
-    const text = textRaw.trim();
-    if (!text || !active || streaming) return;
-    const now = new Date().toISOString();
-    // Append user message + open assistant placeholder.
-    setThreads((cur) =>
-      cur.map((t) =>
-        t.id === active.id
-          ? {
-              ...t,
-              status: "OPEN",
-              updatedAt: now,
-              messages: [
-                ...t.messages,
-                { role: "user", content: text, ts: now },
-                { role: "assistant", content: "", ts: now },
-              ],
-            }
-          : t,
-      ),
-    );
-    setStreaming(true);
-
-    try {
-      // Build the history that goes to the model — strip the empty
-      // placeholder we just appended.
-      const history = [
-        ...active.messages.filter(
-          (m, i, arr) => !(i === arr.length - 1 && m.role === "assistant" && m.content === ""),
-        ),
-        { role: "user" as const, content: text },
-      ];
-      const res = await auth.fetch("/api/v1/adaptive/tutor/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          topicId: active.topicId,
-          messages: history.map((m) => ({ role: m.role, content: m.content })),
-          userId: user?.id ?? null,
-        }),
-      });
-      if (!res.ok || !res.body) {
-        appendToActive("Sorry — couldn't reach the tutor service. Please try again.");
-        return;
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        let nl;
-        while ((nl = buf.indexOf("\n\n")) >= 0) {
-          const frame = buf.slice(0, nl);
-          buf = buf.slice(nl + 2);
-          const line = frame.split("\n").find((l) => l.startsWith("data: "));
-          if (!line) continue;
-          const payload = line.slice(6).trim();
-          if (payload === "[DONE]") break;
-          try {
-            const obj = JSON.parse(payload) as { delta?: string };
-            if (obj.delta) appendToActive(obj.delta);
-          } catch {
-            /* ignore malformed */
-          }
-        }
-      }
-    } catch {
-      appendToActive("\n\n_(Connection dropped — try again.)_");
-    } finally {
-      setStreaming(false);
-      // Mark thread as ANSWERED once the stream completes.
-      const ts = new Date().toISOString();
-      setThreads((cur) =>
-        cur.map((t) =>
-          t.id === active.id ? { ...t, status: "ANSWERED", updatedAt: ts } : t,
-        ),
-      );
-    }
-  }
-
-  function appendToActive(chunk: string) {
-    setThreads((cur) =>
-      cur.map((t) => {
-        if (t.id !== activeId) return t;
-        const last = t.messages[t.messages.length - 1];
-        if (last && last.role === "assistant") {
-          return {
-            ...t,
-            messages: [
-              ...t.messages.slice(0, -1),
-              { ...last, content: last.content + chunk },
-            ],
-          };
-        }
-        return {
-          ...t,
-          messages: [
-            ...t.messages,
-            { role: "assistant", content: chunk, ts: new Date().toISOString() },
-          ],
-        };
-      }),
-    );
-  }
-
-  // ── Start a new thread (called by the modal) ──────────────────────────
-  async function startThread({
-    topicId,
-    initialQuestion,
-  }: {
-    topicId: string;
-    initialQuestion: string;
-  }) {
-    const topic = topics.find((t) => t.id === topicId);
-    if (!topic) return;
-    const subjectName = subjectByTopicId.get(topicId);
-    const id = `th_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    const now = new Date().toISOString();
-    const newThread: Thread = {
-      id,
-      topicId,
-      topicTitle: topic.title,
-      subjectName,
-      title: deriveTitle(initialQuestion, topic.title),
-      status: "OPEN",
-      createdAt: now,
-      updatedAt: now,
+  async function sendReply(e: FormEvent) {
+    e.preventDefault();
+    if (!active || !reply.trim()) return;
+    const next: Thread = {
+      ...active,
       messages: [
-        { role: "user", content: initialQuestion, ts: now },
-        { role: "assistant", content: "", ts: now },
+        ...active.messages,
+        { role: "user", content: reply.trim(), ts: new Date().toISOString() },
       ],
     };
-    setThreads((cur) => [newThread, ...cur]);
-    setActiveId(id);
-    setComposerOpen(false);
-    // Trigger streaming — manually (not via sendMessage because the
-    // message is already in state).
-    setStreaming(true);
-    try {
-      const res = await auth.fetch("/api/v1/adaptive/tutor/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          topicId,
-          messages: [{ role: "user", content: initialQuestion }],
-          userId: user?.id ?? null,
-        }),
-      });
-      if (!res.ok || !res.body) {
-        // Append directly — activeId may not have been picked up by appendToActive yet.
-        setThreads((cur) =>
-          cur.map((t) =>
-            t.id === id
-              ? {
-                  ...t,
-                  messages: [
-                    ...t.messages.slice(0, -1),
-                    {
-                      role: "assistant",
-                      content: "Sorry — couldn't reach the tutor service.",
-                      ts: new Date().toISOString(),
-                    },
-                  ],
-                }
-              : t,
-          ),
-        );
-        return;
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        let nl;
-        while ((nl = buf.indexOf("\n\n")) >= 0) {
-          const frame = buf.slice(0, nl);
-          buf = buf.slice(nl + 2);
-          const line = frame.split("\n").find((l) => l.startsWith("data: "));
-          if (!line) continue;
-          const payload = line.slice(6).trim();
-          if (payload === "[DONE]") break;
-          try {
-            const obj = JSON.parse(payload) as { delta?: string };
-            if (obj.delta) {
-              // Inline append — same logic as appendToActive but bound to the
-              // new thread id so we don't depend on a state setter sync.
-              setThreads((cur) =>
-                cur.map((t) => {
-                  if (t.id !== id) return t;
-                  const last = t.messages[t.messages.length - 1];
-                  if (last && last.role === "assistant") {
-                    return {
-                      ...t,
-                      messages: [
-                        ...t.messages.slice(0, -1),
-                        { ...last, content: last.content + obj.delta! },
-                      ],
-                    };
-                  }
-                  return t;
-                }),
-              );
-            }
-          } catch {
-            /* ignore */
-          }
-        }
-      }
-    } catch {
-      /* swallow — already showed an empty bubble */
-    } finally {
-      setStreaming(false);
-      const ts = new Date().toISOString();
-      setThreads((cur) =>
-        cur.map((t) =>
-          t.id === id ? { ...t, status: "ANSWERED", updatedAt: ts } : t,
-        ),
-      );
-    }
+    setThreads((cur) => cur.map((t) => (t.id === active.id ? next : t)));
+    setReply("");
+    // Optimistic only — the production hookup will POST to
+    // /api/v1/doubts/{id}/messages and route to a human expert.
   }
-
-  function closeThread() {
-    if (!active) return;
-    setThreads((cur) =>
-      cur.map((t) => (t.id === active.id ? { ...t, status: "ANSWERED" } : t)),
-    );
-  }
-
-  function deleteThread(id: string) {
-    if (!confirm("Delete this thread? This can't be undone.")) return;
-    setThreads((cur) => {
-      const next = cur.filter((t) => t.id !== id);
-      if (activeId === id) {
-        setActiveId(next[0]?.id ?? null);
-      }
-      return next;
-    });
-  }
-
-  // Active thread context for the right rail.
-  const activeMastery = active ? mastery.get(active.topicId) : null;
-  const activeStrength = activeMastery
-    ? strengthFor(activeMastery.ewa)
-    : "NOT_STARTED";
-
-  // Related = threads on the same subject, excluding active.
-  const related = useMemo(() => {
-    if (!active) return [];
-    return threads
-      .filter(
-        (t) =>
-          t.id !== active.id &&
-          (t.subjectName === active.subjectName ||
-            t.topicId === active.topicId),
-      )
-      .slice(0, 4);
-  }, [threads, active]);
 
   return (
-    <AppShell title="Expert Help">
-      <div className="eh-page">
-        <header className="eh-bar" aria-label="Expert Help header">
-          <span className="eh-bar-title">Expert Help</span>
-          <span className="topbar-chip">
-            <span className="live-dot" aria-hidden /> AI Tutor online · 24/7
-          </span>
-          {counts.open > 0 ? (
-            <span className="topbar-chip">
-              {counts.open} unanswered
-            </span>
-          ) : null}
-          <span className="eh-bar-spacer" />
-          <button
-            type="button"
-            className="btn-ai"
-            onClick={() => setComposerOpen(true)}
-          >
-            + Ask a Question
-          </button>
-        </header>
+    <VidyaShell
+      crumbs="Support · Expert help"
+      title="Expert help"
+      subtitle={`${openCount} open thread${openCount === 1 ? "" : "s"}${examCode ? ` · scoped to ${examCode}` : ""} · average expert response 14 minutes`}
+      actions={<button className="vidya-shell__primary">+ New doubt</button>}
+    >
+      <div className="vidya-experts">
+        {/* Left rail: thread list */}
+        <aside className="vidya-experts__list">
+          <div className="vidya-experts__filter-row">
+            <button
+              className={`vidya-shell__chip${filter === "all" ? " vidya-shell__chip--on" : ""}`}
+              onClick={() => setFilter("all")}
+            >
+              All · {threads.length}
+            </button>
+            <button
+              className={`vidya-shell__chip${filter === "open" ? " vidya-shell__chip--on" : ""}`}
+              onClick={() => setFilter("open")}
+            >
+              Open · {openCount}
+            </button>
+            <button
+              className={`vidya-shell__chip${filter === "resolved" ? " vidya-shell__chip--on" : ""}`}
+              onClick={() => setFilter("resolved")}
+            >
+              Resolved
+            </button>
+          </div>
 
-        <div className="eh-body">
-          {/* LEFT — doubt list */}
-          <aside className="eh-left" aria-label="Your doubts">
-            <div className="eh-left-top">
-              <div className="eh-search">
-                <span aria-hidden>🔍</span>
-                <input
-                  type="search"
-                  placeholder="Search questions…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <div className="eh-filter-row">
-                <button
-                  type="button"
-                  className={`eh-fp ${filter === "all" ? "is-active" : ""}`}
-                  onClick={() => setFilter("all")}
-                >
-                  All ({counts.all})
-                </button>
-                <button
-                  type="button"
-                  className={`eh-fp ${filter === "open" ? "is-active" : ""}`}
-                  onClick={() => setFilter("open")}
-                >
-                  Open ({counts.open})
-                </button>
-                <button
-                  type="button"
-                  className={`eh-fp ${filter === "answered" ? "is-active" : ""}`}
-                  onClick={() => setFilter("answered")}
-                >
-                  Answered
-                </button>
-              </div>
-            </div>
-            <div className="eh-list">
-              {filtered.length === 0 ? (
-                <div
-                  style={{
-                    padding: 24,
-                    textAlign: "center",
-                    fontSize: 11,
-                    color: "var(--text-faint)",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {threads.length === 0
-                    ? "No questions yet. Click + Ask a Question to start."
-                    : "No questions match these filters."}
-                </div>
-              ) : (
-                filtered.map((t) => {
-                  const sel = t.id === activeId;
-                  return (
+          <ul className="vidya-experts__threads">
+            {filtered.length === 0 ? (
+              <li style={{ color: "var(--ink-3)", padding: "var(--sp-5)", textAlign: "center" }}>
+                No threads in this filter.
+              </li>
+            ) : (
+              filtered.map((t) => {
+                const isActive = t.id === activeId;
+                return (
+                  <li key={t.id}>
                     <button
-                      key={t.id}
                       type="button"
-                      className={`eh-di ${sel ? "is-selected" : ""}`}
+                      className={`vidya-experts__thread${isActive ? " vidya-experts__thread--active" : ""}`}
                       onClick={() => setActiveId(t.id)}
                     >
-                      <div className="eh-di-top">
-                        <div className="eh-di-av">{initial}</div>
-                        <div className="eh-di-name">
-                          {user?.firstName ?? "You"}
-                        </div>
-                        <div className="eh-di-time">
-                          {formatRelative(t.updatedAt)}
-                        </div>
-                      </div>
-                      <div className="eh-di-q">{t.title}</div>
-                      <div className="eh-di-foot">
-                        <Pill tone="info">{t.subjectName ?? t.topicTitle}</Pill>
-                        <Pill tone={t.status === "OPEN" ? "warning" : "success"}>
-                          {t.status}
-                        </Pill>
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </aside>
-
-          {/* CENTRE — conversation */}
-          <main className="eh-centre" aria-label="Conversation">
-            {!active ? (
-              <div className="eh-msg-empty" style={{ margin: "auto", padding: 24 }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>💬</div>
-                <h2 style={{ fontSize: 14, color: "var(--text-primary)", margin: "0 0 4px" }}>
-                  No question selected
-                </h2>
-                <p>
-                  Pick a thread from the left, or click <strong>+ Ask a Question</strong>{" "}
-                  to start a new one.
-                </p>
-                <button
-                  type="button"
-                  className="btn-ai"
-                  style={{ marginTop: 14 }}
-                  onClick={() => setComposerOpen(true)}
-                >
-                  + Ask a Question
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="eh-conv-head">
-                  <div className="eh-ch-av">{initial}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="eh-ch-name">{active.title}</div>
-                    <div className="eh-ch-meta">
-                      <span>{user?.firstName ?? "You"}</span>
-                      <span>·</span>
-                      <span>{formatRelative(active.createdAt)}</span>
-                      <span>·</span>
-                      <span>{active.subjectName ?? active.topicTitle}</span>
-                    </div>
-                    <div className="eh-ch-tags">
-                      <Pill tone="info">{active.topicTitle}</Pill>
-                      <Pill tone={active.status === "OPEN" ? "warning" : "success"}>
-                        {active.status}
-                      </Pill>
-                    </div>
-                  </div>
-                  {active.status === "OPEN" ? (
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      style={{ fontSize: 11, padding: "6px 12px" }}
-                      onClick={closeThread}
-                    >
-                      Close question
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      style={{ fontSize: 11, padding: "6px 12px" }}
-                      onClick={() => deleteThread(active.id)}
-                    >
-                      Delete
-                    </button>
-                  )}
-                </div>
-
-                {activeMastery !== null && activeMastery !== undefined ? (
-                  <div className="eh-ai-banner">
-                    <div className="eh-ai-banner-inner">
-                      <span aria-hidden style={{ fontSize: 12, color: "var(--color-ai)" }}>
-                        ◈
-                      </span>
-                      <div className="eh-ai-banner-text">
-                        <strong>AI Context:</strong> {active.topicTitle} mastery{" "}
-                        {Math.round(activeMastery.ewa * 100)}% ({activeStrength}) ·{" "}
-                        {activeMastery.n} session
-                        {activeMastery.n === 1 ? "" : "s"} answered · the AI tutor uses
-                        this to calibrate the depth of its reply.
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="eh-conv-body" ref={scrollRef}>
-                 <div className="eh-conv-inner">
-                  {active.messages.map((m, i) => {
-                    if (m.role === "user") {
-                      return (
-                        <div key={i} className="eh-msg-student">
-                          <div className="eh-msg-bubble eh-mb-student">
-                            {m.content}
-                          </div>
-                          <div className="eh-msg-meta">
-                            {user?.firstName ?? "You"} · {formatRelative(m.ts)}
-                          </div>
-                        </div>
-                      );
-                    }
-                    const last = i === active.messages.length - 1;
-                    const parsed = parseTutorReply(m.content);
-                    return (
-                      <div key={i} className="eh-msg-tutor">
-                        <div className="eh-tutor-badge">
-                          ◈ AI Tutor{streaming && last ? " · Streaming" : ""}
-                        </div>
-                        <div className="eh-msg-bubble eh-mb-tutor">
-                          {parsed.body || parsed.artifacts.length > 0 ? (
-                            <TutorBody reply={parsed} />
-                          ) : streaming && last ? (
-                            "…"
-                          ) : (
-                            ""
-                          )}
-                        </div>
-                        {/* Generative-UI follow-up chips — show only on the
-                            last assistant message and only after the model
-                            closed the <<FOLLOWUPS>> block. */}
-                        {last && parsed.followups.length > 0 ? (
-                          <TutorFollowups
-                            items={parsed.followups}
-                            disabled={streaming}
-                            onPick={(text) => sendMessage(text)}
-                          />
-                        ) : null}
-                        <div className="eh-msg-meta">
-                          AI Tutor · {formatRelative(m.ts)}
-                          {parsed.body && last && !streaming ? " · " : ""}
-                          {parsed.body && last && !streaming ? (
-                            <span style={{ color: "var(--color-green)" }}>
-                              ✓ Answered
-                            </span>
+                      <div className="vidya-experts__thread-top">
+                        <span className="vidya-experts__thread-title">
+                          {t.status === "OPEN" ? (
+                            <span className="vidya-experts__thread-dot" aria-hidden />
                           ) : null}
-                        </div>
-                      </div>
-                    );
-                  })}
-                 </div>
-                </div>
-
-                <form
-                  className="eh-input-bar"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const text = draft.trim();
-                    if (!text) return;
-                    setDraft("");
-                    sendMessage(text);
-                  }}
-                >
-                  <div className="eh-input-inner">
-                    <div className="eh-inp-av">{initial}</div>
-                    <div className="eh-inp-wrap">
-                      <textarea
-                        className="eh-inp-ta"
-                        rows={2}
-                        placeholder={
-                          streaming
-                            ? "Tutor is replying…"
-                            : "Ask a follow-up question or add more detail…"
-                        }
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        disabled={streaming}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            const text = draft.trim();
-                            if (!text) return;
-                            setDraft("");
-                            sendMessage(text);
-                          }
-                        }}
-                      />
-                      <div className="eh-inp-foot">
-                        <span className="eh-inp-hint">
-                          Enter to send · Shift+Enter for newline
+                          {t.title}
                         </span>
-                        <button
-                          type="submit"
-                          className="eh-inp-send"
-                          disabled={streaming || !draft.trim()}
-                        >
-                          Send
-                        </button>
+                        <span className="vidya-experts__thread-time">
+                          {timeAgo(t.updatedAt)}
+                        </span>
                       </div>
-                    </div>
-                  </div>
-                </form>
-              </>
+                      <div className="vidya-experts__thread-bottom">
+                        <span className="vidya-experts__thread-subject">
+                          {t.subjectName ?? "—"} · {t.topicTitle}
+                        </span>
+                        <ThreadStatusPill t={t} />
+                      </div>
+                    </button>
+                  </li>
+                );
+              })
             )}
-          </main>
+          </ul>
+        </aside>
 
-          {/* RIGHT — tutor card + AI context + related */}
-          <aside className="eh-right" aria-label="Tutor and context">
-            <div className="eh-tcard">
-              <div className="eh-card-eyebrow">
-                <span className="eh-card-eyebrow-glyph" aria-hidden>
-                  ◈
-                </span>
-                Answering this question
-              </div>
-              <div className="eh-tcard-top">
-                <div className="eh-tcard-av">◈</div>
+        {/* Right pane: thread view */}
+        <section className="vidya-experts__pane">
+          {active ? (
+            <>
+              <header className="vidya-experts__pane-head">
                 <div>
-                  <div className="eh-tcard-name">AI Tutor</div>
-                  <div className="eh-tcard-cred">
-                    Powered by Claude
-                    <br />
-                    Trained on the NEET / JEE / UPSC syllabus
+                  <div className="vidya-experts__pane-crumb">
+                    {(active.subjectName ?? "Subject").toUpperCase()} ·{" "}
+                    {active.topicTitle.toUpperCase()} · #{active.id.slice(-4)}
                   </div>
+                  <h2 className="vidya-experts__pane-title">{active.title}</h2>
                 </div>
-              </div>
-              <div className="eh-tcard-online">
-                <span className="live-dot" aria-hidden /> Online now
-              </div>
-              <div className="eh-tcard-stats">
-                <div className="eh-tcard-stat">
-                  <div className="eh-tcard-snum" style={{ color: "var(--color-green)" }}>
-                    24/7
-                  </div>
-                  <div className="eh-tcard-slbl">Availability</div>
+                <div className="vidya-experts__pane-actions">
+                  <ThreadStatusPill t={active} />
+                  <button className="vidya-experts__pane-menu" aria-label="More">
+                    ⋯
+                  </button>
                 </div>
-                <div className="eh-tcard-stat">
-                  <div className="eh-tcard-snum" style={{ color: "var(--color-ai)" }}>
-                    &lt;30s
-                  </div>
-                  <div className="eh-tcard-slbl">First token</div>
-                </div>
-                <div className="eh-tcard-stat">
-                  <div className="eh-tcard-snum" style={{ color: "var(--color-blue)" }}>
-                    Streamed
-                  </div>
-                  <div className="eh-tcard-slbl">Live replies</div>
-                </div>
-                <div className="eh-tcard-stat">
-                  <div className="eh-tcard-snum" style={{ color: "var(--color-purple)" }}>
-                    P2
-                  </div>
-                  <div className="eh-tcard-slbl">Human review</div>
-                </div>
-              </div>
-              <div className="eh-sla">
-                Human-expert review lands in <strong>Phase 2</strong>
-              </div>
-            </div>
+              </header>
 
-            {active ? (
-              <>
-                <div className="eh-ctx-card">
-                  <div className="eh-ctx-ey">
-                    <span aria-hidden>◈</span>
-                    AI context · this question
-                  </div>
-                  <div className="eh-ctx-row">
-                    <div className="eh-ctx-lbl">Topic</div>
-                    <div className="eh-ctx-val">{active.topicTitle}</div>
-                  </div>
-                  {active.subjectName ? (
-                    <div className="eh-ctx-row">
-                      <div className="eh-ctx-lbl">Subject</div>
-                      <div className="eh-ctx-val">{active.subjectName}</div>
-                    </div>
-                  ) : null}
-                  <div className="eh-ctx-row">
-                    <div className="eh-ctx-lbl">Topic mastery</div>
-                    <div
-                      className="eh-ctx-val"
-                      style={{
-                        color: activeMastery
-                          ? activeMastery.ewa >= 0.7
-                            ? "var(--color-green)"
-                            : activeMastery.ewa >= 0.4
-                              ? "var(--color-blue)"
-                              : "var(--color-red)"
-                          : "var(--text-faint)",
-                      }}
-                    >
-                      {activeMastery
-                        ? `${Math.round(activeMastery.ewa * 100)}% · ${activeStrength}`
-                        : "Not started"}
-                    </div>
-                  </div>
-                  <div className="eh-ctx-row">
-                    <div className="eh-ctx-lbl">Sessions</div>
-                    <div className="eh-ctx-val">{activeMastery?.n ?? 0}</div>
-                  </div>
-                  <div className="eh-ctx-row">
-                    <div className="eh-ctx-lbl">Status</div>
-                    <div
-                      className="eh-ctx-val"
-                      style={{
-                        color:
-                          active.status === "OPEN"
-                            ? "var(--color-amber)"
-                            : "var(--color-green)",
-                      }}
-                    >
-                      {active.status}
-                    </div>
-                  </div>
-                </div>
-
-                {related.length > 0 ? (
-                  <div className="eh-related-card">
-                    <div className="eh-card-eyebrow">
-                      <span className="eh-card-eyebrow-glyph" aria-hidden>
+              <div className="vidya-experts__transcript">
+                {active.messages.map((m, i) => (
+                  <div
+                    key={i}
+                    className={`vidya-msg vidya-msg--${m.role}`}
+                  >
+                    {m.role === "user" ? (
+                      <span className="vidya-msg__avatar">AS</span>
+                    ) : (
+                      <span className="vidya-msg__avatar vidya-msg__avatar--ai" aria-hidden>
                         ◈
                       </span>
-                      Related questions
-                    </div>
-                    <div className="eh-rel-list">
-                      {related.map((r) => (
-                        <button
-                          key={r.id}
-                          type="button"
-                          className="eh-rel"
-                          onClick={() => setActiveId(r.id)}
-                        >
-                          <div className="eh-rel-q">{r.title}</div>
-                          <div className="eh-rel-meta">
-                            <Pill tone={r.status === "OPEN" ? "warning" : "success"}>
-                              {r.status}
-                            </Pill>
-                            <span>
-                              AI Tutor · {formatRelative(r.updatedAt)}
-                            </span>
-                          </div>
-                        </button>
-                      ))}
+                    )}
+                    <div className="vidya-msg__body">
+                      <div className="vidya-msg__meta">
+                        <span className="vidya-msg__from">
+                          {m.role === "user" ? "You" : "Vidya AI · draft answer"}
+                        </span>
+                        <span className="vidya-msg__time">
+                          {timeAgo(m.ts)}
+                          {m.role === "assistant" && active.status === "AI_DRAFTED"
+                            ? " · awaiting expert verification"
+                            : ""}
+                        </span>
+                      </div>
+                      <div
+                        className={`vidya-msg__content${m.role === "assistant" ? " vidya-msg__content--ai" : ""}`}
+                      >
+                        {renderMessage(m.content)}
+                      </div>
                     </div>
                   </div>
+                ))}
+
+                {active.attachments?.length ? (
+                  <div className="vidya-msg__attach">
+                    {active.attachments.map((a) => (
+                      <span key={a.name} className="vidya-msg__attach-chip">
+                        <span className="vidya-msg__attach-icon" aria-hidden>
+                          📎
+                        </span>
+                        <span>
+                          <strong>{a.name}</strong>
+                          <span> {a.sizeKb} KB</span>
+                        </span>
+                      </span>
+                    ))}
+                  </div>
                 ) : null}
-              </>
-            ) : null}
-          </aside>
-        </div>
+              </div>
 
-        {composerOpen ? (
-          <NewQuestionModal
-            exams={exams}
-            subjects={subjects}
-            topics={topics}
-            mastery={mastery}
-            onClose={() => setComposerOpen(false)}
-            onSubmit={startThread}
-          />
-        ) : null}
+              <div className="vidya-experts__feedback-row">
+                <button className="vidya-experts__fb">Helpful</button>
+                <button className="vidya-experts__fb">Need more</button>
+                <button className="vidya-experts__fb">Ask follow-up</button>
+              </div>
+
+              <form className="vidya-experts__composer" onSubmit={sendReply}>
+                <textarea
+                  className="vidya-experts__composer-input"
+                  placeholder="Reply or ask a follow-up…"
+                  value={reply}
+                  onChange={(e) => setReply(e.target.value)}
+                  rows={3}
+                />
+                <div className="vidya-experts__composer-row">
+                  <div className="vidya-experts__composer-attach">
+                    <button type="button" aria-label="Attach photo">↑</button>
+                    <button type="button" aria-label="Attach link">∞</button>
+                  </div>
+                  <button
+                    type="submit"
+                    className="vidya-shell__primary"
+                    disabled={!reply.trim()}
+                  >
+                    ➤ Send to expert
+                  </button>
+                </div>
+              </form>
+            </>
+          ) : (
+            <div className="vidya-experts__empty">
+              Pick a thread on the left to view the conversation.
+            </div>
+          )}
+        </section>
       </div>
-    </AppShell>
+    </VidyaShell>
   );
 }
 
-// ── New-question modal ────────────────────────────────────────────────────
-function NewQuestionModal({
-  exams,
-  subjects,
-  topics,
-  mastery,
-  onClose,
-  onSubmit,
-}: {
-  exams: ExamMeta[];
-  subjects: SubjectMeta[];
-  topics: TopicMeta[];
-  mastery: Map<string, { ewa: number; n: number }>;
-  onClose: () => void;
-  onSubmit: (args: { topicId: string; initialQuestion: string }) => Promise<void>;
-}) {
-  // Default to the topic the learner has answered most recently, otherwise
-  // the first topic in the catalog. This means the Most Likely thing they
-  // want to ask about is preselected.
-  const recentTopicId = useMemo(() => {
-    let best: { id: string; n: number } | null = null;
-    mastery.forEach((v, k) => {
-      if (!best || v.n > best.n) best = { id: k, n: v.n };
-    });
-    return best ? (best as { id: string; n: number }).id : null;
-  }, [mastery]);
-
-  const [examId, setExamId] = useState<string>(exams[0]?.id ?? "");
-  const [subjectId, setSubjectId] = useState<string>("");
-  const [topicId, setTopicId] = useState<string>(recentTopicId ?? "");
-  const [question, setQuestion] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  // When examId changes, reset subject + topic.
-  useEffect(() => {
-    if (!examId) return;
-    const subs = subjects.filter((s) => s.examId === examId);
-    if (subs.length > 0 && !subs.find((s) => s.id === subjectId)) {
-      setSubjectId(subs[0].id);
-    }
-  }, [examId, subjects, subjectId]);
-
-  useEffect(() => {
-    if (!subjectId) return;
-    const ts = topics.filter((t) => t.subjectId === subjectId);
-    if (ts.length > 0 && !ts.find((t) => t.id === topicId)) {
-      setTopicId(ts[0].id);
-    }
-  }, [subjectId, topics, topicId]);
-
-  const examSubjects = subjects.filter((s) => s.examId === examId);
-  const subjectTopics = topics.filter((t) => t.subjectId === subjectId);
-  const canSubmit = !!topicId && question.trim().length >= 8 && !submitting;
-
+function ThreadStatusPill({ t }: { t: Thread }) {
+  if (t.status === "ANSWERED") {
+    return (
+      <span className="vidya-experts__pill vidya-experts__pill--mute">
+        {t.expert ? t.expert : "Resolved"}
+      </span>
+    );
+  }
+  if (t.status === "AI_DRAFTED") {
+    return (
+      <span className="vidya-experts__pill vidya-experts__pill--gold">
+        ◆ AI drafted · awaiting expert
+      </span>
+    );
+  }
   return (
-    <div className="eh-modal-back" onClick={onClose}>
-      <div className="eh-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="eh-modal-title">Ask a question</div>
-        <div className="eh-modal-sub">
-          Pick the topic this question belongs to so the AI tutor can use your
-          mastery context to calibrate its reply.
-        </div>
-
-        <div className="eh-modal-label">Exam</div>
-        <select
-          className="eh-modal-select"
-          value={examId}
-          onChange={(e) => setExamId(e.target.value)}
-        >
-          {exams.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
-          ))}
-        </select>
-
-        <div className="eh-modal-label">Subject</div>
-        <select
-          className="eh-modal-select"
-          value={subjectId}
-          onChange={(e) => setSubjectId(e.target.value)}
-        >
-          {examSubjects.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-
-        <div className="eh-modal-label">Topic</div>
-        <select
-          className="eh-modal-select"
-          value={topicId}
-          onChange={(e) => setTopicId(e.target.value)}
-        >
-          {subjectTopics.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.title}
-            </option>
-          ))}
-        </select>
-
-        <div className="eh-modal-label">Your question</div>
-        <textarea
-          className="eh-modal-textarea"
-          rows={5}
-          placeholder="e.g. In SN2 reactions, why does backside attack cause Walden inversion of configuration?"
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-        />
-
-        <div className="eh-modal-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn-ai"
-            disabled={!canSubmit}
-            style={{ opacity: canSubmit ? 1 : 0.5 }}
-            onClick={async () => {
-              if (!canSubmit) return;
-              setSubmitting(true);
-              try {
-                await onSubmit({ topicId, initialQuestion: question.trim() });
-              } finally {
-                setSubmitting(false);
-              }
-            }}
-          >
-            {submitting ? "Sending…" : "Ask AI Tutor →"}
-          </button>
-        </div>
-      </div>
-    </div>
+    <span className="vidya-experts__pill vidya-experts__pill--accent">
+      AI draft ready
+    </span>
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────
-function storageKey(userId: string) {
-  return `alp.experts.threads.${userId}`;
+function timeAgo(iso: string): string {
+  try {
+    const ms = Date.now() - Date.parse(iso);
+    if (Number.isNaN(ms)) return "";
+    const min = Math.round(ms / 60000);
+    if (min < 1) return "now";
+    if (min < 60) return `${min}m`;
+    const h = Math.round(min / 60);
+    if (h < 24) return `${h}h`;
+    const d = Math.round(h / 24);
+    return `${d}d`;
+  } catch {
+    return "";
+  }
 }
 
-function deriveTitle(question: string, fallback: string): string {
-  // First sentence up to ~70 chars; fall back to the topic title.
-  const trimmed = question.trim();
-  const stop = trimmed.search(/[.?\n]/);
-  const candidate = (stop > 0 ? trimmed.slice(0, stop) : trimmed).trim();
-  if (candidate.length === 0) return fallback;
-  return candidate.length > 70 ? candidate.slice(0, 67) + "…" : candidate;
+/** Render plain text with simple bullet support (•/- prefix → <li>). */
+function renderMessage(text: string): React.ReactNode {
+  const lines = text.split("\n");
+  const out: React.ReactNode[] = [];
+  let bullets: string[] = [];
+  const flushBullets = (key: string) => {
+    if (!bullets.length) return;
+    out.push(
+      <ul key={`b-${key}`} className="vidya-msg__bullets">
+        {bullets.map((b, i) => (
+          <li key={i}>{b}</li>
+        ))}
+      </ul>,
+    );
+    bullets = [];
+  };
+  lines.forEach((raw, i) => {
+    const line = raw.trimEnd();
+    if (line.startsWith("• ") || line.startsWith("- ")) {
+      bullets.push(line.slice(2));
+    } else if (line) {
+      flushBullets(`${i}`);
+      out.push(
+        <p key={i} className="vidya-msg__p">
+          {line}
+        </p>,
+      );
+    }
+  });
+  flushBullets("end");
+  return out;
 }
 
-function formatRelative(iso: string): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "recently";
-  const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
-  if (sec < 60) return "just now";
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min} min ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const d = Math.floor(hr / 24);
-  if (d === 1) return "yesterday";
-  if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
+/* ── Mock data — used when /doubts returns empty, so the design
+   surface is walkable on a fresh student account. ───────────── */
+
+const NOW = Date.now();
+const MOCK_THREADS: Thread[] = [
+  {
+    id: "doubt-4821",
+    topicId: "rotational-motion",
+    topicTitle: "Rotational motion",
+    subjectName: "Physics",
+    title: "Why is angular momentum conserved here?",
+    status: "AI_DRAFTED",
+    createdAt: new Date(NOW - 14 * 60 * 1000).toISOString(),
+    updatedAt: new Date(NOW - 14 * 60 * 1000).toISOString(),
+    attachments: [{ name: "diagram-rotation.png", sizeKb: 178 }],
+    messages: [
+      {
+        role: "user",
+        ts: new Date(NOW - 14 * 60 * 1000).toISOString(),
+        content:
+          "In this problem (image attached) a particle slides down a frictionless rod attached to a freely rotating axis. The rotational KE clearly changes. So why is angular momentum still considered conserved? Aren't there internal forces doing work?",
+      },
+      {
+        role: "assistant",
+        ts: new Date(NOW - 12 * 60 * 1000).toISOString(),
+        content:
+          "Short answer: angular momentum is conserved because the net external torque about the axis is zero — not because no work is done.\n\nWhy energy can still change:\n• Conservation of L only requires τ_ext = 0.\n• Internal forces (constraint, normal) can change the moment of inertia I, so ω adjusts as L = Iω stays fixed.\n• That redistribution does work on the particle — hence rotational KE = L²/2I can vary as I varies.\n\nClassic example: an ice skater pulling in their arms. L is constant, KE goes up because muscles do internal work.",
+      },
+    ],
+  },
+  {
+    id: "doubt-4820",
+    topicId: "organic-chemistry",
+    topicTitle: "Organic",
+    subjectName: "Chemistry",
+    title: "Diff between SN1 and SN2 — solvent effect",
+    status: "ANSWERED",
+    createdAt: new Date(NOW - 2 * 3600 * 1000).toISOString(),
+    updatedAt: new Date(NOW - 2 * 3600 * 1000).toISOString(),
+    expert: "Dr. Mehta",
+    messages: [
+      {
+        role: "user",
+        ts: new Date(NOW - 2 * 3600 * 1000).toISOString(),
+        content: "Why does polar protic favor SN1 vs polar aprotic for SN2?",
+      },
+      {
+        role: "assistant",
+        ts: new Date(NOW - 1.8 * 3600 * 1000).toISOString(),
+        content: "Polar protic solvates the leaving group via H-bonding — stabilizes the carbocation in SN1. Polar aprotic leaves the nucleophile reactive but doesn't stabilize charges, favoring the concerted SN2.",
+      },
+    ],
+  },
+  {
+    id: "doubt-4819",
+    topicId: "cell-biology",
+    topicTitle: "Cell biology",
+    subjectName: "Biology",
+    title: "Cell cycle — G1 vs G0 distinction",
+    status: "OPEN",
+    createdAt: new Date(NOW - 1 * 86400 * 1000).toISOString(),
+    updatedAt: new Date(NOW - 1 * 86400 * 1000).toISOString(),
+    expert: "Anjali R.",
+    messages: [
+      {
+        role: "user",
+        ts: new Date(NOW - 1 * 86400 * 1000).toISOString(),
+        content: "When does a cell formally enter G0 vs being in extended G1?",
+      },
+    ],
+  },
+  {
+    id: "doubt-4818",
+    topicId: "waves",
+    topicTitle: "Waves",
+    subjectName: "Physics",
+    title: "Doppler effect — relative velocities sign",
+    status: "ANSWERED",
+    createdAt: new Date(NOW - 2 * 86400 * 1000).toISOString(),
+    updatedAt: new Date(NOW - 2 * 86400 * 1000).toISOString(),
+    expert: "Resolved",
+    messages: [],
+  },
+  {
+    id: "doubt-4817",
+    topicId: "organic",
+    topicTitle: "Organic",
+    subjectName: "Chemistry",
+    title: "Acid strength order — para vs meta",
+    status: "ANSWERED",
+    createdAt: new Date(NOW - 4 * 86400 * 1000).toISOString(),
+    updatedAt: new Date(NOW - 4 * 86400 * 1000).toISOString(),
+    expert: "Resolved",
+    messages: [],
+  },
+  {
+    id: "doubt-4816",
+    topicId: "plant-phys",
+    topicTitle: "Plant phys",
+    subjectName: "Biology",
+    title: "Photosynthesis — C3 vs C4 vs CAM",
+    status: "ANSWERED",
+    createdAt: new Date(NOW - 7 * 86400 * 1000).toISOString(),
+    updatedAt: new Date(NOW - 7 * 86400 * 1000).toISOString(),
+    expert: "Resolved",
+    messages: [],
+  },
+  {
+    id: "doubt-4815",
+    topicId: "gravitation",
+    topicTitle: "Gravitation",
+    subjectName: "Physics",
+    title: "Kepler's third law derivation",
+    status: "ANSWERED",
+    createdAt: new Date(NOW - 7 * 86400 * 1000).toISOString(),
+    updatedAt: new Date(NOW - 7 * 86400 * 1000).toISOString(),
+    expert: "Resolved",
+    messages: [],
+  },
+];

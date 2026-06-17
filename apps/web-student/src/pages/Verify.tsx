@@ -1,3 +1,17 @@
+// Verify — Vidya v1 redesign (OTP entry).
+//
+// Spec: docs/02-design/design-system/04_components.md
+//       + the 10-screen mockup set delivered with Vidya v1.
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
+//
+// Step indicator varies by entry point:
+//   • from /register → "SIGN UP · STEP 2 OF 3" (email verify)
+//   • from /forgot-password → "FORGOT PASSWORD · STEP 2 OF 3"
+//
+// The 6 OTP boxes accept paste (any 6-digit chunk fans out across
+// the cells) and auto-advance on each digit. Backspace on an empty
+// cell jumps to the previous one.
+
 import {
   useEffect,
   useRef,
@@ -9,8 +23,7 @@ import {
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { Banner } from "../components/dashboard";
-import "@alp/design-system/shell.css";
+import { VidyaAuthRail } from "./Login";
 
 const RESEND_COOLDOWN_S = 60;
 
@@ -21,12 +34,16 @@ export function Verify() {
 
   const userId = params.get("userId") ?? "";
   const email = params.get("email") ?? "";
-  const channel = (params.get("kind") as "email" | "sms") ?? "email";
+  const channel = (params.get("kind") as "email" | "sms" | "reset") ?? "email";
+  const eyebrow =
+    channel === "reset"
+      ? "Forgot password · Step 2 of 3"
+      : "Sign up · Step 2 of 3";
 
   const [digits, setDigits] = useState<string[]>(() => Array(6).fill(""));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN_S);
   const inputs = useRef<Array<HTMLInputElement | null>>(Array(6).fill(null));
 
   useEffect(() => {
@@ -35,22 +52,26 @@ export function Verify() {
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
-    const id = window.setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    const id = window.setTimeout(
+      () => setResendCooldown(resendCooldown - 1),
+      1000,
+    );
     return () => window.clearTimeout(id);
   }, [resendCooldown]);
 
-  if (!userId) {
+  if (!userId && channel !== "reset") {
     return (
-      <div className="auth-page">
-        <main className="auth-card">
-          <Banner tone="danger" role="alert">
-            Missing verification context.
-          </Banner>
-          <p className="auth-footer">
-            <Link to="/register" className="auth-link">
-              Start over
-            </Link>
-          </p>
+      <div className="vidya-auth">
+        <VidyaAuthRail />
+        <main className="vidya-auth__panel">
+          <div className="vidya-auth__form">
+            <div className="vidya-auth__error" role="alert">
+              <span>Missing verification context.</span>
+            </div>
+            <p className="vidya-auth__footer">
+              <Link to="/register">Start over →</Link>
+            </p>
+          </div>
         </main>
       </div>
     );
@@ -76,7 +97,10 @@ export function Verify() {
   }
 
   function onPaste(index: number, e: ClipboardEvent<HTMLInputElement>) {
-    const text = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6 - index);
+    const text = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, 6 - index);
     if (!text) return;
     e.preventDefault();
     const next = [...digits];
@@ -96,10 +120,17 @@ export function Verify() {
     setError(null);
     setSubmitting(true);
     try {
+      if (channel === "reset") {
+        // Reset flow: code verified → ResetPassword form (step 3 of 3)
+        navigate(`/reset-password?email=${encodeURIComponent(email)}&code=${code}`);
+        return;
+      }
       const session = await auth.verifyOtp(userId, code, channel);
       setUser(session.user);
       navigate(
-        session.user.onboardingState === "ONBOARDED" ? "/home" : "/onboarding/exam",
+        session.user.onboardingState === "ONBOARDED"
+          ? "/home"
+          : "/onboarding/exam",
         { replace: true },
       );
     } catch (err) {
@@ -125,31 +156,46 @@ export function Verify() {
     }
   }
 
+  const mm = String(Math.floor(resendCooldown / 60)).padStart(2, "0");
+  const ss = String(resendCooldown % 60).padStart(2, "0");
+
   return (
-    <div className="auth-page">
-      <main className="auth-card">
-        <Link to="/register" className="auth-back" aria-label="Back">
-          ‹ Back
-        </Link>
+    <div className="vidya-auth">
+      <VidyaAuthRail />
 
-        <h1 className="page-greeting" style={{ marginBottom: "var(--sp-1)" }}>
-          Verify your email
-        </h1>
-        <p className="page-subhead">
-          We sent a 6-digit code to <strong>{email || "your email"}</strong>.{" "}
-          <Link to="/register" className="auth-link">
-            Change
-          </Link>
-        </p>
+      <main className="vidya-auth__panel">
+        <form
+          onSubmit={submit}
+          className="vidya-auth__form"
+          aria-label="Verify code"
+          style={{ alignItems: "stretch" }}
+        >
+          <div className="vidya-auth__mobile-brand">
+            v<em>⌑</em>dya
+          </div>
 
-        {error ? (
-          <Banner tone="danger" role="alert">
-            {error}
-          </Banner>
-        ) : null}
+          <header>
+            <p className="vidya-auth__eyebrow">{eyebrow}</p>
+            <h1 className="vidya-auth__title">Check your inbox.</h1>
+            <p className="vidya-auth__subtitle">
+              We sent a 6-digit code to <strong>{email || "your email"}</strong>
+              .{" "}
+              <Link
+                to={channel === "reset" ? "/forgot-password" : "/register"}
+                style={{ color: "var(--accent)", textDecoration: "none" }}
+              >
+                Change {channel === "reset" ? "email" : "email"}
+              </Link>
+            </p>
+          </header>
 
-        <form onSubmit={submit} className="auth-form" aria-label="Verify">
-          <div className="otp-cells">
+          {error ? (
+            <div className="vidya-auth__error" role="alert">
+              <span>{error}</span>
+            </div>
+          ) : null}
+
+          <div className="vidya-otp">
             {digits.map((d, i) => (
               <input
                 key={i}
@@ -164,28 +210,27 @@ export function Verify() {
                 onChange={(e) => setDigit(i, e.target.value)}
                 onKeyDown={(e) => onKeyDown(i, e)}
                 onPaste={(e) => onPaste(i, e)}
-                className="otp-cell"
+                className="vidya-otp__box"
               />
             ))}
           </div>
 
-          <p style={{ fontSize: 13, textAlign: "center", color: "var(--text-secondary)", margin: 0 }}>
-            Didn't get it?{" "}
+          <p className="vidya-otp__resend">
             {resendCooldown > 0 ? (
-              <span style={{ color: "var(--text-muted)" }}>Resend in {resendCooldown}s</span>
+              <>Resend in {mm}:{ss}</>
             ) : (
-              <button type="button" onClick={resend} className="auth-link-button">
-                Resend
+              <button type="button" onClick={resend}>
+                Resend code
               </button>
             )}
           </p>
 
           <button
             type="submit"
-            className="btn btn-primary btn-block"
-            disabled={submitting}
+            className="vidya-auth__cta"
+            disabled={submitting || digits.join("").length !== 6}
           >
-            {submitting ? "Verifying…" : "Verify"}
+            {submitting ? "Verifying…" : "Verify code →"}
           </button>
         </form>
       </main>

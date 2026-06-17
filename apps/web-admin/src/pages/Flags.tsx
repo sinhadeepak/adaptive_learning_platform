@@ -1,20 +1,29 @@
+// Flags — Vidya v1 admin feature-flag console (mockup 2/29).
+//
+// Spec: docs/02-design/design-system/04_components.md
+//       + Vidya v1 admin mockup 2/29.
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
+//
+// Layout:
+//   topbar: FEATURE FLAGS crumb · "Feature flags" + count chips
+//   ┌─ explainer body
+//   ┌─ table: flag | default | overrides | owner | updated | action
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { flags, type FlagSummary } from "../lib/api";
-import { AppShell } from "../components/AppShell";
-import { Banner, BoolPill, SkeletonRows } from "../components/primitives";
+import { AdminShell } from "../components/AdminShell";
 
 export function Flags() {
   const [items, setItems] = useState<FlagSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [busyName, setBusyName] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
-    setError(null);
     try {
       setItems(await flags.list());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Load failed");
+      setError(e instanceof Error ? e.message : "Could not load flags");
     }
   }
 
@@ -45,95 +54,111 @@ export function Flags() {
     }
   }
 
+  const total = items?.length ?? 0;
   const danger = items?.filter((f) => f.dangerCritical).length ?? 0;
 
   return (
-    <AppShell
+    <AdminShell
+      crumbs="Feature flags"
       title="Feature flags"
       chips={
-        items
-          ? [
-              { label: `${items.length} total` },
-              ...(danger ? [{ label: `${danger} danger-critical` }] : []),
-            ]
-          : []
+        <>
+          <span className="vidya-shell__chip">{total} total</span>
+          {danger > 0 ? (
+            <span className="admin-pill admin-pill--bad">{danger} danger-critical</span>
+          ) : null}
+        </>
       }
     >
-      <p className="page-subhead">
+      {error ? (
+        <div className="vidya-auth__error" role="alert">
+          <span>{error}</span>
+        </div>
+      ) : null}
+
+      <p className="admin-lede">
         Each row is the platform-wide default. Click a flag name to set tenant
         overrides + see the audit trail. Writes emit a <code>flag.changed</code>{" "}
         NATS event so SDK caches invalidate within seconds.
       </p>
 
-      {error ? (
-        <Banner tone="danger" role="alert">
-          {error}
-        </Banner>
-      ) : null}
-
-      {items === null ? (
-        <SkeletonRows count={4} />
-      ) : items.length === 0 ? (
-        <div className="card empty-state">
-          <div className="empty-state-title">No flags</div>
-          <p>No flags registered yet.</p>
-        </div>
-      ) : (
-        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <table className="data-table">
-            <thead>
+      <section className="admin-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Flag</th>
+              <th>Default</th>
+              <th style={{ textAlign: "right" }}>Overrides</th>
+              <th>Owner</th>
+              <th>Updated</th>
+              <th style={{ textAlign: "right" }}>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items === null ? (
               <tr>
-                <th>Flag</th>
-                <th>Default</th>
-                <th>Overrides</th>
-                <th>Owner</th>
-                <th>Updated</th>
-                <th>Action</th>
+                <td colSpan={6} className="admin-table__empty">Loading flags…</td>
               </tr>
-            </thead>
-            <tbody>
-              {items.map((f) => (
+            ) : items.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="admin-table__empty">No flags registered yet.</td>
+              </tr>
+            ) : (
+              items.map((f) => (
                 <tr key={f.name}>
                   <td>
-                    <Link
-                      to={`/flags/${encodeURIComponent(f.name)}`}
-                      style={{ textDecoration: "none" }}
-                    >
-                      <code>{f.name}</code>
-                    </Link>
-                    {f.dangerCritical ? (
-                      <span className="danger-tag" style={{ marginLeft: 8 }}>
-                        ⚠ DANGER
-                      </span>
-                    ) : null}
+                    <div className="admin-flag__row">
+                      <Link to={`/flags/${f.name}`} className="admin-flag__name">
+                        {f.name}
+                      </Link>
+                      {f.dangerCritical ? (
+                        <span className="admin-pill admin-pill--bad">⚠ DANGER</span>
+                      ) : null}
+                    </div>
                     {f.description ? (
-                      <div className="meta" style={{ marginTop: 4 }}>{f.description}</div>
+                      <div className="admin-flag__desc">{f.description}</div>
                     ) : null}
                   </td>
                   <td>
-                    <BoolPill value={f.defaultValue} />
+                    <span
+                      className={`admin-pill ${f.defaultValue ? "admin-pill--good" : "admin-pill--mute"}`}
+                    >
+                      ● {f.defaultValue ? "ON" : "OFF"}
+                    </span>
                   </td>
-                  <td className="meta">{f.overrideCount}</td>
-                  <td className="meta">{f.owner ?? "—"}</td>
-                  <td className="meta">
-                    {new Date(f.updatedAt).toLocaleString()}
+                  <td style={{ textAlign: "right" }} className="admin-mono">
+                    {f.overrideCount}
                   </td>
-                  <td>
+                  <td className="admin-mono-sm">{f.owner ?? "—"}</td>
+                  <td className="admin-mono-sm">
+                    {new Date(f.updatedAt).toLocaleString(undefined, {
+                      month: "numeric",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      second: "2-digit",
+                      hour12: true,
+                    })}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
                     <button
                       type="button"
-                      onClick={() => void toggle(f)}
+                      className="admin-btn"
                       disabled={busyName === f.name}
-                      className="btn btn-ghost"
+                      onClick={() => void toggle(f)}
                     >
-                      {busyName === f.name ? "…" : `Set ${(!f.defaultValue).toString().toUpperCase()}`}
+                      {busyName === f.name
+                        ? "…"
+                        : `Set ${(!f.defaultValue).toString().toUpperCase()}`}
                     </button>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </AppShell>
+              ))
+            )}
+          </tbody>
+        </table>
+      </section>
+    </AdminShell>
   );
 }

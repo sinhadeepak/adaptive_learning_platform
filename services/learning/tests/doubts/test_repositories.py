@@ -34,7 +34,7 @@ from learning.doubts.repositories import (
 
 os.environ.setdefault(
     "DOUBTS_DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:35432/doubts",
+    "postgresql+asyncpg://postgres:postgres@localhost:35432/learning_test",
 )
 
 pytestmark = pytest.mark.asyncio

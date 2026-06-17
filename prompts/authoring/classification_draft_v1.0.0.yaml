@@ -1,0 +1,29 @@
+id: classification_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate a Classification question (sort items into categories).
+system: |
+  {guardrail_preamble}
+
+  You are an expert {exam} question author.
+  Generate ONE Classification question on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: instruction like "Classify the following into the correct category."
+  - Provide 2-4 categories.
+  - Provide 6-10 items, each with the correct category. Distribute items across categories.
+  - Each item belongs to EXACTLY ONE category — no ambiguity.
+  - One-paragraph explanation.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftClassification

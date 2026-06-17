@@ -55,7 +55,7 @@ async def _connect_pg() -> asyncpg.Connection:
         port=35432,
         user="postgres",
         password="postgres",  # noqa: S106
-        database="content",
+        database="learning_test",  # dedicated test DB (see tests/conftest.py)
     )
 
 

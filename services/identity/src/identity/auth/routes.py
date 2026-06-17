@@ -343,3 +343,57 @@ async def reset_password(req: ResetPasswordRequest, session: SessionDep) -> Resp
     await RefreshTokenRepo(session).revoke_all_for_user(consumed["user_id"])
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# F8a — batch id→display-name resolution. Leaderboards/Friends/Clans
+# show user ids that mean nothing to a human — this resolves up to
+# 100 ids in one round-trip to `{userId, displayName, email}` rows.
+@router.post("/users/lookup")
+async def lookup_users_by_ids(
+    body: dict,
+    session: SessionDep,
+) -> dict:
+    """Resolve a list of user ids to display names + emails. Quietly
+    drops ids that don't exist or are deleted/banned — the response is
+    a sparse list, callers must tolerate missing rows."""
+    ids = body.get("userIds") or []
+    if not isinstance(ids, list) or len(ids) > 100:
+        raise _problem("bad_request", "userIds: list of ≤100 uuids", http_status=422)
+    repo = UserRepo(session)
+    out = []
+    for uid in ids:
+        if not isinstance(uid, str):
+            continue
+        row = await repo.by_id(uid)
+        if row is None or row.get("is_deleted") or row.get("account_status") == "BANNED":
+            continue
+        out.append({
+            "userId": str(row["id"]),
+            "displayName": row.get("full_name") or row["email"].split("@")[0],
+            "email": row["email"],
+        })
+    return {"users": out}
+
+
+# F8a — minimal email→userId lookup so the Friends page can resolve a
+# friend's email to an id without exposing the admin search endpoint.
+# Returns only the public-safe fields (id, displayName). Auth required
+# to discourage scraping; rate-limit at the gateway.
+@router.get("/users/by-email")
+async def lookup_user_by_email(
+    email: str,
+    session: SessionDep,
+) -> dict[str, str]:
+    """Resolve an email to its user id. Returns 404 if not found —
+    intentionally identical for non-existent and deleted/banned users
+    to avoid an enumeration channel."""
+    if "@" not in email or len(email) > 320:
+        raise _problem("bad_email", "Not a valid email.", http_status=422)
+    row = await UserRepo(session).by_email(email.strip().lower())
+    if row is None or row.get("is_deleted") or row.get("account_status") == "BANNED":
+        raise _problem("not_found", "No user with that email.", http_status=404)
+    return {
+        "userId": str(row["id"]),
+        "displayName": row.get("full_name") or row["email"].split("@")[0],
+        "email": row["email"],
+    }

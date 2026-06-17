@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 
 // Leaderboard / Rank — React port of
 // docs/ui/01_StudentPortal_Web/12_leaderboard.html.
@@ -26,12 +26,20 @@ interface Profile {
   exams: Array<{ examId: string; targetDate: string | null }>;
 }
 interface ExamMeta { id: string; code: string; name: string; }
-interface ReadinessResponse { score: number; nTopics: number; updatedAt: string | null; }
+interface ReadinessResponse {
+  score: number;
+  nTopics: number;
+  updatedAt: string | null;
+  // TODO(phase2): backend fields per spec — currently optional fallback
+  predictedAir?: number;
+  percentileSource?: "cohort" | "fallback";
+  cohortSize?: number;
+}
 interface MasteryListResponse { topics: Array<{ topicId: string; ewa: number; n: number }>; }
 interface StreakResponse { currentStreak: number; longestStreak: number; lastActiveDate: string | null; }
 
 type Period = "weekly" | "monthly" | "all";
-type Scope = "institute" | "global";
+type Scope = "institute" | "cohort" | "global";
 
 interface DemoStudent {
   id: string;
@@ -62,19 +70,19 @@ const DEMO_PEERS: Omit<DemoStudent, "isYou">[] = [
 ];
 
 const TONE_GRADIENTS: Record<DemoStudent["avatarTone"], string> = {
-  amber: "linear-gradient(135deg, var(--color-amber), #FF8C42)",
-  cyan: "linear-gradient(135deg, var(--color-ai), #1A8F8F)",
-  blue: "linear-gradient(135deg, var(--color-blue), #3D6FE0)",
-  purple: "linear-gradient(135deg, var(--color-purple), #6B4F9A)",
-  red: "linear-gradient(135deg, var(--color-red), #C73478)",
-  green: "linear-gradient(135deg, var(--color-green), #068852)",
+  amber: "linear-gradient(135deg, var(--warn), #FF8C42)",
+  cyan: "linear-gradient(135deg, var(--gold), #1A8F8F)",
+  blue: "linear-gradient(135deg, var(--info), #3D6FE0)",
+  purple: "linear-gradient(135deg, var(--accent), #6B4F9A)",
+  red: "linear-gradient(135deg, var(--bad), #C73478)",
+  green: "linear-gradient(135deg, var(--good), #068852)",
   muted: "linear-gradient(135deg, #4A5580, #2E3A5A)",
 };
 
 const POD_TONES = {
-  gold: { bg: "rgba(245,166,35,0.16)", text: "var(--color-amber)", grad: "linear-gradient(135deg, var(--color-amber), #FF8C42)" },
-  silver: { bg: "rgba(160,168,184,0.14)", text: "#A0A8B8", grad: "linear-gradient(135deg, #A0A8B8, #8898C0)" },
-  bronze: { bg: "rgba(201,123,62,0.12)", text: "#C97B3E", grad: "linear-gradient(135deg, #C97B3E, #A05A28)" },
+  gold: { bg: "rgba(245,166,35,0.16)", text: "var(--warn)", grad: "linear-gradient(135deg, var(--warn), #FF8C42)" },
+  silver: { bg: "rgba(160,168,184,0.14)", text: "var(--ink-3)", grad: "linear-gradient(135deg, var(--ink-3), var(--ink-4))" },
+  bronze: { bg: "rgba(201,123,62,0.12)", text: "var(--gold)", grad: "linear-gradient(135deg, var(--gold), var(--warn))" },
 };
 
 export function Rank() {
@@ -148,10 +156,6 @@ export function Rank() {
   const meanEwa = tested.length > 0 ? tested.reduce((s, t) => s + t.ewa, 0) / tested.length : 0;
   const theta = +(meanEwa * 4 - 2).toFixed(2);
 
-  const activeExam = activeExamId
-    ? exams.find((e) => e.id === activeExamId) ?? null
-    : null;
-
   // Build the cohort (peers + you). Insert "you" at the right position by
   // readiness so the rank reflects your actual standing.
   const cohort = useMemo<DemoStudent[]>(() => {
@@ -201,175 +205,412 @@ export function Rank() {
     return { peer: aboveYou, gap, weeks: Math.max(1, Math.round(days / 7)) };
   })();
 
+  // Predicted AIR derived from readiness + cohort position (Phase 1 proxy).
+  // Phase 2: replace with real AIR from analytics backend.
+  const predictedAir = youReadinessPct > 0
+    ? Math.round(1_000_000 * (1 - youReadinessPct / 100) * 0.85 + youRank * 120)
+    : null;
+
   return (
-    <AppShell
-      title="Leaderboard"
-      chips={[
-        { label: "Live · updates hourly", live: true },
-        { label: `${cohort.length} students · ${scope === "institute" ? "Institute" : "Global"}` },
-      ]}
-    >
-      <nav className="rank-filter-bar" aria-label="Leaderboard filters">
-        <div className="rank-scope-tabs">
+    <VidyaShell
+      crumbs="COMPETE · PREDICTED AIR"
+      title="Your predicted rank"
+      chips={
+        <>
+          {exams.map((ex) => (
+            <button
+              key={ex.id}
+              type="button"
+              className={`vidya-shell__chip${ex.id === activeExamId ? " vidya-shell__chip--on" : ""}`}
+              onClick={() => setActiveExamId(ex.id)}
+            >
+              {ex.code || ex.name}
+            </button>
+          ))}
+        </>
+      }
+      actions={
+        <>
           <button
             type="button"
-            className={`rank-st ${scope === "institute" ? "is-active" : ""}`}
+            className={`vidya-shell__chip${period === "weekly" ? " vidya-shell__chip--on" : ""}`}
+            onClick={() => setPeriod("weekly")}
+          >
+            Weekly
+          </button>
+          <button
+            type="button"
+            className={`vidya-shell__chip${period === "monthly" ? " vidya-shell__chip--on" : ""}`}
+            onClick={() => setPeriod("monthly")}
+          >
+            Monthly
+          </button>
+          <button
+            type="button"
+            className={`vidya-shell__chip${period === "all" ? " vidya-shell__chip--on" : ""}`}
+            onClick={() => setPeriod("all")}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            className={`vidya-shell__chip${scope === "institute" ? " vidya-shell__chip--on" : ""}`}
             onClick={() => setScope("institute")}
           >
             Institute
           </button>
           <button
             type="button"
-            className={`rank-st ${scope === "global" ? "is-active" : ""}`}
+            className={`vidya-shell__chip${scope === "cohort" ? " vidya-shell__chip--on" : ""}`}
+            onClick={() => setScope("cohort")}
+          >
+            Cohort
+          </button>
+          <button
+            type="button"
+            className={`vidya-shell__chip${scope === "global" ? " vidya-shell__chip--on" : ""}`}
             onClick={() => setScope("global")}
           >
             Global
           </button>
-        </div>
-        <div className="rank-vsep" />
-        <div className="rank-period-tabs">
-          {(["weekly", "monthly", "all"] as const).map((p) => (
-            <button
-              key={p}
-              type="button"
-              className={`rank-pt ${period === p ? "is-active" : ""}`}
-              onClick={() => setPeriod(p)}
-            >
-              {p === "weekly" ? "Weekly" : p === "monthly" ? "Monthly" : "All time"}
-            </button>
-          ))}
-        </div>
-        <div className="rank-exam-sel">
-          {activeExam?.name ?? "All exams"} ▾
-        </div>
-      </nav>
-
-      <div className="rank-demo-banner">
+        </>
+      }
+    >
+      {/* Demo cohort banner */}
+      <div
+        role="status"
+        aria-live="polite"
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "var(--sp-2)",
+          padding: "var(--sp-3) var(--sp-4)",
+          marginBottom: "var(--sp-4)",
+          background: "rgba(79,135,246,0.08)",
+          border: "1px solid rgba(79,135,246,0.18)",
+          borderRadius: "var(--r-md)",
+          fontSize: 12,
+          color: "var(--ink-2)",
+        }}
+      >
         <span aria-hidden>◈</span>
         <span>
-          <strong>Demo cohort</strong> — peer numbers below are synthesised for
-          design preview. Institutional roster + nightly rank snapshots land in
-          Phase 2. Your own readiness, streak, and mastery are real.
+          <strong>Demo cohort</strong> — peer numbers below are synthesised for design preview.
+          Institutional roster + nightly rank snapshots land in Phase 2. Your own readiness,
+          streak, and mastery are real.
         </span>
       </div>
 
-      <div className="rank-body">
-        <div>
-          {/* Podium */}
-          <section className="rank-podium-card" aria-label="Top three">
-            <div className="rank-podium-row">
-              <Podium student={top3[1]} place={2} tone={POD_TONES.silver} avSize={48} baseHeight={64} />
-              <Podium student={top3[0]} place={1} tone={POD_TONES.gold} avSize={62} baseHeight={92} crown />
-              <Podium student={top3[2]} place={3} tone={POD_TONES.bronze} avSize={42} baseHeight={48} />
+      {/* HERO — predicted AIR + readiness + trajectory + source pill */}
+      <section className="vidya-heat-card">
+        <div className="vidya-heat-card__head">
+          <div>
+            <div className="vidya-heat-card__eyebrow">
+              Predicted AIR · {readiness?.percentileSource ?? "fallback"}
+              {readiness?.cohortSize != null
+                ? ` · cohort ${readiness.cohortSize}`
+                : ` · cohort ${cohort.length}`}
             </div>
-          </section>
-
-          {/* Your rank highlight (only when you're not on the podium) */}
-          {!youInTop3 ? (
-            <div className="rank-you-card">
-              <div className="rank-yc-rank">
-                <div className="rank-yc-rank-num">{youRank > 0 ? youRank : "—"}</div>
-                <div className="rank-yc-rank-lbl">RANK</div>
-              </div>
-              <div className="rank-yc-av">{initial}</div>
-              <div className="rank-yc-info">
-                <div className="rank-yc-name">{youName}</div>
-                <div className="rank-yc-meta">
-                  {streak && streak.currentStreak >= 1 ? (
-                    <span style={{ color: "var(--color-green)", fontWeight: 700 }}>
-                      ↑ Top {Math.max(1, Math.round((youRank / cohort.length) * 100))}% of cohort
-                    </span>
-                  ) : (
-                    <span>Top {Math.max(1, Math.round((youRank / cohort.length) * 100))}% of cohort</span>
-                  )}
-                  <span>·</span>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: "var(--color-ai)",
-                      background: "rgba(34,212,238,0.10)",
-                      border: "1px solid rgba(34,212,238,0.22)",
-                      borderRadius: 20,
-                      padding: "1px 8px",
-                    }}
-                  >
-                    θ {theta >= 0 ? `+${theta.toFixed(2)}` : theta.toFixed(2)}
-                  </span>
-                  {streak && streak.currentStreak > 0 ? (
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        color: "var(--color-amber)",
-                        background: "rgba(245,166,35,0.12)",
-                        border: "1px solid rgba(245,166,35,0.22)",
-                        borderRadius: 20,
-                        padding: "1px 8px",
-                      }}
-                    >
-                      🔥 {streak.currentStreak}d streak
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-              <div className="rank-yc-right">
-                <div className="rank-yc-score">{youReadinessPct.toFixed(1)}</div>
-                <div className="rank-yc-slbl">readiness score</div>
-              </div>
+            <div className="vidya-heat-card__title">
+              {readiness?.predictedAir != null
+                ? `AIR ~${readiness.predictedAir.toLocaleString()}`
+                : predictedAir != null
+                  ? `AIR ~${predictedAir.toLocaleString()}`
+                  : "—"}
             </div>
-          ) : null}
-
-          {/* Header row */}
-          <div className="rank-list-head">
-            <span>#</span>
-            <span></span>
-            <span>Student</span>
-            <span>Progress</span>
-            <span style={{ textAlign: "right" }}>Score</span>
-            <span style={{ textAlign: "right" }}>Wk</span>
-            <span></span>
           </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Readiness
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 28,
+                fontWeight: 700,
+                color: youReadinessPct >= 80 ? "var(--good)" : youReadinessPct >= 60 ? "var(--info)" : "var(--ink-2)",
+                fontFeatureSettings: '"tnum"',
+                lineHeight: 1,
+              }}
+            >
+              {youReadinessPct > 0 ? `${youReadinessPct.toFixed(1)}%` : "—"}
+            </div>
+          </div>
+        </div>
 
-          {/* Rows */}
-          {(showAll ? rest : rest.slice(0, 7)).map((s, i) => {
-            const place = i + 4;
-            const deltaColor =
-              s.delta > 0
-                ? "var(--color-green)"
-                : s.delta < 0
-                  ? "var(--color-red)"
-                  : "var(--text-faint)";
-            const moveColor =
-              s.movement > 0
-                ? "var(--color-green)"
-                : s.movement < 0
-                  ? "var(--color-red)"
-                  : "var(--text-faint)";
-            const moveSym =
-              s.movement > 0
-                ? `↑${s.movement}`
-                : s.movement < 0
-                  ? `↓${Math.abs(s.movement)}`
-                  : "→";
-            const scoreColor =
-              s.readiness >= 80
-                ? "var(--color-green)"
-                : s.readiness >= 60
-                  ? "var(--color-blue)"
-                  : "var(--text-secondary)";
-            return (
-              <div key={s.id} className={`rank-row${s.isYou ? " is-you" : ""}`}>
-                <div className="rank-row-pos">{place}</div>
+        {/* Trajectory + supporting copy */}
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-4)", marginTop: "var(--sp-4)", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-2)" }}>
+            <span style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Cohort rank
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontWeight: 700,
+                color: "var(--accent)",
+                fontSize: 18,
+              }}
+            >
+              {youRank > 0 ? `#${youRank}` : "—"}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-2)" }}>
+            <span style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              θ score
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontWeight: 700,
+                color: "var(--gold)",
+                fontSize: 15,
+                background: "rgba(34,212,238,0.10)",
+                border: "1px solid rgba(34,212,238,0.22)",
+                borderRadius: 20,
+                padding: "1px 8px",
+              }}
+            >
+              {theta >= 0 ? `+${theta.toFixed(2)}` : theta.toFixed(2)}
+            </span>
+          </div>
+          {streak && streak.currentStreak > 0 ? (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--warn)",
+                background: "rgba(245,166,35,0.12)",
+                border: "1px solid rgba(245,166,35,0.22)",
+                borderRadius: 20,
+                padding: "2px 10px",
+              }}
+            >
+              🔥 {streak.currentStreak}d streak
+            </span>
+          ) : null}
+          {tested.length === 0 ? (
+            <span style={{ fontSize: 12, color: "var(--ink-3)" }}>
+              Run your first practice round to unlock trajectory analysis.
+            </span>
+          ) : climbInsight ? (
+            <span style={{ fontSize: 12, color: "var(--ink-2)" }}>
+              Gap to <strong>{climbInsight.peer.name}</strong>:{" "}
+              <strong style={{ color: "var(--warn)" }}>{climbInsight.gap} pts</strong>{" "}
+              — closeable in ~{climbInsight.weeks} week{climbInsight.weeks === 1 ? "" : "s"} at current velocity.
+            </span>
+          ) : null}
+        </div>
+      </section>
+
+      {/* PODIUM */}
+      <section className="vidya-card-block" aria-label="Top three in scope">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">Top 3 in scope</h2>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "flex-end",
+            gap: "var(--sp-6)",
+            padding: "var(--sp-4) 0 var(--sp-2)",
+          }}
+        >
+          <Podium student={top3[1]} place={2} tone={POD_TONES.silver} avSize={48} baseHeight={64} />
+          <Podium student={top3[0]} place={1} tone={POD_TONES.gold} avSize={62} baseHeight={92} crown />
+          <Podium student={top3[2]} place={3} tone={POD_TONES.bronze} avSize={42} baseHeight={48} />
+        </div>
+      </section>
+
+      {/* YOUR RANK HIGHLIGHT — only when not on podium */}
+      {!youInTop3 ? (
+        <section className="vidya-card-block" aria-label="Your rank">
+          <div className="vidya-card-block__head">
+            <h2 className="vidya-card-block__title">Your position</h2>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--sp-4)",
+              padding: "var(--sp-3) 0",
+            }}
+          >
+            <div style={{ textAlign: "center", minWidth: 56 }}>
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 32,
+                  fontWeight: 800,
+                  color: "var(--accent)",
+                  fontFeatureSettings: '"tnum"',
+                  lineHeight: 1,
+                }}
+              >
+                {youRank > 0 ? youRank : "—"}
+              </div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                RANK
+              </div>
+            </div>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                background: TONE_GRADIENTS.amber,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 700,
+                fontSize: 16,
+                color: "var(--paper)",
+              }}
+            >
+              {initial}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)" }}>{youName}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-2)", marginTop: 2, flexWrap: "wrap" }}>
+                {streak && streak.currentStreak >= 1 ? (
+                  <span style={{ color: "var(--good)", fontWeight: 700, fontSize: 12 }}>
+                    ↑ Top {Math.max(1, Math.round((youRank / cohort.length) * 100))}% of cohort
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 12 }}>Top {Math.max(1, Math.round((youRank / cohort.length) * 100))}% of cohort</span>
+                )}
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontWeight: 700,
+                  fontSize: 20,
+                  color: youReadinessPct >= 80 ? "var(--good)" : youReadinessPct >= 60 ? "var(--info)" : "var(--ink-2)",
+                  fontFeatureSettings: '"tnum"',
+                }}
+              >
+                {youReadinessPct.toFixed(1)}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)" }}>readiness score</div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* FULL TABLE — collapsed by default */}
+      <section className="vidya-card-block" aria-label="Full rankings">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">Full rankings</h2>
+          <button
+            type="button"
+            className="vidya-shell__chip"
+            onClick={() => setShowAll((v) => !v)}
+          >
+            {showAll ? "Show top 10" : "Show all"}
+          </button>
+        </div>
+
+        {/* Header row */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "32px 36px 1fr 120px 64px 40px 32px",
+            gap: "var(--sp-2)",
+            padding: "var(--sp-2) var(--sp-2)",
+            fontSize: 10,
+            fontWeight: 700,
+            color: "var(--ink-3)",
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            borderBottom: "1px solid var(--rule-2)",
+          }}
+        >
+          <span>#</span>
+          <span></span>
+          <span>Student</span>
+          <span>Progress</span>
+          <span style={{ textAlign: "right" }}>Score</span>
+          <span style={{ textAlign: "right" }}>Wk</span>
+          <span></span>
+        </div>
+
+        {/* Rows */}
+        {(showAll ? rest : rest.slice(0, 7)).map((s, i) => {
+          const place = i + 4;
+          const deltaColor =
+            s.delta > 0
+              ? "var(--good)"
+              : s.delta < 0
+                ? "var(--bad)"
+                : "var(--ink-4)";
+          const moveColor =
+            s.movement > 0
+              ? "var(--good)"
+              : s.movement < 0
+                ? "var(--bad)"
+                : "var(--ink-4)";
+          const moveSym =
+            s.movement > 0
+              ? `↑${s.movement}`
+              : s.movement < 0
+                ? `↓${Math.abs(s.movement)}`
+                : "→";
+          const scoreColor =
+            s.readiness >= 80
+              ? "var(--good)"
+              : s.readiness >= 60
+                ? "var(--info)"
+                : "var(--ink-2)";
+          return (
+            <Fragment key={s.id}>
+              <div
+                aria-current={s.isYou ? true : undefined}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "32px 36px 1fr 120px 64px 40px 32px",
+                  gap: "var(--sp-2)",
+                  alignItems: "center",
+                  padding: "var(--sp-2) var(--sp-2)",
+                  borderBottom: "1px solid var(--rule-2)",
+                  background: s.isYou ? "rgba(79,135,246,0.08)" : "transparent",
+                  borderRadius: s.isYou ? "var(--r-md)" : 0,
+                }}
+              >
                 <div
-                  className="rank-row-av"
-                  style={{ background: TONE_GRADIENTS[s.avatarTone] }}
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    color: "var(--ink-2)",
+                    fontFeatureSettings: '"tnum"',
+                  }}
+                >
+                  {place}
+                </div>
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    background: TONE_GRADIENTS[s.avatarTone],
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "var(--paper)",
+                  }}
                 >
                   {s.initial}
                 </div>
-                <div className="rank-row-info">
-                  <div className="rank-row-name">{s.name}</div>
-                  <div className="rank-row-meta">
+                <div>
+                  <div style={{ fontWeight: s.isYou ? 700 : 500, fontSize: 13, color: "var(--ink)" }}>
+                    {s.name}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-1)", marginTop: 2, flexWrap: "wrap" }}>
                     {s.topPct > 0 ? (
                       <span
                         style={{
@@ -378,7 +619,7 @@ export function Rank() {
                           padding: "1px 6px",
                           borderRadius: 20,
                           background: "rgba(79,135,246,0.12)",
-                          color: "var(--color-blue)",
+                          color: "var(--info)",
                         }}
                       >
                         {s.topSubject} {s.topPct}%
@@ -397,196 +638,228 @@ export function Rank() {
                               : "rgba(245,166,35,0.12)",
                           color:
                             s.streakDays >= 7
-                              ? "var(--color-green)"
-                              : "var(--color-amber)",
+                              ? "var(--good)"
+                              : "var(--warn)",
                         }}
                       >
                         🔥 {s.streakDays}d
                       </span>
                     ) : null}
                     {s.isYou && s.movement > 0 ? (
-                      <span style={{ color: "var(--color-green)", fontWeight: 600 }}>
+                      <span style={{ color: "var(--good)", fontWeight: 600, fontSize: 9 }}>
                         ↑ {s.movement} this week
                       </span>
                     ) : null}
                   </div>
                 </div>
-                <div className="rank-row-progress">
-                  <div className="bar-track">
+                <div>
+                  <div
+                    role="progressbar"
+                    aria-valuenow={Math.min(100, Math.max(0, s.readiness))}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`${s.name}'s readiness`}
+                    style={{
+                      height: 4,
+                      borderRadius: 2,
+                      background: "var(--rule-2)",
+                      overflow: "hidden",
+                    }}
+                  >
                     <div
-                      className="bar-fill"
                       style={{
+                        height: "100%",
                         width: `${Math.min(100, s.readiness)}%`,
                         background: scoreColor,
+                        borderRadius: 2,
                       }}
                     />
                   </div>
-                  <span className="rank-row-progress-lbl">
+                  <span style={{ fontSize: 9, color: "var(--ink-3)", marginTop: 2, display: "block" }}>
                     {s.readiness.toFixed(1)} readiness
                   </span>
                 </div>
-                <div className="rank-row-score" style={{ color: scoreColor }}>
+                <div
+                  style={{
+                    textAlign: "right",
+                    fontFamily: "var(--font-mono)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    color: scoreColor,
+                    fontFeatureSettings: '"tnum"',
+                  }}
+                >
                   {s.readiness.toFixed(1)}
                 </div>
-                <div className="rank-row-delta" style={{ color: deltaColor }}>
+                <div
+                  style={{
+                    textAlign: "right",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    color: deltaColor,
+                    fontFeatureSettings: '"tnum"',
+                  }}
+                >
                   {s.delta > 0 ? `+${s.delta.toFixed(1)}` : s.delta.toFixed(1)}
                 </div>
-                <div className="rank-row-move" style={{ color: moveColor }}>
+                <div style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: moveColor }}>
                   {moveSym}
                 </div>
               </div>
-            );
-          })}
+            </Fragment>
+          );
+        })}
 
-          {rest.length > 7 ? (
-            <button
-              type="button"
-              className="rank-list-foot"
-              onClick={() => setShowAll((v) => !v)}
-            >
-              {showAll
-                ? "Collapse"
-                : `Show all ${cohort.length} students ›`}
-            </button>
-          ) : null}
+        {rest.length > 7 ? (
+          <button
+            type="button"
+            className="vidya-shell__chip"
+            style={{ margin: "var(--sp-3) auto", display: "block" }}
+            onClick={() => setShowAll((v) => !v)}
+          >
+            {showAll
+              ? "Collapse"
+              : `Show all ${cohort.length} students ›`}
+          </button>
+        ) : null}
+      </section>
+
+      {/* NEARBY + AI INSIGHTS side content */}
+      <section className="vidya-card-block" aria-label="Students near you">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">Students near you</h2>
         </div>
-
-        {/* Right rail */}
-        <aside aria-label="Your performance">
-          <div className="rank-stats-card">
-            <div className="rank-rp-label">Your performance</div>
-            <div className="rank-stats-grid">
-              <div className="rank-stat">
-                <div className="rank-stat-num" style={{ color: "var(--color-blue)" }}>
-                  {youRank > 0 ? `#${youRank}` : "—"}
-                </div>
-                <div className="rank-stat-lbl">Cohort rank</div>
-              </div>
-              <div className="rank-stat">
-                <div className="rank-stat-num" style={{ color: "var(--color-purple)" }}>
-                  Top {Math.max(1, Math.round((youRank / cohort.length) * 100))}%
-                </div>
-                <div className="rank-stat-lbl">Of {cohort.length}</div>
-              </div>
-              <div className="rank-stat">
-                <div className="rank-stat-num" style={{ color: "var(--color-green)" }}>
-                  {tested.length > 0 ? `+${(meanEwa * 4).toFixed(1)}` : "—"}
-                </div>
-                <div className="rank-stat-lbl">Score velocity</div>
-              </div>
-              <div className="rank-stat">
-                <div className="rank-stat-num" style={{ color: "var(--color-amber)" }}>
-                  {youReadinessPct.toFixed(1)}
-                </div>
-                <div className="rank-stat-lbl">Readiness</div>
-              </div>
-            </div>
-            <div className="rank-hist-label">Rank history</div>
-            <div className="rank-hist-row">
-              <span className="rank-hist-period">This wk</span>
-              <span className="rank-hist-rank">
-                #{youRank} · {scope === "institute" ? "Institute" : "Global"}
-              </span>
-              <span className="rank-hist-delta" style={{ color: "var(--color-faint)" }}>
-                —
-              </span>
-            </div>
-            <div className="rank-hist-row">
-              <span className="rank-hist-period">Older</span>
-              <span className="rank-hist-rank" style={{ color: "var(--text-faint)" }}>
-                Snapshots Phase 2
-              </span>
-              <span className="rank-hist-delta" style={{ color: "var(--text-faint)" }}>
-                —
-              </span>
-            </div>
-          </div>
-
-          <div className="rank-nb-card">
-            <div className="rank-rp-label">Students near you</div>
-            {nearby.map((s) => {
-              const place = cohort.indexOf(s) + 1;
-              const gap = +(s.readiness - youReadinessPct).toFixed(1);
-              return (
-                <div
-                  key={s.id}
-                  className={`rank-nb-row${s.isYou ? " is-you" : ""}`}
+        {nearby.map((s) => {
+          const place = cohort.indexOf(s) + 1;
+          const gap = +(s.readiness - youReadinessPct).toFixed(1);
+          return (
+            <Fragment key={s.id}>
+              <div
+                aria-current={s.isYou ? true : undefined}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "var(--sp-3)",
+                  padding: "var(--sp-2) var(--sp-2)",
+                  borderBottom: "1px solid var(--rule-2)",
+                  background: s.isYou ? "rgba(79,135,246,0.08)" : "transparent",
+                  borderRadius: s.isYou ? "var(--r-md)" : 0,
+                }}
+              >
+                <span
+                  style={{
+                    minWidth: 24,
+                    fontFamily: "var(--font-mono)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    color: "var(--ink-2)",
+                    textAlign: "right",
+                  }}
                 >
-                  <div className="rank-nb-pos">{place}</div>
-                  <div
-                    className="rank-nb-av"
-                    style={{ background: TONE_GRADIENTS[s.avatarTone] }}
-                  >
-                    {s.initial}
-                  </div>
-                  <div className="rank-nb-name">
-                    {s.isYou ? "You" : s.name}
-                  </div>
-                  <div className="rank-nb-score">{s.readiness.toFixed(1)}</div>
-                  <div
-                    className="rank-nb-gap"
-                    style={{
-                      color: s.isYou
-                        ? "var(--text-faint)"
-                        : gap > 0
-                          ? "var(--color-green)"
-                          : "var(--color-red)",
-                    }}
-                  >
-                    {s.isYou ? "—" : gap > 0 ? `+${gap}` : `${gap}`}
-                  </div>
+                  {place}
+                </span>
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    background: TONE_GRADIENTS[s.avatarTone],
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "var(--paper)",
+                    flexShrink: 0,
+                  }}
+                >
+                  {s.initial}
                 </div>
-              );
-            })}
-          </div>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: s.isYou ? 700 : 500, color: "var(--ink)" }}>
+                  {s.isYou ? "You" : s.name}
+                </span>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    color: "var(--ink-2)",
+                    fontFeatureSettings: '"tnum"',
+                  }}
+                >
+                  {s.readiness.toFixed(1)}
+                </span>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    color: s.isYou
+                      ? "var(--ink-4)"
+                      : gap > 0
+                        ? "var(--good)"
+                        : "var(--bad)",
+                    fontFeatureSettings: '"tnum"',
+                    minWidth: 40,
+                    textAlign: "right",
+                  }}
+                >
+                  {s.isYou ? "—" : gap > 0 ? `+${gap}` : `${gap}`}
+                </span>
+              </div>
+            </Fragment>
+          );
+        })}
+      </section>
 
-          <div className="rank-ai-card">
-            <div className="rank-ai-ey">◈ AI · ranking analysis</div>
-            {tested.length === 0 ? (
-              <div className="rank-ai-ins">
-                <div className="rank-ai-dot" style={{ background: "var(--color-amber)" }} />
-                <div className="rank-ai-text">
-                  Run your first practice round to start tracking your rank.
+      {/* AI INSIGHTS */}
+      <section className="vidya-card-block" aria-label="AI ranking analysis">
+        <div className="vidya-card-block__head">
+          <h2 className="vidya-card-block__title">◈ AI · ranking analysis</h2>
+        </div>
+        {tested.length === 0 ? (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--sp-2)", padding: "var(--sp-2) 0" }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--warn)", flexShrink: 0, marginTop: 4 }} />
+            <div style={{ fontSize: 13, color: "var(--ink-2)" }}>
+              Run your first practice round to start tracking your rank.
+            </div>
+          </div>
+        ) : (
+          <>
+            {streak && streak.currentStreak >= 3 ? (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--sp-2)", padding: "var(--sp-2) 0" }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--good)", flexShrink: 0, marginTop: 4 }} />
+                <div style={{ fontSize: 13, color: "var(--ink-2)" }}>
+                  <strong>{streak.currentStreak}-day streak</strong> — consistency is
+                  the strongest signal that climbs the leaderboard.
                 </div>
               </div>
-            ) : (
-              <>
-                {streak && streak.currentStreak >= 3 ? (
-                  <div className="rank-ai-ins">
-                    <div className="rank-ai-dot" style={{ background: "var(--color-green)" }} />
-                    <div className="rank-ai-text">
-                      <strong>{streak.currentStreak}-day streak</strong> — consistency is
-                      the strongest signal that climbs the leaderboard.
-                    </div>
-                  </div>
-                ) : null}
-                {climbInsight ? (
-                  <div className="rank-ai-ins">
-                    <div className="rank-ai-dot" style={{ background: "var(--color-amber)" }} />
-                    <div className="rank-ai-text">
-                      Gap to <strong>{climbInsight.peer.name}</strong> is{" "}
-                      <strong>{climbInsight.gap} pts</strong> — closeable in
-                      ~{climbInsight.weeks} week
-                      {climbInsight.weeks === 1 ? "" : "s"} at current velocity.
-                    </div>
-                  </div>
-                ) : null}
-                {belowYou ? (
-                  <div className="rank-ai-ins">
-                    <div className="rank-ai-dot" style={{ background: "var(--color-blue)" }} />
-                    <div className="rank-ai-text">
-                      <strong>{belowYou.name}</strong> is{" "}
-                      {(youReadinessPct - belowYou.readiness).toFixed(1)} pts behind —
-                      a session today maintains your lead.
-                    </div>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-        </aside>
-      </div>
-    </AppShell>
+            ) : null}
+            {climbInsight ? (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--sp-2)", padding: "var(--sp-2) 0" }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--warn)", flexShrink: 0, marginTop: 4 }} />
+                <div style={{ fontSize: 13, color: "var(--ink-2)" }}>
+                  Gap to <strong>{climbInsight.peer.name}</strong> is{" "}
+                  <strong>{climbInsight.gap} pts</strong> — closeable in
+                  ~{climbInsight.weeks} week
+                  {climbInsight.weeks === 1 ? "" : "s"} at current velocity.
+                </div>
+              </div>
+            ) : null}
+            {belowYou ? (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--sp-2)", padding: "var(--sp-2) 0" }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--info)", flexShrink: 0, marginTop: 4 }} />
+                <div style={{ fontSize: 13, color: "var(--ink-2)" }}>
+                  <strong>{belowYou.name}</strong> is{" "}
+                  {(youReadinessPct - belowYou.readiness).toFixed(1)} pts behind —
+                  a session today maintains your lead.
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+        {/* TODO(rank): add score velocity trend chart when Phase 2 history series ships */}
+      </section>
+    </VidyaShell>
   );
 }
 
@@ -607,34 +880,72 @@ function Podium({
 }) {
   if (!student) return null;
   return (
-    <div className="rank-pod">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "var(--sp-1)",
+      }}
+    >
       <div
-        className="rank-pod-av"
         style={{
           width: avSize,
           height: avSize,
+          borderRadius: "50%",
           background: tone.grad,
           fontSize: avSize >= 56 ? 22 : avSize >= 46 ? 18 : 15,
           border: crown ? "2.5px solid rgba(245,166,35,0.4)" : undefined,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontWeight: 700,
+          color: "var(--paper)",
+          position: "relative",
+          flexShrink: 0,
         }}
       >
-        {crown ? <span className="rank-pod-crown">👑</span> : null}
+        {crown ? (
+          <span
+            style={{
+              position: "absolute",
+              top: -14,
+              fontSize: 14,
+              lineHeight: 1,
+            }}
+          >
+            👑
+          </span>
+        ) : null}
         {student.initial}
       </div>
-      <div className="rank-pod-name" style={{ color: tone.text, fontWeight: place === 1 ? 800 : 700 }}>
+      <div style={{ color: tone.text, fontWeight: place === 1 ? 800 : 700, fontSize: 12, textAlign: "center", maxWidth: avSize + 16 }}>
         {student.isYou ? "You" : student.name}
       </div>
-      <div className="rank-pod-score" style={{ color: tone.text }}>
+      <div style={{ color: tone.text, fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14 }}>
         {student.readiness.toFixed(1)}
       </div>
-      <div className="rank-pod-delta" style={{ color: student.delta > 0 ? "var(--color-green)" : student.delta < 0 ? "var(--color-red)" : "var(--text-faint)" }}>
+      <div
+        style={{
+          color: student.delta > 0 ? "var(--good)" : student.delta < 0 ? "var(--bad)" : "var(--ink-4)",
+          fontSize: 11,
+          fontWeight: 600,
+        }}
+      >
         {student.delta > 0 ? `▲ +${student.delta.toFixed(1)}` : student.delta < 0 ? `▼ ${student.delta.toFixed(1)}` : "→ 0"}
       </div>
       <div
-        className="rank-pod-base"
-        style={{ background: tone.bg, height: baseHeight }}
+        style={{
+          background: tone.bg,
+          height: baseHeight,
+          width: avSize + 16,
+          borderRadius: "var(--r-md) var(--r-md) 0 0",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
       >
-        <div className="rank-pod-rank" style={{ color: tone.text }}>
+        <div style={{ color: tone.text, fontFamily: "var(--font-mono)", fontWeight: 800, fontSize: 20 }}>
           {place}
         </div>
       </div>

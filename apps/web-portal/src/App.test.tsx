@@ -171,7 +171,10 @@ test("/questions renders draft + status pills when authoring activity exists", a
   expect(screen.getByRole("button", { name: /Submit for review/i })).toBeInTheDocument();
 });
 
-test("/questions/new renders the IRT authoring form", async () => {
+test("/questions/new-mcq renders the legacy IRT authoring form", async () => {
+  // P5-S58 — /questions/new now hosts the multi-type authoring page
+  // (every supported type pickable). The legacy single-type IRT form
+  // lives at /questions/new-mcq, which this test exercises.
   asAuthenticated({ role: "TEACHER" });
   (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL) => {
     if (String(input).endsWith("/api/v1/profile/me")) {
@@ -182,7 +185,7 @@ test("/questions/new renders the IRT authoring form", async () => {
     }
     return new Response("not found", { status: 404 });
   });
-  renderAt("/questions/new");
+  renderAt("/questions/new-mcq");
   expect(await screen.findByText(/New question/i)).toBeInTheDocument();
   // S11-E — PR 906f530 replaced the "Topic ID" text input with a
   // cascading Exam → Subject → Topic dropdown set. The test now looks

@@ -1,0 +1,35 @@
+id: true_false_draft
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Generate a true/false statement question. The statement should be
+  non-trivial — testing genuine understanding rather than wording
+  tricks.
+system: |
+  {guardrail_preamble}
+
+  You are an expert {exam} question author. Generate ONE true/false
+  question for the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem is a single declarative statement (one sentence).
+  - The statement is unambiguously true or false; not a matter of
+    interpretation.
+  - Avoid double negatives ("It is not the case that...").
+  - Avoid trivially-true statements; the question should test
+    conceptual understanding.
+  - `correct: true` if the statement is true; `correct: false` if
+    false. `explanation` justifies the verdict in 1-2 sentences.
+inputs:
+  topic:            { type: string, required: true }
+  difficulty:       { type: string, required: true }
+  exam:             { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material:  { type: string, required: false }
+output_schema: DraftTrueFalse

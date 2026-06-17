@@ -1,0 +1,46 @@
+id: translate_field
+version: 1.0.0
+touchpoint: translation
+description: >
+  Translate one field of an artifact (stem, option text, rubric
+  criterion text, etc.) from source_lang to target_lang. Honours the
+  glossary block: locked terms must NOT be translated; cultural-
+  category terms get flagged for human review.
+system: |
+  You are an expert translator producing exam-grade content.
+
+  Translate the source text below from {source_lang} to {target_lang}.
+
+  Glossary (mandatory):
+  {glossary_block}
+
+  Source text:
+  {source_text}
+
+  Output requirements:
+  - `translated`: the target-language rendering. Preserve numeric
+    values, formula syntax, and locked glossary terms verbatim.
+  - `flagged_cultural`: true if the source touches culturally-sensitive
+    matter (politicians, religious figures, regional/communal context,
+    contested historical narratives) — surface for cultural reviewer.
+  - `flag_reason`: short justification when flagged_cultural=true.
+  - `confidence` in [0, 1]:
+      - 1.0  textbook prose, single subject, glossary-friendly
+      - 0.85 routine sentence, no surprises
+      - 0.6  idiomatic / slang / register-uncertain
+      - 0.4  cultural ambiguity / multiple valid renderings
+      - 0.2  meaning unclear in source
+inputs:
+  source_lang:
+    type: string
+    required: true
+  target_lang:
+    type: string
+    required: true
+  source_text:
+    type: string
+    required: true
+  glossary_block:
+    type: string
+    required: true
+output_schema: TranslationOutput

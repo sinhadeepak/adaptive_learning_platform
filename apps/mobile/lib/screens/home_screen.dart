@@ -1,13 +1,22 @@
-import 'package:flutter/material.dart';
-import 'package:alp_design_tokens/alp_design_tokens.dart';
+// HomeScreen — Aurora v2 redesign (Sprint 3 minimal entry).
+//
+// Spec: docs/02-design/design-system-v2-aurora-mobile.md §13.4
+//
+// This is the Sprint-3-era simple home screen wired to a single
+// seeded Mechanics topic. The richer dashboard lives in home_tab.dart.
+// Aurora pass replaces hand-rolled Container/Card with AuroraCard +
+// AuroraButton and adopts AuroraScaffold/AuroraAppBar chrome.
+//
+// All AuthClient + QuizClient API surface preserved verbatim.
 
+import 'package:alp_design_tokens/alp_design_tokens.dart';
+import 'package:flutter/material.dart';
+
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 import '../quiz/quiz_client.dart';
 import '../quiz/quiz_screen.dart';
 
-/// Sprint 3 mobile home — shows the user's name + a quick-launch CTA for the
-/// seeded Mechanics topic. Catalog browse + readiness dashboard land in
-/// Sprint 4 (currently web-student-only).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.auth, required this.onSignOut});
 
@@ -33,11 +42,17 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     try {
       final client = QuizClient(auth: widget.auth);
-      final session = await client.start(topicId: _mechanicsTopicId, userId: user.id);
+      final session = await client.start(
+        topicId: _mechanicsTopicId,
+        userId: user.id,
+      );
       if (!mounted) return;
-      await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => QuizScreen(client: client, sessionId: session.sessionId),
-      ));
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              QuizScreen(client: client, sessionId: session.sessionId),
+        ),
+      );
     } on QuizError catch (e) {
       setState(() => _error = e.message);
     } finally {
@@ -47,78 +62,98 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AuroraColors>()!;
+    final typography = Theme.of(context).extension<AuroraTypography>()!;
     final user = widget.auth.user;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Hi, ${user?.firstName ?? 'there'}'),
+
+    return AuroraScaffold(
+      appBar: AuroraAppBar(
+        title: 'Hi, ${user?.firstName ?? 'there'}',
         actions: [
-          IconButton(
+          AuroraIconButton(
             icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
+            semanticLabel: 'Sign out',
             onPressed: widget.onSignOut,
           ),
         ],
       ),
-      body: Padding(
+      body: ListView(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AlpColors.surfacePrimary,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AlpColors.borderDefault),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Mechanics',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AlpColors.textPrimary,
+        children: [
+          AuroraCard(
+            padding: AuroraCardPadding.lg,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    AuroraTag(
+                      label: 'Physics',
+                      tone: AuroraTagTone.brand,
+                      variant: AuroraTagVariant.soft,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Mechanics',
+                  style: typography.h2.copyWith(color: colors.neutral900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Practice motion, forces, and energy.',
+                  style: typography.body.copyWith(color: colors.neutral600),
+                ),
+                const SizedBox(height: 16),
+                if (_error != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colors.danger50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 18,
+                          color: colors.danger600,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _error!,
+                            style: typography.bodySm.copyWith(
+                              color: colors.danger600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Practice motion, forces, and energy.',
-                    style: TextStyle(color: AlpColors.textSecondary, fontSize: 14),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AlpColors.dangerBg,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _error!,
-                          style: TextStyle(color: AlpColors.dangerFg),
-                        ),
-                      ),
-                    ),
-                  FilledButton(
-                    onPressed: _starting ? null : _startQuiz,
-                    style: FilledButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
-                    child: Text(_starting ? 'Starting…' : 'Start practice quiz'),
-                  ),
+                  const SizedBox(height: 12),
                 ],
-              ),
+                AuroraButton(
+                  label: _starting ? 'Starting…' : 'Start practice quiz',
+                  variant: AuroraButtonVariant.aurora,
+                  size: AuroraButtonSize.lg,
+                  fullWidth: true,
+                  loading: _starting,
+                  iconLeft: const Text('✦'),
+                  onPressed: _starting ? null : _startQuiz,
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: Text(
               'Catalog browse + readiness dashboard land in the next mobile pass.',
-              style: TextStyle(color: AlpColors.textMuted, fontSize: 13),
+              style: typography.bodySm.copyWith(color: colors.neutral500),
               textAlign: TextAlign.center,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

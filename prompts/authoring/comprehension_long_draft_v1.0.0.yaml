@@ -1,0 +1,39 @@
+id: comprehension_long_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate a reading-comprehension passage with sub-questions.
+system: |
+  {guardrail_preamble}
+
+  You are an expert {exam} question author.
+  Generate ONE comprehension passage + sub-questions on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: brief framing (e.g. "Read the passage and answer the questions.").
+  - Passage: 250-500 words on the topic. Self-contained — answers must be derivable from the passage.
+  - sub_questions: 3-5 entries.
+    Each sub_question:
+      - sub_id: "Q1", "Q2", …
+      - sub_stem: the question
+      - sub_type: typically "MCQ_SINGLE", but can be "SHORT_TEXT" or "TRUE_FALSE"
+      - sub_payload_json: the type-appropriate payload as a JSON STRING.
+        Examples (each is a single-line JSON string):
+          MCQ_SINGLE: a JSON string with keys "options" (array of
+            objects with id, text, is_correct) and "correct_id".
+          SHORT_TEXT: a JSON string with key "accepted" (array of strings).
+          TRUE_FALSE: a JSON string with key "correct" (true or false).
+  - Mix factual recall and inference questions.
+  - Optional explanation paragraph.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftComprehensionLong

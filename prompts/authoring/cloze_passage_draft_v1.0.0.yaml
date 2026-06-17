@@ -1,0 +1,29 @@
+id: cloze_passage_draft
+version: 1.0.0
+touchpoint: authoring
+description: Generate a cloze-passage question (passage with multiple blanks).
+system: |
+  {guardrail_preamble}
+
+  You are an expert {exam} question author.
+  Generate ONE cloze passage on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: brief framing like "Read the passage and fill in the blanks."
+  - Passage: 100-250 words on the topic, containing 3-6 [BLANK] markers.
+  - Accepted: one synonyms list per blank (in order of appearance).
+  - Blanks should target key concepts, dates, names, or technical terms — not filler words.
+  - One-paragraph explanation tying the blanks back to the topic.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftClozePassage

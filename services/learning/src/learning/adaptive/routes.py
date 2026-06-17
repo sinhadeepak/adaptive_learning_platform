@@ -31,9 +31,16 @@ log = logging.getLogger(__name__)
 from learning.adaptive.authoring import generate_questions
 from learning.adaptive.doubt import solve_doubt
 from learning.adaptive.explain import explain_question
+from learning.adaptive.session_insights import generate_session_insights
+from learning.adaptive.weekly_narrative import (
+    generate_weekly_narrative,
+    get_current_week,
+)
 from learning.adaptive.mock import get_active_mock, plan_mock, score_mock
 from learning.adaptive.rank import project_rank
 from learning.adaptive.weakness import diagnose_weakness
+from learning.adaptive.lesson_recommender import recommend as _recommend_lesson
+from learning.adaptive import tutor_chat as _tutor_chat
 from learning.adaptive.irt import (
     CandidateItem,
     Item,
@@ -76,12 +83,24 @@ class AbilityRequest(BaseModel):
     responses: list[ResponseDTO] = Field(default_factory=list)
     prior_mean: float = 0.0
     prior_sd: float = 1.0
+    # F2a — when set, the engine looks up a per-user IRT prior in
+    # content_schema.user_theta_prior (populated from the screening
+    # diagnostic at /screening/{token}/persist). Only overrides
+    # `prior_mean` if the caller left it at the default 0.0 (so an
+    # explicit caller value still wins). exam_code optional: when
+    # absent the most-recent prior across all exams is used.
+    user_id: str | None = None
+    exam_code: str | None = None
 
 
 class AbilityResponse(BaseModel):
     theta: float
     se: float
     n: int
+    # F2a — surfaces the resolved prior so callers can log + verify it
+    # in tests. Mirrors what was used by EAP for this call.
+    prior_mean_used: float = 0.0
+    prior_sd_used: float = 1.0
 
 
 class SelectNextRequest(BaseModel):
@@ -103,8 +122,74 @@ async def post_ability(req: AbilityRequest) -> AbilityResponse:
     responses = [
         Response(item=Item(a=r.a, b=r.b, c=r.c), is_correct=r.is_correct) for r in req.responses
     ]
-    theta, se = eap_estimate(responses, prior_mean=req.prior_mean, prior_sd=req.prior_sd)
-    return AbilityResponse(theta=theta, se=se, n=len(responses))
+    # F2a — resolve a calibrated prior from the screening result if the
+    # caller didn't explicitly supply one. Default request prior_mean is
+    # 0.0; we treat a passed-in non-zero as an explicit override.
+    prior_mean = req.prior_mean
+    prior_sd = req.prior_sd
+    if req.user_id and prior_mean == 0.0:
+        resolved = await _lookup_user_prior(req.user_id, req.exam_code)
+        if resolved is not None:
+            prior_mean, prior_sd = resolved
+
+    theta, se = eap_estimate(responses, prior_mean=prior_mean, prior_sd=prior_sd)
+    return AbilityResponse(
+        theta=theta,
+        se=se,
+        n=len(responses),
+        prior_mean_used=prior_mean,
+        prior_sd_used=prior_sd,
+    )
+
+
+async def _lookup_user_prior(
+    user_id: str, exam_code: str | None,
+) -> tuple[float, float] | None:
+    """Return (prior_mean, prior_sd) from user_theta_prior, or None.
+
+    Prefers the exact (user_id, exam_code) match. Falls back to the
+    most-recent prior for the user across all exams when exam_code is
+    unknown or no per-exam row exists. Swallows DB errors — a missing
+    prior should never block adaptive sessions.
+    """
+    from sqlalchemy import text
+
+    from learning.content.db import sessionmaker as _sm
+
+    try:
+        async with _sm()() as session:
+            if exam_code:
+                row = (await session.execute(
+                    text(
+                        """
+                        SELECT prior_mean, prior_sd
+                          FROM content_schema.user_theta_prior
+                         WHERE user_id = CAST(:uid AS uuid)
+                           AND exam_code = :ec
+                         LIMIT 1
+                        """
+                    ),
+                    {"uid": user_id, "ec": exam_code},
+                )).fetchone()
+                if row is not None:
+                    return float(row[0]), float(row[1])
+            row = (await session.execute(
+                text(
+                    """
+                    SELECT prior_mean, prior_sd
+                      FROM content_schema.user_theta_prior
+                     WHERE user_id = CAST(:uid AS uuid)
+                     ORDER BY set_at DESC
+                     LIMIT 1
+                    """
+                ),
+                {"uid": user_id},
+            )).fetchone()
+            if row is not None:
+                return float(row[0]), float(row[1])
+    except Exception as e:  # noqa: BLE001
+        log.warning("user_theta_prior_lookup_failed", extra={"err": str(e)})
+    return None
 
 
 @router.post("/irt/select-next", response_model=SelectNextResponse)
@@ -128,8 +213,17 @@ async def post_select_next(req: SelectNextRequest) -> SelectNextResponse:
 
 @router.get("/adaptive/ai-status")
 async def ai_status() -> dict[str, bool | str]:
-    """Tells the UI whether to show 'AI-powered' chrome or fall back to heuristic copy."""
-    return {"enabled": llm.is_enabled(), "provider": "openai"}
+    """Tells the UI whether to show 'AI-powered' chrome or fall back to heuristic copy.
+
+    Honors the admin-managed provider chain (ai_provider_config), not just
+    the legacy OPENAI_API_KEY — so enabling Ollama/OpenAI/Anthropic in
+    /admin/ai-providers turns AI chrome on even with no env key, and the
+    reported provider reflects what's actually configured to serve.
+    """
+    return {
+        "enabled": await llm.is_enabled_async(),
+        "provider": await llm.active_provider() or "none",
+    }
 
 
 @router.get("/adaptive/study-plan/{user_id}")
@@ -148,6 +242,117 @@ async def get_guided_next_steps(
     return await build_guided_next_steps(user_id=user_id, exam_code=exam)
 
 
+# ── Phase 1D-3 — Tutor chat history ────────────────────────────────────
+
+
+@router.post("/adaptive/tutor/chat-sessions")
+async def create_tutor_chat_session(body: dict) -> dict:
+    """Create a new chat session. body: {userId, topicId?, title?}."""
+    from learning.content.db import sessionmaker as _sm
+
+    user_id = body.get("userId")
+    if not user_id:
+        raise HTTPException(status_code=400, detail={"code": "missing_userId"})
+    async with _sm()() as session:
+        sid = await _tutor_chat.create_session(
+            session,
+            user_id=user_id,
+            topic_id=body.get("topicId"),
+            title=body.get("title"),
+        )
+    return {"sessionId": sid}
+
+
+@router.post("/adaptive/tutor/chat-sessions/{session_id}/messages")
+async def append_tutor_chat_message(session_id: str, body: dict) -> dict:
+    """Append a message: {role: 'user'|'assistant', content: str}."""
+    from learning.content.db import sessionmaker as _sm
+
+    role = body.get("role")
+    content = body.get("content")
+    if role not in ("user", "assistant", "system") or not content:
+        raise HTTPException(status_code=400, detail={"code": "bad_message"})
+    async with _sm()() as session:
+        idx = await _tutor_chat.append_message(
+            session, session_id=session_id, role=role, content=content,
+        )
+    return {"sessionId": session_id, "idx": idx}
+
+
+@router.get("/adaptive/tutor/chat-sessions")
+async def list_tutor_chat_sessions(
+    userId: str = Query(...),
+    q: str | None = Query(default=None),
+    topicId: str | None = Query(default=None, alias="topicId"),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> dict:
+    from learning.content.db import sessionmaker as _sm
+
+    async with _sm()() as session:
+        rows = await _tutor_chat.list_sessions(
+            session, user_id=userId, q=q, topic_id=topicId, limit=limit,
+        )
+    return {
+        "sessions": [
+            {
+                "id": r.id,
+                "userId": r.user_id,
+                "topicId": r.topic_id,
+                "title": r.title,
+                "summary": r.summary,
+                "startedAt": r.started_at,
+                "lastMsgAt": r.last_msg_at,
+                "msgCount": r.msg_count,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/adaptive/tutor/chat-sessions/{session_id}")
+async def get_tutor_chat_transcript(session_id: str) -> dict:
+    from learning.content.db import sessionmaker as _sm
+
+    async with _sm()() as session:
+        head, msgs = await _tutor_chat.get_transcript(session, session_id=session_id)
+    if head is None:
+        raise HTTPException(status_code=404, detail={"code": "not_found"})
+    return {
+        "id": head.id,
+        "userId": head.user_id,
+        "topicId": head.topic_id,
+        "title": head.title,
+        "summary": head.summary,
+        "startedAt": head.started_at,
+        "lastMsgAt": head.last_msg_at,
+        "msgCount": head.msg_count,
+        "messages": [
+            {"idx": m.idx, "role": m.role, "contentMd": m.content_md, "createdAt": m.created_at}
+            for m in msgs
+        ],
+    }
+
+
+@router.delete("/adaptive/tutor/chat-sessions/{session_id}", status_code=204)
+async def delete_tutor_chat_session(session_id: str) -> None:
+    from learning.content.db import sessionmaker as _sm
+
+    async with _sm()() as session:
+        ok = await _tutor_chat.delete_session(session, session_id=session_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail={"code": "not_found"})
+
+
+@router.get("/adaptive/lesson-recommender")
+async def get_lesson_recommendation(
+    cohort_id: str = Query(..., alias="cohortId", description="Cohort UUID."),
+    exam_id: str | None = Query(default=None, alias="examId", description="Exam UUID for importance weighting."),
+) -> dict:
+    """Top-3 topics for a teacher's next class. Score = weakness × importance.
+    LLM-narrated when available; heuristic fallback otherwise."""
+    return await _recommend_lesson(cohort_id=cohort_id, exam_id=exam_id)
+
+
 @router.get("/adaptive/rank-projection/{user_id}")
 async def get_rank_projection(
     user_id: str,
@@ -159,12 +364,21 @@ async def get_rank_projection(
 
 
 @router.get("/adaptive/weakness-diagnosis/{user_id}")
-async def get_weakness_diagnosis(user_id: str) -> dict:
+async def get_weakness_diagnosis(
+    user_id: str,
+    exam: str | None = Query(default=None),
+) -> dict:
     """Cross-topic weakness patterns. Pulls recent answered items + per-topic
     EWA, asks the LLM to find sub-skill clusters that span multiple topics
     (the kind per-topic mastery hides). Heuristic fallback when LLM is off
-    or evidence is too thin."""
-    return await diagnose_weakness(user_id=user_id)
+    or evidence is too thin.
+
+    When ``exam`` is supplied (the active exam code from the calling
+    surface) the diagnosis is filtered to topics within that exam's
+    catalog — preventing a UPSC student from getting "Force & Pressure"
+    weakness patterns from CBSE Class 8 sessions and vice versa.
+    """
+    return await diagnose_weakness(user_id=user_id, exam_code=exam)
 
 
 # ---- Mock tests ----------------------------------------------------------
@@ -377,12 +591,36 @@ class ExplainRequest(BaseModel):
     pickedIdx: int | None = Field(default=None, ge=0)
     topicTitle: str | None = None
     language: str = "en"
+    # Optional — when supplied the AI response is cached read-through
+    # by (question_id, picked_idx, language, prompt_template_version)
+    # so subsequent expansions of the same wrong answer don't burn
+    # an LLM call. Older clients that don't send questionId still
+    # work; they just bypass the cache.
+    questionId: str | None = None
 
 
 @router.post("/adaptive/explain")
 async def post_explain(req: ExplainRequest) -> dict:
     """On-demand teaching note. Used by QuizResult when the question's stored
-    explanation is null. Returns the same JSON shape whether the LLM is on or off."""
+    explanation is null. Returns the same JSON shape whether the LLM is on or off.
+
+    When questionId is supplied the response is read-through cached
+    in content_schema.question_explanations so repeat views don't
+    repeatedly call the LLM."""
+    if req.questionId:
+        from learning.content.db import sessionmaker as _sessionmaker
+
+        async with _sessionmaker()() as session:
+            return await explain_question(
+                stem=req.stem,
+                choices=req.choices,
+                correct_idx=req.correctIdx,
+                picked_idx=req.pickedIdx,
+                topic_title=req.topicTitle,
+                language=req.language,
+                question_id=req.questionId,
+                session=session,
+            )
     return await explain_question(
         stem=req.stem,
         choices=req.choices,
@@ -393,9 +631,59 @@ async def post_explain(req: ExplainRequest) -> dict:
     )
 
 
+class SessionInsightsItem(BaseModel):
+    stem: str
+    choices: list[str] = Field(default_factory=list)
+    correctIdx: int = -1
+    pickedIdx: int | None = None
+    isCorrect: bool | None = None
+    topicTitle: str | None = None
+
+
+class SessionInsightsRequest(BaseModel):
+    correct: int = Field(ge=0)
+    total: int = Field(ge=0)
+    topicTitle: str | None = None
+    language: str = Field(default="en", pattern="^(en|hi)$")
+    items: list[SessionInsightsItem] = Field(default_factory=list)
+
+
+@router.post("/adaptive/session-insights")
+async def post_session_insights(req: SessionInsightsRequest) -> dict:
+    """LLM-backed insights for a finished practice round.
+
+    Replaces the basic-arithmetic "AI UPDATE" tile on the QuizResult
+    page. Output is structured (diagnosis + weak_concepts + next_step
+    + confidence_note) and pinned to a versioned prompt template per
+    ADR-0019. Falls back to a deterministic heuristic when
+    OPENAI_API_KEY is unset; the `source` field tells callers which
+    path ran.
+    """
+    items_dicts = [
+        {
+            "stem": it.stem,
+            "choices": it.choices,
+            "correct_idx": it.correctIdx,
+            "picked_idx": it.pickedIdx,
+            "is_correct": it.isCorrect,
+            "topic_title": it.topicTitle,
+        }
+        for it in req.items
+    ]
+    return await generate_session_insights(
+        correct=req.correct,
+        total=req.total,
+        topic_title=req.topicTitle,
+        items=items_dicts,
+        language=req.language,
+    )
+
+
 class AuthoringGenerateRequest(BaseModel):
     topicId: str
-    count: int = Field(default=5, ge=1, le=30)
+    # Cap raised P7 — backing impl batches into chunks of 20 so up to
+    # 100 items can be requested in one call (~5 OpenAI round-trips).
+    count: int = Field(default=5, ge=1, le=100)
     language: str = Field(default="en", pattern="^(en|hi)$")
     difficulty: str = Field(default="mixed", pattern="^(easy|medium|hard|mixed)$")
     brief: str = Field(default="", max_length=2000)
@@ -485,6 +773,10 @@ class TutorChatRequest(BaseModel):
     topicId: str
     messages: list[TutorMessage] = Field(min_length=1, max_length=20)
     userId: str | None = None
+    # Phase 1D-3 — persist + resume. When chatSessionId is provided, append
+    # the latest user message + the assistant reply to that session.
+    # When omitted *and* userId is set, a new session is created.
+    chatSessionId: str | None = None
 
 
 @router.post("/adaptive/tutor/chat")
@@ -493,18 +785,336 @@ async def post_tutor_chat(req: TutorChatRequest) -> StreamingResponse:
     frame carries a content delta. Frontend reads with EventSource and appends
     deltas to the assistant bubble as they arrive."""
 
+    # Phase 1D-3 — context recall. If userId is set, fetch the last 3
+    # session summaries to seed the LLM context. Persist the latest user
+    # message immediately; persist the assistant reply at stream end.
+    from learning.content.db import sessionmaker as _sm
+
+    chat_session_id: str | None = req.chatSessionId
+    enriched_history: list[dict] = []
+
+    if req.userId and req.messages:
+        latest = req.messages[-1]
+        prior_lines: list[str] = []
+        try:
+            async with _sm()() as sess:
+                if chat_session_id is None:
+                    # Create a session and reuse stem of first user message as title.
+                    title = next(
+                        (m.content[:60] for m in req.messages if m.role == "user"),
+                        None,
+                    )
+                    chat_session_id = await _tutor_chat.create_session(
+                        sess, user_id=req.userId, topic_id=req.topicId, title=title,
+                    )
+                    # Persist all caller-supplied messages (the conversation we're
+                    # continuing from). The model gets these in `history`.
+                    for m in req.messages:
+                        await _tutor_chat.append_message(
+                            sess, session_id=chat_session_id, role=m.role, content=m.content,
+                        )
+                else:
+                    # Existing session — only append the new user turn.
+                    if latest.role == "user":
+                        await _tutor_chat.append_message(
+                            sess, session_id=chat_session_id, role="user", content=latest.content,
+                        )
+                # Pull last-3 prior summaries for context.
+                prior_lines = await _tutor_chat.prior_summaries(sess, user_id=req.userId, limit=3)
+        except Exception:
+            log.exception("tutor_chat.persist_failed user=%s", req.userId)
+        if prior_lines:
+            enriched_history.append({
+                "role": "system",
+                "content": "Recent past tutor sessions for context: " + " | ".join(prior_lines),
+            })
+
+    enriched_history.extend(
+        {"role": m.role, "content": m.content} for m in req.messages
+    )
+
     async def sse() -> "AsyncIterator[bytes]":  # type: ignore[name-defined]
-        history = [{"role": m.role, "content": m.content} for m in req.messages]
+        import json as _json
+
+        # Send session-id frame first so client knows what to keep on follow-ups.
+        if chat_session_id:
+            yield f"data: {_json.dumps({'chatSessionId': chat_session_id})}\n\n".encode()
+
+        full = []
         try:
             async for delta in stream_tutor_response(
-                topic_id=req.topicId, messages=history, user_id=req.userId
+                topic_id=req.topicId, messages=enriched_history, user_id=req.userId
             ):
-                # SSE frame: each `data:` line is one delta. JSON-encode so newlines
-                # in the model output don't break the protocol's line-delimited shape.
-                import json as _json
-
+                full.append(delta)
                 yield f"data: {_json.dumps({'delta': delta})}\n\n".encode()
         finally:
+            # Persist assistant reply (best-effort).
+            if chat_session_id and full and req.userId:
+                try:
+                    async with _sm()() as sess:
+                        await _tutor_chat.append_message(
+                            sess,
+                            session_id=chat_session_id,
+                            role="assistant",
+                            content="".join(full)[:32000],
+                        )
+                except Exception:
+                    log.exception("tutor_chat.assistant_persist_failed")
             yield b"data: [DONE]\n\n"
 
     return StreamingResponse(sse(), media_type="text/event-stream")
+
+
+# ── Phase 5 (P5-S41) — diagnostic root-cause + multi-dim selection ────────────
+
+
+from learning.adaptive.multi_dim_selector import (
+    CandidateQuestion,
+    MasteryRow,
+    Selection,
+    select_next_multi_dim,
+)
+from learning.kg import Edge, RootCauseResult, root_cause_concept
+
+
+class MasteryRowIn(BaseModel):
+    ewa: float = Field(ge=0.0, le=1.0)
+    n: int = Field(ge=0)
+
+
+class EdgeIn(BaseModel):
+    fromConceptId: str
+    toConceptId: str
+    weight: float | None = None
+
+
+class RootCauseRequest(BaseModel):
+    """Caller hands in the user's concept-mastery snapshot + the
+    relevant prereq edges. The route is pure — no DB read — so the
+    walker stays unit-testable and the caller controls cache freshness.
+
+    For UI use the typical pattern is:
+      1. fetch user_concept_mastery from engagement /multi-profile
+      2. fetch prereq edges via existing /catalog/prereqs/{topic_id}
+         (transitive + 1 level deeper)
+      3. POST both here.
+    """
+
+    primaryConceptId: str = Field(min_length=1)
+    userConceptMastery: dict[str, float] = Field(default_factory=dict)
+    edges: list[EdgeIn] = Field(default_factory=list)
+    weakThreshold: float = Field(default=0.4, ge=0.0, le=1.0)
+
+
+class RootCauseResponse(BaseModel):
+    primaryConceptId: str
+    rootCauseConceptId: str | None
+    path: list[str]
+    weakConcepts: list[str]
+    notes: list[str]
+
+
+@router.post("/adaptive/diagnostic/root-cause", response_model=RootCauseResponse)
+async def post_root_cause(req: RootCauseRequest) -> RootCauseResponse:
+    """Walk the prereq chain rooted at `primaryConceptId` and surface
+    the deepest concept whose mastery is below `weakThreshold`."""
+    edges = [
+        Edge(
+            from_concept_id=e.fromConceptId,
+            to_concept_id=e.toConceptId,
+            weight=e.weight,
+        )
+        for e in req.edges
+    ]
+    out: RootCauseResult = root_cause_concept(
+        primary_concept_id=req.primaryConceptId,
+        user_concept_mastery=req.userConceptMastery,
+        edges=edges,
+        weak_threshold=req.weakThreshold,
+    )
+    return RootCauseResponse(
+        primaryConceptId=out.primary_concept_id,
+        rootCauseConceptId=out.root_cause_concept_id,
+        path=out.path,
+        weakConcepts=out.weak_concepts,
+        notes=out.notes,
+    )
+
+
+class CandidateIn(BaseModel):
+    questionId: str = Field(min_length=1)
+    conceptIds: list[str] = Field(min_length=1)
+    bloom: str
+    difficulty: str = "MEDIUM"
+
+
+class SelectMultiDimRequest(BaseModel):
+    conceptMastery: dict[str, MasteryRowIn] = Field(default_factory=dict)
+    bloomMastery: dict[str, MasteryRowIn] = Field(default_factory=dict)
+    # bloomMastery key form is "{conceptId}|{bloomLevel}" so JSON
+    # round-trips cleanly. Server splits on the pipe.
+    candidates: list[CandidateIn]
+    exposure: dict[str, int] = Field(default_factory=dict)
+    exposureCap: int = Field(default=5, ge=1)
+    exclude: list[str] = Field(default_factory=list)
+
+
+class SelectMultiDimResponse(BaseModel):
+    questionId: str | None
+    targetsConceptId: str | None
+    targetsBloom: str | None
+    reason: str | None
+
+
+@router.post("/adaptive/select-multi-dim", response_model=SelectMultiDimResponse)
+async def post_select_multi_dim(req: SelectMultiDimRequest) -> SelectMultiDimResponse:
+    """Pick the candidate that maximises uncertainty across the most-
+    uncertain (concept × bloom) cell."""
+    cm = {k: MasteryRow(ewa=v.ewa, n=v.n) for k, v in req.conceptMastery.items()}
+    bm: dict[tuple[str, str], MasteryRow] = {}
+    for key, val in req.bloomMastery.items():
+        if "|" not in key:
+            continue
+        c, b = key.split("|", 1)
+        bm[(c, b)] = MasteryRow(ewa=val.ewa, n=val.n)
+    cands = [
+        CandidateQuestion(
+            question_id=c.questionId,
+            concept_ids=c.conceptIds,
+            bloom=c.bloom,
+            difficulty=c.difficulty,
+        )
+        for c in req.candidates
+    ]
+    sel: Selection | None = select_next_multi_dim(
+        concept_mastery=cm,
+        bloom_mastery=bm,
+        candidates=cands,
+        exposure=req.exposure,
+        exposure_cap=req.exposureCap,
+        exclude=set(req.exclude),
+    )
+    if sel is None:
+        return SelectMultiDimResponse(
+            questionId=None, targetsConceptId=None, targetsBloom=None, reason=None,
+        )
+    return SelectMultiDimResponse(
+        questionId=sel.question_id,
+        targetsConceptId=sel.targets_concept_id,
+        targetsBloom=sel.targets_bloom,
+        reason=sel.reason,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Phase 6 (S53) — Weekly narrative
+# ─────────────────────────────────────────────────────────────────────
+
+class WeeklyNarrativeRequest(BaseModel):
+    user_id: str
+    week_start: str | None = None      # YYYY-MM-DD; defaults to current Monday
+    is_delta: bool = False
+    delta_trigger: str | None = None
+    signals: dict | None = None        # injected by engagement-side caller
+
+
+@router.post("/adaptive/weekly-narrative/generate")
+async def post_weekly_narrative_generate(req: WeeklyNarrativeRequest) -> dict:
+    """Generate (or read-through-cache) a weekly narrative."""
+    from datetime import date as _date, timedelta as _td
+
+    from learning.content.db import sessionmaker as _sm
+
+    today = _date.today()
+    week_start = (
+        _date.fromisoformat(req.week_start)
+        if req.week_start
+        else today - _td(days=today.weekday())
+    )
+    signals = req.signals or {}
+    async with _sm()() as session:
+        return await generate_weekly_narrative(
+            user_id=req.user_id,
+            week_start=week_start,
+            signals=signals,
+            session=session,
+            is_delta=req.is_delta,
+            delta_trigger=req.delta_trigger,
+        )
+
+
+@router.get("/adaptive/weekly-narrative/current/{user_id}")
+async def get_weekly_narrative_current(user_id: str) -> dict:
+    """Return the user's current-week narrative (cached row only — does
+    not generate). 204 when not yet generated for this week."""
+    from learning.content.db import sessionmaker as _sm
+
+    async with _sm()() as session:
+        result = await get_current_week(session, user_id=user_id)
+    if result is None:
+        return {"narrative": None, "reason": "not_generated_yet"}
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Phase 6 (S54) — Difficulty agency
+# ─────────────────────────────────────────────────────────────────────
+
+class FrictionItemAttempt(BaseModel):
+    item_idx: int
+    is_correct: bool | None = None
+    time_spent_ms: int | None = None
+    skipped: bool = False
+
+
+class FrictionCheckRequest(BaseModel):
+    history: list[FrictionItemAttempt]
+    last_friction_at_idx: int | None = None
+
+
+@router.post("/adaptive/friction/check")
+async def post_friction_check(req: FrictionCheckRequest) -> dict:
+    """Mid-quiz friction prompt evaluator. Quiz Go calls between items.
+    Returns trigger metadata or null."""
+    from learning.adaptive.friction_prompt import (
+        ItemAttempt,
+        evaluate_friction,
+    )
+
+    history = [
+        ItemAttempt(
+            item_idx=a.item_idx,
+            is_correct=a.is_correct,
+            time_spent_ms=a.time_spent_ms,
+            skipped=a.skipped,
+        )
+        for a in req.history
+    ]
+    trigger = evaluate_friction(history, last_friction_at_idx=req.last_friction_at_idx)
+    if trigger is None:
+        return {"trigger": None}
+    return {
+        "trigger": {
+            "reason": trigger.reason,
+            "suggested_offset": trigger.suggested_offset,
+            "suggested_action": trigger.suggested_action,
+            "message": trigger.message,
+        }
+    }
+
+
+class IntentOffsetRequest(BaseModel):
+    intent_anchor: str = Field(default="match", pattern="^(match|push|build_confidence)$")
+    theta_hat: float = 0.0
+
+
+@router.post("/adaptive/intent/theta-offset")
+async def post_intent_offset(req: IntentOffsetRequest) -> dict:
+    """Translate intent_anchor → IRT θ̂ offset for initial item selection.
+    Pure function helper for Quiz Go session start."""
+    offset = {"match": 0.0, "push": +0.4, "build_confidence": -0.4}[req.intent_anchor]
+    return {
+        "intent_anchor": req.intent_anchor,
+        "offset": offset,
+        "effective_theta": req.theta_hat + offset,
+    }

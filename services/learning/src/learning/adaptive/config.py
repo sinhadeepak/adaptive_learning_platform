@@ -11,7 +11,9 @@ class Settings(BaseSettings):
     port: int = Field(default=38010)
     grpc_port: int = Field(default=50051)
 
-    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:35432/adaptive_engine")
+    # Post-ADR-0005 consolidation: adaptive is a schema in the `learning`
+    # database. Containers override via ADAPTIVE_ENGINE_DATABASE_URL.
+    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:35432/learning")
     redis_url: str = Field(default="redis://localhost:36379/0")
     nats_url: str = Field(default="nats://localhost:34222")
 

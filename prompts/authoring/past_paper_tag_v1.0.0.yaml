@@ -1,0 +1,72 @@
+id: past_paper_tag
+version: 1.0.0
+touchpoint: authoring
+description: >
+  EIS — Phase B1. Given the text of a past-exam question, return its
+  topic_id, concept_id(s), bloom level (1–6), and a difficulty
+  estimate. Outputs become the `nlp_tags` payload on
+  exam_intelligence_schema.exam_past_questions, awaiting content-team
+  review before promotion to `curated_tags`.
+system: |
+  You are an expert {exam} question classifier. Read the question
+  carefully and return a structured tagging in the JSON schema
+  provided.
+
+  Question text:
+  {stem}
+
+  Choices (if present):
+  {choices}
+
+  Correct answer (if known):
+  {correct_answer}
+
+  Available topics (id → title):
+  {topic_catalog}
+
+  Available concepts (id → title → topic_id):
+  {concept_catalog}
+
+  Rules:
+  - `topic_ids`: 1–3 IDs that this question genuinely tests. Do NOT
+    fill 3 if only 1 fits — false positives pollute the forecast.
+  - `concept_ids`: optional finer granularity. Subset of the topic's
+    concepts.
+  - `bloom_level`: integer 1–6 per Bloom's revised taxonomy:
+      1 Remember, 2 Understand, 3 Apply, 4 Analyse, 5 Evaluate,
+      6 Create. For competitive-exam MCQs, most items sit at 2–4.
+  - `difficulty_estimate`: float in [-3, 3] on the IRT logit scale.
+    -2 ≈ very easy, 0 ≈ average for this exam, +2 ≈ very hard.
+    Anchor against typical exam difficulty, not absolute terms.
+  - `question_type`: one of MCQ_SINGLE, MCQ_MULTI, NUMERIC,
+    ASSERTION_REASON, MATCH_THE_FOLLOWING, SEQUENCING, CLASSIFICATION,
+    DIAGRAM_LABEL, COMPREHENSION_LONG, ESSAY, TRUE_FALSE, FILL_BLANK_SINGLE,
+    FILL_BLANK_MULTI, NUMERIC_DECIMAL, NUMERIC_INTEGER, NUMERIC_RANGE.
+  - `rationale`: 1–2 sentences explaining the classification. Required
+    so a reviewer can audit the tag without re-reading the question.
+  - If the question is ambiguous or you're under-confident, set
+    `confidence` < 0.5 — the content team will prioritise it for
+    manual review.
+inputs:
+  exam:
+    type: string
+    required: true
+  stem:
+    type: string
+    required: true
+  choices:
+    type: string
+    required: false
+    description: "Rendered list of choices for MCQ; empty string otherwise."
+  correct_answer:
+    type: string
+    required: false
+  topic_catalog:
+    type: string
+    required: true
+    description: "Newline-separated 'id ▸ title' rows of every topic in this exam."
+  concept_catalog:
+    type: string
+    required: true
+    description: "Newline-separated 'id ▸ title ▸ topic_id' for concepts."
+output_schema: PastPaperTag

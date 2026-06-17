@@ -1,8 +1,18 @@
+// AddExam — Vidya v1 redesign of the "+ Add exam / course" surface.
+//
+// Spec: docs/02-design/design-system/04_components.md
+//       + Vidya v1 mockup set (the sidebar + Add affordance).
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
+//
+// Reachable from VidyaShell's Learn-group "Add exam / course"
+// affordance and from any direct /exams/add link. Saves through
+// the existing PUT /api/v1/profile/exams endpoint and returns to
+// /home so the new exam shows up in the sidebar immediately.
+
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../lib/api";
-import { AppShell } from "../components/AppShell";
-import { Banner, SkeletonRows } from "../components/dashboard";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import {
   EXAM_META,
   PLANNED_CODES,
@@ -10,16 +20,6 @@ import {
   metaFor,
   type ExamMeta,
 } from "../lib/exam-meta";
-
-// Add Exam — entered from the home dashboard's "+ Add exam" link.
-// Shares the polished `.scr-exam-card` grid with the guest /screening
-// picker so the two surfaces feel like the same component (icons,
-// category pill, cyan-bordered selected state).
-//
-// ProtectedRoute already bounces ONBOARDED users away from /onboarding/*,
-// so this is a parallel surface that uses the same PUT /profile/exams
-// endpoint without dragging the user back through language /
-// target-date / daily-goal steps. Returns to /home on save.
 
 interface Exam {
   id: string;
@@ -29,11 +29,11 @@ interface Exam {
 }
 
 interface Profile {
-  exams: Array<{ examId: string; targetDate: string | null }>;
+  exams?: Array<{ examId: string; targetDate: string | null }> | null;
 }
 
 interface DisplayExam {
-  id: string | null;          // null = coming-soon placeholder
+  id: string | null; // null = coming-soon placeholder
   code: string;
   name: string;
   meta: ExamMeta;
@@ -50,22 +50,36 @@ export function AddExam() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    let alive = true;
     (async () => {
       try {
         const [examsRes, profRes] = await Promise.all([
           auth.fetch("/api/v1/catalog/exams"),
           auth.fetch("/api/v1/profile/me"),
         ]);
+        if (!alive) return;
         if (!examsRes.ok) throw new Error(`HTTP ${examsRes.status}`);
-        setExams((await examsRes.json()) as Exam[]);
+        const examsBody = (await examsRes.json()) as Exam[] | { exams?: Exam[] | null };
+        // Catalog returns either a bare array or {exams: [...]} —
+        // tolerate both shapes.
+        const list = Array.isArray(examsBody)
+          ? examsBody
+          : Array.isArray(examsBody.exams)
+            ? examsBody.exams
+            : [];
+        setExams(list);
         if (profRes.ok) {
           const prof = (await profRes.json()) as Profile;
-          setAlreadySelected(new Set(prof.exams.map((e) => e.examId)));
+          const enrolled = Array.isArray(prof.exams) ? prof.exams : [];
+          setAlreadySelected(new Set(enrolled.map((e) => e.examId)));
         }
       } catch {
-        setError("We couldn't load the exam list. Try again.");
+        if (alive) setError("We couldn't load the exam list. Try again.");
       }
     })();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const display = useMemo<DisplayExam[]>(() => {
@@ -131,34 +145,39 @@ export function AddExam() {
   }
 
   return (
-    <AppShell
-      title="Add an exam"
+    <VidyaShell
+      crumbs="Add exam"
+      title="Add an exam or course."
+      subtitle="Pick another exam to track. Readiness, streaks, and your study plan stay intact for exams you've already added."
       actions={
-        <Link to="/home" className="topbar-back">
+        <Link to="/home" className="vidya-shell__chip">
           ← Cancel
         </Link>
       }
     >
-      <p className="page-subhead">
-        Pick another exam to track. Your readiness, streaks, and study plan
-        stay intact for the exams you've already added.
-      </p>
-
       {error ? (
-        <Banner tone="danger" role="alert">
-          {error}
-        </Banner>
+        <div className="vidya-auth__error" role="alert">
+          <span>{error}</span>
+        </div>
       ) : null}
 
       {exams === null ? (
-        <SkeletonRows count={4} />
+        <p style={{ color: "var(--ink-3)", padding: "var(--sp-8) 0", textAlign: "center" }}>
+          Loading exam catalog…
+        </p>
       ) : (
-        <div className="scr-grid" role="radiogroup" aria-label="Exam">
+        <section
+          className="vidya-exam-grid"
+          role="radiogroup"
+          aria-label="Exam"
+        >
           {display.map((d) => {
             const selected = d.id !== null && d.id === picked;
             const disabled = !d.available || d.alreadyAdded;
             const className =
-              "scr-exam-card" + (selected ? " scr-exam-card-selected" : "");
+              "vidya-exam-card" +
+              (selected ? " vidya-exam-card--selected" : "") +
+              (disabled ? " vidya-exam-card--disabled" : "");
             return (
               <button
                 key={d.code}
@@ -169,19 +188,27 @@ export function AddExam() {
                 onClick={() => !disabled && d.id && setPicked(d.id)}
                 className={className}
               >
-                {selected ? <span className="scr-exam-check">✓</span> : null}
-                <div className="scr-exam-icon" aria-hidden>
+                {selected ? (
+                  <span className="vidya-exam-card__check" aria-hidden>
+                    ✓
+                  </span>
+                ) : null}
+                <div className="vidya-exam-card__icon" aria-hidden>
                   {d.meta.icon}
                 </div>
-                <h2 className="scr-exam-name">{d.name}</h2>
-                <p className="scr-exam-sub">{d.meta.subjects}</p>
+                <h2 className="vidya-exam-card__name">{d.name}</h2>
+                <p className="vidya-exam-card__sub">{d.meta.subjects}</p>
                 {d.alreadyAdded ? (
-                  <span className="scr-exam-pill scr-exam-pill-coming">
+                  <span className="vidya-exam-card__pill vidya-exam-card__pill--mute">
                     Already added
+                  </span>
+                ) : !d.available ? (
+                  <span className="vidya-exam-card__pill vidya-exam-card__pill--mute">
+                    Coming soon
                   </span>
                 ) : (
                   <span
-                    className={`scr-exam-pill scr-exam-pill-${d.meta.pillKind}`}
+                    className={`vidya-exam-card__pill vidya-exam-card__pill--${pillTone(d.meta.pillKind)}`}
                   >
                     {d.meta.pillLabel}
                   </span>
@@ -189,33 +216,48 @@ export function AddExam() {
               </button>
             );
           })}
-        </div>
+        </section>
       )}
 
-      <div
-        style={{
-          marginTop: "var(--sp-5)",
-          display: "flex",
-          gap: 8,
-          justifyContent: "center",
-        }}
-      >
+      <div className="vidya-exam-actions">
+        <button
+          type="button"
+          onClick={() => navigate("/home")}
+          className="vidya-shell__chip"
+        >
+          Cancel
+        </button>
         <button
           type="button"
           onClick={() => void onSave()}
           disabled={!pickedExam || submitting}
-          className="scr-cta"
+          className="vidya-shell__primary"
         >
-          {submitting ? "Adding…" : pickedExam ? `+ Add ${pickedExam.name}` : "+ Add exam"}
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate("/home")}
-          className="btn btn-ghost"
-        >
-          Cancel
+          {submitting
+            ? "Adding…"
+            : pickedExam
+              ? `+ Add ${pickedExam.name}`
+              : "+ Add exam"}
         </button>
       </div>
-    </AppShell>
+    </VidyaShell>
   );
+}
+
+/** Map exam-meta pill kinds to Vidya semantic tones. */
+function pillTone(kind: string): "good" | "warn" | "accent" | "ai" | "mute" {
+  switch (kind) {
+    case "available":
+      return "good";
+    case "category":
+      return "accent";
+    case "civil":
+      return "ai";
+    case "mba":
+      return "warn";
+    case "coming":
+      return "mute";
+    default:
+      return "mute";
+  }
 }

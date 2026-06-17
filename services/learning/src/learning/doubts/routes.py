@@ -227,4 +227,18 @@ async def accept_answer_endpoint(
     if not ok:
         raise _problem("answer_not_found", "Answer not found on this doubt", http_status=404)
     await session.commit()
+
+    # Phase 1D-9 — XP for resolved doubt (best-effort).
+    try:
+        import httpx
+        from learning.adaptive.config import settings as _adp
+        url = f"{_adp.analytics_base_url.rstrip('/')}/gamification/users/{principal.user_id}/xp"
+        async with httpx.AsyncClient(timeout=2.0) as c:
+            await c.post(
+                url,
+                json={"eventType": "doubt_resolved", "sourceId": doubt_id},
+            )
+    except Exception:
+        pass
+
     return {"ok": True}

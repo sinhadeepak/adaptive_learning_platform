@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!--
+  Aurora v3 native splash. Solid dark Aurora background; no logo bitmap
+  here because the Flutter _Splash widget renders the wordmark + Lumi
+  placeholder as soon as it mounts (~50–150 ms after process start).
+  Keeping the native splash a solid color eliminates the white flash
+  that used to appear before Flutter took over.
+-->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
-
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+    <item android:drawable="@color/aurora_splash_bg" />
 </layer-list>

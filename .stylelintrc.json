@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/stylelintrc.json",
+  "ignoreFiles": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.dart_tool/**",
+    "packages/design-system/src/vidya/**",
+    "apps/*/dist/**",
+    "apps/*/public/fonts/**"
+  ],
+  "rules": {
+    "color-no-hex": [
+      true,
+      {
+        "message": "Vidya: use var(--paper)/--ink/--accent/--gold/--good/--warn/--bad/--info or the --m-* mastery scale instead of hard-coded hex. The single legal source of hex is packages/design-system/src/vidya/tokens.css."
+      }
+    ]
+  }
+}

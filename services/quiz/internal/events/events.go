@@ -55,6 +55,29 @@ type SessionCompleted struct {
 	// mode. Content's quiz_session_subscriber filters on this to mirror
 	// the score into assignment_progress.
 	AssignmentID string `json:"assignment_id,omitempty"`
+	// Sprint 22 (P4-S22) — per-item breakdown for downstream per-section
+	// + time-per-question analytics. omitempty preserves the historical
+	// payload shape; consumers that don't read Items are unaffected.
+	Items []SessionItemEvent `json:"items,omitempty"`
+}
+
+// SessionItemEvent is the per-item slice of SessionCompleted (P4-S22). One
+// entry per served item; TimeSpentMs is 0 when the item was unanswered.
+type SessionItemEvent struct {
+	ItemIdx     int16  `json:"item_idx"`
+	QuestionID  string `json:"question_id"`
+	TopicID     string `json:"topic_id"`
+	SectionID   string `json:"section_id,omitempty"`
+	IsCorrect   bool   `json:"is_correct"`
+	TimeSpentMs int32  `json:"time_spent_ms,omitempty"`
+	// Phase 5 (P5-S38) — polymorphic types carry the structured
+	// student response payload so engagement can drive concept-mastery
+	// + bloom-mastery + fluency fan-out without re-fetching the
+	// per-item details. omitempty for MCQ_SINGLE rows (their is_correct
+	// + answerIdx already encode the response). Pre-S38 consumers
+	// ignore these fields.
+	StudentResponsePayload map[string]any `json:"student_response_payload,omitempty"`
+	Confidence             *float32       `json:"confidence,omitempty"`
 }
 
 // JetStreamPublisher publishes to the QUIZ_EVENTS JetStream stream.

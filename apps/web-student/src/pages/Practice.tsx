@@ -1,9 +1,311 @@
+// Practice — Vidya v1 redesign.
+//
+// Layout: VidyaShell (crumbs + title + Practice/Mistakes tab chips) →
+// either the AI-driven hero + recommended-next composition (uses custom
+// ai-* classes for page-specific design language) or the
+// MistakesPracticePanel (mistakes drill picker with vidya-card-block
+// sections and chip toggles).
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { Banner, Pill, strengthFor } from "../components/dashboard";
+// Phase 1B — wire existing analytics primitives.
+import { MasteryBar } from "../components/stats";
+
+// ── MistakesPractice (merged from /practice/mistakes — merge 2/4) ───────────
+// All types, hooks, and JSX from MistakesPractice.tsx live here verbatim.
+// Route /practice/mistakes now redirects to /practice?tab=mistakes.
+
+type MistakesTab = "recent" | "week" | "topic";
+
+const LIMIT_OPTIONS = [10, 20, 30] as const;
+type Limit = (typeof LIMIT_OPTIONS)[number];
+
+interface WeakTopic {
+  topicId: string;
+  title: string;
+  ewa: number;
+  n: number;
+}
+
+interface MasteryListResponse {
+  userId: string;
+  topics: Array<{ topicId: string; ewa: number; n: number }>;
+}
+
+interface ReplayResponse {
+  sessionId: string;
+  mode: string;
+  itemCount: number;
+  topicId?: string;
+  replayKind: string;
+}
+
+function MistakesPracticePanel() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [tab, setTab] = useState<MistakesTab>("recent");
+  const [limit, setLimit] = useState<Limit>(10);
+  const [topicId, setTopicId] = useState<string>("");
+  const [topics, setTopics] = useState<WeakTopic[] | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Pull mastery list once; surface weakest 12 as drill targets for the
+  // "By topic" tab. Catalog title-resolution lifted from Analysis.tsx.
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
+        if (!r.ok) {
+          if (alive) setTopics([]);
+          return;
+        }
+        const body = (await r.json()) as MasteryListResponse;
+        const ordered = body.topics
+          .filter((t) => t.n > 0)
+          .sort((a, b) => a.ewa - b.ewa)
+          .slice(0, 12);
+        // Resolve titles in parallel; fall back to truncated id.
+        const titled = await Promise.all(
+          ordered.map(async (t) => {
+            try {
+              const tr = await auth.fetch(`/api/v1/catalog/topics/${t.topicId}`);
+              if (tr.ok) {
+                const tj = (await tr.json()) as { title: string };
+                return { ...t, title: tj.title };
+              }
+            } catch {
+              /* fall through */
+            }
+            return { ...t, title: `Topic ${t.topicId.slice(0, 8)}` };
+          }),
+        );
+        if (alive) setTopics(titled);
+      } catch {
+        if (alive) setTopics([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [user]);
+
+  const canStart = useMemo(() => {
+    if (!user || submitting) return false;
+    if (tab === "topic" && !topicId) return false;
+    return true;
+  }, [user, submitting, tab, topicId]);
+
+  async function start() {
+    if (!user || !canStart) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const body: Record<string, unknown> = { userId: user.id, limit };
+      if (tab === "week") body.sinceDays = 7;
+      if (tab === "topic" && topicId) body.topicId = topicId;
+      const r = await auth.fetch(
+        `/api/v1/quiz/sessions/start-mistake-replay`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
+      if (r.status === 422) {
+        setError(
+          tab === "week"
+            ? "No mistakes in the last 7 days — try All recent."
+            : tab === "topic"
+              ? "No mistakes in this topic yet. Drill it first, then come back."
+              : "No wrong-answered questions yet — answer some practice items first.",
+        );
+        return;
+      }
+      if (!r.ok) {
+        setError(`Couldn't start replay (HTTP ${r.status}).`);
+        return;
+      }
+      const out = (await r.json()) as ReplayResponse;
+      navigate(`/quiz/${out.sessionId}`);
+    } catch {
+      setError("Network error.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div>
+      <section style={{ marginBottom: "var(--sp-4)" }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--ink)" }}>
+          Drill your mistakes
+        </h2>
+        <p style={{ margin: "var(--sp-1) 0 0", fontSize: 13, color: "var(--ink-2)", maxWidth: 580, lineHeight: 1.5 }}>
+          Re-attempt the questions you got wrong. The session pre-loads your most recent mistakes — filter by recency or by a single topic, then pick how many items you want to drill.
+        </p>
+      </section>
+
+      <div role="tablist" style={{ display: "flex", gap: "var(--sp-2)", marginBottom: "var(--sp-4)", flexWrap: "wrap" }}>
+        {(
+          [
+            ["recent", "All recent"],
+            ["week", "Last 7 days"],
+            ["topic", "By topic"],
+          ] as [MistakesTab, string][]
+        ).map(([t, label]) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            className={`vidya-shell__chip${tab === t ? " vidya-shell__chip--on" : ""}`}
+            onClick={() => setTab(t)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* By-topic chip-row — visible only on the topic tab. */}
+      {tab === "topic" && (
+        <section className="vidya-card-block" style={{ marginBottom: 16 }}>
+          <h3 className="vidya-card-block__title" style={{ marginBottom: "var(--sp-2)" }}>
+            Pick a topic
+            <span style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 400, marginLeft: 8 }}>
+              weakest first · mastery shown
+            </span>
+          </h3>
+          {topics === null ? (
+            <p style={{ fontSize: 13, color: "var(--ink-3)" }}>
+              Loading topics…
+            </p>
+          ) : topics.length === 0 ? (
+            <p style={{ fontSize: 13, color: "var(--ink-3)" }}>
+              No topics with attempted questions yet. Practice a few
+              topics first, then come back to drill mistakes per-topic.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {topics.map((t) => {
+                const on = topicId === t.topicId;
+                return (
+                  <button
+                    key={t.topicId}
+                    type="button"
+                    className={`vidya-shell__chip${on ? " vidya-shell__chip--on" : ""}`}
+                    onClick={() => setTopicId(t.topicId)}
+                    title={`${t.n} attempts · ${Math.round(t.ewa * 100)}% mastery`}
+                  >
+                    {t.title}
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        marginLeft: 6,
+                        color: on
+                          ? "var(--info)"
+                          : "var(--ink-4)",
+                      }}
+                    >
+                      {Math.round(t.ewa * 100)}%
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Length selector — always visible. */}
+      <section className="vidya-card-block" style={{ marginBottom: 16 }}>
+        <h3 className="vidya-card-block__title" style={{ marginBottom: "var(--sp-2)" }}>
+          How many items?
+          <span style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 400, marginLeft: 8 }}>
+            capped at 30 per session
+          </span>
+        </h3>
+        <div style={{ display: "flex", gap: 8 }}>
+          {LIMIT_OPTIONS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={`vidya-shell__chip${limit === n ? " vidya-shell__chip--on" : ""}`}
+              onClick={() => setLimit(n)}
+            >
+              {n} items
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {error && (
+        <div style={{ marginBottom: 14 }}>
+          <Banner tone="warning" role="alert">
+            {error}
+          </Banner>
+        </div>
+      )}
+
+      {/* Start CTA */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: 16,
+          background:
+            "linear-gradient(135deg, rgba(245,166,35,0.10), rgba(245,166,35,0.02))",
+          border: "1px solid rgba(245,166,35,0.30)",
+          borderRadius: 8,
+        }}
+      >
+        <span style={{ fontSize: 24 }}>🎯</span>
+        <div style={{ flex: 1 }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: "var(--ink)",
+              marginBottom: 2,
+            }}
+          >
+            {tab === "recent"
+              ? `Replay your ${limit} most recent mistakes`
+              : tab === "week"
+                ? `Replay mistakes from the last 7 days (up to ${limit})`
+                : topicId
+                  ? `Replay ${limit} mistakes from ${
+                      topics?.find((t) => t.topicId === topicId)?.title ??
+                      "this topic"
+                    }`
+                  : `Pick a topic above, then start`}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+            {tab === "topic" && !topicId
+              ? "Select a topic chip to enable Start."
+              : "Items load once; you drill them all then submit."}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="vidya-shell__primary"
+          onClick={start}
+          disabled={!canStart}
+        >
+          {submitting ? "Starting…" : "▶ Start drill"}
+        </button>
+      </div>
+    </div>
+  );
+}
+// ── end MistakesPracticePanel ────────────────────────────────────────────────
 
 // Practice hub — fast-action surface to start the next adaptive practice
 // round. Pulls AI-recommended next steps + per-topic mastery, surfaces
@@ -87,6 +389,16 @@ const ACTION_LABEL: Record<GuidedStep["action"], string> = {
 export function Practice() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pageTab = searchParams.get("tab") ?? "practice";
+
+  // Safety net: this hub does not scope to a single topic. A stray/bookmarked
+  // `/practice?topic=<id>` link (the old Study Map target) is redirected to
+  // that topic's page so the user never lands here on unrelated content.
+  const topicParam = searchParams.get("topic");
+  useEffect(() => {
+    if (topicParam) navigate(`/catalog/topic/${topicParam}`, { replace: true });
+  }, [topicParam, navigate]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [mastery, setMastery] = useState<MasteryListResponse["topics"] | null>(null);
   const [streak, setStreak] = useState<StreakResponse | null>(null);
@@ -94,6 +406,27 @@ export function Practice() {
   const [topicTitles, setTopicTitles] = useState<Record<string, TopicDetail>>({});
   const [error, setError] = useState<string | null>(null);
   const [startingTopicId, setStartingTopicId] = useState<string | null>(null);
+  // Phase 1B — wire existing analytics primitives.
+  const [readinessBand, setReadinessBand] = useState<{
+    band: string;
+    readiness_score: number;
+    target_score: number;
+    days_to_exam: number;
+    actions: string[];
+  } | null>(null);
+  const [revisionQueue, setRevisionQueue] = useState<Array<{
+    topicId: string;
+    topicTitle: string;
+    lastAttemptAt: string;
+    dueAt: string;
+    overdueDays: number;
+  }> | null>(null);
+  const [topicDecay, setTopicDecay] = useState<Array<{
+    conceptId?: string;
+    topicId?: string;
+    severity: string;
+    daysSince: number;
+  }> | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -143,6 +476,35 @@ export function Practice() {
       try {
         const r = await auth.fetch(`/api/v1/adaptive/guided-next-steps/${user.id}`);
         if (r.ok) setGuided((await r.json()) as GuidedResponse);
+      } catch {
+        /* swallow */
+      }
+      // Phase 1B — readiness band, revision queue, topic decay (parallel).
+      try {
+        const r = await auth.fetch(
+          `/api/v1/analytics/readiness-band/${user.id}?target_score=0.7&days_to_exam=120`,
+        );
+        if (r.ok) setReadinessBand(await r.json());
+      } catch {
+        /* swallow */
+      }
+      try {
+        const r = await auth.fetch(
+          `/api/v1/analytics/revision/${user.id}?limit=5`,
+        );
+        if (r.ok) {
+          const body = await r.json();
+          setRevisionQueue(body.items ?? []);
+        }
+      } catch {
+        /* swallow */
+      }
+      try {
+        const r = await auth.fetch(`/api/v1/analytics/topic-decay/${user.id}`);
+        if (r.ok) {
+          const body = await r.json();
+          setTopicDecay(body.items ?? []);
+        }
       } catch {
         /* swallow */
       }
@@ -231,6 +593,31 @@ export function Practice() {
       }));
   }, [mastery, topicTitles]);
 
+  // F2a — lazy diagnostic gate. Show a modal once per user on their
+  // first Practice visit if they have zero attempted topics and haven't
+  // explicitly dismissed it.
+  const DISMISS_KEY = "alp.diagnostic.dismissed";
+  const [diagDismissed, setDiagDismissed] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(DISMISS_KEY) === "1";
+    } catch {
+      return true;
+    }
+  });
+  const showDiagnosticGate =
+    !diagDismissed &&
+    mastery !== null &&
+    mastery.filter((m) => m.n > 0).length === 0;
+
+  function dismissDiagnostic() {
+    try {
+      window.localStorage.setItem(DISMISS_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setDiagDismissed(true);
+  }
+
   const heroStep = guided?.steps?.[0] ?? null;
   const heroTopicTitle = heroStep
     ? topicTitles[heroStep.topicId]?.title ?? heroStep.topicTitle
@@ -242,12 +629,134 @@ export function Practice() {
   const empty = mastery !== null && mastery.length === 0;
 
   return (
-    <AppShell title="Practice">
+    <VidyaShell
+      crumbs="PRACTICE · WORKOUT"
+      title="Practice"
+      subtitle="Drill weak topics with AI-picked sessions, or replay your recent mistakes."
+      chips={
+        <>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={pageTab !== "mistakes"}
+            className={`vidya-shell__chip${pageTab !== "mistakes" ? " vidya-shell__chip--on" : ""}`}
+            onClick={() => setSearchParams({}, { replace: true })}
+          >
+            Practice
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={pageTab === "mistakes"}
+            className={`vidya-shell__chip${pageTab === "mistakes" ? " vidya-shell__chip--on" : ""}`}
+            onClick={() => setSearchParams({ tab: "mistakes" }, { replace: true })}
+          >
+            🎯 Mistakes
+          </button>
+        </>
+      }
+    >
+      {/* ── Mistakes tab ─────────────────────────────────────────────────── */}
+      {pageTab === "mistakes" ? (
+        <MistakesPracticePanel />
+      ) : (
+        <>
       {error ? (
         <Banner tone="danger" role="alert">
           {error}
         </Banner>
       ) : null}
+
+      {/* F2a — Diagnostic placement modal */}
+      {showDiagnosticGate && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "var(--overlay-scrim)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+          onClick={dismissDiagnostic}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--rule)",
+              borderRadius: 12,
+              maxWidth: 460,
+              width: "100%",
+              padding: "22px 24px 20px",
+              boxShadow: "var(--shadow-float)",
+            }}
+          >
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "3px 9px",
+                background: "rgba(8,145,178,0.08)",
+                border: "1px solid rgba(8,145,178,0.30)",
+                color: "var(--gold)",
+                borderRadius: 20,
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: 0.4,
+                textTransform: "uppercase",
+                marginBottom: 12,
+              }}
+            >
+              ◈ Calibrate first
+            </div>
+            <h3
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: "var(--ink)",
+                margin: "0 0 8px",
+                lineHeight: 1.3,
+              }}
+            >
+              Take a 10-minute diagnostic?
+            </h3>
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--ink-3)",
+                margin: "0 0 16px",
+                lineHeight: 1.55,
+              }}
+            >
+              We'll use the result to seed the IRT engine — your first
+              real practice session will already be tuned to your level
+              instead of starting from scratch. You can skip and start
+              drilling right away if you'd rather calibrate as you go.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                type="button"
+                className="vidya-shell__chip"
+                onClick={dismissDiagnostic}
+              >
+                Skip — start practice
+              </button>
+              <Link
+                to="/practice/diagnostic"
+                className="vidya-shell__primary"
+                onClick={dismissDiagnostic}
+              >
+                Calibrate (10 min) →
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Hero — AI recommended next practice ─────────────────────────── */}
       {heroStep && heroTopicTitle ? (
@@ -256,7 +765,7 @@ export function Practice() {
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
               <span className="ai-pill">◈ AI PRACTICE · NEXT</span>
               <Pill tone="info">{ACTION_LABEL[heroStep.action]}</Pill>
-              <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
+              <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
                 ~{heroStep.estMinutes} min
               </span>
             </div>
@@ -287,27 +796,184 @@ export function Practice() {
           </div>
           <div className="ai-header-stats">
             <div className="ai-stat">
-              <div className="ai-stat-num" style={{ color: "var(--color-amber)" }}>
+              <div className="ai-stat-num" style={{ color: "var(--warn)" }}>
                 {streak?.currentStreak ?? 0}
               </div>
               <div className="ai-stat-lbl">DAY STREAK</div>
             </div>
             <div className="ai-divider" />
             <div className="ai-stat">
-              <div className="ai-stat-num" style={{ color: "var(--color-blue)" }}>
+              <div className="ai-stat-num" style={{ color: "var(--info)" }}>
                 {totalSessions}
               </div>
               <div className="ai-stat-lbl">SESSIONS</div>
             </div>
             <div className="ai-divider" />
             <div className="ai-stat">
-              <div className="ai-stat-num" style={{ color: "var(--color-green)" }}>
+              <div className="ai-stat-num" style={{ color: "var(--good)" }}>
                 {tested.length > 0 ? `${Math.round(meanEwa * 100)}%` : "—"}
               </div>
               <div className="ai-stat-lbl">AVG MASTERY</div>
             </div>
           </div>
         </section>
+      ) : null}
+
+      {/* ── Phase 1B — "Today's plan" panel: 3-col grid wiring readiness
+          band, revision queue, and topic decay alerts. Each card surfaces
+          its existing analytics primitive. ─────────────────────────── */}
+      {(readinessBand || revisionQueue?.length || topicDecay?.length) ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 12,
+            marginTop: "var(--sp-3)",
+            marginBottom: "var(--sp-4)",
+          }}
+        >
+          {readinessBand && (
+            <div className="card" style={{ padding: 14 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 8,
+                }}
+              >
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 12,
+                    color: "var(--ink-3)",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.04,
+                  }}
+                >
+                  Readiness band
+                </h3>
+                <Pill
+                  tone={
+                    readinessBand.band === "approaching"
+                      ? "success"
+                      : readinessBand.band === "on_track"
+                      ? "info"
+                      : readinessBand.band === "behind"
+                      ? "warning"
+                      : "danger"
+                  }
+                >
+                  {readinessBand.band.replace("_", " ")}
+                </Pill>
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <MasteryBar ewa={readinessBand.readiness_score} />
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>
+                Target {Math.round(readinessBand.target_score * 100)}% in {readinessBand.days_to_exam} days
+              </div>
+              {readinessBand.actions.length > 0 && (
+                <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12, color: "var(--ink-2)" }}>
+                  {readinessBand.actions.slice(0, 3).map((a, i) => (
+                    <li key={i} style={{ marginBottom: 2 }}>{a}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {revisionQueue && revisionQueue.length > 0 && (
+            <div className="card" style={{ padding: 14 }}>
+              <h3
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: 12,
+                  color: "var(--ink-3)",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.04,
+                }}
+              >
+                Revision queue · {revisionQueue.length} due
+              </h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {revisionQueue.slice(0, 4).map((r) => (
+                  <Link
+                    key={r.topicId}
+                    to={`/catalog/topic/${r.topicId}`}
+                    style={{
+                      textDecoration: "none",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "6px 0",
+                      borderBottom: "1px solid var(--rule)",
+                      fontSize: 13,
+                      color: "var(--ink)",
+                    }}
+                  >
+                    <span>{r.topicTitle}</span>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color:
+                          r.overdueDays > 0
+                            ? "var(--bad, #f43f5e)"
+                            : "var(--ink-3)",
+                      }}
+                    >
+                      {r.overdueDays > 0
+                        ? `${r.overdueDays}d overdue`
+                        : "due today"}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {topicDecay && topicDecay.length > 0 && (
+            <div className="card" style={{ padding: 14 }}>
+              <h3
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: 12,
+                  color: "var(--ink-3)",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.04,
+                }}
+              >
+                Decay alerts
+              </h3>
+              {topicDecay.filter((d) => d.severity !== "fresh").slice(0, 4).map((d, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 12,
+                    padding: "4px 0",
+                    color: "var(--ink-2)",
+                  }}
+                >
+                  <span>{d.topicId?.slice(0, 8) ?? d.conceptId?.slice(0, 8) ?? "?"}…</span>
+                  <span
+                    style={{
+                      color:
+                        d.severity === "critical"
+                          ? "var(--bad, #f43f5e)"
+                          : d.severity === "stale"
+                          ? "var(--warn, #fbbf24)"
+                          : "var(--ink-3)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {d.severity} · {d.daysSince}d
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       ) : null}
 
       {/* ── Empty state — no sessions yet ────────────────────────────────── */}
@@ -320,13 +986,167 @@ export function Practice() {
           <h2 className="section-heading" style={{ justifyContent: "center" }}>
             Run your first practice round
           </h2>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)", maxWidth: 460, margin: "0 auto 14px" }}>
+          <p style={{ fontSize: 12, color: "var(--ink-2)", maxWidth: 460, margin: "0 auto 14px" }}>
             Pick any topic from the catalog and we'll start an adaptive
             practice session — the IRT engine picks items at your edge of
             difficulty.
           </p>
           <Link to="/catalog" className="btn-ai" style={{ display: "inline-flex" }}>
             Browse topics →
+          </Link>
+        </div>
+      ) : null}
+
+      {/* ── F1 + F3: Mistake Replay + Custom Test Builder entry cards ──
+          F1 promotes mistake replay from a single button on /analysis.
+          F3 wires the new Custom Test Builder + My Tests surface. Both
+          cards are gated by `!empty` so a brand-new user with no
+          mastery data doesn't get confused. */}
+      {!empty ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: 12,
+            marginTop: "var(--sp-4)",
+          }}
+        >
+          <Link
+            to="/practice?tab=mistakes"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              padding: "14px 18px",
+              background:
+                "linear-gradient(135deg, rgba(245,166,35,0.10) 0%, rgba(245,166,35,0.02) 100%)",
+              border: "1px solid rgba(245,166,35,0.30)",
+              borderRadius: 10,
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <span style={{ fontSize: 26 }}>🎯</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "var(--ink)",
+                  marginBottom: 3,
+                }}
+              >
+                Drill your mistakes
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+                Re-attempt the questions you got wrong. Filter by recency or topic.
+              </div>
+            </div>
+            <span
+              style={{
+                color: "var(--warn)",
+                fontWeight: 700,
+                fontSize: 13,
+                flexShrink: 0,
+              }}
+            >
+              Open →
+            </span>
+          </Link>
+
+          <Link
+            to="/practice/build"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              padding: "14px 18px",
+              background:
+                "linear-gradient(135deg, rgba(47,93,203,0.10) 0%, rgba(47,93,203,0.02) 100%)",
+              border: "1px solid rgba(47,93,203,0.30)",
+              borderRadius: 10,
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <span style={{ fontSize: 26 }}>🧩</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "var(--ink)",
+                  marginBottom: 3,
+                }}
+              >
+                Build a custom test
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+                Pick topics + length + difficulty + marking. Save and re-use.{" "}
+                <Link
+                  to="/practice/my-tests"
+                  style={{ color: "var(--info)" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  My tests →
+                </Link>
+              </div>
+            </div>
+            <span
+              style={{
+                color: "var(--info)",
+                fontWeight: 700,
+                fontSize: 13,
+                flexShrink: 0,
+              }}
+            >
+              Build →
+            </span>
+          </Link>
+
+          {/* F5 — AI-suggested tests entry card (merged into MyTests ?tab=ai-suggested) */}
+          <Link
+            to="/practice/my-tests?tab=ai-suggested"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              padding: "14px 18px",
+              background:
+                "linear-gradient(135deg, rgba(126,84,234,0.10) 0%, rgba(126,84,234,0.02) 100%)",
+              border: "1px solid rgba(126,84,234,0.30)",
+              borderRadius: 10,
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <span style={{ fontSize: 26 }}>✨</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "var(--ink)",
+                  marginBottom: 3,
+                }}
+              >
+                AI test of the day
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+                Auto-composed test targeting your weakest topics. 4 shapes
+                to choose from.
+              </div>
+            </div>
+            <span
+              style={{
+                color: "#7e54ea",
+                fontWeight: 700,
+                fontSize: 13,
+                flexShrink: 0,
+              }}
+            >
+              Pick →
+            </span>
           </Link>
         </div>
       ) : null}
@@ -343,14 +1163,14 @@ export function Practice() {
               <h2 className="section-heading">
                 ◈ AI-recommended drills
                 {guided?.source === "heuristic" ? (
-                  <span style={{ fontSize: 9.5, color: "var(--text-faint)", fontWeight: 500 }}>
+                  <span style={{ fontSize: 9.5, color: "var(--ink-4)", fontWeight: 500 }}>
                     · heuristic
                   </span>
                 ) : null}
               </h2>
             </div>
             {restSteps.length === 0 ? (
-              <div style={{ fontSize: 11.5, color: "var(--text-faint)", padding: "8px 0" }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink-4)", padding: "8px 0" }}>
                 {guided
                   ? "Top recommendation is in the hero card above. Drill weak topics ↓"
                   : "Recommendations loading…"}
@@ -397,7 +1217,7 @@ export function Practice() {
               </Link>
             </div>
             {weakestDrills.length === 0 ? (
-              <div style={{ fontSize: 11.5, color: "var(--text-faint)", padding: "8px 0" }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink-4)", padding: "8px 0" }}>
                 No mastery data yet.
               </div>
             ) : (
@@ -406,12 +1226,12 @@ export function Practice() {
                 const strength = strengthFor(t.ewa);
                 const barColor =
                   strength === "STRONG"
-                    ? "var(--color-green)"
+                    ? "var(--good)"
                     : strength === "DEVELOPING"
-                      ? "var(--color-blue)"
+                      ? "var(--info)"
                       : strength === "WEAK"
-                        ? "var(--color-red)"
-                        : "var(--text-faint)";
+                        ? "var(--bad)"
+                        : "var(--ink-4)";
                 const isStarting = startingTopicId === t.topicId;
                 return (
                   <div key={t.topicId} className="pr-drill-card">
@@ -456,7 +1276,7 @@ export function Practice() {
         <div className="card" style={{ marginTop: "var(--sp-4)" }}>
           <div className="sec-row">
             <h2 className="section-heading">Recently practiced</h2>
-            <span style={{ fontSize: 10.5, color: "var(--text-faint)" }}>
+            <span style={{ fontSize: 10.5, color: "var(--ink-4)" }}>
               keep cadence — sessions compound mastery
             </span>
           </div>
@@ -465,10 +1285,10 @@ export function Practice() {
             const strength = strengthFor(t.ewa);
             const barColor =
               strength === "STRONG"
-                ? "var(--color-green)"
+                ? "var(--good)"
                 : strength === "DEVELOPING"
-                  ? "var(--color-blue)"
-                  : "var(--color-red)";
+                  ? "var(--info)"
+                  : "var(--bad)";
             const isStarting = startingTopicId === t.topicId;
             return (
               <div key={t.topicId} className="pr-drill-card">
@@ -509,7 +1329,7 @@ export function Practice() {
       {/* ── AI Mock test ─────────────────────────────────────────────────── */}
       <div
         className="pr-mock-card"
-        style={{ marginTop: "var(--sp-4)", borderLeft: "3px solid var(--color-amber)" }}
+        style={{ marginTop: "var(--sp-4)", borderLeft: "3px solid var(--warn)" }}
       >
         <div className="pr-mock-icon">⏱</div>
         <div className="pr-mock-body">
@@ -532,6 +1352,8 @@ export function Practice() {
           Start Mock →
         </Link>
       </div>
-    </AppShell>
+      </>
+      )}
+    </VidyaShell>
   );
 }

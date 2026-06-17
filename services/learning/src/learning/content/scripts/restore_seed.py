@@ -32,9 +32,20 @@ import asyncpg
 
 def _load_seed_module():
     """Import the migration file purely as a module so we can call
-    `_build_rows()` without going through alembic's env."""
+    `_build_rows()` without going through alembic's env.
+
+    Post-ADR-0005 consolidation, alembic versions for the content
+    schema live at services/learning/alembic/content/versions/.
+    From this file (services/learning/src/learning/content/scripts/),
+    that's six parents up + alembic/content/versions/.
+    """
     here = Path(__file__).resolve().parent
-    mig_path = here.parent / "alembic" / "versions" / "003_seed_question_bank.py"
+    # …/learning/src/learning/content/scripts → …/learning
+    service_root = here.parent.parent.parent.parent
+    mig_path = (
+        service_root / "alembic" / "content" / "versions"
+        / "003_seed_question_bank.py"
+    )
     spec = importlib.util.spec_from_file_location("content_seed_003", mig_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Could not load {mig_path}")
@@ -57,7 +68,7 @@ async def main() -> None:
         port=35432,
         user="postgres",
         password="postgres",  # noqa: S106
-        database="content",
+        database="learning",
     )
     updated = 0
     inserted = 0

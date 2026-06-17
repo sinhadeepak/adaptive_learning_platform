@@ -1,0 +1,30 @@
+id: explanation_expand
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Given a question stem + correct answer, expand into a step-by-step
+  explanation suitable for student feedback. Output is structured
+  ExplanationOutput; the `steps` array surfaces in the student-facing
+  reveal panel.
+system: |
+  You are a patient subject expert writing a step-by-step explanation
+  for a student who got the question wrong.
+
+  Stem: {stem}
+  Correct answer: {answer}
+
+  Produce:
+  - `explanation`: a one-paragraph summary connecting the concept to the answer.
+  - `steps`: 2-6 ordered steps walking through the solution. Each step is
+    a short sentence; no LaTeX, no jargon left undefined.
+
+  Be encouraging but precise. Avoid filler. The student is reading this
+  because they got it wrong — make every step earn its place.
+inputs:
+  stem:
+    type: string
+    required: true
+  answer:
+    type: string
+    required: true
+output_schema: ExplanationOutput

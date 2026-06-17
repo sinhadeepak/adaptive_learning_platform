@@ -12,6 +12,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../aurora/widgets/widgets.dart';
 
 import '../api/billing.dart';
 import 'paywall_webview_screen.dart';
@@ -103,15 +104,15 @@ class _BillingScreenState extends State<BillingScreen> {
     }
     if (mounted) {
       setState(() => _banner =
-          'Payment received. Account elevation is taking longer than usual — pull to refresh in a minute.');
+          'Payment received. Account elevation is taking longer than usual — pull to refresh in a minute.',);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final display = premiumDisplay(_sub);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Billing & Subscription')),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(title: 'Billing & Subscription'),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
@@ -120,7 +121,7 @@ class _BillingScreenState extends State<BillingScreen> {
             if (_banner != null) _bannerWidget(_banner!),
             if (_error != null) _bannerWidget(_error!, error: true),
             if (_loading)
-              const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+              const Center(child: Padding(padding: EdgeInsets.all(24), child: AuroraSpinner(size: 32)))
             else
               Card(
                 child: Padding(
@@ -132,14 +133,14 @@ class _BillingScreenState extends State<BillingScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Current plan',
-                              style: TextStyle(fontWeight: FontWeight.w600)),
+                              style: TextStyle(fontWeight: FontWeight.w600),),
                           _pill(display),
                         ],
                       ),
                       if (display.caption != null) ...[
                         const SizedBox(height: 8),
                         Text(display.caption!,
-                            style: const TextStyle(color: Colors.black54)),
+                            style: const TextStyle(color: Colors.black54),),
                       ],
                       if (_sub?.periodEnd != null) ...[
                         const SizedBox(height: 12),
@@ -179,10 +180,10 @@ class _BillingScreenState extends State<BillingScreen> {
         color: error ? Colors.red.shade50 : Colors.blue.shade50,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-            color: error ? Colors.red.shade200 : Colors.blue.shade200),
+            color: error ? Colors.red.shade200 : Colors.blue.shade200,),
       ),
       child: Text(text,
-          style: TextStyle(color: error ? Colors.red.shade900 : Colors.blue.shade900)),
+          style: TextStyle(color: error ? Colors.red.shade900 : Colors.blue.shade900),),
     );
   }
 
@@ -199,7 +200,7 @@ class _BillingScreenState extends State<BillingScreen> {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(d.label,
-          style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12)),
+          style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12),),
     );
   }
 }

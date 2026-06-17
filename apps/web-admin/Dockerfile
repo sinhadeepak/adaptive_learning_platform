@@ -15,6 +15,7 @@ COPY pnpm-lock.yaml* ./
 COPY packages/design-system/package.json ./packages/design-system/
 COPY packages/auth-client/package.json ./packages/auth-client/
 COPY packages/api-client/package.json ./packages/api-client/
+COPY packages/ui/package.json ./packages/ui/
 COPY apps/web-student/package.json ./apps/web-student/
 COPY apps/web-portal/package.json ./apps/web-portal/
 COPY apps/web-admin/package.json ./apps/web-admin/
@@ -24,11 +25,13 @@ RUN pnpm install --frozen-lockfile=false
 COPY packages/design-system ./packages/design-system
 COPY packages/auth-client ./packages/auth-client
 COPY packages/api-client ./packages/api-client
+COPY packages/ui ./packages/ui
 COPY apps/web-admin ./apps/web-admin
 
 RUN pnpm --filter=@alp/design-system build \
  && pnpm --filter=@alp/auth-client build \
  && pnpm --filter=@alp/api-client build \
+ && pnpm --filter=@alp/ui build \
  && pnpm --filter=@alp/web-admin build
 
 FROM nginx:${NGINX_VERSION} AS runtime

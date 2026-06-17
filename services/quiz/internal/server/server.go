@@ -30,11 +30,27 @@ func Router(logger *slog.Logger, sess *SessionService, flags FlagEvaluator) http
 		mux.HandleFunc("POST /quiz/sessions/start", sess.Start(logger))
 		// Sprint 12 S12-D — ASSIGNMENT mode entry point.
 		mux.HandleFunc("POST /quiz/sessions/from-assignment", sess.StartFromAssignment(logger))
+		// Sprint 23 (P4-S23) — MOCK_BLUEPRINT entry point.
+		mux.HandleFunc("POST /quiz/sessions/from-blueprint", sess.StartFromBlueprint(logger))
+		// F4 — count sessions launched from a shared-blueprint slug.
+		mux.HandleFunc("GET /quiz/sessions/by-share-slug", sess.CountByShareSlug(logger))
+		// Phase 1C — mistake replay (PRACTICE-mode session pre-seeded with wrong answers).
+		mux.HandleFunc("POST /quiz/sessions/start-mistake-replay", sess.StartMistakeReplay(logger))
+		// Phase 1D-1 — per-question detail for post-test session deep-dive.
+		mux.HandleFunc("GET /quiz/sessions/{id}/per-question-time", sess.PerQuestionTime(logger))
+		// Phase 1D-7 — internal batch mock-summary aggregator (used by engagement
+		// national-rank to avoid N HTTP fan-outs).
+		mux.HandleFunc("POST /quiz/internal/users/mock-summaries", sess.BatchUserMockSummaries(logger))
 		mux.HandleFunc("GET /quiz/sessions", sess.ListSessions(logger))
 		mux.HandleFunc("GET /quiz/sessions/{id}", sess.Get(logger))
 		mux.HandleFunc("GET /quiz/sessions/{id}/next", sess.Next(logger))
+		mux.HandleFunc("GET /quiz/sessions/{id}/items", sess.Items(logger))
 		mux.HandleFunc("POST /quiz/sessions/{id}/answers", sess.Answer(logger))
 		mux.HandleFunc("POST /quiz/sessions/{id}/submit", sess.Submit(logger))
+		// P6-S54 — end-of-session calibration feedback (too_easy / right
+		// / too_hard). Writes to quiz_sessions.calibration_feedback; the
+		// column has a CHECK constraint matching the 3-value enum.
+		mux.HandleFunc("PATCH /quiz/sessions/{id}/calibration", sess.PatchCalibration(logger))
 		mux.HandleFunc("GET /quiz/questions", sess.ListQuestions(logger))
 		mux.HandleFunc("GET /quiz/users/{userId}/answered-items", sess.UserAnsweredItems(logger))
 	} else {

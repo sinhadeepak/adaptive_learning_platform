@@ -18,6 +18,11 @@ export interface AuthClient {
   resetPassword(token: string, newPassword: string): Promise<void>;
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
   getUser(): User | null;
+  // Set by the auth provider after rehydrating user state from /profile/me.
+  // Without this, `getUser()` returns null after a page refresh because
+  // `currentUser` is only populated by login()/verifyOtp() — anything that
+  // depends on getUser() (e.g. X-User-Id header propagation) fails silently.
+  setUser(user: User | null): void;
   getTokens(): Tokens | null;
   isAuthenticated(): boolean;
 }
@@ -144,6 +149,9 @@ export function createAuthClient(opts: AuthClientOptions): AuthClient {
       return res;
     },
     getUser: () => currentUser,
+    setUser: (u) => {
+      currentUser = u;
+    },
     getTokens: () => storage.get(),
     isAuthenticated: () => storage.get() !== null,
   };

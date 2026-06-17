@@ -66,3 +66,138 @@ export function BoolPill({ value }: { value: boolean }) {
     </span>
   );
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Dashboard primitives — reusable across admin pages (Ops,
+   Console, Analytics). Styling lives in src/styles/shell.css.
+   ────────────────────────────────────────────────────────────── */
+
+export type StatusTone = "success" | "warning" | "danger" | "muted";
+
+/** A small status dot. `live` adds a slow pulse (e.g. "all systems"). */
+export function StatusDot({
+  tone = "muted",
+  live = false,
+}: {
+  tone?: StatusTone;
+  live?: boolean;
+}) {
+  return (
+    <span
+      className={`status-dot status-dot--${tone}${live ? " status-dot--live" : ""}`}
+      aria-hidden
+    />
+  );
+}
+
+/** A status badge (pill) with a leading dot — scannable at a glance. */
+export function StatusPill({
+  tone = "muted",
+  children,
+}: {
+  tone?: PillTone;
+  children: ReactNode;
+}) {
+  return (
+    <span className={`pill pill-${tone}`}>
+      <span className="pill-dot" aria-hidden />
+      {children}
+    </span>
+  );
+}
+
+/** KPI tile: mono overline label + large serif-display value. */
+export function StatCard({
+  label,
+  value,
+  tone = "muted",
+  mono = false,
+  hint,
+}: {
+  label: ReactNode;
+  value: ReactNode;
+  tone?: StatusTone;
+  /** Render the value in mono (for non-numeric values like timestamps). */
+  mono?: boolean;
+  /** Optional sub-line under the value (benchmark, definition, etc.). */
+  hint?: ReactNode;
+}) {
+  return (
+    <div className={`stat-card stat-card--${tone}`}>
+      <div className="stat-card__label">
+        {tone !== "muted" && <StatusDot tone={tone} />}
+        {label}
+      </div>
+      <div className={`stat-card__value${mono ? " stat-card__value--mono" : ""}`}>
+        {value}
+      </div>
+      {hint && <div className="stat-card__hint">{hint}</div>}
+    </div>
+  );
+}
+
+/** Section divider: mono overline + hairline rule + optional count. */
+export function SectionHeader({
+  label,
+  count,
+}: {
+  label: ReactNode;
+  count?: ReactNode;
+}) {
+  return (
+    <div className="section-head">
+      <span className="section-head__label">{label}</span>
+      <span className="section-head__rule" />
+      {count != null && <span className="section-head__count">{count}</span>}
+    </div>
+  );
+}
+
+/** Aligned key→value metric rows (mono, tabular). */
+export function MetricRows({
+  metrics,
+}: {
+  metrics?: Record<string, string | number | boolean | null> | null;
+}) {
+  if (!metrics) return null;
+  const entries = Object.entries(metrics).filter(([, v]) => v != null);
+  if (entries.length === 0) return null;
+  return (
+    <div className="svc-card__metrics">
+      {entries.map(([k, v]) => (
+        <div key={k} className="svc-metric">
+          <span className="svc-metric__key">{k}</span>
+          <span className="svc-metric__val">
+            {typeof v === "number" ? v.toLocaleString() : String(v)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Elevated component card with a status accent bar + badge. */
+export function ServiceCard({
+  name,
+  tone = "muted",
+  badge,
+  detail,
+  children,
+}: {
+  name: ReactNode;
+  tone?: StatusTone;
+  badge?: ReactNode;
+  detail?: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <div className={`svc-card svc-card--${tone}`}>
+      <div className="svc-card__head">
+        <span className="svc-card__name">{name}</span>
+        {badge}
+      </div>
+      {detail && <div className="svc-card__detail">{detail}</div>}
+      {children}
+    </div>
+  );
+}

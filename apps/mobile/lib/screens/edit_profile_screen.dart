@@ -2,6 +2,7 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 import '../widgets/alp_card.dart';
 
@@ -65,17 +66,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         return;
       }
       // Mirror into AuthClient so the profile tab + greeting stay fresh.
+      // copyWith preserves examId (and other fields not passed) so a
+      // name edit doesn't silently drop the user's exam selection.
       final u = widget.auth.user;
       if (u != null) {
-        widget.auth.setUser(User(
-          id: u.id,
-          email: u.email,
+        widget.auth.setUser(u.copyWith(
           firstName: updated.firstName,
           lastName: updated.lastName,
-          role: u.role,
-          onboardingState: u.onboardingState,
-          tenantId: u.tenantId,
-        ));
+        ),);
       }
       setState(() {
         _saving = false;
@@ -92,11 +90,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(title: const Text('Edit Profile'), backgroundColor: AlpColors.bgSurface1),
+    return AuroraScaffold(
+      appBar: const AuroraAppBar(title: 'Edit Profile'),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AlpColors.colorAi))
+          ? const Center(child: AuroraSpinner(size: 32))
           : ListView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
               children: [
@@ -147,7 +144,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   child: ElevatedButton(
                     onPressed: _saving ? null : _save,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AlpColors.colorBlue,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: Text(
@@ -177,7 +173,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _field({required TextEditingController controller, required String hint}) {
     return TextField(
       controller: controller,
-      style: const TextStyle(color: AlpColors.textPrimary),
+      style: const TextStyle(),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: AlpColors.textMuted),

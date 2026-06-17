@@ -1,3 +1,5 @@
+// Billing — Vidya v1 redesign.
+//
 // Sprint 8 F-1 + F-3 — Billing page.
 //
 // Three states this page renders for:
@@ -11,7 +13,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { AppShell } from "../components/AppShell";
+import { VidyaShell } from "../components/vidya/VidyaShell";
 import { PaywallModal } from "../components/PaywallModal";
 import {
   fetchSubscription,
@@ -63,10 +65,12 @@ export function Billing() {
   const display = premiumDisplay(sub);
 
   return (
-    <AppShell title="Billing & Subscription">
+    <VidyaShell
+      crumbs="ME · BILLING"
+      title="Billing"
+      subtitle="Your plan, payment method, and invoice history."
+    >
       <main className="billing-page">
-        <h1>Billing &amp; Subscription</h1>
-
         {status === "success" && (
           <section className="billing-banner billing-banner-success">
             <strong>Welcome to Premium!</strong>
@@ -129,6 +133,6 @@ export function Billing() {
           onClose={() => setShowPaywall(false)}
         />
       </main>
-    </AppShell>
+    </VidyaShell>
   );
 }

@@ -36,6 +36,7 @@ from identity.profile.schemas import (
     MockAttemptList,
     NotificationPrefsPatch,
     Preferences,
+    GoalsPatch,
     PreferencesPatch,
     Problem,
     Profile,
@@ -98,7 +99,14 @@ async def _build_profile(
             language=row["language_pref"],
             dailyGoalMinutes=row.get("daily_goal_minutes"),
         ),
-        exams=[ExamSelection(examId=str(e["exam_id"]), targetDate=e["target_date"]) for e in exams],
+        exams=[
+            ExamSelection(
+                examId=str(e["exam_id"]),
+                targetDate=e["target_date"],
+                options=e.get("options"),
+            )
+            for e in exams
+        ],
         notificationPrefs=row.get("notification_prefs") or {},
     )
 
@@ -129,6 +137,62 @@ async def patch_me(body: ProfileUpdate, session: SessionDep, principal: Principa
     return profile
 
 
+# ── Phase 1D-7 — National leaderboard opt-in ────────────────────────
+
+
+@router.patch("/me/leaderboard-opt-in")
+async def patch_leaderboard_opt_in(
+    body: dict,
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> dict:
+    """Toggle the user's opt-in flag for the national mock leaderboard.
+    Body: {"optIn": bool, "publicDisplayName"?: str | null}.
+    """
+    from sqlalchemy import text as _t
+
+    opt_in = bool(body.get("optIn", False))
+    name = body.get("publicDisplayName")
+    await session.execute(
+        _t(
+            """
+            UPDATE auth_schema.users
+               SET opt_in_national_leaderboard = :opt,
+                   public_display_name = :name
+             WHERE id = CAST(:uid AS uuid)
+            """
+        ),
+        {"opt": opt_in, "name": name, "uid": principal.user_id},
+    )
+    await session.commit()
+    return {"optIn": opt_in, "publicDisplayName": name}
+
+
+@router.get("/me/leaderboard-opt-in")
+async def get_leaderboard_opt_in(
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> dict:
+    from sqlalchemy import text as _t
+
+    row = (
+        await session.execute(
+            _t(
+                """
+                SELECT opt_in_national_leaderboard, public_display_name
+                  FROM auth_schema.users
+                 WHERE id = CAST(:uid AS uuid)
+                """
+            ),
+            {"uid": principal.user_id},
+        )
+    ).first()
+    return {
+        "optIn": bool(row[0]) if row else False,
+        "publicDisplayName": row[1] if row else None,
+    }
+
+
 @router.put("/exams", response_model=Profile)
 async def put_exam(body: ExamPutRequest, session: SessionDep, principal: PrincipalDep) -> Profile:
     profiles = ProfileRepo(session)
@@ -151,11 +215,35 @@ async def patch_exam(
     session: SessionDep,
     principal: PrincipalDep,
 ) -> Profile:
-    updated = await ExamRepo(session).set_target_date(
-        user_id=principal.user_id, exam_id=exam_id, target=body.targetDate
-    )
-    if not updated:
-        raise _problem("exam_not_selected", "Exam is not in the user's selection", http_status=404)
+    """PATCH supports two independent fields:
+      - targetDate: when the user has set/changed their exam date.
+      - options: per-pool picks (Phase 7).
+
+    Either or both can be set in the same call. Pool picks land via
+    ExamRepo.set_options; we don't validate pick_min/pick_max here
+    (catalog lives in another DB) — the caller's UI validates.
+    """
+    repo = ExamRepo(session)
+
+    # targetDate flow — preserve old behaviour if only targetDate is sent.
+    target_updated = False
+    if body.targetDate is not None or "targetDate" in body.model_fields_set:
+        target_updated = await repo.set_target_date(
+            user_id=principal.user_id, exam_id=exam_id, target=body.targetDate
+        )
+
+    options_updated = False
+    if "options" in body.model_fields_set:
+        options_updated = await repo.set_options(
+            user_id=principal.user_id, exam_id=exam_id, options=body.options
+        )
+
+    if not (target_updated or options_updated):
+        raise _problem(
+            "exam_not_selected",
+            "Exam is not in the user's selection",
+            http_status=404,
+        )
     profile = await _build_profile(session=session, principal=principal)
     await session.commit()
     return profile
@@ -181,6 +269,85 @@ async def patch_preferences(
     profile = await _build_profile(session=session, principal=principal)
     await session.commit()
     return profile
+
+
+# Sprint 30 (P4-S30) — exam-prep target goals.
+@router.patch("/me/goals")
+async def patch_goals(
+    body: GoalsPatch,
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> dict:
+    """Partial update of `target_exam_id` / `target_exam_date` /
+    `target_rank` on the user's profile. Returns the row's current goal
+    fields. Used by the closed-loop study plan + pre-mock revision
+    sprint mode.
+    """
+    profiles = ProfileRepo(session)
+    await profiles.ensure(
+        user_id=principal.user_id,
+        first_name=principal.claims.get("first_name", ""),
+        last_name=principal.claims.get("last_name", ""),
+    )
+    await profiles.patch_goals(
+        user_id=principal.user_id,
+        target_exam_id=body.targetExamId,
+        target_exam_date=body.targetExamDate,
+        target_rank=body.targetRank,
+    )
+    row = await profiles.by_user_id(principal.user_id)
+    await session.commit()
+    return {
+        "userId": str(principal.user_id),
+        "targetExamId": str(row["target_exam_id"]) if row and row.get("target_exam_id") else None,
+        "targetExamDate": row["target_exam_date"].isoformat()
+        if row and row.get("target_exam_date") else None,
+        "targetRank": int(row["target_rank"]) if row and row.get("target_rank") is not None else None,
+    }
+
+
+# F2b — diagnostic FSM transitions.
+@router.post("/me/diagnostic-complete", response_model=Profile)
+async def diagnostic_complete(
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> Profile:
+    """Marks the user's onboarding diagnostic as complete. Transitions
+    onboarding_state EXAM_SELECTED → DIAGNOSTIC_DONE. Called by the
+    screening flow's /screening/{token}/persist hook on the client side
+    after the IRT prior has been written. Idempotent — re-calling on a
+    user already past EXAM_SELECTED is a no-op.
+    """
+    profiles = ProfileRepo(session)
+    await profiles.mark_diagnostic_complete(principal.user_id)
+    profile = await _build_profile(session=session, principal=principal)
+    await session.commit()
+    return profile
+
+
+@router.get("/me/onboarding-routing")
+async def onboarding_routing(
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> dict:
+    """F2b — client-side onboarding redirector helper. Tells the web
+    + mobile app what state the user is in + whether their tenant
+    requires the in-FSM diagnostic step. The client uses this to pick
+    the next screen after exam selection without having to look up
+    tenant config separately.
+    """
+    profiles = ProfileRepo(session)
+    row = await profiles.by_user_id(principal.user_id)
+    state = row["onboarding_state"] if row else "NEW"
+    tenant_id = row.get("tenant_id") if row else None
+    requires = await profiles.tenant_requires_diagnostic(tenant_id)
+    diag_waived = bool(row.get("diagnostic_waived")) if row else False
+    return {
+        "onboardingState": state,
+        "tenantId": str(tenant_id) if tenant_id else None,
+        "requiresDiagnostic": requires and not diag_waived,
+        "diagnosticWaived": diag_waived,
+    }
 
 
 @router.put("/me/avatar", response_model=Profile)
@@ -470,6 +637,39 @@ async def post_feedback(
     )
 
 
+# ── Phase 1D-7 — Internal opted-in lookup (must be before /{user_id}) ──
+
+
+@internal_router.get("/opted-in-leaderboard")
+async def list_opted_in_leaderboard(
+    session: SessionDep,
+    examCode: str | None = None,
+) -> dict:
+    """Return all users with `opt_in_national_leaderboard = true`.
+    `examCode` reserved for future per-exam scoping; v1 returns all opted-in.
+    """
+    from sqlalchemy import text as _t
+
+    rows = (
+        await session.execute(
+            _t(
+                """
+                SELECT id::text AS user_id, public_display_name
+                  FROM auth_schema.users
+                 WHERE opt_in_national_leaderboard = TRUE
+                   AND COALESCE(is_deleted, FALSE) = FALSE
+                """
+            )
+        )
+    ).mappings().all()
+    return {
+        "users": [
+            {"userId": r["user_id"], "publicDisplayName": r["public_display_name"]}
+            for r in rows
+        ],
+    }
+
+
 # ---- /internal/profile/{user_id} — service-to-service lookup ----
 
 
@@ -501,3 +701,6 @@ async def get_profile_internal(user_id: str, session: SessionDep) -> InternalPro
         dailyGoalMinutes=row.get("daily_goal_minutes"),
         notificationPrefs=row.get("notification_prefs") or {},
     )
+
+
+# Phase 1D-7 internal lookup moved earlier in the router (before /{user_id}).

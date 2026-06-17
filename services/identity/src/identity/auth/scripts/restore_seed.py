@@ -64,7 +64,7 @@ async def main() -> None:
         port=35432,
         user="postgres",
         password="postgres",  # noqa: S106
-        database="auth",
+        database="identity",
     )
     try:
         for u in SEED_USERS:

@@ -1,11 +1,70 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light" data-persona="aspirant" data-density="regular">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Adaptive Learning — Student</title>
+    <!-- Vidya v1 self-hosted fonts — preload the critical UI + display
+         faces so first paint avoids FOUT on slow connections. -->
+    <link
+      rel="preload"
+      href="/fonts/vidya/Geist-Variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/vidya/InstrumentSerif-Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
   </head>
   <body>
+    <!-- Pre-React Vidya bootstrap. Reads the user's theme / persona /
+         density from localStorage and applies the matching data-*
+         attributes to <html> before stylesheets paint, so the first
+         paint matches every choice (no dark→light flash, no density jump
+         on hydrate, no accent-color swap mid-render). Mirrors the
+         attribute set the design tokens key off:
+            data-theme   in {light, dark}
+            data-persona in {aspirant, junior, senior, pro, lifelong}
+            data-density in {compact, regular, comfy}
+         The keys 'alp.theme' / 'alp.persona' / 'alp.density' are owned
+         by ThemeProvider / PersonaProvider / DensityProvider — see
+         src/lib/. -->
+    <script>
+      (function () {
+        var d = document.documentElement;
+        // Theme
+        try {
+          var t = localStorage.getItem('alp.theme') || 'system';
+          var effectiveTheme = t === 'system'
+            ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : t;
+          d.setAttribute('data-theme', effectiveTheme);
+          d.style.colorScheme = effectiveTheme;
+        } catch (e) { /* default attr already on <html> */ }
+        // Persona
+        try {
+          var p = localStorage.getItem('alp.persona');
+          var validPersonas = { aspirant: 1, junior: 1, senior: 1, pro: 1, lifelong: 1 };
+          if (validPersonas[p]) d.setAttribute('data-persona', p);
+        } catch (e) {}
+        // Density — old Aurora versions wrote persona names here. Map
+        // legacy values to the new density vocabulary so returning
+        // users don't see a layout jump on the first Vidya load.
+        try {
+          var dn = localStorage.getItem('alp.density');
+          var legacyToDensity = { junior: 'comfy', aspirant: 'regular', pro: 'compact' };
+          if (legacyToDensity[dn]) dn = legacyToDensity[dn];
+          if (dn === 'compact' || dn === 'regular' || dn === 'comfy') {
+            d.setAttribute('data-density', dn);
+          }
+        } catch (e) {}
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

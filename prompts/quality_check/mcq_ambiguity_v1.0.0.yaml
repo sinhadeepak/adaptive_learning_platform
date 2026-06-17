@@ -1,0 +1,33 @@
+# Phase 5 (P5-S38) — sample prompt template demonstrating the registry shape.
+# Real S40 quality-check prompts replace this with curated content.
+id: mcq_ambiguity
+version: 1.0.0
+touchpoint: quality_check
+description: >
+  Detects whether an MCQ has multiple defensibly-correct options.
+  Returns a structured AmbiguityReport.
+system: |
+  You are an expert exam question reviewer. Given the MCQ below,
+  determine whether the marked correct answer is unambiguously correct,
+  or whether a defensible argument could be made for any other option.
+
+  Stem: {stem}
+  Options:
+  {options_block}
+  Marked correct: {correct_id}
+
+  Be strict but fair. Mark `is_ambiguous: true` only when at least one
+  other option could be defended in a graduate-level exam setting.
+  Provide one-line reasoning per option you flag.
+inputs:
+  stem:
+    type: string
+    required: true
+  options_block:
+    type: string
+    required: true
+    description: "Pre-formatted lines like 'A. text\\nB. text\\n...'"
+  correct_id:
+    type: string
+    required: true
+output_schema: AmbiguityReportSchema

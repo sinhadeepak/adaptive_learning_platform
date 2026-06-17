@@ -1,13 +1,24 @@
+import 'dart:developer' as developer;
+
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../aurora/widgets/widgets.dart';
 import '../screens/doubt_detail_screen.dart';
 import '../widgets/alp_card.dart';
 import 'quiz_client.dart';
 
-/// Quiz result — trophy hero, big score, 4-stat grid, AI mastery pills,
-/// CTA stack. Mirrors docs/ui/02_MobileApp screenshot 4.
+/// Quiz result — Phase 6 S51 3-zone IA.
+///
+/// Spec: docs/02_planning/55_Phase6_UXCoPilot_Evaluation_and_SprintPlan.md S51
+///
+///   Zone 1 (always visible)  — Score band: trophy + score + 4-stat grid.
+///   Zone 2 (collapsed by default) — AI insights summary: one-sentence
+///     headline + tap-to-reveal mastery pills + per-band advice.
+///   Zone 3 (always visible)  — Question review: per-item rows; tap a
+///     row to open the detail drawer (stem + answer + Ask-AI / Bookmark
+///     / Report).
 class QuizResultScreen extends StatefulWidget {
   const QuizResultScreen({
     super.key,
@@ -35,6 +46,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
   final Set<String> _bookmarked = <String>{};
   final Set<String> _reported = <String>{};
   String? _askingAiQid;
+  bool _insightsExpanded = false;
 
   @override
   void initState() {
@@ -72,26 +84,61 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
   }
 
   Future<void> _askAiAbout(QuizItemSummary item) async {
-    if (widget.api == null || _detail == null || _askingAiQid != null) return;
+    // Tap-feedback guards. Failures used to fall through silently so the
+    // user got no signal — now we surface every branch.
+    if (_askingAiQid != null) return; // already in flight; ignore re-tap
+    if (widget.api == null) {
+      _showAiError("AI tutor isn't available in this view.");
+      developer.log('askAi: widget.api is null', name: 'quiz_result');
+      return;
+    }
+    if (_detail == null) {
+      _showAiError('Still loading session data — try again in a moment.');
+      developer.log('askAi: _detail is null (session not yet loaded)', name: 'quiz_result');
+      return;
+    }
     setState(() => _askingAiQid = item.questionId);
     try {
       final stem = item.stem ?? 'Question #${item.questionId.substring(0, 8)}';
+      developer.log(
+        'askAi: createDoubt qid=${item.questionId} topicId=${_detail!.topicId}',
+        name: 'quiz_result',
+      );
       final detail = await widget.api!.createDoubt(
         questionText: stem,
         topicId: _detail!.topicId,
         topicTitle: _topicTitle,
       );
-      if (detail == null || !mounted) return;
+      if (!mounted) return;
+      if (detail == null) {
+        _showAiError("Couldn't open the AI tutor — please try again.");
+        developer.log('askAi: createDoubt returned null', name: 'quiz_result');
+        return;
+      }
       await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => DoubtDetailScreen(
           api: widget.api!,
           doubtId: detail.summary.id,
           autoAskAi: true,
         ),
-      ));
+      ),);
+    } catch (e, st) {
+      developer.log('askAi: failed', name: 'quiz_result', error: e, stackTrace: st);
+      if (mounted) _showAiError('AI tutor failed: $e');
     } finally {
       if (mounted) setState(() => _askingAiQid = null);
     }
+  }
+
+  void _showAiError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AlpColors.colorRed,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   Future<void> _reportItem(QuizItemSummary item) async {
@@ -160,21 +207,23 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
   @override
   Widget build(BuildContext context) {
     if (_error != null) {
-      return Scaffold(
-        backgroundColor: AlpColors.bgBase,
-        appBar: AppBar(title: const Text('Result'), backgroundColor: AlpColors.bgSurface1),
+      return AuroraScaffold(
+        appBar: const AuroraAppBar(title: 'Result'),
         body: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(_error!, style: const TextStyle(color: AlpColors.colorRed)),
+          child: AuroraEmptyState(
+            illustration: const Icon(Icons.error_outline),
+            title: 'Something went wrong',
+            description: _error,
+          ),
         ),
       );
     }
     final d = _detail;
     if (d == null) {
-      return Scaffold(
-        backgroundColor: AlpColors.bgBase,
-        appBar: AppBar(backgroundColor: AlpColors.bgSurface1),
-        body: const Center(child: CircularProgressIndicator(color: AlpColors.colorAi)),
+      return const AuroraScaffold(
+        appBar: AuroraAppBar(title: 'Result'),
+        body: Center(child: AuroraSpinner(size: 32)),
       );
     }
 
@@ -194,103 +243,210 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                 ? 'Solid run · Accuracy: $pct%'
                 : 'Keep going · Accuracy: $pct%';
 
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-          children: [
-            // Trophy hero
-            const SizedBox(height: 12),
-            Center(
-              child: Container(
-                width: 90,
-                height: 90,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AlpColors.colorAmber,
-                      AlpColors.colorAmber.withValues(alpha: 0.6),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AlpColors.colorAmber.withValues(alpha: 0.30),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.emoji_events, color: Colors.white, size: 50),
+    return AuroraScaffold(
+      appBar: const AuroraAppBar(title: 'Result'),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        children: [
+          // ── Zone 1: Score band ─────────────────────────────────────
+          _zoneScoreBand(d, pct, scoreTone, headlineCopy, wrong),
+          const SizedBox(height: 16),
+
+          // ── Zone 2: AI insights summary (collapsed by default) ─────
+          _zoneInsightsSummary(d, pct),
+          const SizedBox(height: 24),
+
+          // ── Zone 3: Question review (rows; tap for detail drawer) ──
+          if (d.items.isNotEmpty) _zoneReview(d),
+
+          // CTAs
+          const SizedBox(height: 8),
+          _GradientButton(
+            icon: Icons.bar_chart_rounded,
+            label: 'View Detailed Analysis',
+            onTap: () => Navigator.of(context).pop(),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AlpColors.borderStrong),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),),
+              ),
+              child: const Text(
+                'Retry Same Topic',
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-            const SizedBox(height: 18),
-            // Big score
-            Center(
-              child: Text(
-                '${d.correctCount}/${d.servedCount}',
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: () =>
+                  Navigator.of(context).popUntil((r) => r.isFirst),
+              child: const Text(
+                '← Back to Practice',
                 style: TextStyle(
-                  color: scoreTone,
-                  fontSize: 64,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
-                ),
+                    color: AlpColors.textMuted,
+                    fontWeight: FontWeight.w500,),
               ),
             ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                headlineCopy,
-                style: const TextStyle(
-                  color: AlpColors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Zone 1 ────────────────────────────────────────────────────────
+  Widget _zoneScoreBand(
+    QuizSessionDetail d,
+    int pct,
+    Color scoreTone,
+    String headlineCopy,
+    int wrong,
+  ) {
+    return Column(
+      children: [
+        const SizedBox(height: 12),
+        Center(
+          child: Container(
+            width: 90,
+            height: 90,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AlpColors.colorAmber,
+                  AlpColors.colorAmber.withValues(alpha: 0.6),
+                ],
               ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // 4-stat grid
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.7,
-              children: [
-                _StatTile(
-                  value: d.correctCount.toString(),
-                  label: 'Correct',
-                  tone: AlpColors.colorGreen,
-                ),
-                _StatTile(
-                  value: wrong.toString(),
-                  label: 'Wrong',
-                  tone: AlpColors.colorRed,
-                ),
-                _StatTile(
-                  value: _formatTimeTaken(d),
-                  label: 'Time Taken',
-                  tone: AlpColors.colorAmber,
-                ),
-                _StatTile(
-                  value: _masteryBoost(),
-                  label: 'Mastery Boost',
-                  tone: AlpColors.colorAi,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: AlpColors.colorAmber.withValues(alpha: 0.30),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
+            child: const Icon(Icons.emoji_events,
+                color: Colors.white, size: 50,),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Center(
+          child: Text(
+            '${d.correctCount}/${d.servedCount}',
+            style: TextStyle(
+              color: scoreTone,
+              fontSize: 64,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            headlineCopy,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.7,
+          children: [
+            _StatTile(
+              value: d.correctCount.toString(),
+              label: 'Correct',
+              tone: AlpColors.colorGreen,
+            ),
+            _StatTile(
+              value: wrong.toString(),
+              label: 'Wrong',
+              tone: AlpColors.colorRed,
+            ),
+            _StatTile(
+              value: _formatTimeTaken(d),
+              label: 'Time Taken',
+              tone: AlpColors.colorAmber,
+            ),
+            _StatTile(
+              value: _masteryBoost(),
+              label: 'Mastery Boost',
+              tone: AlpColors.colorAi,
+              tooltip:
+                  'How much your ability estimate moved on this topic. '
+                  'Positive = mastery rose; negative = dipped. '
+                  'Tap-to-dismiss.',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
-            const SizedBox(height: 16),
-
-            // AI insight pills
+  // ─── Zone 2 ────────────────────────────────────────────────────────
+  //
+  // Headline = one sentence the student can act on. Drawer-style
+  // expansion reveals the per-band advice + mastery pills that used
+  // to live inline. Default is collapsed so the score band → review
+  // path stays short.
+  Widget _zoneInsightsSummary(QuizSessionDetail d, int pct) {
+    final headline = _insightHeadline(pct);
+    return AuroraCard(
+      tone: AuroraCardTone.auroraAi,
+      onTap: () => setState(() => _insightsExpanded = !_insightsExpanded),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Text('✦', style: TextStyle(fontSize: 14)),
+              const SizedBox(width: 6),
+              const Text(
+                'AI insight',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const Spacer(),
+              Icon(
+                _insightsExpanded ? Icons.expand_less : Icons.expand_more,
+                size: 18,
+                color: AlpColors.textMuted,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            headline,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              height: 1.4,
+            ),
+          ),
+          if (_insightsExpanded) ...[
+            const SizedBox(height: 14),
             Wrap(
-              alignment: WrapAlignment.center,
               spacing: 8,
               runSpacing: 8,
               children: [
@@ -306,84 +462,104 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                     color: AlpColors.colorAmber,
                   ),
                 AlpPill(
-                  label: pct >= 80 ? 'Top 15% this week' : pct >= 50 ? 'Top 40% this week' : 'Build foundations',
+                  label: pct >= 80
+                      ? 'Strong round'
+                      : pct >= 50
+                          ? 'Steady round'
+                          : 'Build foundations',
                   color: AlpColors.colorPurple,
                 ),
               ],
             ),
-
-            const SizedBox(height: 24),
-
-            // Review questions — tap the flag to save for later.
-            if (d.items.isNotEmpty) ...[
-              Row(
-                children: [
-                  const Icon(Icons.bookmark_outline, color: AlpColors.textMuted, size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Review questions',
-                    style: const TextStyle(
-                      color: AlpColors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'Tap ▢ to save',
-                    style: const TextStyle(color: AlpColors.textMuted, fontSize: 11),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ...d.items.map((it) => _ItemReviewRow(
-                    item: it,
-                    bookmarked: _bookmarked.contains(it.questionId),
-                    reported: _reported.contains(it.questionId),
-                    askingAi: _askingAiQid == it.questionId,
-                    onToggle: widget.api == null ? null : () => _toggleBookmark(it),
-                    onReport: widget.api == null ? null : () => _reportItem(it),
-                    onAskAi: widget.api == null ? null : () => _askAiAbout(it),
-                  )),
-              const SizedBox(height: 24),
-            ],
-
-            // Primary CTA: View Detailed Analysis (gradient)
-            _GradientButton(
-              icon: Icons.bar_chart_rounded,
-              label: 'View Detailed Analysis',
-              onTap: () => Navigator.of(context).pop(),
-            ),
-            const SizedBox(height: 12),
-
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AlpColors.borderStrong),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                child: const Text(
-                  'Retry Same Topic',
-                  style: TextStyle(color: AlpColors.textPrimary, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
-                child: const Text(
-                  '← Back to Practice',
-                  style: TextStyle(color: AlpColors.textMuted, fontWeight: FontWeight.w500),
-                ),
+            const SizedBox(height: 10),
+            Text(
+              _insightDetail(pct),
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: AlpColors.textSecondary,
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  String _insightHeadline(int pct) {
+    if (pct >= 80) {
+      return 'Strong round — try the next difficulty band when you come back.';
+    }
+    if (pct >= 50) {
+      return 'Steady round — a couple of weak points worth a quick revisit.';
+    }
+    return 'Foundation round — spend a session on the basics before another mock.';
+  }
+
+  String _insightDetail(int pct) {
+    if (pct >= 80) {
+      return "IRT thinks you've mostly nailed this difficulty. Up the challenge so the engine can map your true ceiling.";
+    }
+    if (pct >= 50) {
+      return 'About average for this difficulty band. Re-mark the wrong ones, then do a 5-question revision round.';
+    }
+    return "This batch leaned hard. Don't push difficulty yet — re-attack the basics so the next round counts.";
+  }
+
+  // ─── Zone 3 ────────────────────────────────────────────────────────
+  Widget _zoneReview(QuizSessionDetail d) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.list_alt,
+                color: AlpColors.textMuted, size: 16,),
+            const SizedBox(width: 6),
+            const Text(
+              'Review questions',
+              style:
+                  TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+            const Spacer(),
+            Text('${d.items.length} item${d.items.length == 1 ? '' : 's'}',
+                style: const TextStyle(
+                    color: AlpColors.textMuted, fontSize: 11,),),
+          ],
         ),
+        const SizedBox(height: 8),
+        ...d.items.map((it) => _ItemReviewRow(
+              item: it,
+              bookmarked: _bookmarked.contains(it.questionId),
+              reported: _reported.contains(it.questionId),
+              askingAi: _askingAiQid == it.questionId,
+              onTap: () => _openDetailDrawer(it),
+              onToggle:
+                  widget.api == null ? null : () => _toggleBookmark(it),
+              onReport: widget.api == null ? null : () => _reportItem(it),
+              onAskAi: widget.api == null ? null : () => _askAiAbout(it),
+            ),),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Future<void> _openDetailDrawer(QuizItemSummary item) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _DetailDrawer(
+        item: item,
+        topicTitle: _topicTitle,
+        bookmarked: _bookmarked.contains(item.questionId),
+        reported: _reported.contains(item.questionId),
+        askingAi: _askingAiQid == item.questionId,
+        onToggle:
+            widget.api == null ? null : () => _toggleBookmark(item),
+        onReport: widget.api == null ? null : () => _reportItem(item),
+        onAskAi: widget.api == null ? null : () => _askAiAbout(item),
       ),
     );
   }
@@ -462,6 +638,7 @@ class _ItemReviewRow extends StatelessWidget {
     required this.bookmarked,
     required this.reported,
     this.askingAi = false,
+    this.onTap,
     this.onToggle,
     this.onReport,
     this.onAskAi,
@@ -470,6 +647,7 @@ class _ItemReviewRow extends StatelessWidget {
   final bool bookmarked;
   final bool reported;
   final bool askingAi;
+  final VoidCallback? onTap;
   final VoidCallback? onToggle;
   final VoidCallback? onReport;
   final VoidCallback? onAskAi;
@@ -483,7 +661,7 @@ class _ItemReviewRow extends StatelessWidget {
             : AlpColors.colorRed;
     final label = !item.answered ? 'SKIPPED' : (item.isCorrect == true ? 'CORRECT' : 'WRONG');
     final stem = (item.stem ?? '').trim();
-    return Container(
+    final card = Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -557,25 +735,197 @@ class _ItemReviewRow extends StatelessWidget {
                 stem,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: AlpColors.textPrimary, fontSize: 13, height: 1.35),
+                style: const TextStyle(fontSize: 13, height: 1.35),
               ),
             ),
           ],
         ],
       ),
     );
+    if (onTap == null) return card;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: card,
+    );
+  }
+}
+
+/// Detail drawer for a single review item (Phase 6 S51).
+///
+/// Slides up from the bottom and surfaces the full stem + the same
+/// per-item actions (bookmark / report / ask AI). Replaces the
+/// "everything inline" pattern of the prior result page — the row
+/// stays short and the rich content lives one tap away.
+class _DetailDrawer extends StatelessWidget {
+  const _DetailDrawer({
+    required this.item,
+    required this.topicTitle,
+    required this.bookmarked,
+    required this.reported,
+    required this.askingAi,
+    this.onToggle,
+    this.onReport,
+    this.onAskAi,
+  });
+
+  final QuizItemSummary item;
+  final String? topicTitle;
+  final bool bookmarked;
+  final bool reported;
+  final bool askingAi;
+  final VoidCallback? onToggle;
+  final VoidCallback? onReport;
+  final VoidCallback? onAskAi;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AuroraColors>()!;
+    final typography = Theme.of(context).extension<AuroraTypography>()!;
+    final stem = (item.stem ?? '').trim();
+    final tone = !item.answered
+        ? AlpColors.textMuted
+        : item.isCorrect == true
+            ? AlpColors.colorGreen
+            : AlpColors.colorRed;
+    final label = !item.answered
+        ? 'SKIPPED'
+        : (item.isCorrect == true ? 'CORRECT' : 'WRONG');
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.55,
+      minChildSize: 0.3,
+      maxChildSize: 0.92,
+      expand: false,
+      builder: (ctx, scrollCtrl) => Container(
+        decoration: BoxDecoration(
+          color: colors.neutral0,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colors.neutral300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Q${item.itemIdx + 1}',
+                        style: typography.h4
+                            .copyWith(color: colors.neutral800),
+                      ),
+                      const SizedBox(width: 8),
+                      AlpPill(label: label, color: tone),
+                      const Spacer(),
+                      IconButton(
+                        tooltip: bookmarked
+                            ? 'Remove bookmark'
+                            : 'Save question',
+                        icon: Icon(
+                          bookmarked
+                              ? Icons.bookmark
+                              : Icons.bookmark_outline,
+                          color: bookmarked
+                              ? AlpColors.colorAmber
+                              : colors.neutral500,
+                          size: 22,
+                        ),
+                        onPressed: onToggle,
+                      ),
+                      IconButton(
+                        tooltip: reported
+                            ? 'Issue reported · thanks'
+                            : 'Report an issue',
+                        icon: Icon(
+                          reported
+                              ? Icons.check_circle
+                              : Icons.flag_outlined,
+                          color: reported
+                              ? colors.success600
+                              : colors.neutral500,
+                          size: 22,
+                        ),
+                        onPressed: reported ? null : onReport,
+                      ),
+                    ],
+                  ),
+                  if (topicTitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      topicTitle!,
+                      style: typography.overline.copyWith(
+                        color: colors.neutral500,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  if (stem.isNotEmpty)
+                    Text(
+                      stem,
+                      style:
+                          typography.body.copyWith(color: colors.neutral900, height: 1.45),
+                    )
+                  else
+                    Text(
+                      'No question text available.',
+                      style:
+                          typography.bodySm.copyWith(color: colors.neutral500),
+                    ),
+                  const SizedBox(height: 20),
+                  if (onAskAi != null)
+                    AuroraButton(
+                      label: askingAi ? 'Opening AI tutor…' : 'Ask AI tutor',
+                      variant: AuroraButtonVariant.aurora,
+                      size: AuroraButtonSize.md,
+                      fullWidth: true,
+                      loading: askingAi,
+                      iconLeft: const Icon(Icons.auto_awesome, size: 16),
+                      onPressed: askingAi ? null : onAskAi,
+                    ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
 class _StatTile extends StatelessWidget {
-  const _StatTile({required this.value, required this.label, required this.tone});
+  const _StatTile(
+      {required this.value,
+      required this.label,
+      required this.tone,
+      this.tooltip,});
   final String value;
   final String label;
   final Color tone;
+  // Long-press explainer for stats whose meaning isn't obvious — e.g.
+  // "Mastery Boost" for which only ML-savvy users guess at θ-shift.
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final body = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AlpColors.bgSurface2,
@@ -595,12 +945,30 @@ class _StatTile extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(color: AlpColors.textMuted, fontSize: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                label,
+                style:
+                    const TextStyle(color: AlpColors.textMuted, fontSize: 12),
+              ),
+              if (tooltip != null) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.info_outline,
+                    size: 11, color: AlpColors.textMuted,),
+              ],
+            ],
           ),
         ],
       ),
+    );
+    if (tooltip == null) return body;
+    return Tooltip(
+      message: tooltip!,
+      triggerMode: TooltipTriggerMode.tap,
+      showDuration: const Duration(seconds: 4),
+      child: body,
     );
   }
 }
@@ -658,7 +1026,6 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
               const Text(
                 'Report an issue',
                 style: TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -704,7 +1071,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
                     Expanded(
                       child: Text(
                         opt.$2,
-                        style: const TextStyle(color: AlpColors.textPrimary, fontSize: 13),
+                        style: const TextStyle(fontSize: 13),
                       ),
                     ),
                   ],
@@ -716,7 +1083,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
             minLines: 2,
             maxLines: 4,
             maxLength: 500,
-            style: const TextStyle(color: AlpColors.textPrimary, fontSize: 13),
+            style: const TextStyle(fontSize: 13),
             decoration: InputDecoration(
               hintText: 'Optional — what went wrong?',
               hintStyle: const TextStyle(color: AlpColors.textMuted),

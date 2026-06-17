@@ -108,6 +108,31 @@ async def publish_question_published(question: dict[str, Any]) -> None:
             question["reviewed_at"].isoformat() if question.get("reviewed_at") else None
         ),
     }
+    # Sprint 24 (P4-S24) — PYQ metadata. Omitted when null/false to keep
+    # payload size tight and to preserve backward-compat for any consumer
+    # that hasn't been updated. The Quiz subscriber treats absent fields
+    # as "not a PYQ" — same default as the column.
+    if question.get("pyq_flag"):
+        payload["pyq_flag"] = True
+        if question.get("exam_year") is not None:
+            payload["exam_year"] = int(question["exam_year"])
+        if question.get("paper_session"):
+            payload["paper_session"] = question["paper_session"]
+    # Phase 5 (P5-S38) — polymorphic question_type. Omit when MCQ_SINGLE
+    # (the column DEFAULT) so existing in-flight events stay byte-shape
+    # identical; non-MCQ types carry the explicit field.
+    qtype = question.get("question_type")
+    if qtype and qtype != "MCQ_SINGLE":
+        payload["question_type"] = qtype
+    # Phase 7 — typed renderer payload (rubric, markers, word_count_range,
+    # numeric tolerances, …). Quiz mirrors this into quiz_schema so the
+    # student renderer has the data for non-MCQ types; without it the
+    # dispatcher fires against an empty payload and renders nothing. Sent
+    # as a JSON object so the Go subscriber's RawMessage decodes an object,
+    # not a quoted string. Omitted for legacy MCQ rows (choices suffice).
+    typed_payload = question.get("payload")
+    if typed_payload:
+        payload["payload"] = typed_payload
     try:
         await _js.publish(SUBJECT_QUESTION_PUBLISHED, json.dumps(payload).encode("utf-8"))
         log.info("content published question %s", question["id"])

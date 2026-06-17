@@ -1,0 +1,52 @@
+/* =============================================================
+   VIDYA — Self-hosted font face declarations
+   May 2026 · paired with vidya/tokens.css
+   -------------------------------------------------------------
+   Binaries live in each app's public/fonts/vidya/ folder. The
+   download + checksum step is documented in
+   docs/02-design/design-system/05_migration_from_aurora.md §3
+   and scripted at scripts/vidya/install-fonts.sh.
+
+   font-display: swap means the system stack from --font-display
+   / --font-ui / --font-mono paints first, then re-paints when
+   the Vidya face arrives — preferred over a blank text flash.
+
+   Licenses
+   --------
+   Instrument Serif · SIL OFL 1.1 · Google Fonts
+   Geist + Geist Mono · SIL OFL 1.1 · Vercel
+   ============================================================= */
+
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/vidya/InstrumentSerif-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/vidya/InstrumentSerif-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/vidya/Geist-Variable.woff2") format("woff2-variations"),
+       url("/fonts/vidya/Geist-Variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/vidya/GeistMono-Variable.woff2") format("woff2-variations"),
+       url("/fonts/vidya/GeistMono-Variable.woff2") format("woff2");
+}

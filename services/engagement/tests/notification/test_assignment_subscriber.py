@@ -25,7 +25,7 @@ from engagement.notification import assignment_subscriber
 
 os.environ.setdefault(
     "NOTIFICATION_DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:35432/notification",
+    "postgresql+asyncpg://postgres:postgres@localhost:35432/engagement",
 )
 
 pytestmark = pytest.mark.asyncio

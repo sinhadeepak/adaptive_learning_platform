@@ -31,9 +31,9 @@ interface WeaknessResponse {
 }
 
 const SEV_TONE: Record<Pattern["severity"], string> = {
-  high: "var(--color-red)",
-  medium: "var(--color-amber)",
-  low: "var(--color-blue)",
+  high: "var(--bad)",
+  medium: "var(--warn)",
+  low: "var(--info)",
 };
 
 export function WeaknessDiagnosis({ userId }: { userId: string }) {
@@ -66,7 +66,7 @@ export function WeaknessDiagnosis({ userId }: { userId: string }) {
       className="card"
       style={{
         marginTop: "var(--sp-5)",
-        borderLeft: "3px solid var(--color-amber)",
+        borderLeft: "3px solid var(--warn)",
       }}
     >
       <div className="sec-row">
@@ -81,7 +81,7 @@ export function WeaknessDiagnosis({ userId }: { userId: string }) {
       <p
         style={{
           fontSize: 13,
-          color: "var(--text-muted)",
+          color: "var(--ink-3)",
           marginTop: 4,
           lineHeight: 1.5,
         }}
@@ -103,7 +103,7 @@ export function WeaknessDiagnosis({ userId }: { userId: string }) {
               key={i}
               style={{
                 padding: 12,
-                background: "rgba(255,255,255,0.03)",
+                background: "var(--card)",
                 borderLeft: `3px solid ${SEV_TONE[p.severity]}`,
                 borderRadius: 4,
               }}
@@ -122,7 +122,7 @@ export function WeaknessDiagnosis({ userId }: { userId: string }) {
                     display: "flex",
                     gap: 8,
                     fontSize: 11,
-                    color: "var(--text-faint)",
+                    color: "var(--ink-4)",
                   }}
                 >
                   <span style={{ color: SEV_TONE[p.severity] }}>
@@ -134,7 +134,7 @@ export function WeaknessDiagnosis({ userId }: { userId: string }) {
               <div
                 style={{
                   fontSize: 12,
-                  color: "var(--text-muted)",
+                  color: "var(--ink-3)",
                   marginBottom: 6,
                   lineHeight: 1.5,
                 }}
@@ -144,7 +144,7 @@ export function WeaknessDiagnosis({ userId }: { userId: string }) {
               <div
                 style={{
                   fontSize: 11,
-                  color: "var(--text-faint)",
+                  color: "var(--ink-4)",
                   marginBottom: 6,
                 }}
               >
@@ -155,11 +155,11 @@ export function WeaknessDiagnosis({ userId }: { userId: string }) {
                   fontSize: 12,
                   padding: "6px 10px",
                   background: "rgba(16,196,122,0.06)",
-                  borderLeft: "2px solid var(--color-green)",
+                  borderLeft: "2px solid var(--good)",
                   borderRadius: 4,
                 }}
               >
-                <strong style={{ color: "var(--color-green)" }}>
+                <strong style={{ color: "var(--good)" }}>
                   Next move:
                 </strong>{" "}
                 {p.prescription}
@@ -172,9 +172,9 @@ export function WeaknessDiagnosis({ userId }: { userId: string }) {
           style={{
             marginTop: 10,
             fontSize: 12,
-            color: "var(--text-muted)",
+            color: "var(--ink-3)",
             padding: "8px 12px",
-            background: "rgba(255,255,255,0.03)",
+            background: "var(--card)",
             borderRadius: 4,
           }}
         >
@@ -188,7 +188,7 @@ export function WeaknessDiagnosis({ userId }: { userId: string }) {
           style={{
             marginTop: 10,
             fontSize: 11,
-            color: "var(--text-faint)",
+            color: "var(--ink-4)",
             fontStyle: "italic",
           }}
         >
@@ -200,7 +200,7 @@ export function WeaknessDiagnosis({ userId }: { userId: string }) {
         style={{
           marginTop: 10,
           fontSize: 11,
-          color: "var(--text-faint)",
+          color: "var(--ink-4)",
           display: "flex",
           gap: 12,
         }}

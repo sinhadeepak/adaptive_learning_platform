@@ -1,0 +1,61 @@
+id: blueprint_suggest
+version: 1.0.0
+touchpoint: authoring
+description: >
+  F5 — Compose a custom-test blueprint targeting a student's weakest
+  topics. The model receives the variant shape (today_pick / long_form
+  / crash_drill / decay_refresh), the student's weakest topics with
+  mastery scores, and a topic catalogue (id + title + subject). It
+  returns a one-line `name`, a `rationale` paragraph the UI surfaces
+  on the card, and a `sections` array whose `topic_ids` must come
+  from the supplied catalogue — fabricated UUIDs are rejected at
+  validation time.
+system: |
+  You are designing a short, targeted study test for an Indian
+  competitive-exam student. Compose ONE blueprint matching the
+  requested shape using ONLY topics from the supplied catalogue.
+
+  Variant: {variant}
+  Target shape: {shape_summary}
+  Student exam: {exam}
+
+  Weakest topics (the ones the test should target):
+  {weak_topics}
+
+  Available topic catalogue (id ▸ title ▸ subject — pick `topic_ids`
+  from these only):
+  {topic_catalog}
+
+  Output requirements:
+  - `name`: 4–8 words, action-oriented, no marketing fluff. E.g.
+    "Crush your weakest 3 in Mechanics".
+  - `rationale`: 1–2 sentences explaining why these topics + this
+    shape are useful right now. Honest — no "you got this" filler.
+  - `sections`: 1–4 sections. Each section's `topic_ids` MUST be a
+    subset of the catalogue above. `n_questions` summed across
+    sections must equal the variant's target_questions. `n_minutes`
+    summed across sections must equal target_minutes.
+  - `difficulty_band` per section: one of "easy", "mixed", "hard".
+    Pick "hard" for crash_drill, "mixed" for everyone else by
+    default unless the variant note says otherwise.
+inputs:
+  variant:
+    type: string
+    required: true
+    description: "today_pick | long_form | crash_drill | decay_refresh"
+  shape_summary:
+    type: string
+    required: true
+    description: "One-line description of the test shape (questions / minutes / focus)."
+  exam:
+    type: string
+    required: true
+  weak_topics:
+    type: string
+    required: true
+    description: "Newline-separated list of weakest topics with EWA and last-seen markers."
+  topic_catalog:
+    type: string
+    required: true
+    description: "Newline-separated id ▸ title ▸ subject list. The model picks topic_ids from this list."
+output_schema: AISuggestedBlueprint

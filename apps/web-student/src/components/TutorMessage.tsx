@@ -246,17 +246,17 @@ function ConceptCard({ data }: { data: Record<string, unknown> }): ReactNode {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-        <span style={{ color: "var(--color-ai)", fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>
+        <span style={{ color: "var(--gold)", fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>
           ◈ CONCEPT
         </span>
       </div>
       {title ? (
-        <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
+        <div style={{ color: "var(--ink)", fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
           {title}
         </div>
       ) : null}
       {points.length > 0 ? (
-        <ul style={{ margin: 0, paddingLeft: 18, color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.5 }}>
+        <ul style={{ margin: 0, paddingLeft: 18, color: "var(--ink-2)", fontSize: 13, lineHeight: 1.5 }}>
           {points.map((p, i) => (
             <li key={i} style={{ marginBottom: 2 }}>
               {p}
@@ -265,7 +265,7 @@ function ConceptCard({ data }: { data: Record<string, unknown> }): ReactNode {
         </ul>
       ) : null}
       {summary ? (
-        <div style={{ marginTop: 6, color: "var(--text-muted)", fontSize: 12, fontStyle: "italic" }}>
+        <div style={{ marginTop: 6, color: "var(--ink-3)", fontSize: 12, fontStyle: "italic" }}>
           {summary}
         </div>
       ) : null}
@@ -289,21 +289,21 @@ function FormulaCard({ data }: { data: Record<string, unknown> }): ReactNode {
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <span style={{ color: "var(--color-purple)", fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>
+        <span style={{ color: "var(--accent)", fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>
           ◈ FORMULA
         </span>
-        <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 13 }}>{name}</span>
+        <span style={{ color: "var(--ink)", fontWeight: 700, fontSize: 13 }}>{name}</span>
       </div>
       {formula ? (
         <div
           style={{
-            background: "var(--bg-surface3)",
+            background: "var(--paper-2)",
             padding: "8px 12px",
             borderRadius: 6,
             marginBottom: 8,
             fontFamily: "monospace",
             fontSize: 14,
-            color: "var(--color-purple)",
+            color: "var(--accent)",
             overflowX: "auto",
           }}
         >
@@ -315,8 +315,8 @@ function FormulaCard({ data }: { data: Record<string, unknown> }): ReactNode {
       {variables.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: example ? 8 : 0 }}>
           {variables.map((v, i) => (
-            <div key={i} style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-              <strong style={{ color: "var(--color-ai)", marginRight: 6 }}>{v.sym}</strong>
+            <div key={i} style={{ fontSize: 12, color: "var(--ink-2)" }}>
+              <strong style={{ color: "var(--gold)", marginRight: 6 }}>{v.sym}</strong>
               {v.meaning}
             </div>
           ))}
@@ -326,12 +326,12 @@ function FormulaCard({ data }: { data: Record<string, unknown> }): ReactNode {
         <div
           style={{
             fontSize: 12,
-            color: "var(--text-muted)",
+            color: "var(--ink-3)",
             paddingTop: 6,
-            borderTop: "1px solid var(--border-default)",
+            borderTop: "1px solid var(--rule)",
           }}
         >
-          <strong style={{ color: "var(--color-green)" }}>Example: </strong>
+          <strong style={{ color: "var(--good)" }}>Example: </strong>
           {example}
         </div>
       ) : null}
@@ -370,12 +370,12 @@ function QuickQuizCard({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-        <span style={{ color: "var(--color-amber)", fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>
+        <span style={{ color: "var(--warn)", fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>
           ◈ QUICK CHECK
         </span>
       </div>
       {question ? (
-        <div style={{ color: "var(--text-primary)", fontSize: 13, marginBottom: 10, lineHeight: 1.5 }}>
+        <div style={{ color: "var(--ink)", fontSize: 13, marginBottom: 10, lineHeight: 1.5 }}>
           {question}
         </div>
       ) : null}
@@ -383,19 +383,19 @@ function QuickQuizCard({
         {choices.map((c, i) => {
           const isPicked = picked === i;
           const isAnsCorrect = i === correctIdx;
-          let bg = "var(--bg-surface3)";
-          let bd = "var(--border-default)";
+          let bg = "var(--paper-2)";
+          let bd = "var(--rule)";
           if (showFeedback) {
             if (isAnsCorrect) {
               bg = "rgba(16,196,122,0.15)";
-              bd = "var(--color-green)";
+              bd = "var(--good)";
             } else if (isPicked) {
               bg = "rgba(244,63,94,0.15)";
-              bd = "var(--color-red)";
+              bd = "var(--bad)";
             }
           } else if (isPicked) {
             bg = "rgba(79,135,246,0.15)";
-            bd = "var(--color-blue)";
+            bd = "var(--info)";
           }
           return (
             <button
@@ -409,7 +409,7 @@ function QuickQuizCard({
               style={{
                 background: bg,
                 border: `1px solid ${bd}`,
-                color: "var(--text-primary)",
+                color: "var(--ink)",
                 textAlign: "left",
                 padding: "8px 10px",
                 borderRadius: 6,
@@ -420,15 +420,15 @@ function QuickQuizCard({
                 alignItems: "center",
               }}
             >
-              <span style={{ fontWeight: 700, color: "var(--text-muted)", fontSize: 11 }}>
+              <span style={{ fontWeight: 700, color: "var(--ink-3)", fontSize: 11 }}>
                 {String.fromCharCode(65 + i)}
               </span>
               <span>{c}</span>
               {showFeedback && isAnsCorrect ? (
-                <span style={{ marginLeft: "auto", color: "var(--color-green)" }}>✓</span>
+                <span style={{ marginLeft: "auto", color: "var(--good)" }}>✓</span>
               ) : null}
               {showFeedback && isPicked && !isAnsCorrect ? (
-                <span style={{ marginLeft: "auto", color: "var(--color-red)" }}>✗</span>
+                <span style={{ marginLeft: "auto", color: "var(--bad)" }}>✗</span>
               ) : null}
             </button>
           );
@@ -440,14 +440,14 @@ function QuickQuizCard({
             marginTop: 8,
             padding: "8px 10px",
             background: isCorrect ? "rgba(16,196,122,0.08)" : "rgba(244,63,94,0.08)",
-            borderLeft: `2px solid ${isCorrect ? "var(--color-green)" : "var(--color-red)"}`,
+            borderLeft: `2px solid ${isCorrect ? "var(--good)" : "var(--bad)"}`,
             borderRadius: 4,
             fontSize: 12,
-            color: "var(--text-secondary)",
+            color: "var(--ink-2)",
             lineHeight: 1.5,
           }}
         >
-          <strong style={{ color: isCorrect ? "var(--color-green)" : "var(--color-red)" }}>
+          <strong style={{ color: isCorrect ? "var(--good)" : "var(--bad)" }}>
             {isCorrect ? "Correct! " : "Not quite — "}
           </strong>
           {explanation}

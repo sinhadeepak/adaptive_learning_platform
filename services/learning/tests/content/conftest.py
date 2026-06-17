@@ -16,9 +16,13 @@ from collections.abc import Iterator
 import asyncpg
 import pytest
 
+# Dedicated throwaway test DB — these tests TRUNCATE content_schema, so they
+# must never run against the seeded dev `learning` DB. The root tests/conftest.py
+# provisions `learning_test`; this setdefault is a fallback when the file is run
+# in isolation.
 os.environ.setdefault(
     "CONTENT_DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:35432/content",
+    "postgresql+asyncpg://postgres:postgres@localhost:35432/learning_test",
 )
 os.environ.setdefault(
     "CONTENT_JWT_SECRET",
@@ -35,7 +39,7 @@ async def _truncate() -> None:
         port=35432,
         user="postgres",
         password="postgres",  # noqa: S106  # local dev DB
-        database="content",
+        database="learning_test",
     )
     try:
         # Sprint 9 — assignment_progress + assignment_questions FK back to

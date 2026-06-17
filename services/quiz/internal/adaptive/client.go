@@ -36,16 +36,25 @@ type CandidateDTO struct {
 	ID string `json:"id"`
 }
 
+// AbilityRequest mirrors the Learning service's pydantic model.
+// F2a adds optional UserID/ExamCode so the engine can look up a
+// per-user IRT prior from content_schema.user_theta_prior (seeded by
+// the screening diagnostic). Quiz Go always passes UserID; ExamCode
+// is left blank — Learning falls back to most-recent prior when blank.
 type AbilityRequest struct {
 	Responses []ResponseDTO `json:"responses"`
 	PriorMean float32       `json:"prior_mean"`
 	PriorSD   float32       `json:"prior_sd"`
+	UserID    string        `json:"user_id,omitempty"`
+	ExamCode  string        `json:"exam_code,omitempty"`
 }
 
 type AbilityResponse struct {
-	Theta float32 `json:"theta"`
-	SE    float32 `json:"se"`
-	N     int     `json:"n"`
+	Theta         float32 `json:"theta"`
+	SE            float32 `json:"se"`
+	N             int     `json:"n"`
+	PriorMeanUsed float32 `json:"prior_mean_used,omitempty"`
+	PriorSDUsed   float32 `json:"prior_sd_used,omitempty"`
 }
 
 type SelectNextRequest struct {

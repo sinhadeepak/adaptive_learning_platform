@@ -24,10 +24,10 @@ const ACTION_META: Record<
   GuidedStep["action"],
   { label: string; icon: string; tone: string }
 > = {
-  REVISE: { label: "Revise", icon: "📖", tone: "var(--color-blue)" },
-  PRACTICE: { label: "Practice", icon: "✎", tone: "var(--color-green)" },
-  DIAGNOSE: { label: "Diagnose", icon: "◈", tone: "var(--color-purple)" },
-  MOCK_SLICE: { label: "Mock slice", icon: "⏱", tone: "var(--color-amber)" },
+  REVISE: { label: "Revise", icon: "📖", tone: "var(--info)" },
+  PRACTICE: { label: "Practice", icon: "✎", tone: "var(--good)" },
+  DIAGNOSE: { label: "Diagnose", icon: "◈", tone: "var(--accent)" },
+  MOCK_SLICE: { label: "Mock slice", icon: "⏱", tone: "var(--warn)" },
 };
 
 function actionRoute(step: GuidedStep): string {
@@ -105,7 +105,7 @@ export function GuidedNextSteps({ userId }: { userId: string }) {
                   justifyContent: "space-between",
                   alignItems: "center",
                   fontSize: 11,
-                  color: "var(--text-faint)",
+                  color: "var(--ink-4)",
                 }}
               >
                 <span style={{ color: meta.tone, fontWeight: 600 }}>
@@ -116,7 +116,7 @@ export function GuidedNextSteps({ userId }: { userId: string }) {
               <div style={{ fontWeight: 600, fontSize: 15 }}>
                 {step.topicTitle}
               </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>
+              <div style={{ fontSize: 12, color: "var(--ink-3)", lineHeight: 1.4 }}>
                 {step.why}
               </div>
               <div style={{ marginTop: "auto", fontSize: 11, color: meta.tone, fontWeight: 600 }}>

@@ -103,6 +103,13 @@ export const flags = {
 
 // Educator scope — manage which educator can author against which exam.
 
+export interface AdminUserInstitution {
+  id: string;
+  name: string;
+  slug: string;
+  kind: "SCHOOL" | "COACHING_CENTER" | "UNIVERSITY" | "OTHER";
+}
+
 export interface AdminUserSummary {
   id: string;
   email: string;
@@ -110,6 +117,7 @@ export interface AdminUserSummary {
   role: string;
   adminAccessLevel: string;
   accountStatus: string;
+  institution: AdminUserInstitution | null;
 }
 
 export interface AdminCatalogExam {
@@ -216,7 +224,31 @@ export interface AdminCohortMember {
   joinedAt: string;
 }
 
+export interface AdminTenantListEntry {
+  id: string;
+  name: string;
+  slug: string;
+  kind: AdminTenant["kind"];
+  seatLimit: number | null;
+  cohortCount: number;
+  teacherCount: number;
+  studentCount: number;
+  createdAt: string;
+}
+
 export const tenants = {
+  async list(opts: { limit?: number; offset?: number } = {}): Promise<{
+    items: AdminTenantListEntry[];
+    total: number;
+  }> {
+    const p = new URLSearchParams();
+    if (opts.limit) p.set("limit", String(opts.limit));
+    if (opts.offset) p.set("offset", String(opts.offset));
+    const url = `${env.apiBaseUrl}/institution/tenants${p.toString() ? `?${p}` : ""}`;
+    const res = await auth.fetch(url);
+    return asJson<{ items: AdminTenantListEntry[]; total: number }>(res);
+  },
+
   async create(input: {
     name: string;
     kind: AdminTenant["kind"];
@@ -369,5 +401,124 @@ export const cohorts = {
     if (!res.ok && res.status !== 404) {
       throw new Error(`HTTP ${res.status}`);
     }
+  },
+};
+
+// ── Sprint 17 (P3-S2) — Marketplace admin moderation ─────────────────
+
+export interface TutorQueueItem {
+  userId: string;
+  displayName: string;
+  headline: string;
+  hourlyRatePaise: number;
+  applicationStatus: string;
+  appliedAt: string;
+  kycStatus: string | null;
+}
+
+export interface TutorAdminAction {
+  id: string;
+  adminUserId: string;
+  tutorUserId: string;
+  action: "APPROVE" | "REJECT" | "SUSPEND" | "REACTIVATE";
+  reason: string | null;
+  createdAt: string;
+}
+
+// ── Ops dashboard — local infra health ───────────────────────────────
+
+export interface OpsInfraComponent {
+  name: string;
+  kind: "service" | "infra";
+  status: "ok" | "down" | "degraded";
+  detail?: string | null;
+  metric?: Record<string, number | string> | null;
+}
+
+export interface OpsInfraResponse {
+  components: OpsInfraComponent[];
+  checkedAt: string;
+}
+
+export const opsAdmin = {
+  async infra(): Promise<OpsInfraResponse> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/admin/ops/infra`);
+    return asJson<OpsInfraResponse>(res);
+  },
+};
+
+export const marketplaceAdmin = {
+  async queue(status = "KYC_VERIFIED"): Promise<TutorQueueItem[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/admin/tutors/queue?status=${encodeURIComponent(status)}`,
+    );
+    const body = await asJson<{ items: TutorQueueItem[] }>(res);
+    return body.items;
+  },
+
+  async approve(userId: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/admin/tutors/${encodeURIComponent(userId)}/approve`,
+      { method: "POST" },
+    );
+    await asJson(res);
+  },
+
+  async reject(userId: string, reason: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/admin/tutors/${encodeURIComponent(userId)}/reject`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reason }),
+      },
+    );
+    await asJson(res);
+  },
+
+  async actions(userId: string): Promise<TutorAdminAction[]> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/admin/tutors/${encodeURIComponent(userId)}/actions`,
+    );
+    const body = await asJson<{ items: TutorAdminAction[] }>(res);
+    return body.items;
+  },
+};
+
+// ── Sprint 20 (P3-S5) — Rating moderation ────────────────────────────
+
+export const ratingModeration = {
+  async hide(kind: "session" | "course", ratingId: string, reason: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/admin/ratings/${kind}/${encodeURIComponent(ratingId)}/hide`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reason }),
+      },
+    );
+    if (!res.ok && res.status !== 204) throw new Error(res.statusText);
+  },
+
+  async unhide(kind: "session" | "course", ratingId: string): Promise<void> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/admin/ratings/${kind}/${encodeURIComponent(ratingId)}/unhide`,
+      { method: "POST" },
+    );
+    if (!res.ok && res.status !== 204) throw new Error(res.statusText);
+  },
+
+  async listForCourse(courseId: string): Promise<{ targetId: string; averageStars: number; count: number; recent: { id: string; stars: number; comment: string | null; createdAt: string; studentUserId: string }[] }> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/courses/${encodeURIComponent(courseId)}/ratings`,
+    );
+    return asJson(res);
+  },
+
+  async listForTutor(tutorUserId: string): Promise<{ targetId: string; averageStars: number; count: number; recent: { id: string; stars: number; comment: string | null; createdAt: string; studentUserId: string }[] }> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/marketplace/tutors/${encodeURIComponent(tutorUserId)}/ratings`,
+    );
+    return asJson(res);
   },
 };

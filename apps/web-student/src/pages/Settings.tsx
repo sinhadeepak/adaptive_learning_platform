@@ -1,14 +1,37 @@
+// Settings — Vidya v1 rewrite (2026-05-17).
+//
+// Spec: docs/02-design/design-system/04_components.md §04.b
+//       + Vidya v1 mockup — Account · Settings.
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
+//
+// Layout:
+//   ┌─ topbar: ACCOUNT · SETTINGS / "Settings" / "Preferences…" ─────┐
+//   │  ┌── study language card ──────────────────────────────────────┐
+//   │  └────────────────────────────────────────────────────────────┘
+//   │  ┌── daily goal card ─────────────────────────────────────────┐
+//   │  └────────────────────────────────────────────────────────────┘
+//   │  ┌── notifications card ───────────────────────────────────────┐
+//   │  └────────────────────────────────────────────────────────────┘
+//   │  ┌── theme & density card ─────────────────────────────────────┐
+//   │  └────────────────────────────────────────────────────────────┘
+//   │  ┌── account card ─────────────────────────────────────────────┐
+//   │  └────────────────────────────────────────────────────────────┘
+//   │  ┌── sticky save footer ───────────────────────────────────────┐
+//   │  └────────────────────────────────────────────────────────────┘
+
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Card } from "@alp/ui";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
-import { Banner, SkeletonRows } from "../components/dashboard";
+import { useTheme, type Theme } from "../lib/theme";
+import { useDensity, type Density } from "../lib/density";
+import { VidyaShell } from "../components/vidya/VidyaShell";
+import { LowBandwidthToggle } from "../components/LowBandwidthToggle";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Settings — manage preferences (language, daily goal) + account actions.
 // Reached from sidebar "Settings" item or Profile screen.
-// Mirrors the AI-first dashboard chrome: gradient hero + section cards.
 // ─────────────────────────────────────────────────────────────────────────
 
 interface ProfileResponse {
@@ -108,7 +131,7 @@ export function Settings() {
   }
 
   async function toggleNotifType(type: string) {
-    const next = !isMuted(type) ? false : true; // if muted, enable; else mute
+    const next = !isMuted(type) ? false : true; // if NOT muted, mute (false); if muted, enable (true)
     const optimistic = { ...notifPrefs, [type]: next };
     setNotifPrefs(optimistic);
     const r = await auth.fetch(`/api/v1/profile/notification-prefs`, {
@@ -179,288 +202,447 @@ export function Settings() {
     }
   }
 
-  if (error && !profile) {
-    return (
-      <AppShell title="Settings">
-        <Banner tone="danger" role="alert">
-          {error}
-        </Banner>
-      </AppShell>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <AppShell title="Settings">
-        <SkeletonRows count={3} />
-      </AppShell>
-    );
-  }
-
   const dirty =
-    language !== (profile.preferences.language ?? "en") ||
-    goal !== (profile.preferences.dailyGoalMinutes ?? 30);
+    profile !== null &&
+    (language !== (profile.preferences.language ?? "en") ||
+      goal !== (profile.preferences.dailyGoalMinutes ?? 30));
 
   return (
-    <AppShell title="Settings">
-      {/* ── Hero ────────────────────────────────────────────────── */}
-      <section className="ai-header" aria-label="Settings">
-        <div className="ai-header-left">
-          <span className="ai-pill">◈ ACCOUNT &amp; PREFERENCES</span>
-          <h1 className="ai-header-name">Settings</h1>
-          <p className="ai-header-sub">
-            Tune the language you study in, your daily-goal cadence, and your
-            account. Changes save manually so you can preview before
-            committing.
-          </p>
-          <div className="ai-header-btns">
-            <Link to="/profile" className="btn btn-ghost">
-              ← Back to profile
-            </Link>
+    <VidyaShell
+      crumbs="ACCOUNT · SETTINGS"
+      title="Settings"
+      subtitle="Preferences for your study experience"
+    >
+      {/* LOADING / ERROR STATES */}
+      {error && !profile ? (
+        <section className="vidya-card-block" role="alert">
+          <div className="vidya-card-block__head">
+            <h2 className="vidya-card-block__title">Error</h2>
           </div>
-        </div>
-      </section>
-
-      {error ? (
-        <div style={{ marginTop: "var(--sp-4)" }}>
-          <Banner tone="danger" role="alert">
-            {error}
-          </Banner>
-        </div>
-      ) : null}
-
-      {savedAt ? (
-        <div style={{ marginTop: "var(--sp-4)" }}>
-          <Banner tone="success" role="status">
-            Preferences saved.
-          </Banner>
-        </div>
-      ) : null}
-
-      <div style={{ marginTop: "var(--sp-5)" }}>
-        {/* ── Language ─────────────────────────────────────────── */}
-        <section className="topic-section">
-          <h2 className="topic-section-title">Study language</h2>
-          <p className="topic-section-body" style={{ marginBottom: "var(--sp-3)" }}>
-            The IRT engine works in any of these. You can switch any time.
-          </p>
-          <div role="radiogroup" aria-label="Study language" className="option-list">
-            {LANG_OPTIONS.map((opt) => {
-              const isSelected = language === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={isSelected}
-                  onClick={() => setLanguage(opt.id)}
-                  className={`option-card ${isSelected ? "option-card-selected" : ""}`.trim()}
-                >
-                  <div className="option-card-head">
-                    <span className="option-card-title" lang={opt.lang}>
-                      {opt.label}
-                    </span>
-                    {isSelected ? <span className="option-check">✓</span> : null}
-                  </div>
-                  <p className="option-card-sub">{opt.sub}</p>
-                </button>
-              );
-            })}
+          <p style={{ color: "var(--bad)" }}>{error}</p>
+        </section>
+      ) : !profile ? (
+        <section className="vidya-card-block" aria-busy="true">
+          <div className="vidya-card-block__head">
+            <h2 className="vidya-card-block__title">Loading…</h2>
           </div>
         </section>
+      ) : (
+        <>
+          {/* Inline save/error banner */}
+          {error ? (
+            <p
+              role="alert"
+              style={{
+                color: "var(--bad)",
+                marginBottom: "var(--sp-3)",
+                fontSize: 14,
+              }}
+            >
+              {error}
+            </p>
+          ) : null}
 
-        {/* ── Daily goal ──────────────────────────────────────── */}
-        <section className="topic-section">
-          <h2 className="topic-section-title">Daily goal</h2>
-          <p className="topic-section-body" style={{ marginBottom: "var(--sp-3)" }}>
-            How many minutes do you want to study per day? Streaks count days
-            where you hit at least 4× per week.
-          </p>
-          <div role="radiogroup" aria-label="Daily goal" className="option-list">
-            {GOAL_OPTIONS.map((opt) => {
-              const isSelected = goal === opt.minutes;
-              return (
-                <button
-                  key={opt.minutes}
-                  type="button"
-                  role="radio"
-                  aria-checked={isSelected}
-                  onClick={() => setGoal(opt.minutes)}
-                  className={`option-card ${isSelected ? "option-card-selected" : ""}`.trim()}
-                >
-                  <div className="option-card-head">
-                    <span className="option-card-title">{opt.label}</span>
-                    {isSelected ? <span className="option-check">✓</span> : null}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* ── Notifications ────────────────────────────────────── */}
-        <section className="topic-section">
-          <h2 className="topic-section-title">Notifications</h2>
-          <p className="topic-section-body" style={{ marginBottom: "var(--sp-3)" }}>
-            Mute the categories you don't want pinging your inbox bell.
-            Changes take effect for future events; already-delivered
-            notifications stay in your inbox until you mark them read.
-          </p>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-            {NOTIF_KINDS.map((kind) => {
-              const muted = isMuted(kind.id);
-              return (
-                <li
-                  key={kind.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "var(--sp-3)",
-                    border: "1px solid var(--border-default)",
-                    borderRadius: 10,
-                    background: "var(--bg-surface-1)",
-                  }}
-                >
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
-                      {kind.label}
-                    </div>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-                      {kind.description}
-                    </div>
-                  </div>
+          {/* STUDY LANGUAGE */}
+          <section className="vidya-card-block">
+            <div className="vidya-card-block__head">
+              <h2 className="vidya-card-block__title">Study language</h2>
+            </div>
+            <p style={{ fontSize: 14, color: "var(--ink-3)", marginBottom: "var(--sp-3)" }}>
+              The IRT engine works in any of these. You can switch any time.
+            </p>
+            <div role="radiogroup" aria-label="Study language" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {LANG_OPTIONS.map((opt) => {
+                const isSelected = language === opt.id;
+                return (
                   <button
+                    key={opt.id}
                     type="button"
-                    onClick={() => void toggleNotifType(kind.id)}
-                    aria-pressed={!muted}
+                    role="radio"
+                    aria-checked={isSelected}
+                    onClick={() => setLanguage(opt.id)}
+                    className={`vidya-shell__chip${isSelected ? " vidya-shell__chip--on" : ""}`}
+                    lang={opt.lang}
+                    style={{ flexDirection: "column", alignItems: "flex-start", gap: 2 }}
+                  >
+                    <span style={{ fontWeight: 600 }}>
+                      {opt.label}
+                      {isSelected ? " ✓" : ""}
+                    </span>
+                    {opt.sub ? (
+                      <span style={{ fontSize: 11, opacity: 0.75 }}>{opt.sub}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* DAILY GOAL */}
+          <section className="vidya-card-block">
+            <div className="vidya-card-block__head">
+              <h2 className="vidya-card-block__title">Daily goal</h2>
+            </div>
+            <p style={{ fontSize: 14, color: "var(--ink-3)", marginBottom: "var(--sp-3)" }}>
+              How many minutes do you want to study per day? Streaks count days
+              where you hit at least 4× per week.
+            </p>
+            <div role="radiogroup" aria-label="Daily goal" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {GOAL_OPTIONS.map((opt) => {
+                const isSelected = goal === opt.minutes;
+                return (
+                  <button
+                    key={opt.minutes}
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    onClick={() => setGoal(opt.minutes)}
+                    className={`vidya-shell__chip${isSelected ? " vidya-shell__chip--on" : ""}`}
+                  >
+                    {opt.label}
+                    {isSelected ? " ✓" : ""}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* NOTIFICATIONS */}
+          <section className="vidya-card-block">
+            <div className="vidya-card-block__head">
+              <h2 className="vidya-card-block__title">Notifications</h2>
+            </div>
+            <p style={{ fontSize: 14, color: "var(--ink-3)", marginBottom: "var(--sp-3)" }}>
+              Mute the categories you don't want pinging your inbox bell.
+              Changes take effect for future events; already-delivered
+              notifications stay in your inbox until you mark them read.
+            </p>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+              {NOTIF_KINDS.map((kind) => {
+                const muted = isMuted(kind.id);
+                return (
+                  <li
+                    key={kind.id}
                     style={{
-                      width: 44,
-                      height: 24,
-                      borderRadius: 999,
-                      background: muted ? "var(--bg-surface-3)" : "var(--color-blue)",
-                      border: "1px solid var(--border-default)",
-                      cursor: "pointer",
-                      position: "relative",
-                      transition: "background 0.15s",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "var(--sp-3)",
+                      border: "1px solid var(--rule)",
+                      borderRadius: 10,
+                      background: "var(--card-1)",
                     }}
                   >
-                    <span
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
+                        {kind.label}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>
+                        {kind.description}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void toggleNotifType(kind.id)}
+                      aria-pressed={!muted}
+                      aria-label={`${muted ? "Enable" : "Mute"} ${kind.label}`}
                       style={{
-                        position: "absolute",
-                        top: 1,
-                        left: muted ? 1 : 21,
-                        width: 20,
-                        height: 20,
-                        borderRadius: "50%",
-                        background: "#fff",
-                        transition: "left 0.15s",
+                        width: 44,
+                        height: 24,
+                        borderRadius: 999,
+                        background: muted ? "var(--card-3)" : "var(--info)",
+                        border: "1px solid var(--rule)",
+                        cursor: "pointer",
+                        position: "relative",
+                        transition: "background 0.15s",
+                        flexShrink: 0,
                       }}
-                      aria-hidden
-                    />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+                    >
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: 1,
+                          left: muted ? 1 : 21,
+                          width: 20,
+                          height: 20,
+                          borderRadius: "50%",
+                          background: "var(--paper)",
+                          transition: "left 0.15s",
+                        }}
+                        aria-hidden
+                      />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
 
-        {/* ── Save bar ─────────────────────────────────────────── */}
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            justifyContent: "flex-end",
-            marginBottom: "var(--sp-5)",
-            flexWrap: "wrap",
-          }}
-        >
-          <button
-            type="button"
-            className="btn btn-ghost"
-            disabled={!dirty || saving}
-            onClick={() => {
-              setLanguage((profile.preferences.language as Language) ?? "en");
-              setGoal(profile.preferences.dailyGoalMinutes ?? 30);
-            }}
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!dirty || saving}
-            onClick={savePreferences}
-          >
-            {saving ? "Saving…" : "Save preferences"}
-          </button>
-        </div>
+          {/* THEME & DENSITY */}
+          <ThemeDensitySection />
 
-        {/* ── Account actions ──────────────────────────────────── */}
-        <section className="topic-section">
-          <h2 className="topic-section-title">Account</h2>
-          <dl className="kv-list" style={{ padding: 0, gap: "var(--sp-5)" }}>
-            <div>
-              <dt>Email</dt>
-              <dd>{profile.user.email}</dd>
+          {/* BANDWIDTH */}
+          <section className="vidya-card-block" id="bandwidth">
+            <div className="vidya-card-block__head">
+              <h2 className="vidya-card-block__title">Bandwidth</h2>
             </div>
-            <div>
-              <dt>Phone</dt>
-              <dd>{profile.user.phone ?? "—"}</dd>
-            </div>
-          </dl>
-          <div style={{ display: "flex", gap: 8, marginTop: "var(--sp-3)", flexWrap: "wrap" }}>
-            <Link
-              to="/forgot-password"
-              className="btn btn-ghost"
+            <LowBandwidthToggle />
+            <p
+              style={{
+                marginTop: 20,
+                fontSize: 12,
+                color: "var(--ink-4, #7A8BAD)",
+                maxWidth: 540,
+                lineHeight: 1.5,
+              }}
             >
-              Change password
-            </Link>
-          </div>
-        </section>
-
-        {/* ── Onboarding link if not done ──────────────────────── */}
-        {profile.exams.length === 0 ? (
-          <section className="topic-section">
-            <h2 className="topic-section-title">Onboarding</h2>
-            <p className="topic-section-body">
-              You haven't picked an exam yet.{" "}
-              <Link to="/onboarding/exam" className="auth-link">
-                Pick one →
-              </Link>
+              Preferences are saved on this device only. Animation reductions
+              respect your system-level "reduce motion" setting automatically —
+              the toggle is hidden when the OS is already requesting it.
             </p>
           </section>
-        ) : null}
 
-        {/* ── Sign-out (danger zone) ───────────────────────────── */}
-        <section
-          className="topic-section"
-          style={{ borderColor: "rgba(244,63,94,0.18)" }}
-        >
-          <h2
-            className="topic-section-title"
-            style={{ color: "var(--color-red)" }}
-          >
-            Sign out
-          </h2>
-          <p className="topic-section-body" style={{ marginBottom: "var(--sp-3)" }}>
-            Signs you out on this browser. Your session token is invalidated
-            on the server immediately.
-          </p>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => void onSignOut()}
-            disabled={signingOut}
+          {/* ACCOUNT */}
+          <section className="vidya-card-block">
+            <div className="vidya-card-block__head">
+              <h2 className="vidya-card-block__title">Account</h2>
+            </div>
+            <dl
+              style={{
+                display: "grid",
+                gridTemplateColumns: "max-content 1fr",
+                columnGap: "var(--sp-4)",
+                rowGap: "var(--sp-2)",
+                fontSize: 14,
+                margin: 0,
+                marginBottom: "var(--sp-3)",
+              }}
+            >
+              <dt style={{ color: "var(--ink-3)" }}>Email</dt>
+              <dd style={{ margin: 0, color: "var(--ink)" }}>{profile.user.email}</dd>
+              <dt style={{ color: "var(--ink-3)" }}>Phone</dt>
+              <dd style={{ margin: 0, color: "var(--ink)" }}>{profile.user.phone ?? "—"}</dd>
+            </dl>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Link to="/forgot-password" className="vidya-shell__chip">
+                Change password
+              </Link>
+              {/* Onboarding link if no exam selected */}
+              {profile.exams.length === 0 ? (
+                <Link to="/onboarding/exam" className="vidya-shell__chip">
+                  Pick an exam →
+                </Link>
+              ) : null}
+              {/* TODO(settings): deep-link to onboarding re-flow once multi-exam editing ships */}
+            </div>
+            {/* Sign-out */}
+            <div style={{ marginTop: "var(--sp-4)", paddingTop: "var(--sp-3)", borderTop: "1px solid var(--rule)" }}>
+              <h3 style={{ fontSize: 14, fontWeight: 600, margin: 0, marginBottom: "var(--sp-2)", color: "var(--bad)" }}>
+                Sign out
+              </h3>
+              <p style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: "var(--sp-3)" }}>
+                Signs you out on this browser. Your session token is invalidated
+                on the server immediately.
+              </p>
+              <button
+                type="button"
+                className="vidya-shell__chip"
+                onClick={() => void onSignOut()}
+                disabled={signingOut}
+                style={{ color: "var(--bad)", borderColor: "var(--bad)" }}
+              >
+                {signingOut ? "Signing out…" : "Sign out of this device"}
+              </button>
+            </div>
+          </section>
+
+          {/* STICKY SAVE FOOTER */}
+          <div
             style={{
-              borderColor: "rgba(244,63,94,0.32)",
-              color: "var(--color-red)",
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 8,
+              padding: "16px 0",
             }}
           >
-            {signingOut ? "Signing out…" : "Sign out of this device"}
-          </button>
-        </section>
+            <button
+              type="button"
+              className="vidya-shell__chip"
+              disabled={!dirty || saving}
+              onClick={() => {
+                setLanguage((profile.preferences.language as Language) ?? "en");
+                setGoal(profile.preferences.dailyGoalMinutes ?? 30);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="vidya-shell__chip vidya-shell__chip--on"
+              onClick={savePreferences}
+              disabled={!dirty || saving}
+            >
+              {saving ? "Saving…" : "Save preferences"}
+            </button>
+          </div>
+          {savedAt ? (
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                marginTop: 8,
+                color: "var(--good)",
+                fontSize: 13,
+              }}
+            >
+              Saved
+            </div>
+          ) : null}
+        </>
+      )}
+    </VidyaShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Theme & Density picker (Aurora v2 — S8).
+// Lets the user switch:
+//   * Theme:   system / light / dark   → `data-theme` on <html>
+//   * Density: junior / aspirant / pro → `data-density` on <html>
+//
+// Backed by ThemeProvider + DensityProvider in src/lib/. Both persist
+// to localStorage and apply pre-paint via index.html bootstrap.
+//
+// Spec: docs/02-design/design-system-v2-aurora.md §5 + §12
+// ─────────────────────────────────────────────────────────────────────────
+
+const THEME_OPTIONS: Array<{ id: Theme; label: string; description: string }> = [
+  { id: "system", label: "System", description: "Match your device's light/dark setting." },
+  { id: "light", label: "Light", description: "Bright canvas, dark text." },
+  { id: "dark", label: "Dark", description: "Quiet canvas — easier for long sessions." },
+];
+
+const DENSITY_OPTIONS: Array<{ id: Density; label: string; description: string }> = [
+  {
+    id: "junior",
+    label: "Junior",
+    description: "Comfortable spacing + larger touch targets. Best for Class 5–10.",
+  },
+  {
+    id: "aspirant",
+    label: "Aspirant",
+    description: "Standard density. NEET / JEE / UPSC / Class 11–12 (default).",
+  },
+  {
+    id: "pro",
+    label: "Pro",
+    description: "Compact spacing + smaller chrome. Working pros and tutors.",
+  },
+];
+
+function ThemeDensitySection() {
+  const { theme, setTheme } = useTheme();
+  const { density, setDensity } = useDensity();
+  return (
+    <section
+      className="vidya-card-block"
+      aria-label="Theme and density"
+    >
+      <div className="vidya-card-block__head">
+        <h2 className="vidya-card-block__title">Theme &amp; density</h2>
       </div>
-    </AppShell>
+      <p style={{ fontSize: 14, color: "var(--ink-3)", marginBottom: "var(--sp-3)" }}>
+        Aurora adapts the visual system to your environment and persona. Both
+        switches apply instantly across every screen.
+      </p>
+
+      {/* Theme picker */}
+      <div
+        role="radiogroup"
+        aria-label="Theme"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 8,
+          marginBottom: "var(--sp-4)",
+        }}
+      >
+        {THEME_OPTIONS.map((opt) => {
+          const active = theme === opt.id;
+          return (
+            <Card
+              key={opt.id}
+              asButton
+              padding="md"
+              interactive
+              tone={active ? "aurora-ai" : "neutral"}
+              role="radio"
+              aria-checked={active}
+              onClick={() => setTheme(opt.id)}
+              style={{
+                borderColor: active ? "var(--accent-soft0)" : undefined,
+                outline: active ? "2px solid var(--accent-soft0)" : "none",
+                outlineOffset: 0,
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <div style={{ fontWeight: 600, color: "var(--ink)" }}>
+                {opt.label}
+              </div>
+              <div style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 4 }}>
+                {opt.description}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Density picker */}
+      <div style={{ fontWeight: 600, color: "var(--ink-2)", marginBottom: 8 }}>
+        Density
+      </div>
+      <div
+        role="radiogroup"
+        aria-label="Density"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: 8,
+        }}
+      >
+        {DENSITY_OPTIONS.map((opt) => {
+          const active = density === opt.id;
+          return (
+            <Card
+              key={opt.id}
+              asButton
+              padding="md"
+              interactive
+              role="radio"
+              aria-checked={active}
+              onClick={() => setDensity(opt.id)}
+              style={{
+                borderColor: active ? "var(--accent-soft0)" : undefined,
+                outline: active ? "2px solid var(--accent-soft0)" : "none",
+                outlineOffset: 0,
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <div style={{ fontWeight: 600, color: "var(--ink)" }}>
+                {opt.label}
+                {active ? (
+                  <span style={{ color: "var(--accent)", marginLeft: 8 }}>✓</span>
+                ) : null}
+              </div>
+              <div style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 4 }}>
+                {opt.description}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </section>
   );
 }

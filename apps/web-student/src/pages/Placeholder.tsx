@@ -13,18 +13,18 @@ export function Placeholder({ title, wireframeRef, storyRef }: PlaceholderProps)
         padding: "var(--sp-6)",
         maxWidth: 720,
         margin: "0 auto",
-        color: "var(--text-primary)",
+        color: "var(--ink)",
       }}
     >
       <h1 className="page-greeting">{title}</h1>
       <p className="page-subhead">Not yet implemented.</p>
       {wireframeRef ? (
-        <p style={{ color: "var(--text-muted)", fontSize: 12 }}>
+        <p style={{ color: "var(--ink-3)", fontSize: 12 }}>
           Wireframe: <code>{wireframeRef}</code>
         </p>
       ) : null}
       {storyRef ? (
-        <p style={{ color: "var(--text-muted)", fontSize: 12 }}>
+        <p style={{ color: "var(--ink-3)", fontSize: 12 }}>
           User story: <code>{storyRef}</code>
         </p>
       ) : null}

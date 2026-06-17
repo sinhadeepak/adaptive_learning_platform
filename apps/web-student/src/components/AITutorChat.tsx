@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { auth } from "../lib/api";
+import { useAuth } from "../lib/auth-provider";
 import { TutorBody, TutorFollowups, parseTutorReply } from "./TutorMessage";
 
 // Streaming chat panel for AI doubt-resolution. Uses POST + fetch streaming
@@ -26,10 +28,12 @@ interface Props {
 }
 
 export function AITutorChat({ topicId, topicTitle }: Props) {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [open, setOpen] = useState(false);
+  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // Auto-scroll the transcript as deltas arrive.
@@ -54,7 +58,12 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
       const res = await auth.fetch("/api/v1/adaptive/tutor/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ topicId, messages: next }),
+        body: JSON.stringify({
+          topicId,
+          messages: next,
+          userId: user?.id,
+          chatSessionId,
+        }),
       });
 
       if (!res.ok || !res.body) {
@@ -81,7 +90,8 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
           const payload = line.slice(6).trim();
           if (payload === "[DONE]") break;
           try {
-            const obj = JSON.parse(payload) as { delta?: string };
+            const obj = JSON.parse(payload) as { delta?: string; chatSessionId?: string };
+            if (obj.chatSessionId) setChatSessionId(obj.chatSessionId);
             if (obj.delta) appendToAssistant(obj.delta);
           } catch {
             /* ignore malformed frame */
@@ -115,7 +125,7 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
         onClick={() => setOpen(true)}
         style={{
           marginTop: 12,
-          background: "linear-gradient(90deg, var(--color-blue), var(--color-purple))",
+          background: "linear-gradient(90deg, var(--info), var(--accent))",
           color: "white",
           border: "none",
           padding: "10px 18px",
@@ -144,30 +154,45 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
           padding: "10px 14px",
           background:
             "linear-gradient(90deg, rgba(79,135,246,0.10), rgba(102,67,255,0.10))",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          borderBottom: "1px solid var(--rule)",
         }}
       >
         <div style={{ display: "flex", flexDirection: "column" }}>
           <strong style={{ fontSize: 13 }}>◈ AI Tutor — {topicTitle}</strong>
-          <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
+          <span style={{ fontSize: 11, color: "var(--ink-4)" }}>
             Ask anything; replies stream in.
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          style={{
-            background: "transparent",
-            color: "var(--text-faint)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            padding: "4px 8px",
-            borderRadius: 4,
-            fontSize: 11,
-            cursor: "pointer",
-          }}
-        >
-          Close
-        </button>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <Link
+            to="/tutor-history"
+            style={{
+              fontSize: 11,
+              color: "var(--ink-4)",
+              textDecoration: "none",
+              padding: "4px 8px",
+              border: "1px solid var(--rule-2)",
+              borderRadius: 4,
+            }}
+          >
+            History →
+          </Link>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            style={{
+              background: "transparent",
+              color: "var(--ink-4)",
+              border: "1px solid var(--rule-2)",
+              padding: "4px 8px",
+              borderRadius: 4,
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            Close
+          </button>
+        </div>
       </header>
 
       <div
@@ -185,7 +210,7 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
         }}
       >
         {messages.length === 0 ? (
-          <div style={{ color: "var(--text-faint)", fontStyle: "italic" }}>
+          <div style={{ color: "var(--ink-4)", fontStyle: "italic" }}>
             e.g. "Walk me through the third Newton's law with a real example", "Why
             does entropy always increase in an isolated system?"
           </div>
@@ -211,10 +236,10 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
                     borderRadius: isUser ? "10px 10px 2px 10px" : "10px 10px 10px 2px",
                     background: isUser
                       ? "rgba(79,135,246,0.15)"
-                      : "rgba(255,255,255,0.04)",
+                      : "var(--card)",
                     border: isUser
                       ? "1px solid rgba(79,135,246,0.22)"
-                      : "1px solid rgba(255,255,255,0.06)",
+                      : "1px solid var(--rule)",
                     whiteSpace: isUser ? "pre-wrap" : "normal",
                     wordWrap: "break-word",
                   }}
@@ -251,7 +276,7 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
           display: "flex",
           gap: 8,
           padding: 10,
-          borderTop: "1px solid rgba(255,255,255,0.06)",
+          borderTop: "1px solid var(--rule)",
         }}
       >
         <input
@@ -262,8 +287,8 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
           disabled={streaming}
           style={{
             flex: 1,
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.1)",
+            background: "var(--card)",
+            border: "1px solid var(--rule-2)",
             color: "inherit",
             padding: "8px 10px",
             borderRadius: 4,
@@ -274,7 +299,7 @@ export function AITutorChat({ topicId, topicTitle }: Props) {
           type="submit"
           disabled={streaming || !input.trim()}
           style={{
-            background: "var(--color-blue)",
+            background: "var(--info)",
             color: "white",
             border: "none",
             padding: "8px 16px",

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     port: int = Field(default=38006)
 
     database_url: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:35432/analytics"
+        default="postgresql+asyncpg://postgres:postgres@localhost:35432/engagement"
     )
     # Read-only handle into Quiz's DB for the nightly backfill (Sprint 4).
     # Analytics already trusts quiz_schema.quiz_sessions as the source of
@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     # (cohort leaderboard endpoint joins membership → readiness via HTTP
     # rather than a cross-schema SQL JOIN, per AP-01).
     institution_base_url: str = Field(default="http://institution:8000")
+    # Sprint 28 (P4-S28) — alp-learning base URL for the syllabus-tree
+    # fetch in the coverage aggregator.
+    learning_base_url: str = Field(default="http://learning:8000")
+    # Phase 1D-5 — Quiz service HTTP base for the mock-history fetch in
+    # rank_trajectory.
+    quiz_base_url: str = Field(default="http://quiz:8000")
 
 
 settings = Settings()

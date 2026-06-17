@@ -6,6 +6,8 @@ import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { MyQuestions } from "./pages/MyQuestions";
 import { NewQuestion } from "./pages/NewQuestion";
+// Phase 5 (P5-S58) — multi-type Author page.
+import { MultiTypeAuthor } from "./pages/MultiTypeAuthor";
 import { ReviewQueue } from "./pages/ReviewQueue";
 import { Students } from "./pages/Students";
 import { Doubts } from "./pages/Doubts";
@@ -14,7 +16,23 @@ import { AssignmentDetail } from "./pages/AssignmentDetail";
 import { AssignmentNew } from "./pages/AssignmentNew";
 import { Analytics } from "./pages/Analytics";
 import { CohortLeaderboard } from "./pages/CohortLeaderboard";
+import { CohortAtRisk } from "./pages/CohortAtRisk";
 import { StudentDrillDown } from "./pages/StudentDrillDown";
+import { TutorApply } from "./pages/TutorApply";
+import { TutorDashboard } from "./pages/TutorDashboard";
+import { CreatorApply } from "./pages/CreatorApply";
+import { CreatorDashboard } from "./pages/CreatorDashboard";
+import { MyCourses } from "./pages/MyCourses";
+import { CourseAuthor } from "./pages/CourseAuthor";
+import { ResourceCurator } from "./pages/ResourceCurator";
+import { CreatorEarnings } from "./pages/CreatorEarnings";
+// Track 2 follow-ups — Sprint A3 + A4 (web side).
+import { TeacherDashboard } from "./pages/TeacherDashboard";
+import { CohortDeepDive } from "./pages/CohortDeepDive";
+import { FlashcardModeration } from "./pages/FlashcardModeration";
+import { StudentDeepDive } from "./pages/StudentDeepDive";
+import { CuratedTestAuthor } from "./pages/CuratedTestAuthor";
+import { CuratedReviewQueue } from "./pages/CuratedReviewQueue";
 
 const protectedRoute = (path: string, element: ReactElement): RouteObject => ({
   path,
@@ -33,8 +51,26 @@ export const routes: RouteObject[] = [
   },
   protectedRoute("/dashboard", <Dashboard />),
   protectedRoute("/questions", <MyQuestions />),
+  // Phase 5 (P5-S58) — /questions/new is the multi-type author so all
+  // 22 supported types are reachable from the navigation. The legacy
+  // single-type IRT form lives at /questions/new-mcq for tests and
+  // any author who needs the older flow.
   {
     path: "/questions/new",
+    element: (
+      <ProtectedRoute>
+        <RoleGate allow={canAuthor}>
+          <MultiTypeAuthor />
+        </RoleGate>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/questions/new-multi",
+    element: <Navigate to="/questions/new" replace />,
+  },
+  {
+    path: "/questions/new-mcq",
     element: (
       <ProtectedRoute>
         <RoleGate allow={canAuthor}>
@@ -74,6 +110,56 @@ export const routes: RouteObject[] = [
     "/cohorts/:cohortId/students/:userId",
     <StudentDrillDown />,
   ),
-  protectedRoute("/analytics", <Analytics />),
+  // Sprint 21 (P3-S6) — at-risk educator drill-down.
+  protectedRoute("/cohort-at-risk", <CohortAtRisk />),
+  // P7 — `/analytics` used to render the "Lands in Phase 2" placeholder
+  // while the real teacher dashboard lived at /teacher/dashboard.
+  // Point both at the same live component so the sidebar entry stops
+  // showing a stub.
+  protectedRoute("/analytics", <TeacherDashboard />),
+  protectedRoute("/analytics-stub", <Analytics />),
+  // Sprint 16 (P3-S1) — Tutor marketplace, supply side.
+  protectedRoute("/tutor", <TutorDashboard />),
+  protectedRoute("/tutor/apply", <TutorApply />),
+  // Sprint 18 (P3-S3) — Creator marketplace.
+  protectedRoute("/creator", <CreatorDashboard />),
+  protectedRoute("/creator/apply", <CreatorApply />),
+  protectedRoute("/creator/courses", <MyCourses />),
+  // R-S1 — content references (YouTube curation)
+  {
+    path: "/content/resources",
+    element: (
+      <ProtectedRoute>
+        <RoleGate allow={canAuthor}>
+          <ResourceCurator />
+        </RoleGate>
+      </ProtectedRoute>
+    ),
+  },
+  protectedRoute("/creator/courses/new", <CourseAuthor />),
+  protectedRoute("/creator/courses/:courseId/edit", <CourseAuthor />),
+  protectedRoute("/creator/earnings", <CreatorEarnings />),
+  // Track 2 — teacher analytics (A3) + intervention flag (A4).
+  protectedRoute("/teacher/dashboard", <TeacherDashboard />),
+  protectedRoute("/teacher/cohorts/:cohortId", <CohortDeepDive />),
+  protectedRoute(
+    "/teacher/cohorts/:cohortId/students/:userId",
+    <StudentDeepDive />,
+  ),
+  // Phase 1D-8 — flashcard moderation queue (MODERATOR+ role).
+  protectedRoute("/moderation/flashcards", <FlashcardModeration />),
+  // F6 — Curated Test Library (educator portal). Author surface gated
+  // by canAuthor; review queue gated server-side to MODERATOR+.
+  {
+    path: "/curated/new",
+    element: (
+      <ProtectedRoute>
+        <RoleGate allow={canAuthor}>
+          <CuratedTestAuthor />
+        </RoleGate>
+      </ProtectedRoute>
+    ),
+  },
+  protectedRoute("/curated/review", <CuratedReviewQueue />),
   { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];

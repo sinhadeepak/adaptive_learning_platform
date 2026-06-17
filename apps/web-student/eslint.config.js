@@ -99,6 +99,19 @@ export default [
       // TS's type-vs-value namespacing makes the base rule too strict
       // (e.g. `type Language = "en"` and `function Language() {}` coexist).
       "no-redeclare": "off",
+      // Vidya v1 hex-literal gate (warn-level until backlog cleared).
+      // Hard-coded hex inside .tsx/.ts breaks theme/persona/density
+      // cascade — colors must come from CSS custom properties defined
+      // in @alp/design-system/vidya/tokens.css. Set to "error" when
+      // the existing 43 offender files are cleaned up.
+      "no-restricted-syntax": [
+        "warn",
+        {
+          selector: "Literal[value=/^#[0-9A-Fa-f]{3,8}$/]",
+          message:
+            "Vidya: hard-coded hex disallowed in TSX. Use var(--paper)/--ink/--accent/--gold/--good/--warn/--bad/--info or set color in CSS.",
+        },
+      ],
     },
   },
   {

@@ -180,7 +180,7 @@ export function AssignmentNew() {
                     padding: 0,
                     maxHeight: 320,
                     overflowY: "auto",
-                    border: "1px solid var(--border-default)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 6,
                   }}
                 >
@@ -191,7 +191,7 @@ export function AssignmentNew() {
                         key={q.id}
                         style={{
                           padding: 8,
-                          borderBottom: "1px solid var(--border-faint)",
+                          borderBottom: "1px solid var(--rule)",
                         }}
                       >
                         <label style={{ display: "flex", gap: 8 }}>
@@ -250,7 +250,7 @@ export function AssignmentNew() {
         )}
 
         {errors.length > 0 && (
-          <ul style={{ color: "var(--color-red, red)", marginTop: 8 }}>
+          <ul style={{ color: "var(--bad, red)", marginTop: 8 }}>
             {errors.map((e) => (
               <li key={e.field}>{e.message}</li>
             ))}

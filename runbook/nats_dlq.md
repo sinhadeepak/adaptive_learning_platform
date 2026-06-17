@@ -2,6 +2,8 @@
 
 **Purpose**: investigate and recover from JetStream messages that hit `MaxDeliver` and were dropped — the operational close-out for GAP-06 + the durable-stream promotion in PR #11. Used when a `quiz.session.completed` or `content.question.published` was published but never landed downstream.
 
+**Note (post-[ADR-0005](../docs/adr/0005-service-consolidation.md))**: durable consumer **names** are unchanged from the pre-consolidation world (JetStream remembers consumers by name and we deliberately preserved them across the merge). What changed: the consumer **lives in** a different pod now. `analytics-quiz-completed` and `notification-quiz-completed` both run inside `alp-engagement`; `quiz-content-published` runs inside `alp-quiz`; `content-assignment-progress` runs inside `alp-learning`. Pod selectors below reflect that.
+
 **Authorisation**: any level 2+ may run §1–§3 (read-only). §4 (replay) is level 2+ for Analytics backfill, level 3+ for any direct DB write.
 
 **Expected end-to-end latency**: detection → mitigation < 5 minutes. Full recovery (backfill complete) within one cron cycle (24h).
@@ -10,10 +12,13 @@
 
 ## 1. Streams + durable consumers in scope
 
-| Stream | Subjects | Publishers | Durable consumers | Idempotency key |
-|---|---|---|---|---|
-| `QUIZ_EVENTS` | `quiz.>` | Quiz (Go) on `/quiz/sessions/{id}/submit` | `analytics-quiz-completed` (Analytics), `notification-quiz-completed` (Notification) | `processed_sessions.session_id` (Analytics), `processed_events.event_id` (Notification) |
-| `CONTENT_EVENTS` | `content.>` | Content (Py) on `/content/questions/{id}/review` (approve) | `quiz-content-published` (Quiz Go) | `quiz_schema.questions.id` (ON CONFLICT DO UPDATE) |
+| Stream | Subjects | Publisher pod | Durable consumers | Consumer pod | Idempotency key |
+|---|---|---|---|---|---|
+| `QUIZ_EVENTS` | `quiz.>` | `alp-quiz` on `/quiz/sessions/{id}/submit` | `analytics-quiz-completed` | `alp-engagement` | `analytics_schema.processed_sessions.session_id` |
+| `QUIZ_EVENTS` | `quiz.>` | `alp-quiz` | `notification-quiz-completed` | `alp-engagement` | `notification_schema.processed_events.event_id` |
+| `QUIZ_EVENTS` | `quiz.>` | `alp-quiz` | `content-assignment-progress` | `alp-learning` | `content_schema.assignment_progress` (PK) |
+| `CONTENT_EVENTS` | `content.>` | `alp-learning` on `/content/questions/{id}/review` (approve) + `/content/assignments/{id}/publish` | `quiz-content-published` | `alp-quiz` | `quiz_schema.questions.id` (ON CONFLICT DO UPDATE) |
+| `CONTENT_EVENTS` | `content.>` | `alp-learning` | `notification-assignment-created` | `alp-engagement` | `notification_schema.processed_events.event_id` |
 
 **Stream config** (all): FILE storage, R=1 local / R=3 staging+prod, `LimitsPolicy` retention. **Consumer config**: `AckExplicit`, `AckWait=60s`, `MaxDeliver=5`. After 5 failed deliveries the message is **dropped** — there is no auto-DLQ subject in this config.
 
@@ -98,14 +103,14 @@ JetStream doesn't keep dropped messages. Recovery means **re-driving the downstr
 The source-of-truth is `quiz_schema.quiz_sessions` (status = SUBMITTED). Backfill replays anything missing from `processed_sessions`:
 
 ```
-make analytics-backfill                                      # default: --since "36 hours ago"
-SINCE=2026-04-25T00:00:00Z make analytics-backfill           # explicit window
+make engagement-backfill                                     # default: --since "36 hours ago"
+SINCE=2026-04-25T00:00:00Z make engagement-backfill          # explicit window
 ```
 
 Or directly:
 ```
-cd services/analytics
-uv run python -m analytics.backfill --since 2026-04-25T00:00:00Z --limit 10000
+cd services/engagement
+uv run python -m engagement.analytics.backfill --since 2026-04-25T00:00:00Z --limit 10000
 ```
 
 Outcome: `applied=N skipped=M failed=0` log line. `applied` = sessions that were missing and have now been processed. `skipped` = already in `processed_sessions` (idempotent re-run is safe).
@@ -117,14 +122,15 @@ Re-run with the same `--since` → expect `applied=0 skipped=N` on the second pa
 Same shape as Analytics. Source-of-truth is `quiz_schema.quiz_sessions`; backfill replays anything missing from `notification_schema.processed_events`:
 
 ```
-make notification-backfill                                   # default: --since "36 hours ago"
-SINCE=2026-04-25T00:00:00Z make notification-backfill        # explicit window
+# Notification backfill is now part of the unified engagement-backfill target
+make engagement-backfill                                     # default: --since "36 hours ago"
+SINCE=2026-04-25T00:00:00Z make engagement-backfill          # explicit window
 ```
 
 Or directly:
 ```
-cd services/notification
-uv run python -m notification.backfill --since 2026-04-25T00:00:00Z --limit 10000
+cd services/engagement
+uv run python -m engagement.notification.backfill --since 2026-04-25T00:00:00Z --limit 10000
 ```
 
 Outcome counters: `appended` = fresh notification rows; `dropped` = channel disabled at the time (terminal — `processed_events` still marked so flag-flips don't replay backlog); `skipped` = already in `processed_events` (idempotent re-run); `failed` = errors. Re-run must show `appended=0 skipped=N`.
@@ -133,7 +139,7 @@ Outcome counters: `appended` = fresh notification rows; `dropped` = channel disa
 
 The source-of-truth is `content_schema.questions` (status = PUBLISHED). Re-publish:
 
-1. Find the gap: `psql -c "SELECT id FROM content_schema.questions WHERE status='PUBLISHED' AND id NOT IN (SELECT id FROM quiz_schema.questions);"` — assumes both DBs reachable from the operator. If they're separate clusters, run each query and diff in your shell.
+1. Find the gap: `psql -d learning -c "SELECT id FROM content_schema.questions WHERE status='PUBLISHED' AND id NOT IN (SELECT id FROM quiz_schema.questions);"` — `content_schema` lives in the `learning` DB; `quiz_schema` in the `quiz` DB. If they're separate clusters, run each query and diff in your shell.
 2. For each missing id, re-emit by re-approving (no-op if already PUBLISHED, but the `/review` endpoint short-circuits with the existing row and emits the event again — see PR #21):
    ```
    curl -X POST "$CONTENT_URL/content/questions/<qid>/review" \

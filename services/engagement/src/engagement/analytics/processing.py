@@ -132,7 +132,42 @@ async def process_session(
         minutes_inc=max(0, study_minutes),
     )
 
+    # Sprint 27 (P4-S27) — SM-2 + EWA-clamp revision queue. Best-effort: a
+    # transient failure here logs but doesn't roll back the mastery update
+    # above. The queue is rebuildable in principle (last attempts live on
+    # processed_sessions), so a missed write is recoverable.
+    try:
+        from engagement.analytics.revision import update_revision_queue
+
+        await update_revision_queue(
+            session,
+            user_id=user_id,
+            topic_id=topic_id,
+            accuracy=float(score),
+            mastery_ewa=new_ewa,
+            now=datetime.now(tz=UTC),
+        )
+    except Exception:
+        log.exception("revision_queue.update_failed user=%s topic=%s", user_id, topic_id)
+
     await mark_session_processed(session, session_id)
+
+    # Phase 1D-9 — streak day XP. When the streak ticks up, award XP for
+    # the new day. Cap at 30 days so a year-long streak doesn't grant
+    # unbounded daily XP. Best-effort.
+    try:
+        prev_for_xp = prev_streak.current_streak if prev_streak else 0
+        if update.current_streak > prev_for_xp and update.current_streak <= 30:
+            from engagement.gamification import service as _gam
+            await _gam.award_xp(
+                session,
+                user_id=user_id,
+                event_type="streak_day",
+                source_id=None,
+                xp_delta=_gam.XP_RULES.get("streak_day", 5),
+            )
+    except Exception:
+        log.exception("gamification.streak_xp.failed user=%s", user_id)
 
     # Side-effect notifications — the in-app inbox surfaces these so the
     # student gets a celebratory ping the moment they hit a milestone. Best

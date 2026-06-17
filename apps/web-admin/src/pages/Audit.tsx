@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { flags, type FlagAuditEntry } from "../lib/api";
-import { AppShell } from "../components/AppShell";
+import { AdminShell } from "../components/AdminShell";
 import { Banner, SkeletonRows } from "../components/primitives";
 
 type ScopeFilter = "ALL" | "GLOBAL" | "TENANT";
@@ -47,16 +47,17 @@ export function Audit() {
   }, [items]);
 
   return (
-    <AppShell
+    <AdminShell
+      crumbs="Audit log"
       title="Audit log"
       chips={
-        counts
-          ? [
-              { label: `${counts.total} total` },
-              { label: `${counts.global} global` },
-              { label: `${counts.tenant} tenant` },
-            ]
-          : []
+        counts ? (
+          <>
+            <span className="vidya-shell__chip">{counts.total} total</span>
+            <span className="vidya-shell__chip">{counts.global} global</span>
+            <span className="vidya-shell__chip">{counts.tenant} tenant</span>
+          </>
+        ) : null
       }
     >
       <p className="page-subhead">
@@ -160,6 +161,6 @@ export function Audit() {
           </table>
         </div>
       )}
-    </AppShell>
+    </AdminShell>
   );
 }

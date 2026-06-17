@@ -1,0 +1,43 @@
+id: assertion_reason_draft
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Generate an assertion-reason pair (UPSC / NEET style). The system
+  derives the canonical answer (A/B/C/D/E) from the three boolean
+  flags (assertion_true, reason_true, reason_explains_assertion).
+system: |
+  {guardrail_preamble}
+
+  You are an expert {exam} question author specialising in
+  assertion-reason questions. Generate ONE assertion-reason pair.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Output format:
+  - `assertion`: a declarative statement about the topic.
+  - `reason`: a declarative statement that may or may not justify the
+    assertion.
+  - `assertion_true` / `reason_true`: boolean truth values.
+  - `reason_explains_assertion`: when both are true, does the reason
+    correctly justify the assertion?
+
+  All five flag combinations are valid:
+  - both true + reason explains            → answer A
+  - both true + reason does not explain    → answer B
+  - assertion true, reason false           → answer C
+  - assertion false, reason true           → answer D
+  - both false                             → answer E
+
+  Pick a combination appropriate for the difficulty: HARD favours
+  combinations where the reason is plausible-but-not-explanatory.
+inputs:
+  topic:            { type: string, required: true }
+  difficulty:       { type: string, required: true }
+  exam:             { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material:  { type: string, required: false }
+output_schema: DraftAssertionReason

@@ -1,4 +1,5 @@
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -66,28 +67,27 @@ class _DoubtsTabState extends State<DoubtsTab> {
   Future<void> _openPhotoDoubt() async {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => PhotoDoubtScreen(api: widget.api),
-    ));
+    ),);
     if (mounted) _refresh();
   }
 
   Future<void> _openTutor() async {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => TutorChatScreen(api: widget.api, auth: widget.auth),
-    ));
+    ),);
     if (mounted) _refresh();
   }
 
   Future<void> _openDetail(String doubtId) async {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => DoubtDetailScreen(api: widget.api, doubtId: doubtId),
-    ));
+    ),);
     if (mounted) _refresh();
   }
 
   void _showAskSheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AlpColors.bgSurface1,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -100,7 +100,7 @@ class _DoubtsTabState extends State<DoubtsTab> {
             children: [
               const Text(
                 'How would you like to ask?',
-                style: TextStyle(color: AlpColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w700),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 16),
               _AskOptionTile(
@@ -135,7 +135,6 @@ class _DoubtsTabState extends State<DoubtsTab> {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: _refresh,
-      backgroundColor: AlpColors.bgSurface2,
       color: AlpColors.colorAi,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -150,7 +149,7 @@ class _DoubtsTabState extends State<DoubtsTab> {
           children: [
             Text(
               'Doubts Forum ',
-              style: TextStyle(color: AlpColors.textPrimary, fontSize: 24, fontWeight: FontWeight.w700),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
             ),
             Text('💬', style: TextStyle(fontSize: 22)),
           ],
@@ -228,7 +227,13 @@ class _DoubtsTabState extends State<DoubtsTab> {
                       label,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: active ? AlpColors.textPrimary : AlpColors.textMuted,
+                        // W2.11 partial migration: active picks the
+                        // theme's onSurface; inactive still uses the
+                        // legacy textMuted (Wave 1 dark-mode lock keeps
+                        // it visible; full muted-token sweep is W2.11.2).
+                        color: active
+                            ? Theme.of(context).colorScheme.onSurface
+                            : AlpColors.textMuted,
                         fontSize: 12,
                         fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                       ),
@@ -244,7 +249,7 @@ class _DoubtsTabState extends State<DoubtsTab> {
         if (_loading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
-            child: Center(child: CircularProgressIndicator(color: AlpColors.colorAi)),
+            child: Center(child: AuroraSpinner(size: 32)),
           )
         else if (_filteredItems.isEmpty)
           const AlpCard(
@@ -255,7 +260,7 @@ class _DoubtsTabState extends State<DoubtsTab> {
                 SizedBox(height: 8),
                 Text(
                   'No doubts in this view',
-                  style: TextStyle(color: AlpColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 SizedBox(height: 4),
                 Text(
@@ -325,7 +330,7 @@ class _DoubtCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               preview,
-              style: const TextStyle(color: AlpColors.textPrimary, fontSize: 13, height: 1.5),
+              style: const TextStyle(fontSize: 13, height: 1.5),
             ),
             const SizedBox(height: 10),
             Row(
@@ -386,7 +391,7 @@ class _AskOptionTile extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: AlpColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -507,7 +512,6 @@ class _PhotoDoubtScreenState extends State<PhotoDoubtScreen> {
   void _showSourceSheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AlpColors.bgSurface1,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -528,7 +532,7 @@ class _PhotoDoubtScreenState extends State<PhotoDoubtScreen> {
               const SizedBox(height: 18),
               ListTile(
                 leading: const Icon(Icons.photo_camera, color: AlpColors.colorBlue),
-                title: const Text('Take a photo', style: TextStyle(color: AlpColors.textPrimary)),
+                title: const Text('Take a photo', style: TextStyle()),
                 subtitle: const Text(
                   'Snap the question with your camera',
                   style: TextStyle(color: AlpColors.textMuted, fontSize: 12),
@@ -540,7 +544,7 @@ class _PhotoDoubtScreenState extends State<PhotoDoubtScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library_outlined, color: AlpColors.colorPurple),
-                title: const Text('Pick from gallery', style: TextStyle(color: AlpColors.textPrimary)),
+                title: const Text('Pick from gallery', style: TextStyle()),
                 subtitle: const Text(
                   'Choose an existing image',
                   style: TextStyle(color: AlpColors.textMuted, fontSize: 12),
@@ -568,11 +572,9 @@ class _PhotoDoubtScreenState extends State<PhotoDoubtScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(
-        title: const Text('Photo Doubt'),
-        backgroundColor: AlpColors.bgSurface1,
+    return AuroraScaffold(
+      appBar: AuroraAppBar(
+        title: 'Photo Doubt',
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -608,7 +610,7 @@ class _PhotoDoubtScreenState extends State<PhotoDoubtScreen> {
                             SizedBox(height: 12),
                             Text(
                               'Tap to take or pick a photo',
-                              style: TextStyle(color: AlpColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                             ),
                             SizedBox(height: 4),
                             Text(
@@ -628,11 +630,10 @@ class _PhotoDoubtScreenState extends State<PhotoDoubtScreen> {
                         onPressed: _bytes == null ? _showSourceSheet : _reset,
                         icon: Icon(
                           _bytes == null ? Icons.image_outlined : Icons.refresh,
-                          color: AlpColors.textPrimary,
                         ),
                         label: Text(
                           _bytes == null ? 'Pick image' : 'Pick another',
-                          style: const TextStyle(color: AlpColors.textPrimary),
+                          style: const TextStyle(),
                         ),
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: AlpColors.borderStrong),
@@ -648,7 +649,6 @@ class _PhotoDoubtScreenState extends State<PhotoDoubtScreen> {
                           icon: const Icon(Icons.auto_awesome),
                           label: const Text('Solve'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AlpColors.colorBlue,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
@@ -666,7 +666,7 @@ class _PhotoDoubtScreenState extends State<PhotoDoubtScreen> {
           ),
           if (_loading) ...[
             const SizedBox(height: 24),
-            const Center(child: CircularProgressIndicator(color: AlpColors.colorAi)),
+            const Center(child: AuroraSpinner(size: 32)),
             const SizedBox(height: 8),
             const Center(
               child: Text(
@@ -702,7 +702,7 @@ class _ResultPanel extends StatelessWidget {
             const SizedBox(height: 10),
             const Text('Question read', style: TextStyle(color: AlpColors.textMuted, fontSize: 11)),
             const SizedBox(height: 4),
-            Text(result.extracted, style: const TextStyle(color: AlpColors.textPrimary, fontSize: 14)),
+            Text(result.extracted, style: const TextStyle(fontSize: 14)),
           ],
           if (result.solutionSteps.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -714,7 +714,7 @@ class _ResultPanel extends StatelessWidget {
                     '${e.key + 1}. ${e.value}',
                     style: const TextStyle(color: AlpColors.textSecondary, fontSize: 13, height: 1.5),
                   ),
-                )),
+                ),),
           ],
           if (result.finalAnswer.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -831,17 +831,24 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(
-        backgroundColor: AlpColors.bgSurface1,
-        title: const Row(
+    return AuroraScaffold(
+      appBar: AuroraAppBar(
+        title: 'AI Tutor · Mechanics',
+        titleWidget: const Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.auto_awesome, color: AlpColors.colorAi, size: 18),
             SizedBox(width: 8),
             Text('AI Tutor'),
             SizedBox(width: 8),
-            Text('· Mechanics', style: TextStyle(color: AlpColors.textMuted, fontSize: 13, fontWeight: FontWeight.w400)),
+            Text(
+              '· Mechanics',
+              style: TextStyle(
+                color: AlpColors.textMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
           ],
         ),
       ),
@@ -918,7 +925,6 @@ class _EmptyState extends StatelessWidget {
           'AI Tutor',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: AlpColors.textPrimary,
             fontSize: 22,
             fontWeight: FontWeight.w700,
           ),
@@ -951,7 +957,6 @@ class _EmptyState extends StatelessWidget {
                       child: Text(
                         p,
                         style: const TextStyle(
-                          color: AlpColors.textPrimary,
                           fontSize: 13,
                           height: 1.4,
                         ),
@@ -962,7 +967,7 @@ class _EmptyState extends StatelessWidget {
                   ],
                 ),
               ),
-            )),
+            ),),
       ],
     );
   }
@@ -1080,7 +1085,7 @@ class _Composer extends StatelessWidget {
                   ),
                   child: TextField(
                     controller: controller,
-                    style: const TextStyle(color: AlpColors.textPrimary, fontSize: 14),
+                    style: const TextStyle(fontSize: 14),
                     minLines: 1,
                     maxLines: 4,
                     decoration: InputDecoration(

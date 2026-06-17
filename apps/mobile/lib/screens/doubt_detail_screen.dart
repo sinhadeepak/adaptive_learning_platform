@@ -1,4 +1,5 @@
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
@@ -116,10 +117,12 @@ class _DoubtDetailScreenState extends State<DoubtDetailScreen> {
         await _load();
       }
     } catch (_) {/* swallow — UI stays in pre-stream state */} finally {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _aiStreaming = false;
         _aiBuffer = '';
       });
+      }
     }
   }
 
@@ -141,11 +144,9 @@ class _DoubtDetailScreenState extends State<DoubtDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(
-        backgroundColor: AlpColors.bgSurface1,
-        title: const Text('Doubt'),
+    return AuroraScaffold(
+      appBar: AuroraAppBar(
+        title: 'Doubt',
       ),
       body: SafeArea(
         child: Column(
@@ -153,10 +154,9 @@ class _DoubtDetailScreenState extends State<DoubtDetailScreen> {
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _load,
-                backgroundColor: AlpColors.bgSurface2,
                 color: AlpColors.colorAi,
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator(color: AlpColors.colorAi))
+                    ? const Center(child: AuroraSpinner(size: 32))
                     : _error != null
                         ? Center(child: Text(_error!, style: const TextStyle(color: AlpColors.colorRed)))
                         : _DoubtBody(
@@ -206,7 +206,7 @@ class _ReplyComposer extends StatelessWidget {
               ),
               child: TextField(
                 controller: controller,
-                style: const TextStyle(color: AlpColors.textPrimary, fontSize: 14),
+                style: const TextStyle(fontSize: 14),
                 minLines: 1,
                 maxLines: 4,
                 decoration: InputDecoration(
@@ -294,7 +294,6 @@ class _DoubtBody extends StatelessWidget {
               Text(
                 s.questionText,
                 style: const TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 15,
                   height: 1.5,
                   fontWeight: FontWeight.w500,
@@ -354,7 +353,6 @@ class _DoubtBody extends StatelessWidget {
               label: Text(
                 hasAi ? 'Ask AI follow-up' : 'Ask AI Tutor for help',
                 style: const TextStyle(
-                  color: AlpColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -450,7 +448,7 @@ List<TutorTurn> buildTutorMessages({
     messages.add(TutorTurn(
       role: 'user',
       content: 'Can you explain this further or give a worked example?',
-    ));
+    ),);
   }
   return messages;
 }

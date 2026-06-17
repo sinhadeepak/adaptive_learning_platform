@@ -1,13 +1,21 @@
+// ForgotPassword — Vidya v1 redesign (split-screen, black rail + editorial form).
+//
+// Spec: docs/02-design/design-system/04_components.md
+//       + the 10-screen mockup set delivered with Vidya v1.
+// ADR:  docs/adr/0034-design-system-v3-vidya.md
+//
+// Sends a 6-digit one-time code (email or SMS depending on identifier
+// shape) and routes to /verify?kind=reset for the next step.
+
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../lib/api";
-import { Banner } from "../components/dashboard";
-import "@alp/design-system/shell.css";
+import { VidyaAuthRail } from "./Login";
 
 export function ForgotPassword() {
-  const [email, setEmail] = useState("");
+  const navigate = useNavigate();
+  const [identifier, setIdentifier] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(event: FormEvent) {
@@ -15,90 +23,74 @@ export function ForgotPassword() {
     setError(null);
     setSubmitting(true);
     try {
-      await auth.forgotPassword(email);
-      setSubmitted(true);
+      await auth.forgotPassword(identifier);
+      const params = new URLSearchParams({
+        email: identifier,
+        kind: "reset",
+      });
+      navigate(`/verify?${params.toString()}`);
     } catch {
-      setError("We couldn't send the reset link. Try again in a moment.");
+      setError("We couldn't send the code. Try again in a moment.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (submitted) {
-    return (
-      <div className="auth-page">
-        <main className="auth-card">
-          <h1 className="page-greeting" style={{ marginBottom: "var(--sp-3)" }}>
-            Check your inbox
-          </h1>
-          <p style={{ color: "var(--text-primary)", fontSize: 13, lineHeight: 1.5 }}>
-            If an account exists for <strong>{email}</strong>, we've sent a
-            password-reset link. The link is valid for 30 minutes.
-          </p>
-          <p style={{ color: "var(--text-muted)", fontSize: 12, marginTop: "var(--sp-3)" }}>
-            Didn't get one? Check your spam folder, or{" "}
-            <button
-              type="button"
-              onClick={() => setSubmitted(false)}
-              className="auth-link-button"
-            >
-              try a different email
-            </button>
-            .
-          </p>
-          <p className="auth-footer">
-            <Link to="/login" className="auth-link">
-              ← Back to log in
-            </Link>
-          </p>
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <div className="auth-page">
-      <main className="auth-card">
-        <h1 className="page-greeting" style={{ marginBottom: "var(--sp-1)" }}>
-          Forgot your password?
-        </h1>
-        <p className="page-subhead">
-          Enter the email you signed up with and we'll send you a reset link.
-        </p>
+    <div className="vidya-auth">
+      <VidyaAuthRail />
 
-        {error ? (
-          <Banner tone="danger" role="alert">
-            {error}
-          </Banner>
-        ) : null}
+      <main className="vidya-auth__panel">
+        <form
+          onSubmit={onSubmit}
+          className="vidya-auth__form"
+          aria-label="Forgot password"
+        >
+          <div className="vidya-auth__mobile-brand">
+            v<em>⌑</em>dya
+          </div>
 
-        <form onSubmit={onSubmit} className="auth-form" aria-label="Forgot password">
-          <label className="form-field">
-            <span className="form-label">Email</span>
+          <header>
+            <p className="vidya-auth__eyebrow">Forgot password · Step 1 of 3</p>
+            <h1 className="vidya-auth__title">
+              Let's get you <em>back in</em>.
+            </h1>
+            <p className="vidya-auth__subtitle">
+              Enter the email or mobile you signed up with. We'll send a
+              one-time code.
+            </p>
+          </header>
+
+          {error ? (
+            <div className="vidya-auth__error" role="alert">
+              <span>{error}</span>
+            </div>
+          ) : null}
+
+          <label className="vidya-auth__field">
+            <span className="vidya-auth__field-label">Email or mobile</span>
             <input
-              type="email"
-              autoComplete="email"
-              value={email}
+              className="vidya-auth__field-input"
+              type="text"
+              autoComplete="username"
+              value={identifier}
               required
-              onChange={(e) => setEmail(e.target.value)}
-              className="form-input"
+              onChange={(e) => setIdentifier(e.target.value)}
             />
           </label>
 
           <button
             type="submit"
-            className="btn btn-primary btn-block"
-            disabled={submitting}
+            className="vidya-auth__cta"
+            disabled={submitting || identifier.length < 3}
           >
-            {submitting ? "Sending…" : "Send reset link"}
+            {submitting ? "Sending…" : "Send code →"}
           </button>
-        </form>
 
-        <p className="auth-footer">
-          <Link to="/login" className="auth-link">
-            ← Back to log in
-          </Link>
-        </p>
+          <p className="vidya-auth__footer">
+            <Link to="/login">← Back to log in</Link>
+          </p>
+        </form>
       </main>
     </div>
   );

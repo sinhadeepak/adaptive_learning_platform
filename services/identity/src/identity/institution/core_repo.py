@@ -88,6 +88,54 @@ async def get_tenant_by_slug(
     return dict(row) if row else None
 
 
+async def list_tenants(
+    session: AsyncSession,
+    *,
+    limit: int = 100,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int]:
+    """Paged list with cohort/teacher/student counts. The counts come from
+    a LEFT JOIN against cohorts + cohort_members so empty tenants still
+    appear (admin needs to see "0 cohorts" tenants to fix them)."""
+    rows = (
+        await session.execute(
+            text(
+                f"""
+                SELECT
+                  t.id, t.name, t.slug, t.kind, t.seat_limit,
+                  t.created_at, t.updated_at,
+                  COALESCE(c.cohort_count, 0)::int   AS cohort_count,
+                  COALESCE(m.teacher_count, 0)::int  AS teacher_count,
+                  COALESCE(m.student_count, 0)::int  AS student_count
+                FROM {SCHEMA}.tenants t
+                LEFT JOIN (
+                  SELECT tenant_id, COUNT(*) AS cohort_count
+                  FROM {SCHEMA}.cohorts GROUP BY tenant_id
+                ) c ON c.tenant_id = t.id
+                LEFT JOIN (
+                  SELECT co.tenant_id,
+                         COUNT(*) FILTER (WHERE cm.role = 'LEAD_TEACHER') AS teacher_count,
+                         COUNT(*) FILTER (WHERE cm.role = 'STUDENT')      AS student_count
+                  FROM {SCHEMA}.cohort_members cm
+                  JOIN {SCHEMA}.cohorts co ON co.id = cm.cohort_id
+                  GROUP BY co.tenant_id
+                ) m ON m.tenant_id = t.id
+                ORDER BY t.name
+                LIMIT :limit OFFSET :offset
+                """
+            ),
+            {"limit": limit, "offset": offset},
+        )
+    ).mappings().all()
+    total_row = (
+        await session.execute(
+            text(f"SELECT COUNT(*) AS n FROM {SCHEMA}.tenants")
+        )
+    ).mappings().first()
+    total = int(total_row["n"]) if total_row else 0
+    return [dict(r) for r in rows], total
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # Cohorts
 # ─────────────────────────────────────────────────────────────────────────

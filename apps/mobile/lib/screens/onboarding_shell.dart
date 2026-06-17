@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 
 /// Shared chrome for the 4 onboarding steps. Mirrors web-student's OnboardingShell.tsx.
 class OnboardingShell extends StatelessWidget {
@@ -22,8 +23,7 @@ class OnboardingShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlpColors.surfaceSecondary,
+    return AuroraScaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

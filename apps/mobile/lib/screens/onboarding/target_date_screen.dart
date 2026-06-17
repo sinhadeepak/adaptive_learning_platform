@@ -130,7 +130,9 @@ class _TargetDateScreenState extends State<TargetDateScreen> {
                         ? 'Pick a date'
                         : '${_date!.year}-${_date!.month.toString().padLeft(2, '0')}-${_date!.day.toString().padLeft(2, '0')}',
                     style: AlpTextStyles.body.copyWith(
-                      color: _date == null ? AlpColors.textMuted : AlpColors.textPrimary,
+                      color: _date == null
+                          ? AlpColors.textMuted
+                          : Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ),

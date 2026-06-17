@@ -38,6 +38,7 @@ from engagement.analytics.config import settings
 from engagement.analytics.db import sessionmaker
 from engagement.analytics.processing import process_session
 from engagement.analytics.realtime import publish_user_recomputed
+from engagement.analytics.section_stats import upsert_session_section_stats
 
 log = logging.getLogger(__name__)
 
@@ -163,6 +164,10 @@ async def _on_session_completed(msg: Msg) -> None:
     served_count = int(payload.get("served_count", 0) or 0)
     minutes = _derive_minutes(payload.get("started_at"), payload.get("submitted_at"))
 
+    # Sprint 22 (P4-S22) — per-item array; absent on pre-S22 publishers, so
+    # default to empty list and skip the per-section upsert below.
+    items = payload.get("items") or []
+
     try:
         async with sessionmaker()() as session:
             applied = await process_session(
@@ -174,6 +179,267 @@ async def _on_session_completed(msg: Msg) -> None:
                 questions_answered=served_count,
                 study_minutes=minutes,
             )
+            if items:
+                await upsert_session_section_stats(
+                    session,
+                    session_id=session_id,
+                    user_id=user_id,
+                    items=items,
+                )
+                # Sprint 29 (P4-S29) — per-item error-pattern classification.
+                # Best-effort: a classifier write failure must not roll
+                # back the mastery + section-stats writes above.
+                try:
+                    from engagement.analytics.error_classifier import classify_error
+                    from engagement.analytics.error_classifier_repo import (
+                        upsert_classification,
+                    )
+
+                    for it in items:
+                        time_ms = it.get("time_spent_ms")
+                        time_int = int(time_ms) if time_ms else None
+                        answered = bool(time_int) and time_int > 0
+                        # mastery_ewa we have only for the session's
+                        # representative topic; use score as a coarse proxy
+                        # for the per-item topic (good enough for v1 — the
+                        # heuristic gates are wide).
+                        tag = classify_error(
+                            is_correct=bool(it.get("is_correct", False)),
+                            answered=answered,
+                            time_spent_ms=time_int,
+                            mastery_ewa=float(score),
+                            chosen_choice_text=str(it.get("chosen_choice_text") or ""),
+                            correct_choice_text=str(it.get("correct_choice_text") or ""),
+                        )
+                        if tag is None:
+                            continue
+                        await upsert_classification(
+                            session,
+                            session_id=session_id,
+                            item_idx=int(it.get("item_idx") or 0),
+                            user_id=user_id,
+                            topic_id=str(it.get("topic_id") or topic_id),
+                            classification=tag,
+                        )
+                except Exception:
+                    log.exception(
+                        "error_classification.failed session=%s", session_id
+                    )
+
+                # Phase 5 (P5-S39) — multi-parameter mastery fan-out.
+                # Per ADR-0017 dims 1, 2, 3, 6: concept_mastery,
+                # bloom_mastery, fluency, confidence_calibration. Each
+                # update is best-effort try/except (matches S22 / S27 /
+                # S29 pattern); a transient failure here MUST NOT roll
+                # back the load-bearing topic-mastery + readiness updates.
+                try:
+                    from engagement.analytics import (
+                        bloom_mastery as _bloom,
+                    )
+                    from engagement.analytics import (
+                        concept_mastery as _concept,
+                    )
+                    from engagement.analytics import (
+                        confidence as _conf,
+                    )
+                    from engagement.analytics import (
+                        fluency_model as _flu,
+                    )
+
+                    for it in items:
+                        qid = str(it.get("question_id") or "")
+                        if not qid:
+                            continue
+                        score_item = 1.0 if bool(it.get("is_correct")) else 0.0
+                        time_ms = int(it.get("time_spent_ms") or 0)
+                        # For v1, the question's primary concept defaults
+                        # to its topic_id (topic-as-root-concept backfill
+                        # makes this a no-op identity). Richer concept
+                        # tagging comes via author UI in S45.
+                        concept_id = str(it.get("topic_id") or topic_id)
+                        bloom_lvl = str(it.get("bloom_level") or "")
+                        confidence = it.get("confidence")
+                        try:
+                            await _concept.update_concept_mastery(
+                                session,
+                                user_id=user_id,
+                                concept_id=concept_id,
+                                score=score_item,
+                                now=datetime.now(tz=UTC),
+                            )
+                        except Exception:
+                            log.exception(
+                                "concept_mastery.update failed user=%s "
+                                "concept=%s", user_id, concept_id,
+                            )
+                        if bloom_lvl:
+                            try:
+                                await _bloom.update_bloom_mastery(
+                                    session,
+                                    user_id=user_id,
+                                    concept_id=concept_id,
+                                    bloom_level=bloom_lvl,
+                                    score=score_item,
+                                )
+                            except Exception:
+                                log.exception(
+                                    "bloom_mastery.update failed user=%s "
+                                    "concept=%s bloom=%s",
+                                    user_id, concept_id, bloom_lvl,
+                                )
+                        if time_ms > 0:
+                            try:
+                                await _flu.update_fluency(
+                                    session,
+                                    user_id=user_id,
+                                    concept_id=concept_id,
+                                    time_spent_ms=time_ms,
+                                )
+                            except Exception:
+                                log.exception(
+                                    "fluency.update failed user=%s concept=%s",
+                                    user_id, concept_id,
+                                )
+                        if confidence is not None:
+                            try:
+                                await _conf.record_confidence(
+                                    session,
+                                    user_id=user_id,
+                                    question_id=qid,
+                                    predicted_correct=float(confidence),
+                                    actual_correct=bool(it.get("is_correct", False)),
+                                )
+                            except Exception:
+                                log.exception(
+                                    "confidence.record failed user=%s qid=%s",
+                                    user_id, qid,
+                                )
+                except Exception:
+                    log.exception(
+                        "multi_parameter_fanout.failed session=%s", session_id
+                    )
+
+                # Phase 5 (P5-S41) — per-item outcomes for transfer-ability
+                # metric. Items emit concept_tag_count; pre-S45 producers
+                # default to 1 (single-tag), so transfer scores remain
+                # null until multi-tag authoring lands. Best-effort: a
+                # write failure here MUST NOT roll back the mastery /
+                # readiness writes above.
+                try:
+                    from engagement.analytics import transfer as _transfer
+
+                    outcomes_payload = []
+                    for it in items:
+                        qid = it.get("question_id")
+                        if not qid:
+                            continue
+                        outcomes_payload.append(
+                            {
+                                "item_idx": int(it.get("item_idx") or 0),
+                                "question_id": str(qid),
+                                # v1: topic-as-root-concept identity holds, so
+                                # primary_concept_id = topic_id of the item.
+                                "primary_concept_id": str(it.get("topic_id") or topic_id),
+                                # Pre-S45 publishers omit this field → 1.
+                                "concept_tag_count": int(
+                                    it.get("concept_tag_count") or 1
+                                ),
+                                "is_correct": bool(it.get("is_correct", False)),
+                                "time_spent_ms": (
+                                    int(it["time_spent_ms"])
+                                    if it.get("time_spent_ms")
+                                    else None
+                                ),
+                            }
+                        )
+                    if outcomes_payload:
+                        await _transfer.upsert_session_item_outcomes(
+                            session,
+                            session_id=session_id,
+                            user_id=user_id,
+                            items_with_concepts=outcomes_payload,
+                        )
+                except Exception:
+                    log.exception(
+                        "transfer_outcomes.failed session=%s", session_id
+                    )
+
+                # Phase 1D-9 — gamification XP. Award per-session XP +
+                # per-correct XP. Best-effort: a gamification write
+                # failure must not roll back mastery / readiness.
+                try:
+                    from engagement.gamification import service as _gam
+
+                    correct_count = sum(
+                        1 for it in items if bool(it.get("is_correct"))
+                    )
+                    base_xp = _gam.XP_RULES.get("quiz_completed", 0)
+                    per_correct = _gam.XP_RULES.get("quiz_correct_answer", 0)
+                    total_xp = base_xp + per_correct * correct_count
+                    if total_xp > 0:
+                        await _gam.award_xp(
+                            session,
+                            user_id=user_id,
+                            event_type="quiz_completed",
+                            source_id=session_id,
+                            xp_delta=total_xp,
+                        )
+                    # Mastery milestone — for any per-item topic that just
+                    # crossed 0.7 EWA on this update, award milestone XP.
+                    # Detection: re-read mastery rows we just updated and
+                    # check current EWA against a synthetic prior (>=0.7
+                    # now, was <0.7 before). v1 uses a coarser proxy: if
+                    # the session's primary topic crosses, award once.
+                    try:
+                        from sqlalchemy import text as _t
+                        row = (
+                            await session.execute(
+                                _t(
+                                    """
+                                    SELECT ewa FROM analytics_schema.mastery
+                                     WHERE user_id = CAST(:uid AS uuid)
+                                       AND topic_id = CAST(:tid AS uuid)
+                                    """
+                                ),
+                                {"uid": user_id, "tid": topic_id},
+                            )
+                        ).first()
+                        if row is not None and float(row[0]) >= 0.7:
+                            # Awarded only if there's no prior milestone
+                            # event for this (user, topic) — dedupe via
+                            # source_id.
+                            existed = (
+                                await session.execute(
+                                    _t(
+                                        """
+                                        SELECT 1
+                                          FROM analytics_schema.xp_events
+                                         WHERE user_id = CAST(:uid AS uuid)
+                                           AND event_type = 'mastery_milestone'
+                                           AND source_id = CAST(:tid AS uuid)
+                                         LIMIT 1
+                                        """
+                                    ),
+                                    {"uid": user_id, "tid": topic_id},
+                                )
+                            ).first()
+                            if not existed:
+                                await _gam.award_xp(
+                                    session,
+                                    user_id=user_id,
+                                    event_type="mastery_milestone",
+                                    source_id=topic_id,
+                                )
+                    except Exception:
+                        log.exception(
+                            "gamification.milestone.failed user=%s topic=%s",
+                            user_id, topic_id,
+                        )
+                except Exception:
+                    log.exception(
+                        "gamification.xp.failed session=%s", session_id,
+                    )
+
             await session.commit()
         with contextlib.suppress(Exception):
             await msg.ack()

@@ -51,9 +51,29 @@ export function TargetDate() {
     return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   }, [date]);
 
+  // F2b — Resolve the next onboarding step from the routing endpoint.
+  // Institutional tenants with `require_onboarding_diagnostic = true`
+  // route through /onboarding/diagnostic before /onboarding/daily-goal;
+  // consumer users skip straight to the goal step.
+  async function nextOnboardingPath(): Promise<string> {
+    try {
+      const r = await auth.fetch("/api/v1/profile/me/onboarding-routing");
+      if (!r.ok) return "/onboarding/daily-goal";
+      const body = (await r.json()) as { requiresDiagnostic: boolean };
+      return body.requiresDiagnostic
+        ? "/onboarding/diagnostic"
+        : "/onboarding/daily-goal";
+    } catch {
+      return "/onboarding/daily-goal";
+    }
+  }
+
   async function onContinue(skip: boolean) {
     setError(null);
-    if (skip) return navigate("/onboarding/daily-goal", { replace: true });
+    if (skip) {
+      const next = await nextOnboardingPath();
+      return navigate(next, { replace: true });
+    }
     if (!examId) {
       setError("No exam selected — go back to step 1.");
       return;
@@ -66,7 +86,8 @@ export function TargetDate() {
         body: JSON.stringify({ targetDate: date }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      navigate("/onboarding/daily-goal", { replace: true });
+      const next = await nextOnboardingPath();
+      navigate(next, { replace: true });
     } catch {
       setError("We couldn't save your target date. Try again.");
     } finally {
@@ -119,7 +140,7 @@ export function TargetDate() {
           aria-live="polite"
           style={{
             fontSize: 13,
-            color: "var(--text-secondary)",
+            color: "var(--ink-2)",
             margin: "var(--sp-3) 0 0",
           }}
         >

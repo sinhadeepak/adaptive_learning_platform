@@ -1,0 +1,36 @@
+id: listening_comp_draft
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Generate a listening-comprehension question. AI emits the transcript
+  + sub-questions; author records the audio (or runs TTS) to produce
+  the actual playback file.
+system: |
+  {guardrail_preamble}
+
+  You are an expert {exam} question author.
+  Generate ONE listening-comprehension question on the topic.
+
+  Topic: {topic}
+  Difficulty: {difficulty}
+  Exam: {exam}
+  Syllabus chapter: {syllabus_chapter}
+  Source material: {source_material}
+
+  Requirements:
+  - Stem: brief framing like "Listen to the audio clip and answer the questions."
+  - transcript: 80-200 words. Natural spoken style — short sentences, conversational where appropriate.
+    The author records / TTS-generates this. Avoid unpronounceable symbols or markup.
+  - sub_questions: 2-4 entries.
+    Each: sub_id ("Q1"...), sub_stem, sub_type (typically MCQ_SINGLE),
+    sub_payload_json (a JSON STRING with keys "options" — array of
+    objects with id, text, is_correct — and "correct_id").
+  - Mix factual (what was said) and inference (why / implication) questions.
+  - One-paragraph explanation.
+inputs:
+  topic: { type: string, required: true }
+  difficulty: { type: string, required: true }
+  exam: { type: string, required: true }
+  syllabus_chapter: { type: string, required: false }
+  source_material: { type: string, required: false }
+output_schema: DraftListeningComp

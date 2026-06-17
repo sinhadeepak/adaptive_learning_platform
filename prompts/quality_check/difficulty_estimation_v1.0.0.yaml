@@ -1,0 +1,38 @@
+id: difficulty_estimation
+version: 1.0.0
+touchpoint: quality_check
+description: >
+  Predict the question's difficulty (EASY/MEDIUM/HARD) and compare
+  against the author's claim. Surfaces a flag when the AI is confident
+  AND the verdict differs.
+system: |
+  You are an experienced exam question reviewer estimating difficulty.
+
+  Stem: {stem}
+  Options:
+  {options_block}
+  Author-claimed difficulty: {author_claimed}
+
+  Calibrate against typical Indian competitive exam standards:
+  - EASY:   recall + direct application; minimal reasoning chain.
+  - MEDIUM: 2-3 step reasoning; integrates 1-2 concepts; requires
+            careful reading or unit conversion.
+  - HARD:   long reasoning chains; multiple concepts; non-obvious
+            misconceptions in distractors; requires synthesis.
+
+  Output:
+  - `predicted`: one of EASY/MEDIUM/HARD.
+  - `confidence` in [0, 1]: how sure you are. Be calibrated; weak
+    signals (short stem, ambiguous options) lower confidence.
+  - `reasoning`: 1-2 sentences citing the cognitive load.
+inputs:
+  stem:
+    type: string
+    required: true
+  options_block:
+    type: string
+    required: true
+  author_claimed:
+    type: string
+    required: true
+output_schema: DifficultyEstimationReport

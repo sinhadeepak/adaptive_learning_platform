@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Aurora v3 — colors referenced by the native launch screen.
+  Mirrors packages/design-tokens-flutter/lib/src/aurora_colors.dart.
+  Updated by Wave 1 of /home/deepak/.claude/plans/the-mobile-app-ui-cheerful-codd.md
+-->
+<resources>
+    <!-- Dark base — matches AuroraColors.dark().neutral0 — used so the
+         native splash matches the Flutter _Splash widget seamlessly. -->
+    <color name="aurora_splash_bg">#FF07090F</color>
+    <!-- Aurora brand-600 — reserved for future logo tint if a vector
+         drawable lands. -->
+    <color name="aurora_brand_600">#FF5B5BD6</color>
+    <color name="aurora_neutral_fg">#FFEEF2FF</color>
+</resources>

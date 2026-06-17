@@ -13,7 +13,9 @@ class Settings(BaseSettings):
     port: int = Field(default=38012)
 
     database_url: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:35432/doubts"
+        # Post-ADR-0005 consolidation: doubts is a schema in the `learning`
+        # database. Containers override via DOUBTS_DATABASE_URL.
+        default="postgresql+asyncpg://postgres:postgres@localhost:35432/learning"
     )
     jwt_secret: str = Field(default="dev-only-change-me-in-staging-at-least-32-bytes-long")
 

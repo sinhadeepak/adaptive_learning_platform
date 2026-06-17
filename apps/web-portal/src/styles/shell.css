@@ -1,17 +1,12 @@
 /* ============================================================
    web-portal app — teacher / institution + author surface
-   Mirrors docs/ui/04_TeacherPortal/01_dashboard.html chrome.
 
-   Inherits chrome + form/auth primitives from
-   @alp/design-system/shell.css and re-aliases the blue accent
-   to teacher green inside .app-shell so every gradient / border
-   / accent rule retokens to teacher in one declaration.
+   Vidya v1: teacher's accent comes from data-persona="pro" set
+   on <html> in apps/web-portal/index.html. Author routes can
+   layer a different persona via a wrapping element. The legacy
+   `.app-shell { --info: green }` block was removed when Aurora
+   was retired (see ADR-0034).
    ============================================================ */
-
-.app-shell {
-  --color-blue:  #10C47A;     /* teacher accent (green) */
-  --color-blue2: #068852;     /* darker green for gradients */
-}
 
 /* ── Review card surface (peer-review queue) ──────────────── */
 .review-card { padding: var(--sp-5); }
@@ -27,7 +22,7 @@
   font-size: 15px;
   font-weight: 600;
   line-height: 1.5;
-  color: var(--text-primary);
+  color: var(--ink);
   flex: 1;
 }
 .review-choices {
@@ -43,14 +38,450 @@
   align-items: center;
   gap: var(--sp-3);
   padding: 10px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--rule);
   border-radius: var(--radius-md);
-  background: var(--bg-surface3);
+  background: var(--paper-2);
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--ink-2);
 }
 .review-choice-correct {
-  border-color: var(--color-green);
+  border-color: var(--good);
   background: rgba(16, 196, 122, 0.10);
-  color: var(--text-primary);
+  color: var(--ink);
+}
+
+/* ============================================================
+   Dashboard primitives — ported from web-admin so the teacher
+   portal shares the same elevated system: serif-display KPIs,
+   mono overlines, hairline section rules, real data tables.
+   Primary accent is ink (teacher "pro" persona); green/gold/red
+   stay reserved for semantic verdicts only.
+   ============================================================ */
+
+/* ── Data tables ───────────────────────────────────────────── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.data-table thead th {
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.data-table tbody td {
+  padding: 12px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  vertical-align: top;
+}
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover td { background: var(--card); }
+.data-table code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--paper-2);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.data-table .meta { color: var(--ink-3); font-size: 12px; }
+
+/* ── Status dot ────────────────────────────────────────────── */
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  flex-shrink: 0;
+  display: inline-block;
+}
+.status-dot--success { background: var(--good); box-shadow: 0 0 0 3px var(--good-soft); }
+.status-dot--warning { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
+.status-dot--danger  { background: var(--bad);  box-shadow: 0 0 0 3px var(--bad-soft); }
+
+/* ── Intro / lede paragraph ────────────────────────────────── */
+.dash-lede {
+  margin: 0;
+  max-width: 76ch;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-3);
+}
+
+/* ── KPI stat cards ────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: var(--sp-3);
+}
+.stat-card {
+  position: relative;
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+.stat-card__label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.stat-card__value {
+  margin-top: var(--sp-2);
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 0.95;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.stat-card__value--mono {
+  font-family: var(--font-mono);
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.stat-card--success .stat-card__value { color: var(--good); }
+.stat-card--warning .stat-card__value { color: var(--warn); }
+.stat-card--danger  .stat-card__value { color: var(--bad); }
+.stat-card__hint {
+  margin-top: var(--sp-2);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink-4);
+}
+
+/* ── Section header (mono overline + hairline rule) ────────── */
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.section-head__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.section-head__rule { flex: 1; height: 1px; background: var(--rule); }
+.section-head__count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+
+/* ── Grouped section (header + grid) ───────────────────────── */
+.dash-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* ── Service / component cards ─────────────────────────────── */
+.svc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(252px, 1fr));
+  gap: var(--sp-4);
+}
+.svc-card {
+  position: relative;
+  padding: var(--sp-4) var(--sp-5);
+  padding-left: calc(var(--sp-5) + 3px);
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition:
+    box-shadow var(--m-base) var(--m-ease),
+    transform var(--m-base) var(--m-ease),
+    border-color var(--m-base) var(--m-ease);
+}
+.svc-card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--ink-4);
+}
+.svc-card--success::before { background: var(--good); }
+.svc-card--warning::before { background: var(--warn); }
+.svc-card--danger::before  { background: var(--bad); }
+.svc-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  border-color: var(--rule-2);
+}
+.svc-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.svc-card__name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.svc-card__detail {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+.svc-card__metrics {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.svc-metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.svc-metric__key {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+}
+.svc-metric__val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Status pill leading dot (extends .pill) ───────────────── */
+.pill .pill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ── Segmented control (tab / range / picker) ──────────────── */
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+}
+.seg__btn {
+  padding: 5px 14px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--m-base) var(--m-ease),
+              background var(--m-base) var(--m-ease);
+}
+.seg__btn:hover { color: var(--ink); }
+.seg__btn--on {
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Inline meter (table progress cells) ───────────────────── */
+.pa-meter { display: inline-flex; align-items: center; gap: var(--sp-3); }
+.pa-meter__track {
+  width: 88px;
+  height: 6px;
+  background: var(--paper-2);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.pa-meter__fill { height: 100%; border-radius: var(--r-pill); background: var(--ink-3); }
+.pa-meter__fill--good { background: var(--good); }
+.pa-meter__fill--warn { background: var(--warn); }
+.pa-meter__fill--bad  { background: var(--bad); }
+.pa-meter__val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-2);
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   pg-* page layer — used across MyCourses / Assignments /
+   TutorApply / TutorDashboard / CreatorEarnings / PhaseTwoStub.
+   These class names were referenced in markup but never had a
+   loaded stylesheet (buttons/labels/empty-states rendered raw).
+   Defined here on Vidya tokens so the secondary pages match the
+   serif / ink / hairline language of the shared system.
+   ============================================================ */
+
+.pg-shell { display: flex; flex-direction: column; gap: var(--sp-5); }
+
+/* Page header (title + sub + actions) */
+.pg-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+.pg-header-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pg-header-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.pg-header-sub { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+.pg-header-actions { display: inline-flex; align-items: center; gap: var(--sp-2); }
+
+/* Section */
+.pg-section { display: flex; flex-direction: column; gap: var(--sp-3); }
+.pg-section-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.pg-section-title-sub {
+  margin-left: var(--sp-2);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* Field rows */
+.pg-fields { display: flex; flex-direction: column; gap: var(--sp-2); }
+.pg-field-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.pg-field-value {
+  font-size: 14px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Buttons (mirror shared .btn shape; primary = brand accent) */
+.pg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 9px 16px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--rule-2);
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--m-base) var(--m-ease),
+              border-color var(--m-base) var(--m-ease);
+}
+.pg-btn:hover { border-color: var(--ink-4); }
+.pg-btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.pg-btn-primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+.pg-btn-ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
+.pg-btn-ghost:hover { background: var(--paper-2); }
+.pg-btn-subtle { background: var(--paper-2); border-color: var(--rule); color: var(--ink-2); }
+.pg-btn-subtle:hover { border-color: var(--rule-2); }
+.pg-btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* Empty state */
+.pg-empty {
+  text-align: center;
+  padding: var(--sp-8) var(--sp-4);
+  border: 1px dashed var(--rule-2);
+  border-radius: var(--r-lg);
+  background: var(--paper-2);
+}
+.pg-empty-icon { font-size: 28px; opacity: 0.5; margin-bottom: var(--sp-2); }
+.pg-empty-title { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+.pg-empty-body { margin: 0 auto; max-width: 46ch; font-size: 12.5px; line-height: 1.5; color: var(--ink-3); }
+
+/* Row list */
+.pg-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.pg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  background: var(--card);
+  transition: border-color var(--m-base) var(--m-ease);
+}
+.pg-row:hover { border-color: var(--rule-2); }
+.pg-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pg-row-title { font-size: 14px; font-weight: 500; color: var(--ink); }
+.pg-row-meta { font-size: 12px; color: var(--ink-3); }
+.pg-row-aside { display: inline-flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
+
+/* Pills */
+.pg-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--paper-2);
+  color: var(--ink-2);
+}
+.pg-pill-success { background: var(--good-soft); color: var(--good); }
+.pg-pill-muted { background: var(--paper-2); color: var(--ink-3); }
+
+/* Filter select */
+.pg-filter-select {
+  padding: 7px 10px;
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r-md);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
 }

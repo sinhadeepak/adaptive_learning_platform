@@ -196,9 +196,13 @@ class HomePhotoDoubtCard extends StatelessWidget {
 // ────────────────────────────────────────────────────────────────────────
 
 class GuidedNextStepsCard extends StatefulWidget {
-  const GuidedNextStepsCard({super.key, required this.api, required this.auth});
+  const GuidedNextStepsCard(
+      {super.key, required this.api, required this.auth, this.examCode,});
   final ApiClient api;
   final AuthClient auth;
+  // Scope the recommendations to the user's active exam so a UPSC
+  // student doesn't see "Force & Pressure" (CBSE Class 8) suggestions.
+  final String? examCode;
 
   @override
   State<GuidedNextStepsCard> createState() => _GuidedNextStepsCardState();
@@ -214,11 +218,23 @@ class _GuidedNextStepsCardState extends State<GuidedNextStepsCard> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(covariant GuidedNextStepsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Re-fetch when the active exam changes (e.g., user adds an exam
+    // and the home parent rebuilds with a new examCode).
+    if (oldWidget.examCode != widget.examCode) {
+      _load();
+    }
+  }
+
   Future<void> _load() async {
     final user = widget.auth.user;
     if (user == null) return;
+    setState(() => _loading = true);
     try {
-      final d = await widget.api.guidedNextSteps(user.id);
+      final d = await widget.api
+          .guidedNextSteps(user.id, examCode: widget.examCode);
       if (!mounted) return;
       setState(() {
         _data = d;
@@ -238,7 +254,7 @@ class _GuidedNextStepsCardState extends State<GuidedNextStepsCard> {
       if (!mounted) return;
       await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => QuizScreen(client: client, sessionId: session.sessionId, api: widget.api),
-      ));
+      ),);
       if (mounted) _load();
     } catch (e) {
       if (mounted) {
@@ -274,7 +290,6 @@ class _GuidedNextStepsCardState extends State<GuidedNextStepsCard> {
                 child: Text(
                   d.headline,
                   style: const TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -333,7 +348,6 @@ class _GuidedNextStepsCardState extends State<GuidedNextStepsCard> {
                           Text(
                             s.topicTitle,
                             style: const TextStyle(
-                              color: AlpColors.textPrimary,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
@@ -365,9 +379,13 @@ class _GuidedNextStepsCardState extends State<GuidedNextStepsCard> {
 // ────────────────────────────────────────────────────────────────────────
 
 class WeaknessDiagnosisCard extends StatefulWidget {
-  const WeaknessDiagnosisCard({super.key, required this.api, required this.auth});
+  const WeaknessDiagnosisCard(
+      {super.key, required this.api, required this.auth, this.examCode,});
   final ApiClient api;
   final AuthClient auth;
+  // Sprint 4 backend follow-up — when supplied, the diagnosis is
+  // filtered server-side to topics belonging to this exam.
+  final String? examCode;
 
   @override
   State<WeaknessDiagnosisCard> createState() => _WeaknessDiagnosisCardState();
@@ -387,7 +405,8 @@ class _WeaknessDiagnosisCardState extends State<WeaknessDiagnosisCard> {
     final user = widget.auth.user;
     if (user == null) return;
     try {
-      final d = await widget.api.weaknessDiagnosis(user.id);
+      final d = await widget.api
+          .weaknessDiagnosis(user.id, examCode: widget.examCode);
       if (!mounted) return;
       setState(() {
         _data = d;
@@ -395,6 +414,14 @@ class _WeaknessDiagnosisCardState extends State<WeaknessDiagnosisCard> {
       });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant WeaknessDiagnosisCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.examCode != widget.examCode) {
+      _load();
     }
   }
 
@@ -425,7 +452,6 @@ class _WeaknessDiagnosisCardState extends State<WeaknessDiagnosisCard> {
                 child: Text(
                   'Cross-topic weakness',
                   style: TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -464,7 +490,6 @@ class _WeaknessDiagnosisCardState extends State<WeaknessDiagnosisCard> {
                             child: Text(
                               p.name,
                               style: const TextStyle(
-                                color: AlpColors.textPrimary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -549,9 +574,12 @@ class _WeaknessDiagnosisCardState extends State<WeaknessDiagnosisCard> {
 // ────────────────────────────────────────────────────────────────────────
 
 class StudyPlanCard extends StatelessWidget {
-  const StudyPlanCard({super.key, required this.api, required this.auth});
+  const StudyPlanCard(
+      {super.key, required this.api, required this.auth, this.examCode,});
   final ApiClient api;
   final AuthClient auth;
+  // Scope the 7-day plan to the active exam.
+  final String? examCode;
 
   Future<void> _openSheet(BuildContext context) async {
     final user = auth.user;
@@ -568,8 +596,11 @@ class StudyPlanCard extends StatelessWidget {
         minChildSize: 0.4,
         maxChildSize: 0.95,
         expand: false,
-        builder: (_, scrollController) =>
-            _StudyPlanSheet(api: api, auth: auth, scrollController: scrollController),
+        builder: (_, scrollController) => _StudyPlanSheet(
+            api: api,
+            auth: auth,
+            examCode: examCode,
+            scrollController: scrollController,),
       ),
     );
   }
@@ -598,7 +629,6 @@ class StudyPlanCard extends StatelessWidget {
                 Text(
                   '7-day Study Plan',
                   style: TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -623,10 +653,12 @@ class _StudyPlanSheet extends StatefulWidget {
     required this.api,
     required this.auth,
     required this.scrollController,
+    this.examCode,
   });
   final ApiClient api;
   final AuthClient auth;
   final ScrollController scrollController;
+  final String? examCode;
 
   @override
   State<_StudyPlanSheet> createState() => _StudyPlanSheetState();
@@ -646,7 +678,7 @@ class _StudyPlanSheetState extends State<_StudyPlanSheet> {
     final user = widget.auth.user;
     if (user == null) return;
     try {
-      final p = await widget.api.studyPlan(user.id);
+      final p = await widget.api.studyPlan(user.id, examCode: widget.examCode);
       if (!mounted) return;
       setState(() {
         _plan = p;
@@ -690,7 +722,6 @@ class _StudyPlanSheetState extends State<_StudyPlanSheet> {
                   child: Text(
                     _plan!.headline,
                     style: const TextStyle(
-                      color: AlpColors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
@@ -750,7 +781,6 @@ class _StudyPlanSheetState extends State<_StudyPlanSheet> {
                               Text(
                                 p.title,
                                 style: const TextStyle(
-                                  color: AlpColors.textPrimary,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
                                 ),
@@ -774,7 +804,7 @@ class _StudyPlanSheetState extends State<_StudyPlanSheet> {
                       ],
                     ),
                   ),
-                )),
+                ),),
             const SizedBox(height: 14),
             const Text(
               'WEEKLY SCHEDULE',
@@ -815,7 +845,6 @@ class _StudyPlanSheetState extends State<_StudyPlanSheet> {
                               child: Text(
                                 d.focus,
                                 style: const TextStyle(
-                                  color: AlpColors.textPrimary,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
                                 ),
@@ -831,12 +860,12 @@ class _StudyPlanSheetState extends State<_StudyPlanSheet> {
                                   '• $a',
                                   style: const TextStyle(color: AlpColors.textMuted, fontSize: 11, height: 1.4),
                                 ),
-                              )),
+                              ),),
                         ],
                       ],
                     ),
                   ),
-                )),
+                ),),
             if (_plan!.encouragement.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(

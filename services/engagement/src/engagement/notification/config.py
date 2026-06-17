@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     port: int = Field(default=38009)
 
     database_url: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:35432/notification"
+        default="postgresql+asyncpg://postgres:postgres@localhost:35432/engagement"
     )
     # Read-only handle into Quiz's DB for the nightly backfill (Sprint 5).
     # Mirrors the Analytics backfill shape from PR #29 — replays SUBMITTED

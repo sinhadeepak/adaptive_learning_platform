@@ -2,6 +2,7 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 import '../widgets/alp_card.dart';
 
@@ -48,14 +49,13 @@ class _RankTabState extends State<RankTab> {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: _refresh,
-      backgroundColor: AlpColors.bgSurface2,
       color: AlpColors.colorAi,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         children: [
           const Text(
             'Rank Trajectory 🏆',
-            style: TextStyle(color: AlpColors.textPrimary, fontSize: 24, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           const Text(
@@ -117,7 +117,7 @@ class _RankTabState extends State<RankTab> {
           if (_loading)
             const Padding(
               padding: EdgeInsets.all(40),
-              child: Center(child: CircularProgressIndicator(color: AlpColors.colorAi)),
+              child: Center(child: AuroraSpinner(size: 32)),
             )
           else if (_projection == null || _projection!.error != null)
             AlpCard(
@@ -237,7 +237,6 @@ class _RankHero extends StatelessWidget {
                 Text(
                   p.headline,
                   style: const TextStyle(
-                    color: AlpColors.textPrimary,
                     fontSize: 14,
                     height: 1.5,
                     fontWeight: FontWeight.w500,
@@ -307,7 +306,6 @@ class _RankHero extends StatelessWidget {
         Text(
           value,
           style: const TextStyle(
-            color: AlpColors.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.w700,
           ),

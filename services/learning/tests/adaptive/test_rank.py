@@ -29,7 +29,11 @@ async def client(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
 
     monkeypatch.setattr("learning.adaptive.rank.fetch_readiness", _readiness)
     monkeypatch.setattr("learning.adaptive.rank.fetch_mastery", _mastery)
-    monkeypatch.setattr("learning.adaptive.llm.is_enabled", lambda: False)
+
+    async def _llm_off() -> bool:
+        return False
+
+    monkeypatch.setattr("learning.adaptive.llm.is_enabled_async", _llm_off)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c

@@ -15,6 +15,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.2.0
   flutter_secure_storage: ^9.2.0
+  # Phase B3 — IGS real-time WebSocket subscriber (Flutter parity).
+  web_socket_channel: ^3.0.0
   flutter_markdown: ^0.7.4
   flutter_math_fork: ^0.7.2
   image_picker: ^1.1.2
@@ -32,3 +34,24 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Vidya v1 font assets. Binaries land in assets/fonts/ via
+  # scripts/vidya/install-fonts.sh (gitignored). Family names match
+  # VidyaFonts in packages/design-tokens-flutter/lib/src/vidya/tokens.dart:
+  #   VidyaFonts.display = 'InstrumentSerif'
+  #   VidyaFonts.ui      = 'Geist'
+  #   VidyaFonts.mono    = 'GeistMono'
+  fonts:
+    - family: InstrumentSerif
+      fonts:
+        - asset: assets/fonts/InstrumentSerif-Regular.ttf
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-Regular.ttf
+        - asset: assets/fonts/Geist-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Geist-SemiBold.ttf
+          weight: 600
+    - family: GeistMono
+      fonts:
+        - asset: assets/fonts/GeistMono-Regular.ttf

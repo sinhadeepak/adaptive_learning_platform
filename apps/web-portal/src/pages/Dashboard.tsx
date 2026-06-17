@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { content, institution, type Cohort, type Question } from "../lib/api";
 import { useAuth, canAuthor, canReview } from "../lib/auth-provider";
 import { AppShell } from "../components/AppShell";
-import { Banner, SkeletonRows } from "../components/primitives";
+import { Banner, SkeletonRows, StatCard, SectionHeader } from "../components/primitives";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Teacher Dashboard — landing page for the educator portal.
@@ -137,6 +137,7 @@ export function Dashboard() {
         ) : null
       }
     >
+      <div className="pg-shell">
       {/* ── Hero ──────────────────────────────────────────────── */}
       <section className="ai-header" aria-label="Educator overview">
         <div className="ai-header-left">
@@ -196,15 +197,11 @@ export function Dashboard() {
 
       {/* ── Sprint 11 S11-F — pinned tenant + cohort quick-access ── */}
       <section
+        className="dash-section"
         aria-label="Cohorts"
-        style={{
-          marginTop: "var(--sp-4)",
-          padding: 16,
-          border: "1px solid var(--border-faint)",
-          borderRadius: 8,
-        }}
+        style={{ marginTop: "var(--sp-5)" }}
       >
-        <h2 style={{ marginTop: 0 }}>Your cohorts</h2>
+        <SectionHeader label="Your cohorts" />
         {!tenantId ? (
           <form
             onSubmit={(e) => {
@@ -269,57 +266,35 @@ export function Dashboard() {
 
       {/* ── KPI tiles ─────────────────────────────────────────── */}
       <section
-        className="topic-stats"
-        style={{ marginTop: "var(--sp-4)" }}
+        className="dash-section"
+        style={{ marginTop: "var(--sp-5)" }}
         aria-label="Authoring KPIs"
       >
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-blue)" }}>
-            {counts === null ? "…" : counts.draft}
-          </div>
-          <div className="topic-stat-lbl">Drafts</div>
-          <div className="topic-stat-foot">
-            {counts && counts.draft > 0
-              ? "submit when ready"
-              : "no drafts"}
-          </div>
-        </div>
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-amber)" }}>
-            {counts === null ? "…" : counts.review}
-          </div>
-          <div className="topic-stat-lbl">In review</div>
-          <div className="topic-stat-foot">
-            {counts && counts.review > 0
-              ? "awaiting moderator"
-              : "none waiting"}
-          </div>
-        </div>
-        <div className="topic-stat">
-          <div className="topic-stat-num" style={{ color: "var(--color-green)" }}>
-            {counts === null ? "…" : counts.published}
-          </div>
-          <div className="topic-stat-lbl">Published</div>
-          <div className="topic-stat-foot">
-            {counts && counts.published > 0
-              ? "live in the IRT bank"
-              : "none yet"}
-          </div>
-        </div>
-        <div className="topic-stat">
-          <div
-            className="topic-stat-num"
-            style={{
-              color:
-                counts && counts.rejected > 0
-                  ? "var(--color-red)"
-                  : "var(--text-muted)",
-            }}
-          >
-            {counts === null ? "…" : counts.rejected}
-          </div>
-          <div className="topic-stat-lbl">Rejected</div>
-          <div className="topic-stat-foot">review notes available</div>
+        <SectionHeader label="Your authoring" count={counts ? `${counts.total} total` : undefined} />
+        <div className="stat-grid">
+          <StatCard
+            label="Drafts"
+            value={counts === null ? "…" : counts.draft}
+            hint={counts && counts.draft > 0 ? "submit when ready" : "no drafts"}
+          />
+          <StatCard
+            label="In review"
+            value={counts === null ? "…" : counts.review}
+            tone={counts && counts.review > 0 ? "warning" : "muted"}
+            hint={counts && counts.review > 0 ? "awaiting moderator" : "none waiting"}
+          />
+          <StatCard
+            label="Published"
+            value={counts === null ? "…" : counts.published}
+            tone={counts && counts.published > 0 ? "success" : "muted"}
+            hint={counts && counts.published > 0 ? "live in the IRT bank" : "none yet"}
+          />
+          <StatCard
+            label="Rejected"
+            value={counts === null ? "…" : counts.rejected}
+            tone={counts && counts.rejected > 0 ? "danger" : "muted"}
+            hint="review notes available"
+          />
         </div>
       </section>
 
@@ -342,7 +317,7 @@ export function Dashboard() {
             <p
               style={{
                 fontSize: 12,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 margin: 0,
                 padding: "var(--sp-2) 0",
               }}
@@ -401,7 +376,7 @@ export function Dashboard() {
             <p
               style={{
                 fontSize: 12,
-                color: "var(--text-muted)",
+                color: "var(--ink-3)",
                 margin: 0,
                 padding: "var(--sp-2) 0",
               }}
@@ -519,7 +494,7 @@ export function Dashboard() {
           <p
             style={{
               fontSize: 11,
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
               marginTop: "var(--sp-3)",
             }}
           >
@@ -527,6 +502,7 @@ export function Dashboard() {
             the institution + assignments surfaces wire up.
           </p>
         </div>
+      </div>
       </div>
     </AppShell>
   );

@@ -1,0 +1,295 @@
+/* =============================================================
+   VIDYA — DESIGN TOKENS v1.0
+   May 2026 · supersedes Aurora v2
+   Drop-in replacement for packages/design-system/src/tokens.css
+   ============================================================= */
+
+:root {
+  /* ── Typography ─────────────────────────────────────────── */
+  --font-display: "Instrument Serif", "Source Serif 4", Georgia, serif;
+  --font-ui:      "Geist", "Inter", -apple-system, BlinkMacSystemFont,
+                  system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono:    "Geist Mono", "JetBrains Mono", ui-monospace,
+                  SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ── Type scale (size · line · weight · tracking) ───────── */
+  --t-display-2xl-size:   8rem;     /* 128px */
+  --t-display-2xl-line:   0.92;
+  --t-display-2xl-track:  -0.03em;
+
+  --t-display-xl-size:    5.5rem;   /* 88px */
+  --t-display-xl-line:    0.95;
+  --t-display-xl-track:   -0.025em;
+
+  --t-display-l-size:     4rem;     /* 64px */
+  --t-display-l-line:     1.0;
+  --t-display-l-track:    -0.02em;
+
+  --t-display-m-size:     2.75rem;  /* 44px */
+  --t-display-m-line:     1.1;
+  --t-display-m-track:    -0.02em;
+
+  --t-display-s-size:     1.75rem;  /* 28px */
+  --t-display-s-line:     1.2;
+  --t-display-s-track:    -0.015em;
+
+  --t-display-xs-size:    1.25rem;  /* 20px */
+  --t-display-xs-line:    1.25;
+  --t-display-xs-track:   -0.01em;
+
+  --t-body-lg-size:       1rem;     /* 16px */
+  --t-body-lg-line:       1.6;
+  --t-body-lg-weight:     400;
+
+  --t-body-size:          0.875rem; /* 14px */
+  --t-body-line:          1.55;
+  --t-body-weight:        400;
+
+  --t-body-sm-size:       0.78rem;  /* 12.5px */
+  --t-body-sm-line:       1.5;
+
+  --t-label-size:         0.8125rem;/* 13px */
+  --t-label-line:         1.4;
+  --t-label-weight:       500;
+
+  --t-overline-size:      0.625rem; /* 10px */
+  --t-overline-line:      1.4;
+  --t-overline-weight:    500;
+  --t-overline-track:     0.1em;
+  --t-overline-transform: uppercase;
+
+  --t-mono-size:          0.6875rem;
+  --t-mono-line:          1.5;
+  --t-mono-weight:        400;
+
+  /* ── Surfaces (light) ───────────────────────────────────── */
+  --paper:    #FFFFFF;
+  --paper-2:  #F6F6F8;
+  --card:     #FFFFFF;
+  --rule:     #EEEEF1;
+  --rule-2:   #DCDCE0;
+  /* Legacy Aurora-era aliases used by shell.css for inset card
+     surfaces. Vidya doesn't have a separate dark card layer, so we
+     map them onto paper-2 / rule so existing rules render readable
+     dark-ink-on-light-surface instead of falling back to Aurora's
+     hardcoded #0F1A2E / #16213A navy. */
+  --card-1:   #F6F6F8;
+  --card-2:   #EEEEF1;
+
+  /* ── Ink (light) ────────────────────────────────────────── */
+  --ink:      #0A0A0F;
+  --ink-2:    #383841;
+  --ink-3:    #6E6E78;
+  --ink-4:    #A8A8B0;
+
+  /* ── Brand ──────────────────────────────────────────────── */
+  --accent:        #1F6B4A;
+  --accent-2:      #144C34;
+  --accent-soft:   #EDF3EF;
+
+  --gold:          #A88143;
+  --gold-2:        #7B5C26;
+  --gold-soft:     #F5EFE2;
+
+  /* ── Status semantics ───────────────────────────────────── */
+  --good:       #1F6B4A;
+  --good-soft:  #EDF3EF;
+  --warn:       #A88143;
+  --warn-soft:  #F5EFE2;
+  --bad:        #A83A3A;
+  --bad-soft:   #F3E4E4;
+  --info:       #2F5D8C;
+  --info-soft:  #E5EBF3;
+
+  /* ── Mastery scale (canonical) ──────────────────────────── */
+  --m-none:      #E4E4E8;
+  --m-weak:      #A83A3A;
+  --m-dev:       #A88143;
+  --m-strong:    #3B8A5E;
+  --m-mastered:  #1F6B4A;
+
+  /* ── Subject encoding ───────────────────────────────────── */
+  --subj-physics:   #2F5D8C;
+  --subj-chemistry: #A88143;
+  --subj-biology:   #1F6B4A;
+  --subj-maths:     #5B3A8C;
+  --subj-english:   #B43A6B;
+  --subj-history:   #8C5A2F;
+  --subj-cs:        #2F5D8C;
+  --subj-hindi:     #B43A3A;
+
+  /* ── Shadows (warm, restrained) ─────────────────────────── */
+  --shadow-xs: 0 0 0 1px var(--rule);
+  --shadow-sm: 0 1px 2px rgba(10, 10, 15, 0.04),
+               0 0 0 1px var(--rule);
+  --shadow-md: 0 4px 14px -6px rgba(10, 10, 15, 0.10),
+               0 0 0 1px var(--rule);
+  --shadow-lg: 0 18px 40px -16px rgba(10, 10, 15, 0.18),
+               0 0 0 1px var(--rule);
+
+  /* ── Radius ─────────────────────────────────────────────── */
+  --r-xs:   4px;
+  --r-sm:   6px;
+  --r-md:   10px;
+  --r-lg:   14px;
+  --r-xl:   20px;
+  --r-pill: 999px;
+
+  /* ── Spacing (4pt grid) ─────────────────────────────────── */
+  --sp-1:  4px;   --sp-2:  8px;   --sp-3:  12px;  --sp-4:  16px;
+  --sp-5:  20px;  --sp-6:  24px;  --sp-8:  32px;  --sp-10: 40px;
+  --sp-12: 48px;  --sp-16: 64px;  --sp-20: 80px;
+
+  /* ── Density scalars (regular default) ──────────────────── */
+  --d-row-h:   44px;
+  --d-card-p:  20px;
+  --d-gap:     16px;
+  --d-font:    14px;
+  --touch-target: 44px;
+
+  /* ── Motion ─────────────────────────────────────────────── */
+  --m-fast:   120ms;
+  --m-base:   180ms;
+  --m-slow:   280ms;
+  --m-ease:   cubic-bezier(0.4, 0, 0.2, 1);
+  --m-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── Z-index ────────────────────────────────────────────── */
+  --z-base:    0;
+  --z-sticky:  100;
+  --z-drawer:  200;
+  --z-modal:   300;
+  --z-toast:   400;
+  --z-tooltip: 500;
+
+  /* ── Breakpoints (informational) ────────────────────────── */
+  --bp-xs:   0;
+  --bp-sm:   480px;
+  --bp-md:   768px;
+  --bp-lg:   1024px;
+  --bp-xl:   1280px;
+  --bp-2xl:  1536px;
+
+  /* ── Focus ring ─────────────────────────────────────────── */
+  --focus-ring-color:  var(--accent);
+  --focus-ring-width:  2px;
+  --focus-ring-offset: 2px;
+}
+
+/* =============================================================
+   DARK THEME — designed pairs, not invert-and-pray
+   ============================================================= */
+[data-theme="dark"] {
+  --paper:    #0C0F14;
+  --paper-2:  #14181F;
+  --card:     #181D26;
+  --rule:     #262B35;
+  --rule-2:   #353B47;
+  --card-1:   #181D26;
+  --card-2:   #262B35;
+
+  --ink:      #F1EEE7;
+  --ink-2:    #C7C3BA;
+  --ink-3:    #8A8579;
+  --ink-4:    #5E5A50;
+
+  --accent:        #4FA37A;
+  --accent-2:      #6CBE96;
+  --accent-soft:   #163525;
+
+  --gold:          #D4A560;
+  --gold-2:        #E6BB7C;
+  --gold-soft:     #2E2516;
+
+  --good:       #4FA37A; --good-soft:  #163525;
+  --warn:       #D4A560; --warn-soft:  #2E2516;
+  --bad:        #E07A7A; --bad-soft:   #36181C;
+  --info:       #7DA8D6; --info-soft:  #16243A;
+
+  --m-none:      #353B47;
+  --m-weak:      #E07A7A;
+  --m-dev:       #D4A560;
+  --m-strong:    #6CBE96;
+  --m-mastered:  #4FA37A;
+
+  --subj-physics:   #7DA8D6;
+  --subj-chemistry: #D4A560;
+  --subj-biology:   #4FA37A;
+  --subj-maths:     #A98AD6;
+  --subj-english:   #E08AB0;
+  --subj-history:   #C99970;
+  --subj-cs:        #7DA8D6;
+  --subj-hindi:     #E07A7A;
+
+  --shadow-xs: 0 0 0 1px var(--rule);
+  --shadow-sm: inset 0 0 0 1px rgba(255,255,255,0.05),
+               0 1px 2px rgba(0,0,0,0.40);
+  --shadow-md: inset 0 0 0 1px rgba(255,255,255,0.06),
+               0 4px 14px rgba(0,0,0,0.50);
+  --shadow-lg: inset 0 0 0 1px rgba(255,255,255,0.08),
+               0 16px 40px rgba(0,0,0,0.55);
+}
+
+/* =============================================================
+   DENSITY
+   ============================================================= */
+[data-density="compact"] {
+  --d-row-h:  36px;
+  --d-card-p: 14px;
+  --d-gap:    10px;
+  --d-font:   13px;
+  --touch-target: 36px;
+}
+[data-density="comfy"] {
+  --d-row-h:  52px;
+  --d-card-p: 24px;
+  --d-gap:    20px;
+  --d-font:   15px;
+  --touch-target: 52px;
+}
+
+/* =============================================================
+   PERSONA OVERRIDES — change accent + headline metric color
+   ============================================================= */
+[data-persona="junior"]   { --accent: #A88143; --accent-2: #7B5C26; --accent-soft: #F5EFE2; --touch-target: 52px; }
+[data-persona="senior"]   { --accent: #2F5D8C; --accent-2: #1F4366; --accent-soft: #E5EBF3; }
+[data-persona="aspirant"] { --accent: #1F6B4A; --accent-2: #144C34; --accent-soft: #EDF3EF; }
+[data-persona="pro"]      { --accent: #0A0A0F; --accent-2: #000000; --accent-soft: #F0F0F2; }
+[data-persona="lifelong"] { --accent: #3B8A5E; --accent-2: #2A6644; --accent-soft: #EDF3EF; }
+
+[data-theme="dark"][data-persona="junior"]   { --accent: #D4A560; --accent-2: #E6BB7C; --accent-soft: #2E2516; }
+[data-theme="dark"][data-persona="senior"]   { --accent: #7DA8D6; --accent-2: #9BBEE4; --accent-soft: #16243A; }
+[data-theme="dark"][data-persona="aspirant"] { --accent: #4FA37A; --accent-2: #6CBE96; --accent-soft: #163525; }
+[data-theme="dark"][data-persona="pro"]      { --accent: #F1EEE7; --accent-2: #FFFFFF; --accent-soft: #262B35; }
+[data-theme="dark"][data-persona="lifelong"] { --accent: #6CBE96; --accent-2: #88D4B0; --accent-soft: #163525; }
+
+/* =============================================================
+   GLOBAL · base + focus + reduced-motion
+   ============================================================= */
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html { color-scheme: light dark; }
+body {
+  font-family: var(--font-ui);
+  color: var(--ink);
+  background: var(--paper);
+  font-size: var(--d-font);
+  line-height: var(--t-body-line);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

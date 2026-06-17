@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../../aurora/widgets/widgets.dart';
 import '../../auth/auth_client.dart';
 import '../onboarding_shell.dart';
 
@@ -90,7 +91,7 @@ class _ExamSelectScreenState extends State<ExamSelectScreen> {
           const SizedBox(height: AlpSpacing.s3),
         ],
         if (_exams == null)
-          const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+          const Center(child: Padding(padding: EdgeInsets.all(16), child: AuroraSpinner(size: 32)))
         else if (_exams!.isEmpty)
           const Text('No exams available yet.', style: AlpTextStyles.hint)
         else

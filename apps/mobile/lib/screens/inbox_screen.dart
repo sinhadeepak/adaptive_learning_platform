@@ -2,6 +2,7 @@ import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 import '../quiz/quiz_client.dart';
 import '../quiz/quiz_result_screen.dart';
@@ -55,10 +56,12 @@ class _InboxScreenState extends State<InboxScreen> {
         _loading = false;
       });
     } catch (e) {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _error = '$e';
         _loading = false;
       });
+      }
     }
   }
 
@@ -78,7 +81,7 @@ class _InboxScreenState extends State<InboxScreen> {
                     createdAt: it.createdAt,
                     readAt: DateTime.now().toUtc().toIso8601String(),
                   )
-                : it)
+                : it,)
             .toList(),
       );
     });
@@ -104,7 +107,7 @@ class _InboxScreenState extends State<InboxScreen> {
                     payload: it.payload,
                     createdAt: it.createdAt,
                     readAt: it.readAt ?? now,
-                  ))
+                  ),)
               .toList(),
         );
       });
@@ -126,14 +129,14 @@ class _InboxScreenState extends State<InboxScreen> {
             sessionId: sessionId,
             api: widget.api,
           ),
-        ));
+        ),);
       }
     } else if (n.type == 'doubt.answered') {
       final doubtId = n.payload['doubtId'];
       if (doubtId is String && doubtId.isNotEmpty) {
         await Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => DoubtDetailScreen(api: widget.api, doubtId: doubtId),
-        ));
+        ),);
       }
     } else if (n.type == 'mock.completed') {
       // Hydrate the persisted attempt so we can re-render the result page
@@ -183,7 +186,7 @@ class _InboxScreenState extends State<InboxScreen> {
               sections: match.sections,
             ),
           ),
-        ));
+        ),);
       }
     }
     // streak.milestone / goal.reached are presentational — no destination.
@@ -195,22 +198,24 @@ class _InboxScreenState extends State<InboxScreen> {
     final filtered = _filter == 'unread'
         ? _page.items.where((i) => i.unread).toList()
         : _page.items;
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
-      appBar: AppBar(
-        title: Text(unread > 0 ? 'Inbox · $unread unread' : 'Inbox'),
-        backgroundColor: AlpColors.bgSurface1,
+    return AuroraScaffold(
+      appBar: AuroraAppBar(
+        title: unread > 0 ? 'Inbox · $unread unread' : 'Inbox',
         actions: [
           if (unread > 0)
-            TextButton(
-              onPressed: _busy ? null : _markAll,
-              child: Text(_busy ? 'Marking…' : 'Mark all read',
-                  style: const TextStyle(color: AlpColors.colorAi, fontWeight: FontWeight.w600)),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: AuroraButton(
+                label: _busy ? 'Marking…' : 'Mark all read',
+                variant: AuroraButtonVariant.ghost,
+                size: AuroraButtonSize.sm,
+                loading: _busy,
+                onPressed: _busy ? null : _markAll,
+              ),
             ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
+      body: Column(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -233,7 +238,9 @@ class _InboxScreenState extends State<InboxScreen> {
                               ? (unread > 0 ? 'Unread ($unread)' : 'Unread')
                               : 'All',
                           style: TextStyle(
-                            color: _filter == f ? Colors.white : AlpColors.textPrimary,
+                            color: _filter == f
+                                ? Colors.white
+                                : Theme.of(context).colorScheme.onSurface,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -249,9 +256,8 @@ class _InboxScreenState extends State<InboxScreen> {
               child: RefreshIndicator(
                 onRefresh: _load,
                 color: AlpColors.colorAi,
-                backgroundColor: AlpColors.bgSurface2,
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator(color: AlpColors.colorAi))
+                    ? const Center(child: AuroraSpinner(size: 32))
                     : _error != null
                         ? _ErrorState(error: _error!, onRetry: _load)
                         : filtered.isEmpty
@@ -270,7 +276,6 @@ class _InboxScreenState extends State<InboxScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 }
@@ -324,7 +329,7 @@ class _NotifRow extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               inboxSummary(item),
-              style: const TextStyle(color: AlpColors.textPrimary, fontSize: 14, height: 1.45),
+              style: const TextStyle(fontSize: 14, height: 1.45),
             ),
           ],
         ),
@@ -425,7 +430,6 @@ class _InboxEmptyState extends StatelessWidget {
           child: Text(
             caughtUp ? 'All caught up' : 'No notifications yet',
             style: const TextStyle(
-              color: AlpColors.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -463,7 +467,7 @@ class _EmptyState extends StatelessWidget {
         Center(
           child: Text(
             'No notifications yet',
-            style: TextStyle(color: AlpColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
         ),
         SizedBox(height: 6),
@@ -498,7 +502,7 @@ class _ErrorState extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(error,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AlpColors.colorRed)),
+                style: const TextStyle(color: AlpColors.colorRed),),
           ),
         ),
         const SizedBox(height: 12),

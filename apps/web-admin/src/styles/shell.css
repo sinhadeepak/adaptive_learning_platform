@@ -1,31 +1,27 @@
 /* ============================================================
    web-admin app — platform / institution admin surface
-   Mirrors docs/ui/03_AdminPortal/00_admin-tokens.css palette.
 
-   Inherits chrome + form/auth primitives from
-   @alp/design-system/shell.css and re-aliases the blue accent
-   to admin red inside .app-shell so every gradient / border
-   / accent rule retokens to "ops red" in one declaration.
+   Vidya v1: admin's accent comes from data-persona="pro" set on
+   <html> in apps/web-admin/index.html. That cascades the ink
+   accent (black = business) across every gradient / border /
+   active state — no per-portal token override needed. The
+   legacy `.app-shell { --info: red }` block was removed when
+   Aurora was retired (see ADR-0034).
    ============================================================ */
-
-.app-shell {
-  --color-blue:  #F43F5E;     /* admin accent (red) */
-  --color-blue2: #BE2A44;     /* darker red for gradients */
-}
 
 /* ── Admin: data tables ────────────────────────────────────── */
 .data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--ink-2);
 }
 .data-table thead th {
   text-align: left;
   padding: 10px 12px;
-  background: var(--bg-surface1);
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-3);
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -33,22 +29,22 @@
 }
 .data-table tbody td {
   padding: 12px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-primary);
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
   vertical-align: top;
 }
 .data-table tbody tr:last-child td { border-bottom: none; }
-.data-table tbody tr:hover td { background: var(--bg-surface2); }
+.data-table tbody tr:hover td { background: var(--card); }
 .data-table code {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--text-primary);
-  background: var(--bg-surface3);
+  color: var(--ink);
+  background: var(--paper-2);
   padding: 1px 6px;
   border-radius: 4px;
 }
 .data-table .meta {
-  color: var(--text-muted);
+  color: var(--ink-3);
   font-size: 12px;
 }
 
@@ -91,7 +87,7 @@
 }
 .bool-pill-off {
   background: rgba(160, 168, 192, 0.14);
-  color: var(--text-muted);
+  color: var(--ink-3);
 }
 
 /* ── Admin: audit log scope chip ───────────────────────────── */
@@ -110,7 +106,7 @@
 }
 .scope-chip-tenant {
   background: rgba(79, 135, 246, 0.14);
-  color: var(--color-blue);
+  color: var(--info);
 }
 
 /* ── Admin: kv list (key-value strip) ─────────────────────── */
@@ -119,12 +115,12 @@
   flex-wrap: wrap;
   gap: var(--sp-4);
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--ink-3);
   padding: var(--sp-3) 0;
 }
 .kv-list dt {
   display: inline;
-  color: var(--text-faint);
+  color: var(--ink-4);
   font-weight: 500;
   margin-right: 6px;
   text-transform: uppercase;
@@ -134,5 +130,457 @@
 .kv-list dd {
   display: inline;
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--ink-2);
+}
+
+/* ============================================================
+   Admin: dashboard primitives — StatCard / ServiceCard /
+   SectionHeader. Reusable across admin pages (Ops, Console,
+   Analytics). Built strictly on Vidya tokens: serif-display
+   KPIs, mono data, real elevation, status accents.
+   ============================================================ */
+
+/* ── Status dot (at-a-glance health) ───────────────────────── */
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  flex-shrink: 0;
+}
+.status-dot--success { background: var(--good); box-shadow: 0 0 0 3px var(--good-soft); }
+.status-dot--warning { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
+.status-dot--danger  { background: var(--bad);  box-shadow: 0 0 0 3px var(--bad-soft); }
+
+/* A live (pulsing) variant for the "all systems" header chip. */
+.status-dot--live { animation: dotPulse 2.2s var(--m-ease) infinite; }
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+/* ── Intro / lede paragraph ────────────────────────────────── */
+.dash-lede {
+  margin: 0;
+  max-width: 76ch;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-3);
+}
+
+/* ── KPI stat cards ────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: var(--sp-3);
+}
+.stat-card {
+  position: relative;
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+.stat-card__label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.stat-card__value {
+  margin-top: var(--sp-2);
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 0.95;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.stat-card__value--mono {
+  font-family: var(--font-mono);
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.stat-card--success .stat-card__value { color: var(--good); }
+.stat-card--warning .stat-card__value { color: var(--warn); }
+.stat-card--danger  .stat-card__value { color: var(--bad); }
+
+/* ── Section header (mono overline + hairline rule) ────────── */
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.section-head__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.section-head__rule {
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}
+.section-head__count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+
+/* ── Grouped section (header + grid) ───────────────────────── */
+.dash-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* ── Service / component cards ─────────────────────────────── */
+.svc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(252px, 1fr));
+  gap: var(--sp-4);
+}
+.svc-card {
+  position: relative;
+  padding: var(--sp-4) var(--sp-5);
+  padding-left: calc(var(--sp-5) + 3px);
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition:
+    box-shadow var(--m-base) var(--m-ease),
+    transform var(--m-base) var(--m-ease),
+    border-color var(--m-base) var(--m-ease);
+}
+.svc-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--ink-4);
+}
+.svc-card--success::before { background: var(--good); }
+.svc-card--warning::before { background: var(--warn); }
+.svc-card--danger::before  { background: var(--bad); }
+.svc-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  border-color: var(--rule-2);
+}
+.svc-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.svc-card__name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.svc-card__detail {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+.svc-card--danger .svc-card__detail { color: var(--bad); }
+
+.svc-card__metrics {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.svc-metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.svc-metric__key {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+}
+.svc-metric__val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Status pill with leading dot (extends .pill) ──────────── */
+.pill .pill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ── Card sub-label (mono overline inside a card body) ─────── */
+.card-sublabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ── Kappa weekly-trend sparkline ──────────────────────────── */
+.kappa-trend {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 40px;
+  margin-top: var(--sp-2);
+}
+.kappa-trend__bar {
+  width: 10px;
+  border-radius: 2px 2px 0 0;
+  background: var(--ink-4);
+}
+.kappa-trend__bar--success { background: var(--good); }
+.kappa-trend__bar--warning { background: var(--warn); }
+.kappa-trend__bar--danger  { background: var(--bad); }
+.kappa-trend__bar--none    { background: var(--m-none); }
+
+/* Badge cluster (multiple pills in a card head) */
+.badge-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Topbar status chip (overall stack health) ─────────────── */
+.chip-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 11px;
+  border-radius: var(--r-pill);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+/* ── StatCard hint (sub-line under a KPI value) ────────────── */
+.stat-card__hint {
+  margin-top: var(--sp-2);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink-4);
+}
+
+/* ============================================================
+   Platform Analytics — charts & controls built on Vidya tokens.
+   Primary accent is ink (admin "pro" persona); green/gold/red
+   stay reserved for semantic verdicts only.
+   ============================================================ */
+
+/* ── Segmented control (range + exam pickers) ──────────────── */
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+}
+.seg__btn {
+  padding: 5px 14px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--m-base) var(--m-ease),
+              background var(--m-base) var(--m-ease);
+}
+.seg__btn:hover { color: var(--ink); }
+.seg__btn--on {
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Chart card (wraps funnels / histogram / scatter) ──────── */
+.pa-chart {
+  padding: var(--sp-5) var(--sp-6);
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Conversion funnel ─────────────────────────────────────── */
+.pa-funnel { display: flex; flex-direction: column; }
+.pa-funnel__row {
+  display: grid;
+  grid-template-columns: 168px 1fr 92px;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+.pa-funnel__row:last-child { border-bottom: 0; }
+.pa-funnel__label {
+  font-size: 13px;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.pa-funnel__drop {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-4);
+}
+.pa-funnel__track {
+  position: relative;
+  height: 32px;
+  background: var(--paper-2);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.pa-funnel__fill {
+  height: 100%;
+  min-width: 2px;
+  background: linear-gradient(90deg, var(--ink), var(--ink-2));
+  border-radius: var(--r-sm);
+  transition: width var(--m-slow) var(--m-ease);
+}
+.pa-funnel__pct {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper);
+  mix-blend-mode: difference;
+}
+.pa-funnel__count {
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1;
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Inline meter (table accuracy / retention cells) ───────── */
+.pa-meter { display: inline-flex; align-items: center; gap: var(--sp-3); }
+.pa-meter__track {
+  width: 88px;
+  height: 6px;
+  background: var(--paper-2);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.pa-meter__fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--ink-3);
+}
+.pa-meter__fill--good { background: var(--good); }
+.pa-meter__fill--warn { background: var(--warn); }
+.pa-meter__fill--bad  { background: var(--bad); }
+.pa-meter__val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-2);
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Histogram (mock score distribution) ───────────────────── */
+.pa-hist {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  height: 248px;
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--rule-2);
+}
+.pa-hist__col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 100%;
+}
+.pa-hist__n {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.pa-hist__bar {
+  width: 100%;
+  max-width: 38px;
+  min-height: 2px;
+  background: var(--ink-4);
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  transition: height var(--m-slow) var(--m-ease),
+              background var(--m-base) var(--m-ease);
+}
+.pa-hist__col:hover .pa-hist__bar { background: var(--ink); }
+.pa-hist__axis {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: 6px;
+}
+.pa-hist__x {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-4);
+}
+
+/* ── Legend / caption row under charts ─────────────────────── */
+.pa-caption {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.pa-caption__swatch {
+  width: 22px;
+  height: 0;
+  border-top: 2px dashed var(--ink);
+  flex-shrink: 0;
 }

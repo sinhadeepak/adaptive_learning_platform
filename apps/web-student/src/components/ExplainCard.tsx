@@ -1,17 +1,37 @@
 import { useEffect, useState } from "react";
 import { auth } from "../lib/api";
+import { ResourceShelf } from "./ResourceShelf";
 
-// Renders the teaching note for one quiz item. Order of preference:
-//   1. The stored `explanation` shipped from Quiz (authored content).
-//   2. An LLM-generated note from /adaptive/explain (when no stored note).
-//   3. A heuristic stub (when the LLM is off — same endpoint, source: heuristic).
+// ─────────────────────────────────────────────────────────────────────────
+// ExplainCard (v2 — rich, structured, video-linked)
 //
-// The card always renders something — a quiz item without a teaching note is
-// the regression we're trying to kill.
+// Renders the canonical teaching note for one quiz item. The v2 schema is
+// self-contained: headline + key_concept + why_correct + per-option
+// verdicts + common_pitfall + worked_example + next_steps. The same note
+// is served to every student who hits the same question (cached
+// per-question on the server), so writing it well pays off across the
+// whole cohort.
+//
+// Render policy (updated 2026-05-11):
+//   - WRONG answer  → always fetch + render the rich v2 explanation. A
+//                     short authored note (if present) is shown as a
+//                     supplementary "From the author" line at the top
+//                     of the rich card. This is the case where students
+//                     learn most from depth.
+//   - CORRECT answer → if an authored note exists, render it inline as
+//                     a brief confirmation. Otherwise show the on-demand
+//                     "Explain this answer" button so students who want
+//                     depth can still get it without wasting a fetch on
+//                     correct answers by default.
+//
+// The card *always* renders something — a quiz item without a teaching
+// note is the regression we're fighting.
+// ─────────────────────────────────────────────────────────────────────────
 
 interface ExplainCardProps {
   itemIdx: number;
   questionId: string;
+  topicId?: string;
   stem?: string;
   choices?: string[];
   correctIdx?: number;
@@ -22,16 +42,34 @@ interface ExplainCardProps {
   topicTitle?: string;
 }
 
+interface OptionVerdict {
+  id: string;
+  is_correct: boolean;
+  verdict: string;
+}
+
 interface ExplainResponse {
+  // v2 rich fields (present on AI cache hit/miss; absent on heuristic)
+  headline?: string;
+  key_concept?: string;
+  why_correct?: string;
+  options?: OptionVerdict[];
+  common_pitfall?: string;
+  worked_example?: string;
+  next_steps?: string[];
+  // v1 legacy fields (still populated for backward compat)
   explanation: string;
-  key_concept: string;
-  common_pitfall: string;
   source: "ai" | "heuristic";
+  cache?: "hit" | "miss";
+  model?: string | null;
+  prompt_template_id?: string | null;
+  prompt_template_version?: string | null;
 }
 
 export function ExplainCard({
   itemIdx,
   questionId,
+  topicId,
   stem,
   choices,
   correctIdx,
@@ -44,156 +82,546 @@ export function ExplainCard({
   const [generated, setGenerated] = useState<ExplainResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [showWorkedExample, setShowWorkedExample] = useState(false);
 
-  // Auto-fetch a generated note when no stored explanation exists, the question
-  // content is hydrated, and the student got it wrong (priority case). Correct
-  // answers get the note on demand via the "Explain" button to keep token usage
-  // bounded — students who got it right rarely re-read.
+  // Auto-fetch the rich teaching note whenever the student got the
+  // question wrong — regardless of whether a short authored note exists.
+  // The rich card is what teachers actually want students to read on
+  // wrong answers; the authored line becomes a supplementary "From the
+  // author" caption inside it (rendered below).
   useEffect(() => {
-    if (storedExplanation) return;
     if (generated || loading || !stem || !choices || correctIdx === undefined) return;
+    // Correct answer + stored note: keep current confirmation-only render.
+    if (answered && isCorrect && storedExplanation) return;
+    // Correct answer + no stored note: don't auto-fetch (the manual
+    // "Explain this answer" button still works).
     if (answered && isCorrect) return;
-    setLoading(true);
-    setRequested(true);
-    (async () => {
-      try {
-        const r = await auth.fetch("/api/v1/adaptive/explain", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            stem,
-            choices,
-            correctIdx,
-            pickedIdx,
-            topicTitle,
-          }),
-        });
-        if (r.ok) setGenerated((await r.json()) as ExplainResponse);
-      } catch {
-        /* swallow — card just hides the generated portion */
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [
-    storedExplanation,
-    stem,
-    choices,
-    correctIdx,
-    pickedIdx,
-    answered,
-    isCorrect,
-    topicTitle,
-    generated,
-    loading,
-  ]);
+    void fetchExplanation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storedExplanation, stem, choices, correctIdx, answered, isCorrect]);
 
-  async function explainOnDemand() {
-    if (!stem || !choices || correctIdx === undefined) return;
+  async function fetchExplanation() {
     setLoading(true);
     setRequested(true);
     try {
       const r = await auth.fetch("/api/v1/adaptive/explain", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ stem, choices, correctIdx, pickedIdx, topicTitle }),
+        body: JSON.stringify({
+          stem,
+          choices,
+          correctIdx,
+          pickedIdx,
+          topicTitle,
+          questionId,
+        }),
       });
       if (r.ok) setGenerated((await r.json()) as ExplainResponse);
+    } catch {
+      /* swallow — the card just hides the generated portion */
     } finally {
       setLoading(false);
     }
   }
 
-  // No content hydrated and no stored note — nothing to show.
   if (!storedExplanation && !stem) return null;
 
-  return (
-    <div
-      style={{
-        marginTop: 8,
-        padding: "10px 12px",
-        background: "rgba(255,255,255,0.03)",
-        borderLeft: "2px solid var(--color-blue)",
-        borderRadius: 4,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          fontSize: 11,
-          color: "var(--text-faint)",
-          marginBottom: 6,
-        }}
-      >
-        <span>Q{itemIdx + 1} · why this answer</span>
-        {generated ? (
-          <span
-            style={{
-              fontSize: 10,
-              color:
-                generated.source === "ai" ? "var(--color-blue)" : "var(--text-faint)",
-            }}
-          >
-            {generated.source === "ai" ? "◈ AI" : "◈ Heuristic"}
-          </span>
-        ) : storedExplanation ? (
-          <span style={{ fontSize: 10, color: "var(--color-green)" }}>◈ Authored</span>
-        ) : null}
+  // Correct answer + stored authored note: keep the brief inline form —
+  // the student picked correctly, so a one-line confirmation is enough.
+  // Wrong answers fall through and render the full rich card below, with
+  // the authored note shown as a supplementary "From the author" caption.
+  if (storedExplanation && answered && isCorrect) {
+    return (
+      <div style={cardStyle}>
+        <div style={eyebrowRow}>
+          <span style={eyebrowMuted}>Q{itemIdx + 1} · teaching note</span>
+          <span style={badgeAuthored}>◈ Authored</span>
+        </div>
+        <p style={bodyText}>{storedExplanation}</p>
       </div>
+    );
+  }
 
-      {storedExplanation ? (
-        <div style={{ fontSize: 13, lineHeight: 1.5 }}>{storedExplanation}</div>
-      ) : generated ? (
-        <div style={{ fontSize: 13, lineHeight: 1.5 }}>
-          <div>{generated.explanation}</div>
-          {generated.common_pitfall ? (
-            <div
-              style={{
-                marginTop: 6,
-                fontSize: 12,
-                color: "var(--text-muted)",
-              }}
-            >
-              <strong>Pitfall:</strong> {generated.common_pitfall}
-            </div>
-          ) : null}
-          {generated.key_concept ? (
-            <div
-              style={{
-                marginTop: 4,
-                fontSize: 11,
-                color: "var(--text-faint)",
-              }}
-            >
-              Concept: {generated.key_concept}
-            </div>
-          ) : null}
-        </div>
-      ) : loading ? (
-        <div style={{ fontSize: 12, color: "var(--text-faint)" }}>
-          Generating teaching note…
-        </div>
-      ) : !requested ? (
+  if (loading) {
+    return (
+      <div style={cardStyle}>
+        <div style={eyebrowMuted}>Q{itemIdx + 1} · generating teaching note…</div>
+        <div style={{ marginTop: 8, height: 12, background: "var(--card)", borderRadius: 4 }} />
+        <div style={{ marginTop: 6, height: 12, width: "80%", background: "var(--card)", borderRadius: 4 }} />
+        <div style={{ marginTop: 6, height: 12, width: "60%", background: "var(--card)", borderRadius: 4 }} />
+      </div>
+    );
+  }
+
+  if (!generated) {
+    return (
+      <div style={cardStyle}>
         <button
           type="button"
-          onClick={explainOnDemand}
-          style={{
-            background: "transparent",
-            border: "1px solid var(--color-blue)",
-            color: "var(--color-blue)",
-            padding: "4px 10px",
-            borderRadius: 4,
-            fontSize: 11,
-            cursor: "pointer",
-          }}
+          onClick={() => void fetchExplanation()}
+          disabled={requested}
+          style={triggerButton}
         >
-          Explain this answer
+          ✦ Explain this answer
         </button>
-      ) : null}
-      {/* questionId surfaced for debugging / analytics hooks */}
-      <span style={{ display: "none" }}>{questionId}</span>
+      </div>
+    );
+  }
+
+  const isRich =
+    generated.headline !== undefined &&
+    Array.isArray(generated.options) &&
+    generated.options.length > 0;
+  const correctText =
+    correctIdx !== undefined && choices ? choices[correctIdx] : null;
+
+  return (
+    <div style={cardStyle}>
+      {/* ── Header row: key concept + source pill ──────────────────── */}
+      <div style={eyebrowRow}>
+        <div style={eyebrowKey}>
+          ✦ {generated.key_concept || "Teaching note"}
+        </div>
+        <SourceBadge generated={generated} />
+      </div>
+
+      {isRich ? (
+        <>
+          {/* ── Headline ──────────────────────────────────────── */}
+          <h3 style={headlineStyle}>{generated.headline}</h3>
+
+          {/* ── Author's supplementary note (when present) ─────
+              When the question carries a short authored explanation
+              alongside the rich AI note, surface it as a quote so the
+              student sees the original author's framing as well. */}
+          {storedExplanation && (
+            <div style={authorNoteBlock}>
+              <div style={authorNoteEyebrow}>◈ From the author</div>
+              <p style={authorNoteBody}>{storedExplanation}</p>
+            </div>
+          )}
+
+          {/* ── Why correct ──────────────────────────────────── */}
+          {generated.why_correct && (
+            <Section label="Why this is correct">
+              <p style={paragraphText}>{generated.why_correct}</p>
+            </Section>
+          )}
+
+          {/* ── Per-option verdicts ──────────────────────────── */}
+          {generated.options && generated.options.length > 0 && (
+            <Section label="Each option, briefly">
+              <ul style={optionList}>
+                {generated.options.map((o, i) => {
+                  const choiceText = choices?.[i];
+                  return (
+                    <li
+                      key={o.id}
+                      style={{
+                        ...optionRow,
+                        borderColor: o.is_correct
+                          ? "rgba(16,196,122,0.35)"
+                          : "rgba(244,63,94,0.20)",
+                        background: o.is_correct
+                          ? "rgba(16,196,122,0.05)"
+                          : "rgba(244,63,94,0.04)",
+                      }}
+                    >
+                      <span style={optionMark}>
+                        <span style={optionId}>{o.id}.</span>
+                        <span
+                          style={{
+                            color: o.is_correct
+                              ? "var(--good, #10C47A)"
+                              : "var(--bad, #F43F5E)",
+                            fontSize: 13,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {o.is_correct ? "✓" : "✗"}
+                        </span>
+                      </span>
+                      <span style={optionBody}>
+                        {choiceText && (
+                          <span style={{ color: "var(--ink-2, #B8C5E0)" }}>
+                            "{choiceText}" —{" "}
+                          </span>
+                        )}
+                        {o.verdict}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Section>
+          )}
+
+          {/* ── Common pitfall (callout) ─────────────────────── */}
+          {generated.common_pitfall && (
+            <div style={pitfallCallout}>
+              <div style={pitfallHeader}>⚠ Common pitfall</div>
+              <p style={pitfallBodyLong}>{generated.common_pitfall}</p>
+            </div>
+          )}
+
+          {/* ── Worked example (collapsible) ─────────────────── */}
+          {generated.worked_example && generated.worked_example.trim() && (
+            <Section label="">
+              <button
+                type="button"
+                onClick={() => setShowWorkedExample((v) => !v)}
+                style={collapseToggle}
+              >
+                {showWorkedExample ? "▾" : "▸"} Worked example
+              </button>
+              {showWorkedExample && (
+                <p
+                  style={{
+                    ...paragraphText,
+                    marginTop: 8,
+                    padding: "12px 14px",
+                    background: "var(--paper-2)",
+                    borderRadius: 6,
+                    borderLeft: "2px solid var(--gold, #22D4EE)",
+                  }}
+                >
+                  {generated.worked_example}
+                </p>
+              )}
+            </Section>
+          )}
+
+          {/* ── Watch & Learn (curated videos for this question) ── */}
+          <ResourceShelf
+            questionId={questionId}
+            topicId={topicId}
+            title="Watch & Learn"
+            subtitle={
+              correctText
+                ? `Curated clips for "${generated.key_concept || "this concept"}".`
+                : "Curated clips your teachers pinned for this concept."
+            }
+            compact
+            limit={6}
+            hideWhenEmpty={false}
+          />
+
+          {/* ── Next steps ───────────────────────────────────── */}
+          {generated.next_steps && generated.next_steps.length > 0 && (
+            <Section label="Next steps">
+              <ul style={nextStepsList}>
+                {generated.next_steps.map((s, i) => (
+                  <li key={i} style={nextStepItem}>
+                    <span style={{ color: "var(--good, #10C47A)" }}>→</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+        </>
+      ) : (
+        // ── v1 fallback (legacy rows, heuristic mode) ──
+        <>
+          <p style={bodyText}>{generated.explanation}</p>
+          {generated.common_pitfall && (
+            <p style={{ ...bodyText, fontSize: 12, marginTop: 6, opacity: 0.85 }}>
+              <strong>Pitfall:</strong> {generated.common_pitfall}
+            </p>
+          )}
+          {generated.key_concept && (
+            <p style={{ ...bodyText, fontSize: 11, marginTop: 4, opacity: 0.7 }}>
+              Concept: {generated.key_concept}
+            </p>
+          )}
+        </>
+      )}
+
+      {/* ── Transparency footer ──────────────────────────────── */}
+      <div style={footerRow}>
+        {generated.prompt_template_id && (
+          <span>
+            {generated.model ?? "ai"} · {generated.prompt_template_id}@
+            {generated.prompt_template_version}
+          </span>
+        )}
+        {generated.cache && (
+          <span style={{ marginLeft: 8 }}>· cache: {generated.cache}</span>
+        )}
+      </div>
     </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────
+
+function Section({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ marginTop: 14 }}>
+      {label && (
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: 0.6,
+            textTransform: "uppercase",
+            color: "var(--ink-4, #7A8BAD)",
+            marginBottom: 6,
+          }}
+        >
+          {label}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function SourceBadge({ generated }: { generated: ExplainResponse }) {
+  if (generated.source === "ai") {
+    return (
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: 0.5,
+          color: "var(--gold, #22D4EE)",
+        }}
+      >
+        ✨ AI
+      </span>
+    );
+  }
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        color: "var(--ink-4, #7A8BAD)",
+      }}
+    >
+      ◈ Heuristic
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Styles (inline for portability with the existing card system)
+// ─────────────────────────────────────────────────────────────────────────
+
+const cardStyle: React.CSSProperties = {
+  marginTop: 12,
+  padding: 16,
+  // Use the design-system surface tokens so dark + light themes both
+  // get a readable card. The previous gradient ended at
+  // rgba(12,20,34,0.6) — a fixed dark slate that became a dim stripe
+  // in light mode and made the body text (var(--ink), dark
+  // on light) effectively invisible.
+  background: "var(--card)",
+  border: "1px solid var(--rule)",
+  borderLeft: "3px solid var(--gold, #22D4EE)",
+  borderRadius: 10,
+  color: "var(--ink, #EEF2FF)",
+};
+
+const eyebrowRow: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 10,
+  marginBottom: 10,
+};
+
+const eyebrowMuted: React.CSSProperties = {
+  fontSize: 11,
+  color: "var(--ink-4, #7A8BAD)",
+};
+
+const eyebrowKey: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: 0.5,
+  color: "var(--gold, #22D4EE)",
+  textTransform: "uppercase",
+};
+
+const badgeAuthored: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  color: "var(--good, #10C47A)",
+};
+
+const headlineStyle: React.CSSProperties = {
+  fontSize: 16,
+  fontWeight: 600,
+  lineHeight: 1.4,
+  margin: "4px 0 10px",
+  color: "var(--ink, #EEF2FF)",
+};
+
+const bodyText: React.CSSProperties = {
+  fontSize: 13,
+  lineHeight: 1.55,
+  margin: 0,
+  color: "var(--ink-2, #B8C5E0)",
+};
+
+// Looser line-height for longer prose — applied to why_correct,
+// common_pitfall, and worked_example so multi-paragraph explanations
+// don't feel cramped.
+const paragraphText: React.CSSProperties = {
+  fontSize: 13.5,
+  lineHeight: 1.7,
+  margin: 0,
+  color: "var(--ink, #EEF2FF)",
+  whiteSpace: "pre-wrap",
+};
+
+const authorNoteBlock: React.CSSProperties = {
+  marginTop: 4,
+  marginBottom: 12,
+  padding: "8px 12px",
+  background: "rgba(16,196,122,0.05)",
+  border: "1px solid rgba(16,196,122,0.18)",
+  borderLeft: "3px solid var(--good, #10C47A)",
+  borderRadius: 6,
+};
+
+const authorNoteEyebrow: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: 0.6,
+  textTransform: "uppercase",
+  color: "var(--good, #10C47A)",
+  marginBottom: 4,
+};
+
+const authorNoteBody: React.CSSProperties = {
+  fontSize: 12.5,
+  lineHeight: 1.6,
+  margin: 0,
+  color: "var(--ink-2, #B8C5E0)",
+  fontStyle: "italic",
+};
+
+const optionList: React.CSSProperties = {
+  listStyle: "none",
+  padding: 0,
+  margin: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const optionRow: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  padding: "10px 14px",
+  border: "1px solid",
+  borderRadius: 6,
+  alignItems: "flex-start",
+  fontSize: 13,
+  lineHeight: 1.65,
+};
+
+const optionMark: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+  flexShrink: 0,
+  minWidth: 30,
+};
+
+const optionId: React.CSSProperties = {
+  fontFamily: "var(--font-mono, monospace)",
+  fontSize: 12,
+  color: "var(--ink-4, #7A8BAD)",
+};
+
+const optionBody: React.CSSProperties = {
+  flex: 1,
+  color: "var(--ink-2, #B8C5E0)",
+};
+
+const pitfallCallout: React.CSSProperties = {
+  marginTop: 14,
+  padding: "10px 14px",
+  background: "rgba(245,166,35,0.06)",
+  border: "1px solid rgba(245,166,35,0.25)",
+  borderRadius: 6,
+};
+
+const pitfallHeader: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: 0.4,
+  textTransform: "uppercase",
+  color: "var(--warn, #F5A623)",
+  marginBottom: 4,
+};
+
+// Loose-line variant for the longer common-pitfall prose.
+const pitfallBodyLong: React.CSSProperties = {
+  fontSize: 13.5,
+  lineHeight: 1.7,
+  margin: 0,
+  color: "var(--ink, #EEF2FF)",
+  whiteSpace: "pre-wrap",
+};
+
+const collapseToggle: React.CSSProperties = {
+  background: "transparent",
+  border: "none",
+  color: "var(--gold, #22D4EE)",
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: "pointer",
+  padding: 0,
+  fontFamily: "inherit",
+};
+
+const nextStepsList: React.CSSProperties = {
+  listStyle: "none",
+  padding: 0,
+  margin: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const nextStepItem: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  fontSize: 13,
+  color: "var(--ink-2, #B8C5E0)",
+};
+
+const triggerButton: React.CSSProperties = {
+  background: "transparent",
+  border: "1px solid var(--gold, #22D4EE)",
+  color: "var(--gold, #22D4EE)",
+  padding: "6px 14px",
+  borderRadius: 6,
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: "pointer",
+  fontFamily: "inherit",
+};
+
+const footerRow: React.CSSProperties = {
+  marginTop: 14,
+  paddingTop: 8,
+  borderTop: "1px solid var(--card)",
+  fontSize: 10,
+  color: "var(--ink-4, #7A8BAD)",
+  fontFamily: "var(--font-mono, monospace)",
+  display: "flex",
+  flexWrap: "wrap",
+};

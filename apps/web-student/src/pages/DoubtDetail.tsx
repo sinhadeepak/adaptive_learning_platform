@@ -1,14 +1,21 @@
+// DoubtDetail — Vidya v1 redesign.
+//
+// Layout: VidyaShell (crumbs + title + subtitle + back action) → question
+// card (vidya-card-block) → chronological answer list (one card per
+// answer, accepted answers ringed in --good) → AI tutor follow-up CTA
+// and streaming preview → reply composer. Doubt detail — backed by
+// /doubts/{id}. Renders the question + answer stream chronologically
+// with source/role badges, and a reply composer that appends an answer
+// (peer source by default; backend promotes to expert if the user has
+// TEACHER+ role).
+
+import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
-import { AppShell } from "../components/AppShell";
-import { Banner, Pill, SkeletonRows } from "../components/dashboard";
-
-// Doubt detail — backed by /doubts/{id}. Renders the question + answer
-// stream chronologically with source/role badges, and a reply composer
-// that appends an answer (peer source by default; backend promotes to
-// expert if the user has TEACHER+ role).
+import { VidyaShell } from "../components/vidya/VidyaShell";
+import { DoubtPracticeBridge } from "../components/DoubtPracticeBridge";
 
 interface DoubtAnswer {
   id: string;
@@ -33,6 +40,18 @@ interface DoubtDetailResponse {
   lastActivityAt: string;
   answerCount: number;
   answers: DoubtAnswer[];
+}
+
+type ChipTone = "info" | "success" | "warning" | "muted";
+
+function chipToneStyle(tone: ChipTone): CSSProperties {
+  const tones: Record<ChipTone, CSSProperties> = {
+    info:    { background: "var(--info-soft)", color: "var(--info)" },
+    success: { background: "var(--good-soft)", color: "var(--good)" },
+    warning: { background: "var(--warn-soft)", color: "var(--warn)" },
+    muted:   { background: "var(--paper-2)",   color: "var(--ink-3)" },
+  };
+  return tones[tone];
 }
 
 export function DoubtDetail() {
@@ -202,51 +221,105 @@ export function DoubtDetail() {
   );
 
   const back = (
-    <Link to="/doubts" className="auth-link" style={{ fontSize: 12 }}>
+    <Link
+      to="/doubts"
+      className="vidya-shell__chip"
+      style={{ textDecoration: "none" }}
+    >
       ← My doubts
     </Link>
   );
 
+  const subtitle = data
+    ? `${data.status}${data.topicTitle ? ` · ${data.topicTitle}` : ""}`
+    : "Loading…";
+
+  const title = data
+    ? data.questionText.length > 80
+      ? `${data.questionText.slice(0, 77)}…`
+      : data.questionText
+    : "Doubt";
+
   if (error) {
     return (
-      <AppShell title="Doubt" actions={back}>
-        <Banner tone="danger" role="alert">{error}</Banner>
-      </AppShell>
+      <VidyaShell
+        crumbs="LEARN · DOUBT"
+        title="Doubt"
+        actions={back}
+      >
+        <div
+          role="alert"
+          style={{
+            background: "var(--bad)",
+            color: "var(--paper)",
+            padding: "var(--sp-3)",
+            borderRadius: "var(--radius-2)",
+            margin: "0 0 var(--sp-3) 0",
+          }}
+        >
+          {error}
+        </div>
+      </VidyaShell>
     );
   }
   if (!data) {
     return (
-      <AppShell title="Doubt" actions={back}>
-        <SkeletonRows count={4} />
-      </AppShell>
+      <VidyaShell
+        crumbs="LEARN · DOUBT"
+        title="Doubt"
+        actions={back}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="vidya-card-block"
+              style={{ opacity: 0.5, minHeight: 72 }}
+              aria-hidden
+            />
+          ))}
+        </div>
+      </VidyaShell>
     );
   }
 
   const canReply = data.status !== "RESOLVED";
 
   return (
-    <AppShell title="Doubt" actions={back}>
+    <VidyaShell
+      crumbs="LEARN · DOUBT"
+      title={title}
+      subtitle={subtitle}
+      actions={back}
+    >
       {/* Question card */}
       <div
-        style={{
-          background: "var(--bg-surface-1)",
-          border: "1px solid var(--border-default)",
-          borderRadius: 14,
-          padding: "var(--sp-4)",
-          marginBottom: "var(--sp-3)",
-        }}
+        className="vidya-card-block"
+        style={{ marginBottom: "var(--sp-3)" }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <Pill tone={statusTone(data.status)}>{data.status}</Pill>
-          {data.topicTitle ? <Pill tone="info">◈ {data.topicTitle}</Pill> : null}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+          <span
+            className="vidya-shell__chip"
+            style={chipToneStyle(statusTone(data.status))}
+          >
+            {data.status}
+          </span>
+          {data.topicTitle ? (
+            <span
+              className="vidya-shell__chip"
+              style={chipToneStyle("info")}
+            >
+              ◈ {data.topicTitle}
+            </span>
+          ) : null}
           <span style={{ flex: 1 }} />
-          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+          <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
             {relative(data.createdAt)}
           </span>
         </div>
         <div
           style={{
-            color: "var(--text-primary)",
+            color: "var(--ink)",
             fontSize: 15,
             lineHeight: 1.55,
             whiteSpace: "pre-wrap",
@@ -275,7 +348,7 @@ export function DoubtDetail() {
         <h2
           style={{
             fontSize: 13,
-            color: "var(--text-muted)",
+            color: "var(--ink-3)",
             fontWeight: 700,
             letterSpacing: 0.6,
             textTransform: "uppercase",
@@ -287,35 +360,51 @@ export function DoubtDetail() {
       </div>
 
       {sortedAnswers.length === 0 ? (
-        <div
+        <section
           style={{
-            color: "var(--text-muted)",
-            fontSize: 13,
-            padding: "var(--sp-3)",
-            border: "1px dashed var(--border-default)",
-            borderRadius: 10,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "var(--sp-2)",
+            padding: "var(--sp-5)",
+            textAlign: "center",
+            background: "var(--card)",
+            border: "1px dashed var(--rule)",
+            borderRadius: "var(--radius-2)",
+            color: "var(--ink-3)",
             marginBottom: "var(--sp-3)",
+            fontSize: 13,
           }}
         >
           No answers yet — the AI tutor or an expert will reply soon.
-        </div>
+        </section>
       ) : (
-        <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+        <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
           {sortedAnswers.map((a) => (
             <li
               key={a.id}
+              className="vidya-card-block"
               style={{
-                background: "var(--bg-surface-1)",
-                border: `1px solid ${a.accepted ? "var(--color-green)" : "var(--border-default)"}`,
-                borderRadius: 12,
-                padding: "var(--sp-3)",
+                border: `1px solid ${a.accepted ? "var(--good)" : "var(--rule)"}`,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <Pill tone={sourceTone(a.source)}>{labelForSource(a.source)}</Pill>
-                {a.accepted ? <Pill tone="success">ACCEPTED</Pill> : null}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                <span
+                  className="vidya-shell__chip"
+                  style={chipToneStyle(sourceTone(a.source))}
+                >
+                  {labelForSource(a.source)}
+                </span>
+                {a.accepted ? (
+                  <span
+                    className="vidya-shell__chip"
+                    style={chipToneStyle("success")}
+                  >
+                    ACCEPTED
+                  </span>
+                ) : null}
                 <span style={{ flex: 1 }} />
-                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
                   {relative(a.createdAt)}
                 </span>
                 {!a.accepted &&
@@ -323,8 +412,8 @@ export function DoubtDetail() {
                 data.status !== "RESOLVED" ? (
                   <button
                     type="button"
-                    className="auth-link"
-                    style={{ fontSize: 11, background: "transparent", border: 0, cursor: "pointer" }}
+                    className="vidya-shell__chip"
+                    style={{ fontSize: 11, cursor: "pointer" }}
                     onClick={() => acceptAnswer(a.id)}
                   >
                     Accept
@@ -333,7 +422,7 @@ export function DoubtDetail() {
               </div>
               <div
                 style={{
-                  color: "var(--text-primary)",
+                  color: "var(--ink)",
                   fontSize: 14,
                   lineHeight: 1.55,
                   whiteSpace: "pre-wrap",
@@ -353,8 +442,8 @@ export function DoubtDetail() {
         <button
           type="button"
           onClick={askAi}
-          className="btn btn-secondary"
-          style={{ marginTop: "var(--sp-2)" }}
+          className="vidya-shell__chip"
+          style={{ marginTop: "var(--sp-2)", cursor: "pointer" }}
         >
           {data.answers.some((a) => a.source === "ai")
             ? "◈ Ask AI follow-up"
@@ -367,20 +456,23 @@ export function DoubtDetail() {
           persisted as an answer when the stream completes. */}
       {aiStreaming ? (
         <div
+          className="vidya-card-block"
           style={{
-            background: "var(--bg-surface-1)",
-            border: "1px solid var(--color-ai)",
-            borderRadius: 12,
-            padding: "var(--sp-3)",
+            border: "1px solid var(--gold)",
             marginTop: "var(--sp-2)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <Pill tone="info">◈ AI Tutor · streaming…</Pill>
+            <span
+              className="vidya-shell__chip"
+              style={chipToneStyle("info")}
+            >
+              ◈ AI Tutor · streaming…
+            </span>
           </div>
           <div
             style={{
-              color: "var(--text-primary)",
+              color: "var(--ink)",
               fontSize: 14,
               lineHeight: 1.55,
               whiteSpace: "pre-wrap",
@@ -394,7 +486,7 @@ export function DoubtDetail() {
                 width: 8,
                 height: 14,
                 marginLeft: 2,
-                background: "var(--color-ai)",
+                background: "var(--gold)",
                 animation: "blink 1s step-start infinite",
               }}
             />
@@ -405,13 +497,8 @@ export function DoubtDetail() {
       {/* Reply composer */}
       {canReply ? (
         <div
-          style={{
-            background: "var(--bg-surface-1)",
-            border: "1px solid var(--border-default)",
-            borderRadius: 12,
-            padding: "var(--sp-3)",
-            marginTop: "var(--sp-4)",
-          }}
+          className="vidya-card-block"
+          style={{ marginTop: "var(--sp-4)" }}
         >
           <textarea
             value={reply}
@@ -420,12 +507,12 @@ export function DoubtDetail() {
             placeholder="Add a reply or follow-up question…"
             style={{
               width: "100%",
-              background: "var(--bg-surface-2)",
-              border: "1px solid var(--border-default)",
+              background: "var(--paper)",
+              border: "1px solid var(--rule)",
               borderRadius: 8,
-              color: "var(--text-primary)",
-              padding: 10,
-              fontSize: 14,
+              color: "var(--ink)",
+              padding: "8px 12px",
+              fontSize: 13,
               fontFamily: "inherit",
               resize: "vertical",
             }}
@@ -433,7 +520,7 @@ export function DoubtDetail() {
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
             <button
               type="button"
-              className="btn btn-primary"
+              className="vidya-shell__primary"
               onClick={postReply}
               disabled={reply.trim().length < 1 || posting}
             >
@@ -442,7 +529,18 @@ export function DoubtDetail() {
           </div>
         </div>
       ) : null}
-    </AppShell>
+
+      {/* P6 S58 UX-35 — once at least one answer exists, surface the
+          "practice this concept" CTA so the loop closes back to a
+          retrieval round. Hidden while the doubt is still OPEN. */}
+      {data && data.answers.length > 0 && (
+        <DoubtPracticeBridge
+          topicId={data.topicId}
+          topicTitle={data.topicTitle}
+          resolved={data.status !== "OPEN"}
+        />
+      )}
+    </VidyaShell>
   );
 }
 
@@ -452,13 +550,13 @@ function labelForSource(s: DoubtAnswer["source"]): string {
   return "Peer";
 }
 
-function sourceTone(s: DoubtAnswer["source"]): "info" | "success" | "warning" {
+function sourceTone(s: DoubtAnswer["source"]): ChipTone {
   if (s === "ai") return "info";
   if (s === "expert") return "success";
   return "warning";
 }
 
-function statusTone(s: string): "info" | "success" | "warning" | "muted" {
+function statusTone(s: string): ChipTone {
   if (s === "RESOLVED") return "success";
   if (s === "ANSWERED") return "info";
   if (s === "OPEN") return "warning";

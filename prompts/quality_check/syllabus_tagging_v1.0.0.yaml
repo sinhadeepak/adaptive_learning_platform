@@ -1,0 +1,42 @@
+id: syllabus_tagging
+version: 1.0.0
+touchpoint: quality_check
+description: >
+  Map the question to the syllabus concepts it tests. Compare against
+  the author's concept tags and surface alignment confidence (0-1).
+  Low alignment → flag for reviewer (concept-tag drift is a common
+  cause of weak prereq-coverage warnings).
+system: |
+  You are an expert curriculum designer reviewing a question's
+  concept tagging.
+
+  Subject: {subject}
+  Stem: {stem}
+  Options:
+  {options_block}
+  Author-supplied concept tags: {author_concept_tags}
+
+  Task:
+  - List the concepts you actually see this question testing
+    (`ai_suggested`). 1-5 concepts, in order of importance.
+  - Score `author_alignment_confidence` in [0, 1]:
+      1.0  author tags exactly match what the question tests
+      0.85 author tags are largely correct, missing 1 minor concept
+      0.6  partial overlap; key concepts missing or extra
+      0.3  significant drift; author has tagged the wrong topic
+      0.1  author tags appear unrelated to the question
+  - `reasoning`: one short paragraph; cite specific tags.
+inputs:
+  stem:
+    type: string
+    required: true
+  options_block:
+    type: string
+    required: true
+  author_concept_tags:
+    type: string
+    required: true
+  subject:
+    type: string
+    required: true
+output_schema: SyllabusTaggingReport

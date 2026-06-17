@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Allow plain HTTP traffic to the dev-machine LAN IP. Production should
+  flip this to HTTPS-only by removing the dev-host entry; the default
+  base-config (cleartextTrafficPermitted=false) keeps every other host
+  HTTPS-only.
+-->
+<network-security-config>
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
+  <domain-config cleartextTrafficPermitted="true">
+    <!-- Dev-stack hosts. Add additional LAN IPs / hostnames as needed. -->
+    <domain includeSubdomains="false">10.11.5.166</domain>
+    <domain includeSubdomains="false">192.168.29.85</domain>
+    <domain includeSubdomains="false">10.0.2.2</domain>
+    <domain includeSubdomains="false">localhost</domain>
+  </domain-config>
+</network-security-config>

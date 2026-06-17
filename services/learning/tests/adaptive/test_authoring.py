@@ -19,9 +19,19 @@ from learning.main import app
 pytestmark = pytest.mark.asyncio
 
 
+async def _llm_off() -> bool:
+    return False
+
+
+async def _llm_on() -> bool:
+    return True
+
+
 @pytest_asyncio.fixture
 async def client(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
-    monkeypatch.setattr("learning.adaptive.llm.is_enabled", lambda: False)
+    # authoring gates on is_enabled_async (admin provider chain), not the
+    # legacy sync is_enabled.
+    monkeypatch.setattr("learning.adaptive.llm.is_enabled_async", _llm_off)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
@@ -51,7 +61,7 @@ async def test_authoring_rejects_count_out_of_range(client: AsyncClient) -> None
     assert r.status_code == 422
     r = await client.post(
         "/adaptive/authoring/generate-questions",
-        json={"topicId": "x", "count": 50, "language": "en", "difficulty": "mixed"},
+        json={"topicId": "x", "count": 101, "language": "en", "difficulty": "mixed"},
     )
     assert r.status_code == 422
 
@@ -77,15 +87,15 @@ async def test_authoring_module_validates_count_when_llm_on(
 ) -> None:
     """When the LLM is enabled but count is out-of-range at the module level
     (defensive — Pydantic already filtered), we still get a stub message."""
-    monkeypatch.setattr("learning.adaptive.llm.is_enabled", lambda: True)
+    monkeypatch.setattr("learning.adaptive.llm.is_enabled_async", _llm_on)
 
     out = await authoring.generate_questions(topic_id="x", count=0, language="en")
     assert out["source"] == "stub"
-    assert "between 1 and 30" in out["message"]
+    assert "between 1 and 100" in out["message"]
 
 
 async def test_authoring_handles_missing_topic(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("learning.adaptive.llm.is_enabled", lambda: True)
+    monkeypatch.setattr("learning.adaptive.llm.is_enabled_async", _llm_on)
 
     async def _no_topic(_topic_id: str) -> dict[str, Any] | None:
         return None

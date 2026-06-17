@@ -1,4 +1,5 @@
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
@@ -21,9 +22,8 @@ class MockResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (result.error != null) {
-      return Scaffold(
-        backgroundColor: AlpColors.bgBase,
-        appBar: AppBar(title: const Text('Mock Result'), backgroundColor: AlpColors.bgSurface1),
+      return AuroraScaffold(
+        appBar: AuroraAppBar(title: 'Mock Result', backgroundColor: AlpColors.bgSurface1),
         body: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(result.message ?? 'Mock could not be scored', style: const TextStyle(color: AlpColors.colorRed)),
@@ -43,8 +43,7 @@ class MockResultScreen extends StatelessWidget {
             ? AlpColors.colorBlue
             : AlpColors.colorAmber;
 
-    return Scaffold(
-      backgroundColor: AlpColors.bgBase,
+    return AuroraScaffold(
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -87,7 +86,7 @@ class MockResultScreen extends StatelessWidget {
             Center(
               child: Text(
                 '${result.examName} · $scorePct% raw · ${result.percentile.toStringAsFixed(1)} pctl',
-                style: const TextStyle(color: AlpColors.textPrimary, fontSize: 14),
+                style: const TextStyle(fontSize: 14),
               ),
             ),
 
@@ -169,7 +168,7 @@ class MockResultScreen extends StatelessWidget {
             const SizedBox(height: 16),
 
             // Section breakdown
-            const AlpSectionHeading('Section Breakdown'),
+            const AuroraSectionHeading('Section Breakdown'),
             ...result.sections.map((s) => _SectionRow(section: s)),
 
             const SizedBox(height: 18),
@@ -182,7 +181,6 @@ class MockResultScreen extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AlpColors.colorBlue,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
@@ -261,7 +259,7 @@ class _SectionRow extends StatelessWidget {
                 Expanded(
                   child: Text(
                     section.name,
-                    style: const TextStyle(color: AlpColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                 ),
                 Text(
@@ -276,7 +274,6 @@ class _SectionRow extends StatelessWidget {
               child: LinearProgressIndicator(
                 minHeight: 5,
                 value: accuracy.clamp(0, 1),
-                backgroundColor: AlpColors.bgSurface3,
                 valueColor: AlwaysStoppedAnimation<Color>(tone),
               ),
             ),

@@ -1,11 +1,13 @@
 import 'dart:math' as math;
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../auth/auth_client.dart';
 import '../widgets/alp_card.dart';
+import '../widgets/analytics_cards.dart';
 
 /// Progress / analytics — overall stats, weekly study chart, subject mastery.
 /// Mirrors docs/ui/02_MobileApp/19_analysis.html.
@@ -24,6 +26,11 @@ class _ProgressTabState extends State<ProgressTab> {
   List<TopicMastery>? _mastery;
   List<DailyActivity>? _activity;
   Map<String, String> _topicTitles = {};
+  // Sprint 1 — drop hardcoded "NEET 2027" header. We load the user's
+  // primary exam (first selected) from profile + catalog to render an
+  // honest header. Falls back to neutral copy when neither is known.
+  String? _activeExamName;
+  DateTime? _activeExamTargetDate;
   bool _loading = true;
 
   @override
@@ -41,6 +48,23 @@ class _ProgressTabState extends State<ProgressTab> {
       final s = await widget.api.streak(user.id);
       final m = await widget.api.mastery(user.id);
       final a = await widget.api.dailyActivity(user.id, days: 90);
+      // Profile + catalog drives the (formerly hardcoded) exam header.
+      final profile = await widget.api.getProfile();
+      String? examName;
+      DateTime? targetDate;
+      if (profile != null && profile.exams.isNotEmpty) {
+        final activeId = profile.exams.first.examId;
+        targetDate = profile.exams.first.targetDate;
+        try {
+          final exams = await widget.api.exams();
+          for (final e in exams) {
+            if (e.id == activeId) {
+              examName = e.name;
+              break;
+            }
+          }
+        } catch (_) {/* fall through — header degrades gracefully */}
+      }
       final titles = <String, String>{};
       for (final t in m.take(8)) {
         try {
@@ -55,6 +79,8 @@ class _ProgressTabState extends State<ProgressTab> {
         _mastery = m;
         _activity = a;
         _topicTitles = titles;
+        _activeExamName = examName;
+        _activeExamTargetDate = targetDate;
         _loading = false;
       });
     } catch (_) {
@@ -65,18 +91,22 @@ class _ProgressTabState extends State<ProgressTab> {
 
   String _examHeader() {
     if (_readiness == null) return 'No data yet';
-    // Default target exam display until we expose user's selected exam
-    // through profile API. NEET 2027 is the most common student goal in
-    // the seeded cohort.
-    return 'NEET 2027 · ${_daysUntilNeet()} days remaining';
+    // Honest header: prefers the user's selected exam + their target
+    // date. Falls back gracefully when one or the other is unset.
+    final name = _activeExamName ?? 'Your exam';
+    final days = _daysToTarget();
+    if (days == null) return name;
+    return '$name · $days days remaining';
   }
 
-  int _daysUntilNeet() {
+  int? _daysToTarget() {
+    final t = _activeExamTargetDate;
+    if (t == null) return null;
     final now = DateTime.now();
-    // NEET-UG typically held first Sunday of May. Approximate: May 4, 2027.
-    final exam = DateTime(2027, 5, 4);
-    final delta = exam.difference(now).inDays;
-    return delta.clamp(0, 9999);
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(t.year, t.month, t.day);
+    final delta = target.difference(today).inDays;
+    return delta < 0 ? 0 : delta;
   }
 
   @override
@@ -88,7 +118,6 @@ class _ProgressTabState extends State<ProgressTab> {
 
     return RefreshIndicator(
       onRefresh: _refresh,
-      backgroundColor: AlpColors.bgSurface2,
       color: AlpColors.colorAi,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -101,7 +130,7 @@ class _ProgressTabState extends State<ProgressTab> {
                   children: [
                     const Text(
                       'My Progress',
-                      style: TextStyle(color: AlpColors.textPrimary, fontSize: 24, fontWeight: FontWeight.w700),
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -175,23 +204,23 @@ class _ProgressTabState extends State<ProgressTab> {
           ),
 
           // Weekly bar chart — last 7 days from real telemetry
-          const AlpSectionHeading('Weekly Study Time'),
+          const AuroraSectionHeading('Last 7 days'),
           AlpCard(
             padding: const EdgeInsets.all(18),
             child: _WeeklyBars(activity: _activity),
           ),
 
           // 90-day activity heatmap
-          const AlpSectionHeading('Activity heatmap'),
+          const AuroraSectionHeading('Activity heatmap'),
           AlpCard(
             padding: const EdgeInsets.all(14),
             child: _ActivityHeatmap(activity: _activity),
           ),
 
           // Subject mastery
-          AlpSectionHeading(
+          AuroraSectionHeading(
             'Subject Mastery',
-            trailing: Text(
+            action: Text(
               'EWA',
               style: TextStyle(color: AlpColors.textFaint, fontSize: 11),
             ),
@@ -199,7 +228,7 @@ class _ProgressTabState extends State<ProgressTab> {
           if (_loading)
             const Padding(
               padding: EdgeInsets.all(24),
-              child: Center(child: CircularProgressIndicator(color: AlpColors.colorAi)),
+              child: Center(child: AuroraSpinner(size: 32)),
             )
           else if (_mastery == null || _mastery!.isEmpty)
             const AlpCard(
@@ -215,7 +244,14 @@ class _ProgressTabState extends State<ProgressTab> {
                       title: _topicTitles[m.topicId] ?? 'Topic',
                       ewa: m.ewa,
                       n: m.n,
-                    )),
+                    ),),
+          // Sprint A2 — extra analytics surfaces at the bottom so the
+          // power user has them when they swipe past mastery rows. All
+          // self-hide when the underlying signal is too thin.
+          const SizedBox(height: 16),
+          MultiProfileCard(auth: widget.auth),
+          const SizedBox(height: 12),
+          TimeBySectionCard(auth: widget.auth),
         ],
       ),
     );
@@ -279,7 +315,6 @@ class _ScoreRing extends StatelessWidget {
               Text(
                 pct.toStringAsFixed(0),
                 style: const TextStyle(
-                  color: AlpColors.textPrimary,
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                   height: 1,
@@ -338,22 +373,35 @@ class _WeeklyBars extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Build a 7-day window ending today. Index 0 = 6 days ago (Mon-equivalent
-    // varies by today's weekday but this matches the natural "last 7 days"
-    // scroll learners expect on a phone).
+    // Build a 7-day window ending today. We size and label bars by
+    // *sessions* — minute-tracking is wired but the daily-activity rows
+    // ship minutes=0 in the current backend (visible as "0h 0m" in the
+    // heatmap caption even when 45 sessions exist). Falling back to
+    // sessions makes the chart show real activity instead of seven "–".
+    // Hover-tooltip still surfaces minutes when available.
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final byDate = <String, DailyActivity>{};
     for (final a in activity ?? const <DailyActivity>[]) {
-      final key = _key(a.date);
-      byDate[key] = a;
+      byDate[_key(a.date)] = a;
     }
-    final values = List<double>.generate(7, (i) {
+    final sessions = List<int>.generate(7, (i) {
       final d = today.subtract(Duration(days: 6 - i));
-      final a = byDate[_key(d)];
-      return (a?.minutes ?? 0) / 60.0;
+      return byDate[_key(d)]?.sessions ?? 0;
     });
-    final maxV = values.fold<double>(0, (m, v) => v > m ? v : m);
+    final minutes = List<int>.generate(7, (i) {
+      final d = today.subtract(Duration(days: 6 - i));
+      return byDate[_key(d)]?.minutes ?? 0;
+    });
+    final maxSessions = sessions.fold<int>(0, (m, v) => v > m ? v : m);
+
+    String labelFor(int s, int min) {
+      if (s == 0) return '–';
+      // Prefer hours when the backend ships real minute data; otherwise
+      // show the session count so the chart isn't empty.
+      if (min >= 30) return '${(min / 60.0).toStringAsFixed(1)}h';
+      return s == 1 ? '1s' : '${s}s';
+    }
 
     return SizedBox(
       height: 140,
@@ -361,8 +409,9 @@ class _WeeklyBars extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: List.generate(7, (i) {
-          final v = values[i];
-          final h = (maxV == 0 ? 4.0 : (v / maxV) * 90 + 8);
+          final s = sessions[i];
+          final min = minutes[i];
+          final h = (maxSessions == 0 ? 4.0 : (s / maxSessions) * 90 + 8);
           final isToday = i == 6;
           final d = today.subtract(Duration(days: 6 - i));
           return Column(
@@ -371,9 +420,9 @@ class _WeeklyBars extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  v == 0 ? '–' : '${v.toStringAsFixed(1)}h',
+                  labelFor(s, min),
                   style: TextStyle(
-                    color: v == 0 ? AlpColors.textFaint : AlpColors.textMuted,
+                    color: s == 0 ? AlpColors.textFaint : AlpColors.textMuted,
                     fontSize: 9,
                     fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
                   ),
@@ -381,16 +430,16 @@ class _WeeklyBars extends StatelessWidget {
               ),
               Container(
                 width: 26,
-                height: v == 0 ? 4.0 : h,
+                height: s == 0 ? 4.0 : h,
                 decoration: BoxDecoration(
-                  gradient: v > 0 && isToday
+                  gradient: s > 0 && isToday
                       ? const LinearGradient(
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                           colors: [AlpColors.colorBlue, Color(0xFF7B68EE)],
                         )
                       : null,
-                  color: v == 0
+                  color: s == 0
                       ? AlpColors.bgSurface3
                       : isToday
                           ? null
@@ -491,7 +540,7 @@ class _ActivityHeatmap extends StatelessWidget {
           children: [
             Text(
               '$totalSessions sessions · ${totalMinutes ~/ 60}h ${totalMinutes % 60}m',
-              style: const TextStyle(color: AlpColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
             const Spacer(),
             const Text('Last 90 days', style: TextStyle(color: AlpColors.textMuted, fontSize: 11)),
@@ -555,7 +604,6 @@ class _MasteryBar extends StatelessWidget {
                   child: Text(
                     title,
                     style: const TextStyle(
-                      color: AlpColors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -573,7 +621,6 @@ class _MasteryBar extends StatelessWidget {
               child: LinearProgressIndicator(
                 minHeight: 4,
                 value: ewa.clamp(0, 1),
-                backgroundColor: AlpColors.bgSurface3,
                 valueColor: AlwaysStoppedAnimation<Color>(tone),
               ),
             ),

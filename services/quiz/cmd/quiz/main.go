@@ -16,11 +16,13 @@ import (
 
 	"github.com/adaptive-learn/alptelemetry"
 	"github.com/adaptive-learn/quiz/internal/adaptive"
+	"github.com/adaptive-learn/quiz/internal/adp"
 	"github.com/adaptive-learn/quiz/internal/config"
 	"github.com/adaptive-learn/quiz/internal/content"
 	"github.com/adaptive-learn/quiz/internal/db"
 	"github.com/adaptive-learn/quiz/internal/events"
 	"github.com/adaptive-learn/quiz/internal/flags"
+	"github.com/adaptive-learn/quiz/internal/learning"
 	"github.com/adaptive-learn/quiz/internal/server"
 	"github.com/adaptive-learn/quiz/internal/store"
 )
@@ -79,7 +81,14 @@ func main() {
 
 	sess := server.NewSessionService(st, flagClient, adaptiveClient, publisher, cfg.SessionTTL).
 		WithJWTSecret(cfg.JWTSecret).
-		WithContentClient(content.New(cfg.ContentURL))
+		WithContentClient(content.New(cfg.ContentURL)).
+		WithLearningClient(learning.New(cfg.LearningURL)).
+		WithEngagementURL(cfg.EngagementURL).
+		// Phase B2 — ADP in-process bandit. Shares the same pgxpool
+		// as the rest of Quiz Go (one pool, one open-conn budget).
+		WithADP(adp.NewStore(pool)).
+		// Phase B2 A/B harness — env-driven rollout fraction.
+		WithADPABFraction(cfg.ADPABFraction)
 
 	mux := http.NewServeMux()
 	mux.Handle("/", server.Router(logger, sess, flagClient))

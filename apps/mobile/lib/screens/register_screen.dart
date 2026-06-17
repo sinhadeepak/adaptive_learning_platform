@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
+import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
 
 /// Register screen — mobile parity of web-student/src/pages/Register.tsx (Pass 1 §2 wireframe).
@@ -104,8 +105,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final score = _strengthScore(_password.text);
-    return Scaffold(
-      backgroundColor: AlpColors.surfaceSecondary,
+    return AuroraScaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
