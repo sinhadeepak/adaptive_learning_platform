@@ -27,6 +27,7 @@ from learning.localisation.glossary import (
     list_for_lookup,
     upsert_entry,
 )
+from learning.localisation.language_registry import enabled_target_codes
 from learning.localisation.repositories import upsert_translation_draft
 from learning.localisation.translator import (
     SUPPORTED_LANGS,
@@ -86,7 +87,6 @@ async def post_translate(
     """Translate an artifact end-to-end. Caller persists the
     `payloadTranslation` into `content_artifact_translations` (DRAFT
     status) — this endpoint is read-only over content_schema."""
-    from learning.localisation.language_registry import enabled_target_codes
     allowed = await enabled_target_codes(session)
     if req.targetLang not in allowed:
         raise HTTPException(

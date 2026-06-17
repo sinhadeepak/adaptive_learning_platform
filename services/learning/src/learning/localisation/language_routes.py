@@ -8,8 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from learning.content.db import sessionmaker as content_sessionmaker
 from learning.localisation import language_registry as reg
+from learning.localisation.auth import require_admin
 
-router = APIRouter(prefix="/localisation", tags=["localisation_languages"])
+router = APIRouter(prefix="/localisation", tags=["localisation_languages"], dependencies=[Depends(require_admin)])
 
 
 async def _session() -> AsyncSession:
