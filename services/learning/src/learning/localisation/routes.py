@@ -86,12 +86,14 @@ async def post_translate(
     """Translate an artifact end-to-end. Caller persists the
     `payloadTranslation` into `content_artifact_translations` (DRAFT
     status) — this endpoint is read-only over content_schema."""
-    if req.targetLang not in SUPPORTED_LANGS:
+    from learning.localisation.language_registry import enabled_target_codes
+    allowed = await enabled_target_codes(session)
+    if req.targetLang not in allowed:
         raise HTTPException(
             status_code=400,
             detail={
                 "code": "unsupported_language",
-                "message": f"target_lang={req.targetLang!r} not in {SUPPORTED_LANGS}",
+                "message": f"target_lang={req.targetLang!r} not an enabled target language",
             },
         )
 

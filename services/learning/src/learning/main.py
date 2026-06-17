@@ -48,6 +48,8 @@ from learning.ai_gateway.routing import default_stub_config
 
 # Phase 5 (P5-S43) — Localisation (depends on AI Gateway)
 from learning.localisation.routes import router as localisation_router
+# Translation workbench — language registry CRUD
+from learning.localisation.language_routes import router as language_router
 
 # Phase 5 (P5-S51) — Type registry HTTP surface (CE-104)
 from learning.types.routes import router as types_router
@@ -330,6 +332,7 @@ app.include_router(catalog_router)
 app.include_router(grading_router)  # Phase 5 (P5-S38)
 app.include_router(ai_authoring_router)  # Phase 5 (P5-S40)
 app.include_router(localisation_router)  # Phase 5 (P5-S43)
+app.include_router(language_router)      # Translation workbench — language registry
 app.include_router(ai_admin_router)      # Phase 5 (P5-S45)
 app.include_router(evaluation_router)    # Phase 5 (P5-S47)
 app.include_router(types_router)         # Phase 5 (P5-S51 — CE-104)

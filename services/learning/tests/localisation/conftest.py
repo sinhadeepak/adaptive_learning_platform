@@ -10,8 +10,12 @@ schema is already at head.
 from __future__ import annotations
 
 import os
+import secrets
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 
+import jwt
+import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -21,6 +25,51 @@ os.environ.setdefault(
     "CONTENT_DATABASE_URL",
     "postgresql+asyncpg://postgres:postgres@localhost:35432/learning_test",
 )
+
+
+_JWT_SECRET = "dev-only-change-me-in-staging-at-least-32-bytes-long"
+
+
+@pytest.fixture(autouse=True)
+def _reset_content_db_engine() -> None:
+    """Reset the cached content DB engine before each test.
+
+    The content `db` module caches an AsyncEngine as a module-level
+    singleton. Each pytest-asyncio test runs in its own event loop, so
+    a cached engine from a previous test will be bound to a dead loop and
+    raise "got Future attached to a different loop". We reset it here so
+    route tests that hit the DB (via ASGITransport + FastAPI dependency
+    injection) always create a fresh engine on the current loop.
+    """
+    from learning.content import db
+    db._engine = None
+    db._sessionmaker = None
+
+
+@pytest.fixture
+def admin_headers() -> dict[str, str]:
+    """Mint a short-lived PLATFORM_ADMIN JWT using the default dev secret.
+
+    The language CRUD routes do not currently enforce authentication, but
+    the fixture is provided here for forward-compatibility with future auth
+    guards and to satisfy the brief's test signature. Other task-3+ route
+    tests in tests/localisation/ should reuse this fixture.
+    """
+    now = datetime.now(tz=UTC)
+    token = jwt.encode(
+        {
+            "sub": "00000000-0000-0000-0000-0000000000ad",
+            "role": "PLATFORM_ADMIN",
+            "admin_access_level": "PLATFORM",
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(minutes=15)).timestamp()),
+            "jti": secrets.token_urlsafe(12),
+            "token_type": "access",
+        },
+        _JWT_SECRET,
+        algorithm="HS256",
+    )
+    return {"authorization": f"Bearer {token}"}
 
 
 @pytest_asyncio.fixture

@@ -214,6 +214,7 @@ async def translate_artifact(
     glossary: list["GlossaryEntry"] | None = None,
     source_lang: str = "en",
     prompt_template_version: str = "1.0.0",
+    allowed_langs: set[str] | None = None,
 ) -> TranslationDraft:
     """Translate an artifact end-to-end.
 
@@ -224,10 +225,14 @@ async def translate_artifact(
 
     Returns a `TranslationDraft` the caller persists into
     `content_artifact_translations` (DRAFT status; reviewer approves).
+
+    When `allowed_langs` is provided, validates `target_lang` against it.
+    If `allowed_langs` is None the check is skipped — callers are
+    responsible for validating at the route layer (e.g. via the DB registry).
     """
-    if target_lang not in SUPPORTED_LANGS:
+    if allowed_langs is not None and target_lang not in allowed_langs:
         raise ValueError(
-            f"target_lang={target_lang!r} not in supported set {SUPPORTED_LANGS}"
+            f"target_lang={target_lang!r} not in allowed set {sorted(allowed_langs)}"
         )
 
     glossary = glossary or []
