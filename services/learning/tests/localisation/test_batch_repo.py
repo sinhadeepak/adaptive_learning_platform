@@ -64,3 +64,39 @@ async def test_claim_complete_and_finalize(content_session):
     got = await batch_repo.get_batch(content_session, out["batchId"])
     assert got["batch"]["status"] == "DONE"
     assert got["batch"]["doneTasks"] == 1
+
+
+@pytest.mark.asyncio
+async def test_fail_finalize_and_retry(content_session):
+    q = "00000000-0000-0000-0000-0000000a0005"
+    await _seed_question(content_session, q)
+    out = await batch_repo.create_batch(
+        content_session, created_by=None, question_ids=[q], target_langs=["hi"])
+    await content_session.commit()
+
+    task = await batch_repo.next_pending_task(content_session, out["batchId"])
+    task_id = task["id"]
+    batch_id = out["batchId"]
+
+    # Fail the task and verify counters
+    await batch_repo.fail_task(content_session, task_id=task_id, error="boom")
+    await content_session.commit()
+    got = await batch_repo.get_batch(content_session, batch_id)
+    assert got["batch"]["failedTasks"] == 1
+    failed_task = next(t for t in got["tasks"] if t["id"] == task_id)
+    assert failed_task["status"] == "FAILED"
+
+    # Finalize — should land DONE_WITH_ERRORS
+    await batch_repo.finalize_batch_if_done(content_session, batch_id)
+    await content_session.commit()
+    got = await batch_repo.get_batch(content_session, batch_id)
+    assert got["batch"]["status"] == "DONE_WITH_ERRORS"
+
+    # Retry — should flip back to PENDING and recount failedTasks to 0
+    retried = await batch_repo.retry_task(content_session, batch_id=batch_id, task_id=task_id)
+    await content_session.commit()
+    assert retried is True
+    got = await batch_repo.get_batch(content_session, batch_id)
+    assert got["batch"]["failedTasks"] == 0
+    retried_task = next(t for t in got["tasks"] if t["id"] == task_id)
+    assert retried_task["status"] == "PENDING"

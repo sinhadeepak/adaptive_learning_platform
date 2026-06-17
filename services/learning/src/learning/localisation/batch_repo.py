@@ -163,17 +163,15 @@ async def _recount(session: AsyncSession, *, task_id: str) -> None:
 
 
 async def finalize_batch_if_done(session: AsyncSession, batch_id: str) -> None:
-    pending = (await session.execute(text(f"""
-        SELECT count(*) FROM {CONTENT_SCHEMA}.translation_batch_tasks
-         WHERE batch_id = :bid AND status IN ('PENDING','RUNNING')
-    """), {"bid": batch_id})).scalar()
-    if pending and pending > 0:
-        return
     await session.execute(text(f"""
-        UPDATE {CONTENT_SCHEMA}.translation_batches
-           SET status = CASE WHEN failed_tasks > 0 THEN 'DONE_WITH_ERRORS' ELSE 'DONE' END,
+        UPDATE {CONTENT_SCHEMA}.translation_batches b
+           SET status = CASE WHEN b.failed_tasks > 0 THEN 'DONE_WITH_ERRORS' ELSE 'DONE' END,
                finished_at = now()
-         WHERE id = :bid
+         WHERE b.id = :bid
+           AND b.status IN ('QUEUED','RUNNING')
+           AND NOT EXISTS (
+               SELECT 1 FROM {CONTENT_SCHEMA}.translation_batch_tasks t
+                WHERE t.batch_id = :bid AND t.status IN ('PENDING','RUNNING'))
     """), {"bid": batch_id})
 
 
@@ -188,5 +186,6 @@ async def retry_task(session: AsyncSession, *, batch_id: str, task_id: str) -> b
             UPDATE {CONTENT_SCHEMA}.translation_batches
                SET status = 'RUNNING', finished_at = NULL WHERE id = :bid
         """), {"bid": batch_id})
+        await _recount(session, task_id=task_id)
         return True
     return False
