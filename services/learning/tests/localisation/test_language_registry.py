@@ -28,3 +28,6 @@ async def test_set_enabled_toggles(content_session):
     await content_session.commit()
     assert ok is True
     assert "ta" not in await reg.enabled_target_codes(content_session)
+    # Restore shared-DB state so other tests still see `ta` enabled.
+    await reg.set_enabled(content_session, code="ta", enabled=True)
+    await content_session.commit()
