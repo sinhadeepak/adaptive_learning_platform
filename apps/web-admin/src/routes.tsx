@@ -34,6 +34,7 @@ import { ExamsList } from "./pages/ExamsList";
 import { AIProviders } from "./pages/AIProviders";
 import { TranslationBatch } from "./pages/TranslationBatch";
 import { TranslationBatches } from "./pages/TranslationBatches";
+import { TranslationVerify } from "./pages/TranslationVerify";
 
 const adminRoute = (path: string, element: ReactElement): RouteObject => ({
   path,
@@ -98,5 +99,7 @@ export const routes: RouteObject[] = [
   // Bulk Translation Workbench — batch list + progress pages.
   adminRoute("/translation-batches", <TranslationBatches />),
   adminRoute("/translation-batches/:batchId", <TranslationBatch />),
+  // Bulk verification screen (Task 11).
+  adminRoute("/translation-verify", <TranslationVerify />),
   { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];
