@@ -36,9 +36,10 @@ async def list_queue(
         params["bid"] = batch_id
     where = " AND ".join(clauses)
 
+    count_params = {k: v for k, v in params.items() if k not in ("limit", "offset")}
     total = (await session.execute(text(f"""
         SELECT count(*) FROM {CONTENT_SCHEMA}.content_artifact_translations t WHERE {where}
-    """), params)).scalar()
+    """), count_params)).scalar()
 
     rows = (await session.execute(text(f"""
         SELECT t.artifact_id, t.language, t.status, t.ai_confidence, t.version,
@@ -47,7 +48,7 @@ async def list_queue(
           FROM {CONTENT_SCHEMA}.content_artifact_translations t
           JOIN {CONTENT_SCHEMA}.questions q ON q.id = t.artifact_id
          WHERE {where}
-         ORDER BY t.updated_at
+         ORDER BY t.updated_at, t.artifact_id, t.language
          LIMIT :limit OFFSET :offset
     """), params)).mappings().all()
 
