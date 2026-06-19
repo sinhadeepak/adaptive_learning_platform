@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from learning.ai_gateway import AIGateway
 from learning.content.db import sessionmaker as content_sessionmaker
+from learning.content.security import JwtPrincipal
 from learning.localisation import batch_repo
 from learning.localisation.auth import require_admin
 from learning.localisation.batch_worker import run_batch
@@ -40,11 +43,22 @@ class BatchCreate(BaseModel):
     subject: str = "general"
     overwriteExisting: bool = False
 
+    @field_validator("questionIds")
+    @classmethod
+    def validate_question_ids(cls, v: list[str]) -> list[str]:
+        for item in v:
+            try:
+                uuid.UUID(item)
+            except ValueError:
+                raise ValueError(f"questionId {item!r} is not a valid UUID")
+        return v
+
 
 @router.post("/batches")
 async def create_batch(
     body: BatchCreate, background: BackgroundTasks, request: Request,
     session: AsyncSession = Depends(_session),
+    principal: JwtPrincipal = Depends(require_admin),
 ) -> dict:
     # Validate language codes BEFORE checking gateway so that a bad-language
     # request fails fast with 400 even in test environments without a gateway.
@@ -56,7 +70,7 @@ async def create_batch(
             "message": f"not enabled target languages: {bad}"})
     gateway = _gateway(request)
     out = await batch_repo.create_batch(
-        session, created_by=None, question_ids=body.questionIds,
+        session, created_by=principal.user_id, question_ids=body.questionIds,
         target_langs=body.targetLangs, subject=body.subject,
         overwrite_existing=body.overwriteExisting)
     await session.commit()

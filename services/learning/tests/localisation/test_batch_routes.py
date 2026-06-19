@@ -131,3 +131,17 @@ async def test_retry_failed_task(admin_headers):
             assert r.json() == {"retried": False}
     finally:
         app.state.ai_gateway = None
+
+
+@pytest.mark.asyncio
+async def test_create_batch_rejects_non_uuid_question_id(admin_headers):
+    """A non-UUID questionId in the batch create body must yield 422
+    (Pydantic field_validator raises ValueError before any DB hit)."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://t") as c:
+        r = await c.post(
+            "/localisation/batches",
+            headers=admin_headers,
+            json={"questionIds": ["not-a-uuid"], "targetLangs": ["hi"]},
+        )
+    assert r.status_code == 422

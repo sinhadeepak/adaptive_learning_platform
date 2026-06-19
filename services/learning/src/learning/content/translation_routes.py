@@ -44,8 +44,8 @@ from learning.localisation.repositories import (
     upsert_translation_draft,
 )
 from learning.localisation.review_queue import bulk_decide, list_queue
+from learning.localisation.language_registry import enabled_target_codes
 from learning.localisation.translate_one import translate_question_into
-from learning.localisation.translator import SUPPORTED_LANGS
 from learning.types import is_supported
 
 router = APIRouter(tags=["content_translations"])
@@ -155,12 +155,13 @@ async def request_translation(
     v1 runs synchronously — same latency as `/localisation/translate`.
     The job row exists for audit + future async-worker dispatch.
     """
-    if lang not in SUPPORTED_LANGS:
+    allowed = await enabled_target_codes(session)
+    if lang not in allowed:
         raise HTTPException(
             status_code=400,
             detail={
                 "code": "unsupported_language",
-                "message": f"target_lang={lang!r} not in {SUPPORTED_LANGS}",
+                "message": f"target_lang={lang!r} not an enabled target language",
             },
         )
 

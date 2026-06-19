@@ -50,10 +50,10 @@ def _reset_content_db_engine() -> None:
 def admin_headers() -> dict[str, str]:
     """Mint a short-lived PLATFORM_ADMIN JWT using the default dev secret.
 
-    The language CRUD routes do not currently enforce authentication, but
-    the fixture is provided here for forward-compatibility with future auth
-    guards and to satisfy the brief's test signature. Other task-3+ route
-    tests in tests/localisation/ should reuse this fixture.
+    The language CRUD routes are guarded by require_admin (added in
+    commit e56151c). This fixture mints a PLATFORM_ADMIN token so all
+    admin-gated localisation routes can be tested. Other tests in
+    tests/localisation/ should reuse this fixture.
     """
     now = datetime.now(tz=UTC)
     token = jwt.encode(

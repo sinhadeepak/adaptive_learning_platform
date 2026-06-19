@@ -82,6 +82,7 @@ async def bulk_decide(
             if action == "approve":
                 await approve_translation(session, artifact_id=qid, target_lang=lang, reviewer_id=reviewer_id)
             elif action == "reject":
+                # rejectionReason not yet persisted (no column in content_artifact_translations)
                 await reject_translation(session, artifact_id=qid, target_lang=lang, reviewer_id=reviewer_id)
             else:
                 raise ValueError(f"unknown action {action!r}")
