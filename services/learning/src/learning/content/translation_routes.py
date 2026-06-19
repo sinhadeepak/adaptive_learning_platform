@@ -44,6 +44,7 @@ from learning.localisation.repositories import (
     upsert_translation_draft,
 )
 from learning.localisation.review_queue import bulk_decide, list_queue
+from learning.localisation.translation_events import emit_translation_published
 from learning.localisation.language_registry import enabled_target_codes
 from learning.localisation.translate_one import translate_question_into
 from learning.types import is_supported
@@ -341,6 +342,8 @@ async def review_translation(
             reviewer_id=body.reviewerId,
         )
     await session.commit()
+    if body.action == "approve":
+        await emit_translation_published(session, question_id=question_id, language=lang)
     return await get_translation(question_id, lang, session)
 
 

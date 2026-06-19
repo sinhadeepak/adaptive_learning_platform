@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from learning.localisation.artifact_payload import synth_legacy_payload
 from learning.localisation.repositories import approve_translation, reject_translation
+from learning.localisation.translation_events import emit_translation_published
 from learning.types import get_handler, is_supported
 
 CONTENT_SCHEMA = "content_schema"
@@ -81,6 +82,7 @@ async def bulk_decide(
         try:
             if action == "approve":
                 await approve_translation(session, artifact_id=qid, target_lang=lang, reviewer_id=reviewer_id)
+                await emit_translation_published(session, question_id=qid, language=lang)
             elif action == "reject":
                 # rejectionReason not yet persisted (no column in content_artifact_translations)
                 await reject_translation(session, artifact_id=qid, target_lang=lang, reviewer_id=reviewer_id)
