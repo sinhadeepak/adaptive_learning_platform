@@ -16,6 +16,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
 from learning.content.db import sessionmaker as content_sessionmaker
+from learning.localisation import batch_repo
 from learning.main import app
 
 
@@ -84,3 +85,49 @@ async def test_get_batch_not_found(admin_headers):
         r = await c.get("/localisation/batches/00000000-0000-0000-0000-000000000000",
                         headers=admin_headers)
     assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_retry_failed_task(admin_headers):
+    """Test retry endpoint: happy path (task exists & failed) + no-op (task doesn't exist)."""
+    q = "00000000-0000-0000-0000-0000000c0002"
+    await _seed_question(q)
+
+    # Create batch and drive a task to FAILED state using batch_repo directly.
+    async with content_sessionmaker()() as s:
+        batch_out = await batch_repo.create_batch(
+            s, created_by=None, question_ids=[q], target_langs=["hi"])
+        batch_id = batch_out["batchId"]
+        await s.commit()
+
+        # Claim the task (PENDING -> RUNNING).
+        task = await batch_repo.next_pending_task(s, batch_id)
+        assert task is not None
+        task_id = task["id"]
+
+        # Fail the task.
+        await batch_repo.fail_task(s, task_id=task_id, error="boom")
+        await s.commit()
+
+    # Now test the retry endpoint with gateway stub.
+    stub_gateway = MagicMock()
+    app.state.ai_gateway = stub_gateway
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://t") as c:
+            # Happy path: retry existing failed task.
+            r = await c.post(
+                f"/localisation/batches/{batch_id}/tasks/{task_id}/retry",
+                headers=admin_headers)
+            assert r.status_code == 200
+            assert r.json() == {"retried": True}
+
+            # No-op: retry non-existent task (valid UUID, doesn't exist).
+            fake_task_id = "00000000-0000-0000-0000-000000000001"
+            r = await c.post(
+                f"/localisation/batches/{batch_id}/tasks/{fake_task_id}/retry",
+                headers=admin_headers)
+            assert r.status_code == 200
+            assert r.json() == {"retried": False}
+    finally:
+        app.state.ai_gateway = None
