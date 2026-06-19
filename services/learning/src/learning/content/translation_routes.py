@@ -31,6 +31,7 @@ from learning.content.db import sessionmaker as content_sessionmaker
 from learning.localisation.artifact_payload import (
     synth_legacy_payload as _synth_legacy_payload,
 )
+from learning.localisation.auth import require_admin
 from learning.localisation.job_repo import (
     complete_translation_job,
     fail_translation_job,
@@ -40,7 +41,9 @@ from learning.localisation.job_repo import (
 from learning.localisation.repositories import (
     approve_translation,
     reject_translation,
+    upsert_translation_draft,
 )
+from learning.localisation.review_queue import bulk_decide, list_queue
 from learning.localisation.translate_one import translate_question_into
 from learning.localisation.translator import SUPPORTED_LANGS
 from learning.types import is_supported
@@ -355,6 +358,96 @@ async def get_job(
             detail={"code": "job_not_found", "message": f"job_id={job_id!r}"},
         )
     return job
+
+
+# ── PUT /content/questions/{id}/translations/{lang} (versioned inline edit) ──
+
+
+class TranslationEditBody(BaseModel):
+    payloadTranslation: dict[str, Any]
+
+
+@router.put(
+    "/content/questions/{question_id}/translations/{lang}",
+    response_model=SingleTranslationResponse,
+    dependencies=[Depends(require_admin)],
+)
+async def edit_translation(
+    question_id: str,
+    lang: str,
+    body: TranslationEditBody,
+    session: AsyncSession = Depends(_content_session),
+) -> SingleTranslationResponse:
+    """Save a human-edited translation as a new DRAFT version.
+
+    Preserves prior ai_confidence and cultural_flags so reviewer edits
+    do not lose the AI's metadata.
+    """
+    prior = (await session.execute(text(f"""
+        SELECT ai_confidence, cultural_flags
+          FROM {CONTENT_SCHEMA}.content_artifact_translations
+         WHERE artifact_id = :id AND language = :lang
+    """), {"id": question_id, "lang": lang})).mappings().all()
+    conf = float(prior[0]["ai_confidence"]) if prior and prior[0]["ai_confidence"] is not None else 1.0
+    flags = list(prior[0]["cultural_flags"] or []) if prior else []
+    await upsert_translation_draft(
+        session, artifact_id=question_id, target_lang=lang,
+        payload_translation=body.payloadTranslation,
+        ai_confidence=conf, cultural_flags=flags)
+    await session.commit()
+    return await get_translation(question_id, lang, session)
+
+
+# ── GET /localisation/review-queue ──────────────────────────────────────────
+
+
+@router.get(
+    "/localisation/review-queue",
+    dependencies=[Depends(require_admin)],
+)
+async def get_review_queue(
+    lang: str | None = None,
+    status: str = "DRAFT",
+    batchId: str | None = None,
+    minConfidence: float | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    session: AsyncSession = Depends(_content_session),
+) -> dict:
+    return await list_queue(
+        session, lang=lang, status=status, batch_id=batchId,
+        min_confidence=minConfidence, limit=limit, offset=offset)
+
+
+# ── POST /localisation/review-queue/bulk ────────────────────────────────────
+
+
+class BulkDecision(BaseModel):
+    questionId: str
+    lang: str
+    action: Literal["approve", "reject"]
+    rejectionReason: str | None = None
+
+
+class BulkDecideBody(BaseModel):
+    decisions: list[BulkDecision]
+    reviewerId: str = Field(min_length=1)
+
+
+@router.post(
+    "/localisation/review-queue/bulk",
+    dependencies=[Depends(require_admin)],
+)
+async def post_review_bulk(
+    body: BulkDecideBody,
+    session: AsyncSession = Depends(_content_session),
+) -> dict:
+    out = await bulk_decide(
+        session,
+        decisions=[d.model_dump() for d in body.decisions],
+        reviewer_id=body.reviewerId)
+    await session.commit()
+    return out
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
