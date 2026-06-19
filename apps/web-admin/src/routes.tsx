@@ -35,6 +35,7 @@ import { AIProviders } from "./pages/AIProviders";
 import { TranslationBatch } from "./pages/TranslationBatch";
 import { TranslationBatches } from "./pages/TranslationBatches";
 import { TranslationVerify } from "./pages/TranslationVerify";
+import { Languages } from "./pages/Languages";
 
 const adminRoute = (path: string, element: ReactElement): RouteObject => ({
   path,
@@ -101,5 +102,7 @@ export const routes: RouteObject[] = [
   adminRoute("/translation-batches/:batchId", <TranslationBatch />),
   // Bulk verification screen (Task 11).
   adminRoute("/translation-verify", <TranslationVerify />),
+  // Language registry (Task 12).
+  adminRoute("/languages", <Languages />),
   { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];
