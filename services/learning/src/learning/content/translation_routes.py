@@ -28,7 +28,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from learning.ai_gateway import AIGateway, AIGatewayError
 from learning.content.db import sessionmaker as content_sessionmaker
-from learning.localisation.glossary import list_for_lookup
+from learning.localisation.artifact_payload import (
+    synth_legacy_payload as _synth_legacy_payload,
+)
 from learning.localisation.job_repo import (
     complete_translation_job,
     fail_translation_job,
@@ -38,13 +40,10 @@ from learning.localisation.job_repo import (
 from learning.localisation.repositories import (
     approve_translation,
     reject_translation,
-    upsert_translation_draft,
 )
-from learning.localisation.translator import (
-    SUPPORTED_LANGS,
-    translate_artifact,
-)
-from learning.types import get_handler, is_supported
+from learning.localisation.translate_one import translate_question_into
+from learning.localisation.translator import SUPPORTED_LANGS
+from learning.types import is_supported
 
 router = APIRouter(tags=["content_translations"])
 
@@ -204,9 +203,6 @@ async def request_translation(
             },
         )
 
-    handler = get_handler(type_id)
-    paths = handler.translatable_fields(payload)
-
     job_id = await insert_translation_job(
         session,
         artifact_id=question_id,
@@ -216,39 +212,17 @@ async def request_translation(
     await session.commit()
 
     try:
-        glossary = await list_for_lookup(
-            session,
+        result = await translate_question_into(
+            session, gateway,
+            question_id=question_id,
+            target_lang=lang,
             subject=body.subject,
             source_lang=body.sourceLang,
-            target_lang=lang,
-            text_to_match=" ".join(_collect_strings(payload)),
-        )
-        draft = await translate_artifact(
-            gateway,
-            artifact_id=question_id,
-            target_lang=lang,
-            payload=payload,
-            translatable_paths=paths,
-            glossary=glossary,
-            source_lang=body.sourceLang,
-        )
-        version = await upsert_translation_draft(
-            session,
-            artifact_id=question_id,
-            target_lang=lang,
-            payload_translation=draft.payload_translation,
-            ai_confidence=draft.avg_confidence,
-            cultural_flags=draft.cultural_flags,
         )
         await complete_translation_job(
             session,
             job_id=job_id,
-            output={
-                "version": version,
-                "fieldsTranslated": draft.fields_translated,
-                "avgConfidence": draft.avg_confidence,
-                "culturalFlags": draft.cultural_flags,
-            },
+            output=result,
         )
         await session.commit()
     except AIGatewayError as e:
@@ -384,35 +358,5 @@ async def get_job(
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
-
-
-def _synth_legacy_payload(row) -> dict[str, Any] | None:  # noqa: ANN001
-    """Build the canonical MCQ_SINGLE payload from legacy choices+correct_idx
-    columns when `payload` JSONB is NULL (the 480 seeded rows)."""
-    choices = row.get("choices") or []
-    if not choices:
-        return None
-    options = [
-        {"id": chr(ord("A") + i), "text": str(c)}
-        for i, c in enumerate(choices)
-    ]
-    correct_idx = int(row.get("correct_idx") or 0)
-    correct_id = options[correct_idx]["id"] if correct_idx < len(options) else options[0]["id"]
-    return {
-        "stem": row.get("stem") or "",
-        "options": options,
-        "correct_id": correct_id,
-    }
-
-
-def _collect_strings(node: Any) -> list[str]:
-    out: list[str] = []
-    if isinstance(node, str):
-        out.append(node)
-    elif isinstance(node, dict):
-        for v in node.values():
-            out.extend(_collect_strings(v))
-    elif isinstance(node, list):
-        for v in node:
-            out.extend(_collect_strings(v))
-    return out
+# _synth_legacy_payload and _collect_strings are imported from
+# learning.localisation.artifact_payload (see top-of-file imports).
