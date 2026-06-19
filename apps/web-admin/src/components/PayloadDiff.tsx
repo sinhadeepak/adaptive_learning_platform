@@ -23,6 +23,48 @@ function getAtPath(obj: unknown, path: string): unknown {
   return cur;
 }
 
+// Immutably set a value at a dotted/indexed path like "options[0].text".
+// Clones each traversed level (objects via {...}, arrays via [...]) so the
+// original object is never mutated. Missing intermediate nodes are created
+// as arrays (when the next segment is numeric) or plain objects.
+export function setAtPath(
+  obj: Record<string, unknown>,
+  path: string,
+  value: unknown,
+): Record<string, unknown> {
+  const parts = path.replace(/\[(\d+)\]/g, ".$1").split(".").filter(Boolean);
+
+  function recurse(cur: unknown, depth: number): unknown {
+    const key = parts[depth];
+    if (depth === parts.length - 1) {
+      // Leaf: clone the container and set the value at this key.
+      if (Array.isArray(cur)) {
+        const arr = [...cur];
+        arr[Number(key)] = value;
+        return arr;
+      }
+      return { ...(cur as Record<string, unknown>), [key]: value };
+    }
+    // Intermediate node: determine what type to create if missing.
+    const nextKeyIsNumeric = /^\d+$/.test(parts[depth + 1]);
+    if (Array.isArray(cur)) {
+      const arr = [...cur];
+      arr[Number(key)] = recurse(
+        arr[Number(key)] ?? (nextKeyIsNumeric ? [] : {}),
+        depth + 1,
+      );
+      return arr;
+    }
+    const rec = (cur ?? {}) as Record<string, unknown>;
+    return {
+      ...rec,
+      [key]: recurse(rec[key] ?? (nextKeyIsNumeric ? [] : {}), depth + 1),
+    };
+  }
+
+  return recurse(obj, 0) as Record<string, unknown>;
+}
+
 // Expand wildcard paths ("options[*].text") against the source array length.
 function expandPaths(paths: string[], source: Record<string, unknown>): string[] {
   const out: string[] = [];

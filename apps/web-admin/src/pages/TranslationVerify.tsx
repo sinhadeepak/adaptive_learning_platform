@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AdminShell } from "../components/AdminShell";
 import { Banner, Pill } from "../components/primitives";
-import { PayloadDiff } from "../components/PayloadDiff";
+import { PayloadDiff, setAtPath } from "../components/PayloadDiff";
 import { useAuth } from "../lib/auth-provider";
 import {
   reviewQueue,
@@ -49,9 +49,8 @@ export function TranslationVerify() {
 
   async function saveEdit(item: ReviewItem, path: string, value: string) {
     const k = rowKey(item);
-    const base = edits[k] ?? { ...item.payloadTranslation };
-    // Shallow set for top-level paths; nested paths handled server-side payload merge.
-    const next = { ...base, [path]: value };
+    const base = edits[k] ?? item.payloadTranslation;
+    const next = setAtPath(base, path, value);
     setEdits((e) => ({ ...e, [k]: next }));
     await translationEdit.save(item.questionId, item.language, next);
   }
