@@ -29,7 +29,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from learning.ai_gateway import AIGateway, AIGatewayError
 from learning.content.db import sessionmaker as content_sessionmaker
 from learning.localisation.artifact_payload import (
-    collect_strings as _collect_strings,
     synth_legacy_payload as _synth_legacy_payload,
 )
 from learning.localisation.job_repo import (
