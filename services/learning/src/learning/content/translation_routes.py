@@ -454,6 +454,27 @@ async def post_review_bulk(
     return out
 
 
+# ── POST /localisation/translations/backfill ───────────────────────────────
+
+
+@router.post("/localisation/translations/backfill", dependencies=[Depends(require_admin)])
+async def backfill_translations(
+    session: AsyncSession = Depends(_content_session),
+) -> dict[str, int]:
+    """One-time: emit content.translation.published for every PUBLISHED
+    translation so the quiz mirror is seeded. Idempotent (quiz upserts)."""
+    rows = (await session.execute(text(f"""
+        SELECT artifact_id::text AS qid, language
+          FROM {CONTENT_SCHEMA}.content_artifact_translations
+         WHERE status = 'PUBLISHED'
+    """))).mappings().all()
+    emitted = 0
+    for r in rows:
+        await emit_translation_published(session, question_id=r["qid"], language=r["language"])
+        emitted += 1
+    return {"emitted": emitted}
+
+
 # ── helpers ─────────────────────────────────────────────────────────────────
 # _synth_legacy_payload and _collect_strings are imported from
 # learning.localisation.artifact_payload (see top-of-file imports).
