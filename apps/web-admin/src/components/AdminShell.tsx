@@ -66,6 +66,7 @@ const NAV: NavGroup[] = [
     heading: "Quality",
     items: [
       { href: "/translation-review", label: "Translations", icon: <IconGlobe /> },
+      { href: "/translation-batches", label: "Batches", icon: <IconGlobe /> },
       { href: "/cultural-review", label: "Cultural review", icon: <IconHeart /> },
       { href: "/grader-queue", label: "Grader queue", icon: <IconPen /> },
       { href: "/tutors-admin", label: "Tutor moderation", icon: <IconCheck /> },

@@ -32,6 +32,8 @@ import { PlatformAnalytics } from "./pages/PlatformAnalytics";
 import { ExamBuilder } from "./pages/ExamBuilder";
 import { ExamsList } from "./pages/ExamsList";
 import { AIProviders } from "./pages/AIProviders";
+import { TranslationBatch } from "./pages/TranslationBatch";
+import { TranslationBatches } from "./pages/TranslationBatches";
 
 const adminRoute = (path: string, element: ReactElement): RouteObject => ({
   path,
@@ -93,5 +95,8 @@ export const routes: RouteObject[] = [
   adminRoute("/exams/edit/:examId", <ExamBuilder />),
   // P7 — Multi-provider AI chain (Ollama → OpenAI → Anthropic) config.
   adminRoute("/ai-providers", <AIProviders />),
+  // Bulk Translation Workbench — batch list + progress pages.
+  adminRoute("/translation-batches", <TranslationBatches />),
+  adminRoute("/translation-batches/:batchId", <TranslationBatch />),
   { path: "*", element: <Navigate to="/dashboard" replace /> },
 ];
