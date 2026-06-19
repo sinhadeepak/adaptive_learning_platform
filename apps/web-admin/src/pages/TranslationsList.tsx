@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AdminShell } from "../components/AdminShell";
 import { Banner, Pill } from "../components/primitives";
 import { auth } from "../lib/api";
 import { env } from "../lib/env";
+import { batches, languages, type Language } from "../lib/translation-workbench-api";
+import { clearPage, resolveAllMatching, selectAllOnPage, toggle } from "./translation-selection";
+
+const SELECT_ALL_CAP = 500;
 
 // ─────────────────────────────────────────────────────────────────────────
 // Translation Review — list view.
@@ -46,6 +50,18 @@ export function TranslationsList() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const navigate = useNavigate();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [langs, setLangs] = useState<Language[]>([]);
+  const [chosenLangs, setChosenLangs] = useState<Set<string>>(new Set());
+  const [overwrite, setOverwrite] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    languages.list().then((ls) => setLangs(ls.filter((l) => !l.isSource))).catch(() => setLangs([]));
+  }, []);
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const offset = page * PAGE_SIZE;
 
@@ -84,6 +100,39 @@ export function TranslationsList() {
       cancelled = true;
     };
   }, [queryString]);
+
+  const pageIds = rows.map((r) => r.id);
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+
+  async function selectAllMatching() {
+    const { ids, capped } = await resolveAllMatching(async (off) => {
+      const p = new URLSearchParams(queryString);
+      p.set("limit", "200");
+      p.set("offset", String(off));
+      const r = await auth.fetch(`${env.apiBaseUrl}/content/questions?${p.toString()}`);
+      const body = (await r.json()) as QuestionList;
+      return { ids: body.items.map((i) => i.id), total: body.total };
+    }, SELECT_ALL_CAP);
+    setSelected(new Set(ids));
+    if (capped) setNotice(`Selection capped at ${SELECT_ALL_CAP} questions.`);
+  }
+
+  async function startBatch() {
+    if (selected.size === 0 || chosenLangs.size === 0) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const out = await batches.create({
+        questionIds: [...selected],
+        targetLangs: [...chosenLangs],
+        overwriteExisting: overwrite,
+      });
+      navigate(`/translation-batches/${out.batchId}`);
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Couldn't start batch");
+      setBusy(false);
+    }
+  }
 
   function applySearch() {
     setSearch(pendingSearch);
@@ -159,6 +208,12 @@ export function TranslationsList() {
       </div>
 
       {error && <Banner tone="danger">{error}</Banner>}
+      {notice && <Banner tone="info">{notice}</Banner>}
+      {selected.size > 0 && total > rows.length && (
+        <button className="btn" onClick={selectAllMatching} style={{ marginBottom: 8 }}>
+          Select all {total} matching this filter
+        </button>
+      )}
 
       <div
         style={{
@@ -171,6 +226,16 @@ export function TranslationsList() {
         <table className="data-table">
           <thead>
             <tr>
+              <th style={{ width: 32 }}>
+                <input
+                  type="checkbox"
+                  checked={allOnPageSelected}
+                  onChange={(e) =>
+                    setSelected((s) => (e.target.checked ? selectAllOnPage(s, pageIds) : clearPage(s, pageIds)))
+                  }
+                  aria-label="Select all on page"
+                />
+              </th>
               <th>Stem</th>
               <th>Type</th>
               <th>Status</th>
@@ -183,7 +248,7 @@ export function TranslationsList() {
             {loading && rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{
                     padding: 24,
                     textAlign: "center",
@@ -197,7 +262,7 @@ export function TranslationsList() {
             {!loading && rows.length === 0 && !error && (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{
                     padding: 24,
                     textAlign: "center",
@@ -210,6 +275,14 @@ export function TranslationsList() {
             )}
             {rows.map((q) => (
               <tr key={q.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selected.has(q.id)}
+                    onChange={() => setSelected((s) => toggle(s, q.id))}
+                    aria-label={`Select ${q.id}`}
+                  />
+                </td>
                 <td style={{ maxWidth: 600 }}>
                   <div
                     style={{
@@ -310,6 +383,50 @@ export function TranslationsList() {
           </button>
         </div>
       </div>
+      {selected.size > 0 && (
+        <div
+          style={{
+            position: "sticky",
+            bottom: 0,
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            flexWrap: "wrap",
+            padding: "12px 16px",
+            marginTop: 12,
+            background: "var(--card)",
+            border: "1px solid var(--rule)",
+            borderRadius: 8,
+          }}
+        >
+          <strong>{selected.size} selected</strong>
+          <button className="btn" onClick={() => setSelected(new Set())}>Clear</button>
+          <span style={{ color: "var(--ink-3)" }}>Translate to:</span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {langs.map((l) => (
+              <label key={l.code} style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 13 }}>
+                <input
+                  type="checkbox"
+                  checked={chosenLangs.has(l.code)}
+                  onChange={() => setChosenLangs((s) => toggle(s, l.code))}
+                />
+                {l.name}
+              </label>
+            ))}
+          </div>
+          <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 13 }}>
+            <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} />
+            Overwrite existing
+          </label>
+          <button
+            className="btn btn-primary"
+            disabled={busy || chosenLangs.size === 0}
+            onClick={startBatch}
+          >
+            {busy ? "Starting…" : `Translate → ${chosenLangs.size} lang(s)`}
+          </button>
+        </div>
+      )}
     </AdminShell>
   );
 }

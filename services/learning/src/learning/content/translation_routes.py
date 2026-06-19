@@ -28,7 +28,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from learning.ai_gateway import AIGateway, AIGatewayError
 from learning.content.db import sessionmaker as content_sessionmaker
-from learning.localisation.glossary import list_for_lookup
+from learning.localisation.artifact_payload import (
+    synth_legacy_payload as _synth_legacy_payload,
+)
+from learning.localisation.auth import require_admin
 from learning.localisation.job_repo import (
     complete_translation_job,
     fail_translation_job,
@@ -40,11 +43,10 @@ from learning.localisation.repositories import (
     reject_translation,
     upsert_translation_draft,
 )
-from learning.localisation.translator import (
-    SUPPORTED_LANGS,
-    translate_artifact,
-)
-from learning.types import get_handler, is_supported
+from learning.localisation.review_queue import bulk_decide, list_queue
+from learning.localisation.language_registry import enabled_target_codes
+from learning.localisation.translate_one import translate_question_into
+from learning.types import is_supported
 
 router = APIRouter(tags=["content_translations"])
 
@@ -153,12 +155,13 @@ async def request_translation(
     v1 runs synchronously — same latency as `/localisation/translate`.
     The job row exists for audit + future async-worker dispatch.
     """
-    if lang not in SUPPORTED_LANGS:
+    allowed = await enabled_target_codes(session)
+    if lang not in allowed:
         raise HTTPException(
             status_code=400,
             detail={
                 "code": "unsupported_language",
-                "message": f"target_lang={lang!r} not in {SUPPORTED_LANGS}",
+                "message": f"target_lang={lang!r} not an enabled target language",
             },
         )
 
@@ -204,9 +207,6 @@ async def request_translation(
             },
         )
 
-    handler = get_handler(type_id)
-    paths = handler.translatable_fields(payload)
-
     job_id = await insert_translation_job(
         session,
         artifact_id=question_id,
@@ -216,39 +216,17 @@ async def request_translation(
     await session.commit()
 
     try:
-        glossary = await list_for_lookup(
-            session,
+        result = await translate_question_into(
+            session, gateway,
+            question_id=question_id,
+            target_lang=lang,
             subject=body.subject,
             source_lang=body.sourceLang,
-            target_lang=lang,
-            text_to_match=" ".join(_collect_strings(payload)),
-        )
-        draft = await translate_artifact(
-            gateway,
-            artifact_id=question_id,
-            target_lang=lang,
-            payload=payload,
-            translatable_paths=paths,
-            glossary=glossary,
-            source_lang=body.sourceLang,
-        )
-        version = await upsert_translation_draft(
-            session,
-            artifact_id=question_id,
-            target_lang=lang,
-            payload_translation=draft.payload_translation,
-            ai_confidence=draft.avg_confidence,
-            cultural_flags=draft.cultural_flags,
         )
         await complete_translation_job(
             session,
             job_id=job_id,
-            output={
-                "version": version,
-                "fieldsTranslated": draft.fields_translated,
-                "avgConfidence": draft.avg_confidence,
-                "culturalFlags": draft.cultural_flags,
-            },
+            output=result,
         )
         await session.commit()
     except AIGatewayError as e:
@@ -383,36 +361,96 @@ async def get_job(
     return job
 
 
-# ── helpers ─────────────────────────────────────────────────────────────────
+# ── PUT /content/questions/{id}/translations/{lang} (versioned inline edit) ──
 
 
-def _synth_legacy_payload(row) -> dict[str, Any] | None:  # noqa: ANN001
-    """Build the canonical MCQ_SINGLE payload from legacy choices+correct_idx
-    columns when `payload` JSONB is NULL (the 480 seeded rows)."""
-    choices = row.get("choices") or []
-    if not choices:
-        return None
-    options = [
-        {"id": chr(ord("A") + i), "text": str(c)}
-        for i, c in enumerate(choices)
-    ]
-    correct_idx = int(row.get("correct_idx") or 0)
-    correct_id = options[correct_idx]["id"] if correct_idx < len(options) else options[0]["id"]
-    return {
-        "stem": row.get("stem") or "",
-        "options": options,
-        "correct_id": correct_id,
-    }
+class TranslationEditBody(BaseModel):
+    payloadTranslation: dict[str, Any]
 
 
-def _collect_strings(node: Any) -> list[str]:
-    out: list[str] = []
-    if isinstance(node, str):
-        out.append(node)
-    elif isinstance(node, dict):
-        for v in node.values():
-            out.extend(_collect_strings(v))
-    elif isinstance(node, list):
-        for v in node:
-            out.extend(_collect_strings(v))
+@router.put(
+    "/content/questions/{question_id}/translations/{lang}",
+    response_model=SingleTranslationResponse,
+    dependencies=[Depends(require_admin)],
+)
+async def edit_translation(
+    question_id: str,
+    lang: str,
+    body: TranslationEditBody,
+    session: AsyncSession = Depends(_content_session),
+) -> SingleTranslationResponse:
+    """Save a human-edited translation as a new DRAFT version.
+
+    Preserves prior ai_confidence and cultural_flags so reviewer edits
+    do not lose the AI's metadata.
+    """
+    prior = (await session.execute(text(f"""
+        SELECT ai_confidence, cultural_flags
+          FROM {CONTENT_SCHEMA}.content_artifact_translations
+         WHERE artifact_id = :id AND language = :lang
+    """), {"id": question_id, "lang": lang})).mappings().all()
+    conf = float(prior[0]["ai_confidence"]) if prior and prior[0]["ai_confidence"] is not None else 1.0
+    flags = list(prior[0]["cultural_flags"] or []) if prior else []
+    await upsert_translation_draft(
+        session, artifact_id=question_id, target_lang=lang,
+        payload_translation=body.payloadTranslation,
+        ai_confidence=conf, cultural_flags=flags)
+    await session.commit()
+    return await get_translation(question_id, lang, session)
+
+
+# ── GET /localisation/review-queue ──────────────────────────────────────────
+
+
+@router.get(
+    "/localisation/review-queue",
+    dependencies=[Depends(require_admin)],
+)
+async def get_review_queue(
+    lang: str | None = None,
+    status: str = "DRAFT",
+    batchId: str | None = None,
+    minConfidence: float | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    session: AsyncSession = Depends(_content_session),
+) -> dict:
+    return await list_queue(
+        session, lang=lang, status=status, batch_id=batchId,
+        min_confidence=minConfidence, limit=limit, offset=offset)
+
+
+# ── POST /localisation/review-queue/bulk ────────────────────────────────────
+
+
+class BulkDecision(BaseModel):
+    questionId: str
+    lang: str
+    action: Literal["approve", "reject"]
+    rejectionReason: str | None = None
+
+
+class BulkDecideBody(BaseModel):
+    decisions: list[BulkDecision]
+    reviewerId: str = Field(min_length=1)
+
+
+@router.post(
+    "/localisation/review-queue/bulk",
+    dependencies=[Depends(require_admin)],
+)
+async def post_review_bulk(
+    body: BulkDecideBody,
+    session: AsyncSession = Depends(_content_session),
+) -> dict:
+    out = await bulk_decide(
+        session,
+        decisions=[d.model_dump() for d in body.decisions],
+        reviewer_id=body.reviewerId)
+    await session.commit()
     return out
+
+
+# ── helpers ─────────────────────────────────────────────────────────────────
+# _synth_legacy_payload and _collect_strings are imported from
+# learning.localisation.artifact_payload (see top-of-file imports).
