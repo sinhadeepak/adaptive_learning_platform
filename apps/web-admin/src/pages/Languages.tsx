@@ -21,15 +21,23 @@ export function Languages() {
   useEffect(() => { void load(); }, []);
 
   async function toggle(code: string, enabled: boolean) {
-    await languages.patch(code, { enabled });
-    await load();
+    try {
+      await languages.patch(code, { enabled });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "update failed");
+    }
   }
 
   async function add() {
     if (!form.code || !form.name || !form.nativeName) return;
-    await languages.upsert({ ...form, script: form.script || null });
-    setForm({ ...EMPTY });
-    await load();
+    try {
+      await languages.upsert({ ...form, script: form.script || null });
+      setForm({ ...EMPTY });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "add failed");
+    }
   }
 
   return (
