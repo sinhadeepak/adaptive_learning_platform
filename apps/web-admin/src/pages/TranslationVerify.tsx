@@ -106,12 +106,12 @@ export function TranslationVerify() {
         </span>
       </div>
 
-      <div style={{ display: "grid", gap: 8 }}>
+      <div style={{ display: "grid", gap: 8, gridTemplateColumns: "minmax(0, 1fr)" }}>
         {items.map((item) => {
           const k = rowKey(item);
           const isOpen = expanded.has(k);
           return (
-            <div key={k} style={{ border: "1px solid var(--rule)", borderRadius: 8, background: "var(--paper-2)" }}>
+            <div key={k} style={{ minWidth: 0, border: "1px solid var(--rule)", borderRadius: 8, background: "var(--paper-2)" }}>
               <div style={{ display: "flex", gap: 12, alignItems: "center", padding: 12 }}>
                 <input type="checkbox" checked={selected.has(k)} onChange={() => toggleSel(k)}
                   aria-label={`Select ${item.questionId} ${item.language}`} />
