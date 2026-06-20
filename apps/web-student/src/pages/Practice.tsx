@@ -323,6 +323,7 @@ function MistakesPracticePanel() {
 interface Profile {
   user: { firstName: string };
   exams: Array<{ examId: string; targetDate: string | null }>;
+  preferences?: { contentLanguage?: string };
 }
 
 interface MasteryListResponse {
@@ -541,10 +542,13 @@ export function Practice() {
     setError(null);
     setStartingTopicId(topicId);
     try {
+      const sessionBody: Record<string, unknown> = { topicId, userId: user.id, mode: "PRACTICE" };
+      const contentLang = profile?.preferences?.contentLanguage;
+      if (contentLang) sessionBody.language = contentLang;
       const r = await auth.fetch("/api/v1/quiz/sessions/start", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ topicId, userId: user.id, mode: "PRACTICE" }),
+        body: JSON.stringify(sessionBody),
       });
       if (r.status === 422) {
         setError("That topic doesn't have any practice questions yet.");
