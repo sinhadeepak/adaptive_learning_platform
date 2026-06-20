@@ -932,6 +932,16 @@ func (svc *SessionService) Next(logger *slog.Logger) http.HandlerFunc {
 			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to pick next question")
 			return
 		}
+		// Re-fetch through the translation overlay so every fresh serve is
+		// localised regardless of which picker branch ran (the fallback path
+		// svc.store.PickNextQuestion returns English-only; the IRT/ADP branches
+		// already call GetQuestion, so this re-fetch is idempotent for them).
+		q, err = svc.store.GetQuestion(r.Context(), q.ID, sess.ContentLanguage)
+		if err != nil {
+			logger.Error("get_question.failed", "err", err)
+			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load question")
+			return
+		}
 		nextIdx := sess.ServedCount
 		if err := svc.store.ServeQuestion(r.Context(), sess.ID, nextIdx, q.ID, svc.clock()); err != nil {
 			logger.Error("serve_question.failed", "err", err)

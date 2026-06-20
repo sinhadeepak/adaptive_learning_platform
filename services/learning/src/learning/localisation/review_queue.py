@@ -82,7 +82,7 @@ async def bulk_decide(
         try:
             if action == "approve":
                 await approve_translation(session, artifact_id=qid, target_lang=lang, reviewer_id=reviewer_id)
-                await emit_translation_published(session, question_id=qid, language=lang)
+                await emit_translation_published(session, question_id=qid, language=lang)  # emits before outer commit by design; a failed outer commit is recoverable via POST /localisation/translations/backfill
             elif action == "reject":
                 # rejectionReason not yet persisted (no column in content_artifact_translations)
                 await reject_translation(session, artifact_id=qid, target_lang=lang, reviewer_id=reviewer_id)
