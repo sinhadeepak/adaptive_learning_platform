@@ -167,6 +167,8 @@ export function ExamDetail() {
         navigate("/practice");
         return;
       }
+      const { contentLanguageField } = await import("../lib/session-start");
+      const langField = await contentLanguageField();
       const r = await auth.fetch("/api/v1/quiz/sessions/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -174,6 +176,7 @@ export function ExamDetail() {
           userId: user.id,
           topicId: weakest.id,
           targetCount: 12,
+          ...langField,
         }),
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);

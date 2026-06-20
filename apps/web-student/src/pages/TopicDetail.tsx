@@ -242,6 +242,8 @@ export function TopicDetail() {
       // seed; "match" is the safe default for first-time topics.
       const { loadIntentForTopic } = await import("../lib/difficulty-agency");
       const intentAnchor = loadIntentForTopic(topicId) ?? "match";
+      const { contentLanguageField } = await import("../lib/session-start");
+      const langField = await contentLanguageField();
       const r = await auth.fetch(`/api/v1/quiz/sessions/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -254,6 +256,7 @@ export function TopicDetail() {
           // falls back to adaptive on the user's existing θ.
           difficultyBand,
           intentAnchor,
+          ...langField,
         }),
       });
       if (r.status === 422) {

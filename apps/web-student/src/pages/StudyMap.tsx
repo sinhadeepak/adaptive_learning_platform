@@ -90,10 +90,12 @@ export function StudyMap() {
     setStartErr(null);
     setStartingId(topicId);
     try {
+      const { contentLanguageField } = await import("../lib/session-start");
+      const langField = await contentLanguageField();
       const r = await auth.fetch("/api/v1/quiz/sessions/start", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ topicId, userId: user.id, mode: "PRACTICE" }),
+        body: JSON.stringify({ topicId, userId: user.id, mode: "PRACTICE", ...langField }),
       });
       if (r.status === 422) {
         setStartErr({ topicId, msg: "No practice questions for this chapter yet." });

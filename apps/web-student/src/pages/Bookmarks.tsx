@@ -67,10 +67,12 @@ export function Bookmarks() {
     if (!user || !b.topicId || starting) return;
     setStarting(b.questionId);
     try {
+      const { contentLanguageField } = await import("../lib/session-start");
+      const langField = await contentLanguageField();
       const r = await auth.fetch(`/api/v1/quiz/sessions/start`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ topicId: b.topicId, userId: user.id, mode: "PRACTICE" }),
+        body: JSON.stringify({ topicId: b.topicId, userId: user.id, mode: "PRACTICE", ...langField }),
       });
       if (!r.ok) return;
       const body = (await r.json()) as { sessionId: string };

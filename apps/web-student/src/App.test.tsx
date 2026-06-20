@@ -724,12 +724,12 @@ test("/settings question-language chip POSTs { contentLanguage } independently",
   // Wait for settings to load
   await screen.findByRole("heading", { name: /Question language/i });
   // Click the Hindi chip in the Question language radiogroup
-  const hindiChip = screen.getByRole("radio", { name: /हिन्दी ✓|हिन्दी$/u });
   // The Hindi chip in the Question language group (not App Language group)
   // Find the Question language radiogroup and click its Hindi button
   const questionLangGroup = screen.getByRole("radiogroup", { name: /Question language/i });
   const hindiInQuestionGroup = questionLangGroup.querySelector("[lang='hi']") as HTMLElement;
-  hindiInQuestionGroup?.click();
+  expect(hindiInQuestionGroup).not.toBeNull();
+  hindiInQuestionGroup.click();
   // The PATCH should include only contentLanguage, not language
   await vi.waitFor(() => {
     expect(patchedBodies.length).toBeGreaterThanOrEqual(1);
