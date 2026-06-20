@@ -74,7 +74,7 @@ export function TranslationBatch() {
                     </td>
                     <td>{t.language.toUpperCase()}</td>
                     <td><Pill tone={t.status === "SUCCEEDED" ? "success" : t.status === "FAILED" ? "danger" : "muted"}>{t.status}</Pill></td>
-                    <td style={{ color: "var(--ink-3)", fontSize: 12 }} title={t.error ?? ""}>{t.error ?? ""}</td>
+                    <td style={{ color: "var(--ink-3)", fontSize: 12, maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.error ?? ""}>{t.error ?? ""}</td>
                     <td>{t.status === "FAILED" && <button className="btn" onClick={() => retry(t.id)}>Retry</button>}</td>
                   </tr>
                 ))}
