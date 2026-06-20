@@ -860,7 +860,7 @@ func (svc *SessionService) Next(logger *slog.Logger) http.HandlerFunc {
 				})
 				return
 			}
-			q, err := svc.store.GetQuestion(r.Context(), it.QuestionID)
+			q, err := svc.store.GetQuestion(r.Context(), it.QuestionID, sess.ContentLanguage)
 			if err != nil {
 				logger.Error("get_question.failed", "err", err)
 				writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load question")
@@ -897,7 +897,7 @@ func (svc *SessionService) Next(logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 		if has {
-			q, err := svc.store.GetQuestion(r.Context(), current.QuestionID)
+			q, err := svc.store.GetQuestion(r.Context(), current.QuestionID, sess.ContentLanguage)
 			if err != nil {
 				logger.Error("get_question.failed", "err", err)
 				writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load question")
@@ -1003,7 +1003,7 @@ func (svc *SessionService) Items(logger *slog.Logger) http.HandlerFunc {
 		}
 		out := make([]itemDTO, 0, len(items))
 		for _, it := range items {
-			q, err := svc.store.GetQuestion(r.Context(), it.QuestionID)
+			q, err := svc.store.GetQuestion(r.Context(), it.QuestionID, sess.ContentLanguage)
 			if err != nil {
 				logger.Error("get_question.failed", "err", err, "qid", it.QuestionID)
 				continue
@@ -1050,7 +1050,7 @@ func (svc *SessionService) Answer(logger *slog.Logger) http.HandlerFunc {
 			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load item")
 			return
 		}
-		q, err := svc.store.GetQuestion(r.Context(), item.QuestionID)
+		q, err := svc.store.GetQuestion(r.Context(), item.QuestionID, sess.ContentLanguage)
 		if err != nil {
 			logger.Error("get_question.failed", "err", err)
 			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load question")
@@ -1385,7 +1385,7 @@ func (svc *SessionService) pickNextADP(
 		"b", picked.B,
 		"corridor_size", len(inCorridor),
 	)
-	return svc.store.GetQuestion(ctx, picked.QuestionID)
+	return svc.store.GetQuestion(ctx, picked.QuestionID, sess.ContentLanguage)
 }
 
 func (svc *SessionService) pickNext(ctx context.Context, sess domain.Session, logger *slog.Logger) (domain.Question, error) {
@@ -1466,7 +1466,7 @@ func (svc *SessionService) pickNext(ctx context.Context, sess domain.Session, lo
 		logger.Warn("adaptive.select_next.bad_id", "id", *sel.ItemID, "err", err)
 		return svc.store.PickNextQuestion(ctx, sess)
 	}
-	return svc.store.GetQuestion(ctx, chosenID)
+	return svc.store.GetQuestion(ctx, chosenID, sess.ContentLanguage)
 }
 
 type submitResponse struct {
@@ -1651,7 +1651,7 @@ func (svc *SessionService) Get(logger *slog.Logger) http.HandlerFunc {
 				Answered:   it.IsAnswered(),
 			}
 			if hydrate || it.IsAnswered() {
-				if q, qerr := svc.store.GetQuestion(r.Context(), it.QuestionID); qerr == nil {
+				if q, qerr := svc.store.GetQuestion(r.Context(), it.QuestionID, sess.ContentLanguage); qerr == nil {
 					s.Stem = q.Stem
 					s.Choices = q.Choices
 					ci := q.CorrectIdx

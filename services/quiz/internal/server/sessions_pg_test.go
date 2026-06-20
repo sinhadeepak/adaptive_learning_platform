@@ -371,7 +371,7 @@ func TestPG_MockModeOrdersByDifficulty(t *testing.T) {
 		}
 		// Look up difficulty via a direct store call.
 		qid, _ := uuid.Parse(nx.Item.QuestionID)
-		q, err := f.st.GetQuestion(context.Background(), qid)
+		q, err := f.st.GetQuestion(context.Background(), qid, "en")
 		if err != nil {
 			t.Fatalf("step %d: get question: %v", i, err)
 		}
@@ -448,7 +448,7 @@ func correctAnswerFor(t *testing.T, st *store.Store, questionID string) int16 {
 	if err != nil {
 		t.Fatalf("parse questionID: %v", err)
 	}
-	q, err := st.GetQuestion(context.Background(), qid)
+	q, err := st.GetQuestion(context.Background(), qid, "en")
 	if err != nil {
 		t.Fatalf("get question %s: %v", questionID, err)
 	}

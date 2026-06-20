@@ -868,21 +868,27 @@ func (s *Store) GetItemByIdx(ctx context.Context, sessionID uuid.UUID, idx int16
 	return it, err == nil, err
 }
 
-// GetQuestion fetches a question by id.
-func (s *Store) GetQuestion(ctx context.Context, id uuid.UUID) (domain.Question, error) {
+// GetQuestion fetches a question by id, overlaying translated text when a
+// matching row exists in quiz_schema.question_translations for the given
+// language. For language "en" or any unknown language the LEFT JOIN matches
+// no translation row and all COALESCE calls return the canonical English
+// values — no special-casing needed.
+func (s *Store) GetQuestion(ctx context.Context, id uuid.UUID, language string) (domain.Question, error) {
 	var q domain.Question
 	var choicesJSON []byte
-	// COALESCE handles environments where the question_type column
-	// hasn't been migrated yet (defensive — pre-S38 backfill assumed
-	// MCQ_SINGLE for all 480 rows; the column default also handles this).
-	// Phase 7 — payload column added in migration 013; NULL for legacy
-	// MCQ rows where it carries no extra info.
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, topic_id, stem, choices, correct_idx, difficulty_b,
-		       discrimination_a, guessing_c, language, status, explanation,
-		       COALESCE(question_type, 'MCQ_SINGLE'),
-		       payload
-		FROM quiz_schema.questions WHERE id = $1`, id,
+		SELECT q.id, q.topic_id,
+		       COALESCE(t.stem, q.stem) AS stem,
+		       COALESCE(t.choices, q.choices) AS choices,
+		       q.correct_idx, q.difficulty_b, q.discrimination_a, q.guessing_c,
+		       q.language, q.status,
+		       COALESCE(t.explanation, q.explanation) AS explanation,
+		       COALESCE(q.question_type, 'MCQ_SINGLE'),
+		       COALESCE(t.payload, q.payload) AS payload
+		FROM quiz_schema.questions q
+		LEFT JOIN quiz_schema.question_translations t
+		  ON t.question_id = q.id AND t.language = $2
+		WHERE q.id = $1`, id, language,
 	).Scan(&q.ID, &q.TopicID, &q.Stem, &choicesJSON, &q.CorrectIdx, &q.DifficultyB,
 		&q.DiscriminationA, &q.GuessingC, &q.Language, &q.Status, &q.Explanation,
 		&q.QuestionType, &q.Payload)
