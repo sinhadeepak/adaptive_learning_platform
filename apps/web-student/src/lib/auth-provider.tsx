@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session, User } from "@alp/auth-client";
 import { auth } from "./api";
+import { _resetContentLanguageCache } from "./session-start";
 
 interface AuthContextValue {
   user: User | null;
@@ -62,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await auth.logout();
+    _resetContentLanguageCache();
     setUserState(null);
     setLoading(false);
   }, []);

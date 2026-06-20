@@ -174,11 +174,11 @@ func (s *ContentSubscriber) handleTranslation(msg jetstream.Msg) {
 	var ev TranslationPublished
 	if err := json.Unmarshal(msg.Data(), &ev); err != nil {
 		s.logger.Error("translation.unmarshal", "err", err)
-		_ = msg.Ack() // poison message: drop
+		_ = msg.Term() // poison message: drop, never redeliver
 		return
 	}
 	if ev.QuestionID == "" || ev.Language == "" {
-		_ = msg.Ack()
+		_ = msg.Term() // poison message: drop, never redeliver
 		return
 	}
 	var choicesJSON []byte

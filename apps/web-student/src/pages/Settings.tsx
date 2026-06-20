@@ -24,6 +24,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Card } from "@alp/ui";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
+import { _resetContentLanguageCache } from "../lib/session-start";
 import { useTheme, type Theme } from "../lib/theme";
 import { useDensity, type Density } from "../lib/density";
 import { VidyaShell } from "../components/vidya/VidyaShell";
@@ -217,6 +218,7 @@ export function Settings() {
         body: JSON.stringify({ contentLanguage: lang }),
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      _resetContentLanguageCache();
     } catch {
       setError("We couldn't save your question language. Try again in a moment.");
     } finally {
