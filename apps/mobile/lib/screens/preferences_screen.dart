@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../quiz/content_language_helper.dart';
 import '../widgets/alp_card.dart';
 import 'onboarding/welcome_screen.dart';
 
@@ -102,6 +103,10 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       if (!mounted) return;
       if (updated == null) {
         setState(() => _error = 'Could not save question language.');
+      } else {
+        // Invalidate the in-memory cache so the new language is used on next session start.
+        resetContentLanguageCache();
+        _contentLanguage = lang;
       }
     } catch (e) {
       if (!mounted) return;
