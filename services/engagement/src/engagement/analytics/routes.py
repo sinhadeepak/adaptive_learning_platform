@@ -24,14 +24,16 @@ from engagement.analytics.repositories import (
     list_daily_activity,
     list_user_mastery,
 )
+from engagement.analytics.exam_scope import resolve_exam_topic_ids
 
 router = APIRouter()
 
 
 @router.get("/analytics/mastery/{user_id}")
-async def list_mastery(user_id: str) -> dict:
+async def list_mastery(user_id: str, exam_id: str | None = None) -> dict:
+    topic_ids = await resolve_exam_topic_ids(exam_id) if exam_id else None
     async with sessionmaker()() as session:
-        rows = await list_user_mastery(session, user_id)
+        rows = await list_user_mastery(session, user_id, topic_ids=topic_ids)
     return {
         "userId": user_id,
         "topics": [{"topicId": r.topic_id, "ewa": r.ewa, "n": r.n} for r in rows],

@@ -5,7 +5,9 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 
+import pytest
 import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
 # Force a clean module-level engine cache between tests so each gets a fresh
@@ -16,6 +18,14 @@ os.environ.setdefault(
 )
 
 from engagement.analytics import db
+from engagement.main import app
+
+
+@pytest_asyncio.fixture
+async def client() -> AsyncIterator[AsyncClient]:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
 
 
 @pytest_asyncio.fixture(autouse=True)
