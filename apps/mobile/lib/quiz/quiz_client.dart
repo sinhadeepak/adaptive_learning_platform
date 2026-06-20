@@ -13,11 +13,15 @@ class QuizClient {
     required String topicId,
     required String userId,
     String mode = 'PRACTICE',
+    /// Optional extra fields merged into the request body (e.g. `language`
+    /// for content-language delivery — Task 8 translation feature).
+    Map<String, dynamic> extraFields = const {},
   }) async {
     final res = await auth.apiPost('/quiz/sessions/start', {
       'topicId': topicId,
       'userId': userId,
       'mode': mode,
+      ...extraFields,
     });
     if (res.statusCode == 422) {
       throw const QuizError('No published questions for this topic.', QuizErrorCode.emptyTopic);

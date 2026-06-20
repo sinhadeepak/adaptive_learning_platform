@@ -12,8 +12,10 @@
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
+import '../api/api_client.dart';
 import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
+import '../quiz/content_language_helper.dart';
 import '../quiz/quiz_client.dart';
 import '../quiz/quiz_screen.dart';
 
@@ -41,10 +43,13 @@ class _HomeScreenState extends State<HomeScreen> {
       _error = null;
     });
     try {
+      final api = ApiClient(widget.auth);
+      final langField = await contentLanguageField(api);
       final client = QuizClient(auth: widget.auth);
       final session = await client.start(
         topicId: _mechanicsTopicId,
         userId: user.id,
+        extraFields: langField,
       );
       if (!mounted) return;
       await Navigator.of(context).push(

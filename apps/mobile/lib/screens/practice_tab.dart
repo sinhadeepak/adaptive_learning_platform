@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../api/api_client.dart';
 import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
+import '../quiz/content_language_helper.dart';
 import '../quiz/quiz_client.dart';
 import '../quiz/quiz_screen.dart';
 import '../widgets/alp_card.dart';
@@ -39,8 +40,10 @@ class PracticeTab extends StatelessWidget {
     final user = auth.user;
     if (user == null) return;
     try {
+      final langField = await contentLanguageField(api);
       final client = QuizClient(auth: auth);
-      final session = await client.start(topicId: _seededMechanicsTopic, userId: user.id);
+      final session = await client.start(
+          topicId: _seededMechanicsTopic, userId: user.id, extraFields: langField);
       if (!context.mounted) return;
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => QuizScreen(client: client, sessionId: session.sessionId, api: api),
@@ -62,8 +65,10 @@ class PracticeTab extends StatelessWidget {
     final user = auth.user;
     if (user == null) return;
     try {
+      final langField = await contentLanguageField(api);
       final client = QuizClient(auth: auth);
-      final session = await client.start(topicId: picked, userId: user.id);
+      final session = await client.start(
+          topicId: picked, userId: user.id, extraFields: langField);
       if (!context.mounted) return;
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => QuizScreen(client: client, sessionId: session.sessionId, api: api),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../auth/auth_client.dart';
+import '../quiz/content_language_helper.dart';
 import '../quiz/quiz_client.dart';
 import '../quiz/quiz_screen.dart';
 import '../screens/doubts_tab.dart';
@@ -249,8 +250,10 @@ class _GuidedNextStepsCardState extends State<GuidedNextStepsCard> {
     final user = widget.auth.user;
     if (user == null || step.topicId.isEmpty) return;
     try {
+      final langField = await contentLanguageField(widget.api);
       final client = QuizClient(auth: widget.auth);
-      final session = await client.start(topicId: step.topicId, userId: user.id);
+      final session = await client.start(
+          topicId: step.topicId, userId: user.id, extraFields: langField);
       if (!mounted) return;
       await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => QuizScreen(client: client, sessionId: session.sessionId, api: widget.api),

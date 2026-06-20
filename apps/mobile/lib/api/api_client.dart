@@ -118,6 +118,15 @@ class ApiClient {
     return UserProfile.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
   }
 
+  /// PATCH /profile/preferences with { contentLanguage: lang }. Separate from
+  /// [updatePreferences] so the Question-language control can save
+  /// independently (mirrors the web-student pattern in session-start.ts).
+  Future<UserProfile?> updateContentLanguage(String lang) async {
+    final r = await auth.apiPatch('/profile/preferences', {'contentLanguage': lang});
+    if (r.statusCode != 200) return null;
+    return UserProfile.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
+  }
+
   // ────────────────────────────────────────────────────────────────────
   // Bookmarks (saved questions)
   // ────────────────────────────────────────────────────────────────────
@@ -683,6 +692,7 @@ class UserProfile {
     required this.lastName,
     required this.email,
     required this.language,
+    this.contentLanguage = 'en',
     this.dailyGoalMinutes,
     this.avatarUrl,
     this.notificationPrefs = const {},
@@ -692,6 +702,9 @@ class UserProfile {
   final String lastName;
   final String email;
   final String language;
+  /// Content/question delivery language. Defaults to 'en'. Accepted values:
+  /// en, hi, ta, te, bn, mr — matches the backend's contentLanguage enum.
+  final String contentLanguage;
   final int? dailyGoalMinutes;
   final String? avatarUrl;
   final Map<String, bool> notificationPrefs;
@@ -707,6 +720,7 @@ class UserProfile {
       lastName: (user['lastName'] ?? '') as String,
       email: (user['email'] ?? '') as String,
       language: (prefs['language'] ?? 'en') as String,
+      contentLanguage: (prefs['contentLanguage'] ?? 'en') as String,
       dailyGoalMinutes: (prefs['dailyGoalMinutes'] as num?)?.toInt(),
       avatarUrl: j['avatarUrl'] as String?,
       notificationPrefs: notif.map((k, v) => MapEntry(k, v == true)),
