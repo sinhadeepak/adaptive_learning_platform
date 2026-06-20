@@ -23,9 +23,11 @@ import (
 )
 
 const (
-	ContentStreamName               = "CONTENT_EVENTS"
-	SubjectContentQuestionPublished = "content.question.published"
-	contentDurable                  = "quiz-content-published"
+	ContentStreamName                    = "CONTENT_EVENTS"
+	SubjectContentQuestionPublished      = "content.question.published"
+	SubjectContentTranslationPublished   = "content.translation.published"
+	contentDurable                       = "quiz-content-published"
+	contentTranslationDurable            = "quiz-content-translation-published"
 )
 
 // QuestionPublished is the wire payload produced by Content's
@@ -61,13 +63,26 @@ type QuestionPublished struct {
 	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
+// TranslationPublished is the wire payload produced by the learning service when
+// a human-translated question is approved. Field names match the JSON emitter exactly.
+type TranslationPublished struct {
+	QuestionID  string          `json:"question_id"`
+	Language    string          `json:"language"`
+	Stem        *string         `json:"stem,omitempty"`
+	Choices     []string        `json:"choices,omitempty"`
+	Explanation *string         `json:"explanation,omitempty"`
+	Payload     json.RawMessage `json:"payload,omitempty"`
+	Version     int             `json:"version"`
+}
+
 // ContentSubscriber owns the JetStream consumer that mirrors content.question.published
 // rows into quiz_schema.questions.
 type ContentSubscriber struct {
-	pool    *pgxpool.Pool
-	conn    *nats.Conn
-	consCtx jetstream.ConsumeContext
-	logger  *slog.Logger
+	pool         *pgxpool.Pool
+	conn         *nats.Conn
+	consCtx      jetstream.ConsumeContext
+	transConsCtx jetstream.ConsumeContext
+	logger       *slog.Logger
 }
 
 // StartContentSubscriber connects to NATS, ensures the stream exists, binds a
@@ -119,6 +134,26 @@ func StartContentSubscriber(natsURL string, pool *pgxpool.Pool, logger *slog.Log
 	}
 	sub.consCtx = consCtx
 	logger.Info("quiz subscribed to content.question.published", "stream", ContentStreamName, "durable", contentDurable)
+
+	transCons, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
+		Durable:       contentTranslationDurable,
+		FilterSubject: SubjectContentTranslationPublished,
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		AckWait:       60 * time.Second,
+		MaxDeliver:    5,
+	})
+	if err != nil {
+		_ = conn.Drain()
+		return nil, err
+	}
+	transConsCtx, err := transCons.Consume(sub.handleTranslation)
+	if err != nil {
+		_ = conn.Drain()
+		return nil, err
+	}
+	sub.transConsCtx = transConsCtx
+	logger.Info("quiz subscribed to content.translation.published", "stream", ContentStreamName, "durable", contentTranslationDurable)
+
 	return sub, nil
 }
 
@@ -126,10 +161,54 @@ func (s *ContentSubscriber) Close() error {
 	if s.consCtx != nil {
 		s.consCtx.Stop()
 	}
+	if s.transConsCtx != nil {
+		s.transConsCtx.Stop()
+	}
 	if s.conn != nil {
 		return s.conn.Drain()
 	}
 	return nil
+}
+
+func (s *ContentSubscriber) handleTranslation(msg jetstream.Msg) {
+	var ev TranslationPublished
+	if err := json.Unmarshal(msg.Data(), &ev); err != nil {
+		s.logger.Error("translation.unmarshal", "err", err)
+		_ = msg.Ack() // poison message: drop
+		return
+	}
+	if ev.QuestionID == "" || ev.Language == "" {
+		_ = msg.Ack()
+		return
+	}
+	var choicesJSON []byte
+	if ev.Choices != nil {
+		choicesJSON, _ = json.Marshal(ev.Choices)
+	}
+	var payloadArg any
+	if len(ev.Payload) > 0 {
+		payloadArg = []byte(ev.Payload)
+	}
+	ctx := context.Background()
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO quiz_schema.question_translations
+		  (question_id, language, stem, choices, explanation, payload, version, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7, now())
+		ON CONFLICT (question_id, language) DO UPDATE SET
+		  stem = EXCLUDED.stem,
+		  choices = EXCLUDED.choices,
+		  explanation = EXCLUDED.explanation,
+		  payload = EXCLUDED.payload,
+		  version = EXCLUDED.version,
+		  updated_at = now()
+		WHERE EXCLUDED.version >= quiz_schema.question_translations.version
+	`, ev.QuestionID, ev.Language, ev.Stem, choicesJSON, ev.Explanation, payloadArg, ev.Version)
+	if err != nil {
+		s.logger.Error("translation.upsert", "err", err, "qid", ev.QuestionID)
+		_ = msg.Nak()
+		return
+	}
+	_ = msg.Ack()
 }
 
 func (s *ContentSubscriber) handle(msg jetstream.Msg) {
