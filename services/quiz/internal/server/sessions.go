@@ -184,6 +184,29 @@ type startRequest struct {
 	// Unknown values are coerced to "match" so legacy callers stay safe.
 	// The CHECK constraint in migration 010 enforces the same set DB-side.
 	IntentAnchor string `json:"intentAnchor,omitempty"`
+	// Student translation delivery — BCP-47 language tag the student
+	// wants content delivered in. Allow-list: en, hi, ta, te, bn, mr.
+	// Unknown/absent values are coerced to "en" by normalizeContentLanguage.
+	Language string `json:"language,omitempty"`
+}
+
+// contentLanguages is the allow-list of supported content language tags.
+var contentLanguages = map[string]bool{
+	"en": true,
+	"hi": true,
+	"ta": true,
+	"te": true,
+	"bn": true,
+	"mr": true,
+}
+
+// normalizeContentLanguage coerces an arbitrary client string to a supported
+// BCP-47 tag. Empty / unknown (including "hinglish") → "en".
+func normalizeContentLanguage(s string) string {
+	if contentLanguages[s] {
+		return s
+	}
+	return "en"
 }
 
 // normalizeIntentAnchor coerces an arbitrary client string to one of
@@ -335,6 +358,9 @@ func (svc *SessionService) Start(logger *slog.Logger) http.HandlerFunc {
 				"topic", topicID,
 			)
 		}
+		// Student translation delivery — capture the requested content
+		// language. Unknown/absent values (e.g. "hinglish") fall back to "en".
+		sess.ContentLanguage = normalizeContentLanguage(req.Language)
 		if err := svc.store.CreateSession(r.Context(), sess); err != nil {
 			logger.Error("create_session.failed", "err", err)
 			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to create session")

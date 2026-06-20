@@ -606,12 +606,12 @@ func (s *Store) CreateSession(ctx context.Context, sess domain.Session) error {
 		INSERT INTO quiz_schema.quiz_sessions
 		  (id, user_id, tenant_id, topic_id, mode, strategy, status, target_count,
 		   served_count, correct_count, ability_estimate, started_at, expires_at,
-		   assignment_id, blueprint_id, source_share_slug, intent_anchor)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+		   assignment_id, blueprint_id, source_share_slug, intent_anchor, content_language)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
 		sess.ID, sess.UserID, sess.TenantID, sess.TopicID, sess.Mode, sess.Strategy,
 		sess.Status, sess.TargetCount, sess.ServedCount, sess.CorrectCount,
 		sess.AbilityEstimate, sess.StartedAt, sess.ExpiresAt,
-		sess.AssignmentID, sess.BlueprintID, slug, intentAnchor,
+		sess.AssignmentID, sess.BlueprintID, slug, intentAnchor, sess.ContentLanguage,
 	)
 	if err != nil {
 		return fmt.Errorf("insert session: %w", err)
@@ -656,11 +656,13 @@ func (s *Store) GetSession(ctx context.Context, id uuid.UUID) (domain.Session, e
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, user_id, COALESCE(tenant_id,''), topic_id, mode, strategy, status,
 		       target_count, served_count, correct_count, ability_estimate,
-		       started_at, expires_at, submitted_at, assignment_id, blueprint_id
+		       started_at, expires_at, submitted_at, assignment_id, blueprint_id,
+		       COALESCE(content_language, 'en')
 		FROM quiz_schema.quiz_sessions WHERE id = $1`, id,
 	).Scan(&sess.ID, &sess.UserID, &sess.TenantID, &sess.TopicID, &sess.Mode, &sess.Strategy,
 		&sess.Status, &sess.TargetCount, &sess.ServedCount, &sess.CorrectCount, &sess.AbilityEstimate,
-		&sess.StartedAt, &sess.ExpiresAt, &sess.SubmittedAt, &sess.AssignmentID, &sess.BlueprintID)
+		&sess.StartedAt, &sess.ExpiresAt, &sess.SubmittedAt, &sess.AssignmentID, &sess.BlueprintID,
+		&sess.ContentLanguage)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return sess, ErrSessionNotFound
 	}
