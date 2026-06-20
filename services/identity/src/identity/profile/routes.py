@@ -97,6 +97,7 @@ async def _build_profile(
         avatarUrl=row.get("avatar_url"),
         preferences=Preferences(
             language=row["language_pref"],
+            contentLanguage=row.get("content_language") or "en",
             dailyGoalMinutes=row.get("daily_goal_minutes"),
         ),
         exams=[
@@ -264,6 +265,7 @@ async def patch_preferences(
     await profiles.patch_preferences(
         user_id=principal.user_id,
         language=body.language,
+        content_language=body.contentLanguage,
         daily_goal_minutes=body.dailyGoalMinutes,
     )
     profile = await _build_profile(session=session, principal=principal)
