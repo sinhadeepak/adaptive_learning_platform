@@ -803,25 +803,26 @@ async def get_readiness_band(
     user_id: str,
     target_score: float = 0.7,
     days_to_exam: int = 90,
+    exam_id: str | None = None,
 ):
-    """Compute the user's current readiness band + suggested actions."""
-    # Readiness score = mean of per-topic EWAs (existing pattern)
+    """Compute the user's current readiness band + suggested actions.
+    Scoped to the exam's topics when exam_id is supplied."""
+    topic_ids = await resolve_exam_topic_ids(exam_id) if exam_id else None
     async with sessionmaker()() as s:
         from sqlalchemy import text as _text
-        res = await s.execute(
-            _text(
-                "SELECT COALESCE(AVG(ewa), 0)::float AS readiness_score "
-                "FROM analytics_schema.mastery "
-                "WHERE user_id = CAST(:uid AS uuid)"
-            ),
-            {"uid": user_id},
+        sql = (
+            "SELECT COALESCE(AVG(ewa), 0)::float AS readiness_score "
+            "FROM analytics_schema.mastery WHERE user_id = CAST(:uid AS uuid) "
         )
+        params: dict = {"uid": user_id}
+        if topic_ids is not None:
+            sql += "AND topic_id = ANY(CAST(:tids AS uuid[])) "
+            params["tids"] = list(topic_ids)
+        res = await s.execute(_text(sql), params)
         row = res.mappings().first()
         readiness = float(row["readiness_score"]) if row else 0.0
     band = _bands.readiness_band(
-        readiness_score=readiness,
-        days_to_exam=days_to_exam,
-        target_score=target_score,
+        readiness_score=readiness, days_to_exam=days_to_exam, target_score=target_score,
     )
     actions = _bands.BAND_ACTIONS.get(band, [])
     return {
