@@ -102,6 +102,7 @@ async def list_due(
     *,
     now: datetime,
     limit: int = 10,
+    topic_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Items where due_at <= now, ordered by due_at ASC (most overdue first).
 
@@ -110,21 +111,20 @@ async def list_due(
     titles in bulk via `learning_client.fetch_topics_bulk`. Returns
     rows with topicTitle="" — caller merges in the title.
     """
+    sql = f"""
+        SELECT q.topic_id, q.last_attempt_at, q.due_at,
+               q.interval_days, q.ease_factor, q.attempts
+          FROM {SCHEMA}.revision_queue q
+         WHERE q.user_id = :uid
+           AND q.due_at <= :now
+    """
+    params: dict[str, Any] = {"uid": user_id, "now": now, "limit": limit}
+    if topic_ids is not None:
+        sql += " AND q.topic_id = ANY(CAST(:tids AS uuid[]))"
+        params["tids"] = list(topic_ids)
+    sql += " ORDER BY q.due_at ASC, q.last_attempt_at ASC LIMIT :limit"
     rows = (
-        await session.execute(
-            text(
-                f"""
-                SELECT q.topic_id, q.last_attempt_at, q.due_at,
-                       q.interval_days, q.ease_factor, q.attempts
-                  FROM {SCHEMA}.revision_queue q
-                 WHERE q.user_id = :uid
-                   AND q.due_at <= :now
-                 ORDER BY q.due_at ASC, q.last_attempt_at ASC
-                 LIMIT :limit
-                """
-            ),
-            {"uid": user_id, "now": now, "limit": limit},
-        )
+        await session.execute(text(sql), params)
     ).mappings().all()
     return [
         {

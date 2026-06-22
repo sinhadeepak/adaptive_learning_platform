@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 Locale = Literal["en-IN", "hi-IN", "en-US"]
 Language = Literal["en", "hi", "hinglish"]
+ContentLanguage = Literal["en", "hi", "ta", "te", "bn", "mr"]
 # F2b — DIAGNOSTIC_DONE sits between EXAM_SELECTED and ONBOARDED when
 # the student's tenant has require_onboarding_diagnostic=true.
 # Consumer-tier tenants (default) transition EXAM_SELECTED → ONBOARDED
@@ -30,6 +31,7 @@ class ExamSelection(BaseModel):
 
 class Preferences(BaseModel):
     language: Language = "en"
+    contentLanguage: ContentLanguage = "en"
     dailyGoalMinutes: int | None = None
 
 
@@ -108,6 +110,7 @@ class ExamPatchRequest(BaseModel):
 
 class PreferencesPatch(BaseModel):
     language: Language | None = None
+    contentLanguage: ContentLanguage | None = None
     dailyGoalMinutes: int | None = Field(default=None, ge=5, le=240)
 
 

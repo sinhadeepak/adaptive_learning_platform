@@ -103,6 +103,10 @@ type Session struct {
 	// CHECK constraint enforces 'match' | 'push' | 'build_confidence';
 	// unset means the column DEFAULT applies (= 'match').
 	IntentAnchor string
+	// Student translation delivery — the BCP-47 language tag the student
+	// wants content delivered in. Allow-list: en, hi, ta, te, bn, mr.
+	// Unknown/absent values are coerced to 'en' at session-start time.
+	ContentLanguage string
 }
 
 func (s Session) IsExpired(now time.Time) bool {

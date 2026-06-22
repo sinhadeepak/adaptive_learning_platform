@@ -22,6 +22,8 @@
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
+import '../../api/api_client.dart';
+import '../../quiz/content_language_helper.dart';
 import '../../quiz/quiz_client.dart';
 
 /// Practice session mode. v1 only ships PRACTICE (Quick mode). The
@@ -110,10 +112,13 @@ class _VidyaPracticeSessionScreenState
       _selectedIdx = null;
     });
     try {
+      final api = ApiClient(widget.client.auth);
+      final langField = await contentLanguageField(api);
       final start = await widget.client.start(
         topicId: widget.topicId,
         userId: widget.userId,
         mode: widget.mode.wireName,
+        extraFields: langField,
       );
       _sessionId = start.sessionId;
       _started = DateTime.now();

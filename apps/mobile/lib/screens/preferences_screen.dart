@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../quiz/content_language_helper.dart';
 import '../widgets/alp_card.dart';
 import 'onboarding/welcome_screen.dart';
 
@@ -18,8 +19,10 @@ class PreferencesScreen extends StatefulWidget {
 
 class _PreferencesScreenState extends State<PreferencesScreen> {
   String _language = 'en';
+  String _contentLanguage = 'en';
   int _dailyGoal = 60;
   bool _saving = false;
+  bool _savingContentLang = false;
   bool _loading = true;
   String? _success;
   String? _error;
@@ -28,6 +31,16 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     ('en', 'English'),
     ('hi', 'Hindi (हिंदी)'),
     ('hinglish', 'Hinglish'),
+  ];
+
+  /// Options for Question language — matches backend contentLanguage enum.
+  static const _contentLanguages = [
+    ('en', 'English'),
+    ('hi', 'हिन्दी'),
+    ('ta', 'தமிழ்'),
+    ('te', 'తెలుగు'),
+    ('bn', 'বাংলা'),
+    ('mr', 'मराठी'),
   ];
 
   @override
@@ -41,6 +54,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     if (!mounted) return;
     if (p != null) {
       _language = p.language;
+      _contentLanguage = p.contentLanguage;
       _dailyGoal = p.dailyGoalMinutes ?? 60;
     }
     setState(() => _loading = false);
@@ -78,6 +92,30 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     }
   }
 
+  /// Patches only { contentLanguage } — separate call, independent of App Language.
+  Future<void> _saveContentLanguage(String lang) async {
+    setState(() {
+      _savingContentLang = true;
+      _error = null;
+    });
+    try {
+      final updated = await widget.api.updateContentLanguage(lang);
+      if (!mounted) return;
+      if (updated == null) {
+        setState(() => _error = 'Could not save question language.');
+      } else {
+        // Invalidate the in-memory cache so the new language is used on next session start.
+        resetContentLanguageCache();
+        _contentLanguage = lang;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Could not save question language: $e');
+    } finally {
+      if (mounted) setState(() => _savingContentLang = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AuroraScaffold(
@@ -93,7 +131,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'LANGUAGE',
+                        'APP LANGUAGE',
                         style: TextStyle(
                           color: AlpColors.textMuted,
                           fontSize: 11,
@@ -111,6 +149,53 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                             contentPadding: EdgeInsets.zero,
                             dense: true,
                           ),),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                AlpCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'QUESTION LANGUAGE',
+                        style: TextStyle(
+                          color: AlpColors.textMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Questions will be delivered in this language when a translation is available. Independent of your app language.',
+                        style: TextStyle(color: AlpColors.textFaint, fontSize: 11),
+                      ),
+                      const SizedBox(height: 8),
+                      ..._contentLanguages.map((opt) => RadioListTile<String>(
+                            value: opt.$1,
+                            groupValue: _contentLanguage,
+                            onChanged: _savingContentLang
+                                ? null
+                                : (v) {
+                                    final lang = v ?? 'en';
+                                    setState(() => _contentLanguage = lang);
+                                    _saveContentLanguage(lang);
+                                  },
+                            activeColor: AlpColors.colorAi,
+                            title: Text(opt.$2, style: const TextStyle()),
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                          ),),
+                      if (_savingContentLang)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 6),
+                          child: Text(
+                            'Saving…',
+                            style: TextStyle(color: AlpColors.textFaint, fontSize: 11),
+                          ),
+                        ),
                     ],
                   ),
                 ),

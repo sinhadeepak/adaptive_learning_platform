@@ -37,6 +37,7 @@ SUBJECT_QUESTION_PUBLISHED = "content.question.published"
 # this subject and writes one `assignment.new` notification per cohort
 # member; web + mobile clients deep-link to /assignments/{id}.
 SUBJECT_ASSIGNMENT_CREATED = "content.assignment.created"
+SUBJECT_TRANSLATION_PUBLISHED = "content.translation.published"
 
 _client: NatsClient | None = None
 _js: JetStreamContext | None = None
@@ -138,6 +139,27 @@ async def publish_question_published(question: dict[str, Any]) -> None:
         log.info("content published question %s", question["id"])
     except Exception as err:
         log.warning("content publish failed for %s: %s", question["id"], err)
+
+
+async def publish_translation_published(payload: dict[str, Any]) -> None:
+    """Emit content.translation.published. Best-effort: a publish failure is
+    logged but not propagated — the DB row is the durable truth."""
+    if _js is None:
+        log.debug("content noop publish: js not connected")
+        return
+    try:
+        await _js.publish(
+            SUBJECT_TRANSLATION_PUBLISHED, json.dumps(payload).encode("utf-8")
+        )
+        log.info(
+            "content published translation %s/%s",
+            payload.get("question_id"), payload.get("language"),
+        )
+    except Exception as err:  # noqa: BLE001
+        log.warning(
+            "content translation publish failed for %s/%s: %s",
+            payload.get("question_id"), payload.get("language"), err,
+        )
 
 
 async def publish_assignment_created(assignment: dict[str, Any]) -> None:

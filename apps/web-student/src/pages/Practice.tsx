@@ -323,6 +323,7 @@ function MistakesPracticePanel() {
 interface Profile {
   user: { firstName: string };
   exams: Array<{ examId: string; targetDate: string | null }>;
+  preferences?: { contentLanguage?: string };
 }
 
 interface MasteryListResponse {
@@ -390,6 +391,8 @@ export function Practice() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const examIdParam = searchParams.get("examId");
+  const [examId, setExamId] = useState<string | null>(examIdParam);
   const pageTab = searchParams.get("tab") ?? "practice";
 
   // Safety net: this hub does not scope to a single topic. A stray/bookmarked
@@ -400,6 +403,7 @@ export function Practice() {
     if (topicParam) navigate(`/catalog/topic/${topicParam}`, { replace: true });
   }, [topicParam, navigate]);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [examTopics, setExamTopics] = useState<Array<{ id: string; title: string; subjectName: string; examName?: string; examCode?: string }>>([]);
   const [mastery, setMastery] = useState<MasteryListResponse["topics"] | null>(null);
   const [streak, setStreak] = useState<StreakResponse | null>(null);
   const [guided, setGuided] = useState<GuidedResponse | null>(null);
@@ -421,13 +425,6 @@ export function Practice() {
     dueAt: string;
     overdueDays: number;
   }> | null>(null);
-  const [topicDecay, setTopicDecay] = useState<Array<{
-    conceptId?: string;
-    topicId?: string;
-    severity: string;
-    daysSince: number;
-  }> | null>(null);
-
   useEffect(() => {
     (async () => {
       try {
@@ -439,11 +436,30 @@ export function Practice() {
     })();
   }, []);
 
+  // Resolve current exam: URL examId → primary enrolled exam fallback.
   useEffect(() => {
-    if (!user) return;
+    if (!profile) return;
+    const enrolled = (profile.exams ?? []).map((e) => e.examId);
+    if (examIdParam && enrolled.includes(examIdParam)) { setExamId(examIdParam); return; }
+    setExamId(enrolled[0] ?? null);
+  }, [profile, examIdParam]);
+
+  // Fetch the exam's topic catalog so we can cold-start the drill list.
+  useEffect(() => {
+    if (!examId) { setExamTopics([]); return; }
     (async () => {
       try {
-        const r = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
+        const r = await auth.fetch(`/api/v1/catalog/exams/${examId}/subjects-with-topics`);
+        if (r.ok) { const b = await r.json(); setExamTopics(b.topics ?? []); }
+      } catch { /* swallow */ }
+    })();
+  }, [examId]);
+
+  useEffect(() => {
+    if (!user || !examId) return;
+    (async () => {
+      try {
+        const r = await auth.fetch(`/api/v1/analytics/mastery/${user.id}?exam_id=${examId}`);
         if (r.ok) {
           const body = (await r.json()) as MasteryListResponse;
           setMastery(body.topics);
@@ -474,15 +490,15 @@ export function Practice() {
         /* swallow */
       }
       try {
-        const r = await auth.fetch(`/api/v1/adaptive/guided-next-steps/${user.id}`);
+        const r = await auth.fetch(`/api/v1/adaptive/guided-next-steps/${user.id}?exam_id=${examId}`);
         if (r.ok) setGuided((await r.json()) as GuidedResponse);
       } catch {
         /* swallow */
       }
-      // Phase 1B — readiness band, revision queue, topic decay (parallel).
+      // Phase 1B — readiness band + revision queue (exam-scoped).
       try {
         const r = await auth.fetch(
-          `/api/v1/analytics/readiness-band/${user.id}?target_score=0.7&days_to_exam=120`,
+          `/api/v1/analytics/readiness-band/${user.id}?target_score=0.7&days_to_exam=120&exam_id=${examId}`,
         );
         if (r.ok) setReadinessBand(await r.json());
       } catch {
@@ -490,7 +506,7 @@ export function Practice() {
       }
       try {
         const r = await auth.fetch(
-          `/api/v1/analytics/revision/${user.id}?limit=5`,
+          `/api/v1/analytics/revision/${user.id}?limit=5&exam_id=${examId}`,
         );
         if (r.ok) {
           const body = await r.json();
@@ -499,17 +515,8 @@ export function Practice() {
       } catch {
         /* swallow */
       }
-      try {
-        const r = await auth.fetch(`/api/v1/analytics/topic-decay/${user.id}`);
-        if (r.ok) {
-          const body = await r.json();
-          setTopicDecay(body.items ?? []);
-        }
-      } catch {
-        /* swallow */
-      }
     })();
-  }, [user]);
+  }, [user, examId]);
 
   // Hydrate any topic titles referenced by guided steps that weren't already
   // pulled in via mastery (e.g. a Diagnose step on a not-yet-attempted topic).
@@ -541,10 +548,13 @@ export function Practice() {
     setError(null);
     setStartingTopicId(topicId);
     try {
+      const { contentLanguageField } = await import("../lib/session-start");
+      const langField = await contentLanguageField();
+      const sessionBody: Record<string, unknown> = { topicId, userId: user.id, mode: "PRACTICE", ...langField };
       const r = await auth.fetch("/api/v1/quiz/sessions/start", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ topicId, userId: user.id, mode: "PRACTICE" }),
+        body: JSON.stringify(sessionBody),
       });
       if (r.status === 422) {
         setError("That topic doesn't have any practice questions yet.");
@@ -565,18 +575,36 @@ export function Practice() {
   const meanEwa =
     tested.length > 0 ? tested.reduce((s, t) => s + t.ewa, 0) / tested.length : 0;
 
-  // Weakest topics with at least one attempt — these are the highest-leverage
-  // drills. Fall back to lowest-ewa topics if no attempts yet.
-  const weakestDrills = useMemo<DrillTopic[]>(() => {
-    if (!mastery) return [];
-    const ranked = [...mastery].sort((a, b) => a.ewa - b.ewa);
-    return ranked.slice(0, 6).map((t) => ({
-      topicId: t.topicId,
-      title: topicTitles[t.topicId]?.title ?? `Topic ${t.topicId.slice(0, 8)}`,
-      ewa: t.ewa,
-      attempts: t.n,
-    }));
-  }, [mastery, topicTitles]);
+  const masteryByTopic = useMemo(() => {
+    const m = new Map<string, { ewa: number; n: number }>();
+    (mastery ?? []).forEach((t) => m.set(t.topicId, { ewa: t.ewa, n: t.n }));
+    return m;
+  }, [mastery]);
+
+  const examDrills = useMemo(() =>
+    examTopics.map((t) => {
+      const mt = masteryByTopic.get(t.id);
+      return {
+        topicId: t.id,
+        title: t.title,
+        ewa: mt?.ewa ?? 0,
+        n: mt?.n ?? 0,
+        started: !!mt && mt.n > 0,
+      };
+    }).sort((a, b) => Number(a.started) - Number(b.started) || a.ewa - b.ewa),
+  [examTopics, masteryByTopic]);
+
+  // Paginate the weak-topic list so a full exam catalog (50-90 topics) doesn't
+  // produce an unbounded column. Reset to page 0 when the exam changes.
+  const DRILL_PAGE_SIZE = 8;
+  const [drillPage, setDrillPage] = useState(0);
+  useEffect(() => { setDrillPage(0); }, [examId]);
+  const drillPageCount = Math.max(1, Math.ceil(examDrills.length / DRILL_PAGE_SIZE));
+  const drillSafePage = Math.min(drillPage, drillPageCount - 1);
+  const pagedDrills = examDrills.slice(
+    drillSafePage * DRILL_PAGE_SIZE,
+    drillSafePage * DRILL_PAGE_SIZE + DRILL_PAGE_SIZE,
+  );
 
   // Recent practice — sorted by attempts desc, capped to 6.
   const recentPractice = useMemo<DrillTopic[]>(() => {
@@ -604,10 +632,29 @@ export function Practice() {
       return true;
     }
   });
-  const showDiagnosticGate =
-    !diagDismissed &&
-    mastery !== null &&
-    mastery.filter((m) => m.n > 0).length === 0;
+  // The diagnostic gate is a once-per-user onboarding nudge for students who
+  // have NEVER practiced. It must key off GLOBAL attempts, not the per-exam
+  // (exam-scoped) `mastery` — otherwise switching to a fresh exam wrongly
+  // re-triggers it, and its full-screen overlay then intercepts the drill
+  // buttons (clicking Drill dismisses the modal instead of starting a session).
+  const [globalHasAttempts, setGlobalHasAttempts] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const r = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
+        if (r.ok) {
+          const b = (await r.json()) as { topics?: Array<{ n: number }> };
+          setGlobalHasAttempts((b.topics ?? []).some((t) => t.n > 0));
+        } else {
+          setGlobalHasAttempts(false);
+        }
+      } catch {
+        setGlobalHasAttempts(false);
+      }
+    })();
+  }, [user]);
+  const showDiagnosticGate = !diagDismissed && globalHasAttempts === false;
 
   function dismissDiagnostic() {
     try {
@@ -626,7 +673,10 @@ export function Practice() {
 
   const greeting = profile?.user.firstName ?? user?.firstName ?? "there";
 
-  const empty = mastery !== null && mastery.length === 0;
+  // Page is "empty" only when there are no exam topics to show AND mastery is
+  // also empty. When an exam has topics (examDrills.length > 0) we always
+  // render the drill list — cold-start students see every topic as "Not started".
+  const empty = examDrills.length === 0 && (mastery !== null && mastery.length === 0);
 
   return (
     <VidyaShell
@@ -819,10 +869,8 @@ export function Practice() {
         </section>
       ) : null}
 
-      {/* ── Phase 1B — "Today's plan" panel: 3-col grid wiring readiness
-          band, revision queue, and topic decay alerts. Each card surfaces
-          its existing analytics primitive. ─────────────────────────── */}
-      {(readinessBand || revisionQueue?.length || topicDecay?.length) ? (
+      {/* ── Phase 1B — "Today's plan" panel: readiness band + revision queue ── */}
+      {(readinessBand || revisionQueue?.length) ? (
         <div
           style={{
             display: "grid",
@@ -931,48 +979,6 @@ export function Practice() {
             </div>
           )}
 
-          {topicDecay && topicDecay.length > 0 && (
-            <div className="card" style={{ padding: 14 }}>
-              <h3
-                style={{
-                  margin: "0 0 8px",
-                  fontSize: 12,
-                  color: "var(--ink-3)",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.04,
-                }}
-              >
-                Decay alerts
-              </h3>
-              {topicDecay.filter((d) => d.severity !== "fresh").slice(0, 4).map((d, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: 12,
-                    padding: "4px 0",
-                    color: "var(--ink-2)",
-                  }}
-                >
-                  <span>{d.topicId?.slice(0, 8) ?? d.conceptId?.slice(0, 8) ?? "?"}…</span>
-                  <span
-                    style={{
-                      color:
-                        d.severity === "critical"
-                          ? "var(--bad, #f43f5e)"
-                          : d.severity === "stale"
-                          ? "var(--warn, #fbbf24)"
-                          : "var(--ink-3)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {d.severity} · {d.daysSince}d
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       ) : null}
 
@@ -1211,17 +1217,24 @@ export function Practice() {
           {/* Right — Weakest topics for drilling */}
           <div className="card">
             <div className="sec-row">
-              <h2 className="section-heading">Drill weak topics</h2>
+              <h2 className="section-heading">
+                Drill weak topics
+                {examTopics[0]?.examName || examTopics[0]?.examCode ? (
+                  <span style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 400, marginLeft: 6 }}>
+                    · {examTopics[0]?.examName ?? examTopics[0]?.examCode}
+                  </span>
+                ) : null}
+              </h2>
               <Link to="/catalog" className="see auth-link">
                 Browse all ›
               </Link>
             </div>
-            {weakestDrills.length === 0 ? (
+            {examDrills.length === 0 ? (
               <div style={{ fontSize: 11.5, color: "var(--ink-4)", padding: "8px 0" }}>
                 No mastery data yet.
               </div>
             ) : (
-              weakestDrills.map((t) => {
+              pagedDrills.map((t) => {
                 const pct = Math.round(t.ewa * 100);
                 const strength = strengthFor(t.ewa);
                 const barColor =
@@ -1238,22 +1251,28 @@ export function Practice() {
                     <div className="pr-drill-icon pr-drill-icon-weak">🎯</div>
                     <div className="pr-drill-body">
                       <div className="pr-drill-title">{t.title}</div>
-                      <div className="pr-drill-meta" style={{ marginTop: 4 }}>
-                        <span className="pr-drill-meta-bar">
-                          <span
-                            style={{
-                              display: "block",
-                              width: `${pct}%`,
-                              height: "100%",
-                              background: barColor,
-                              borderRadius: 2,
-                            }}
-                          />
-                        </span>
-                        <span style={{ color: barColor, fontWeight: 700 }}>{pct}%</span>
-                        <span>·</span>
-                        <span>{t.attempts} session{t.attempts === 1 ? "" : "s"}</span>
-                      </div>
+                      {t.started ? (
+                        <div className="pr-drill-meta" style={{ marginTop: 4 }}>
+                          <span className="pr-drill-meta-bar">
+                            <span
+                              style={{
+                                display: "block",
+                                width: `${pct}%`,
+                                height: "100%",
+                                background: barColor,
+                                borderRadius: 2,
+                              }}
+                            />
+                          </span>
+                          <span style={{ color: barColor, fontWeight: 700 }}>{pct}%</span>
+                          <span>·</span>
+                          <span>{t.n} session{t.n === 1 ? "" : "s"}</span>
+                        </div>
+                      ) : (
+                        <div className="pr-drill-meta" style={{ marginTop: 4 }}>
+                          <span style={{ fontSize: 11, color: "var(--ink-4)", fontStyle: "italic" }}>Not started</span>
+                        </div>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -1267,6 +1286,41 @@ export function Practice() {
                 );
               })
             )}
+            {examDrills.length > DRILL_PAGE_SIZE ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginTop: 8,
+                  fontSize: 11.5,
+                  color: "var(--ink-4)",
+                }}
+              >
+                <button
+                  type="button"
+                  className="see auth-link"
+                  disabled={drillSafePage === 0}
+                  onClick={() => setDrillPage((p) => Math.max(0, p - 1))}
+                  style={{ background: "none", border: "none", padding: 0, cursor: drillSafePage === 0 ? "default" : "pointer", opacity: drillSafePage === 0 ? 0.4 : 1 }}
+                >
+                  ‹ Prev
+                </button>
+                <span>
+                  {drillSafePage * DRILL_PAGE_SIZE + 1}–
+                  {Math.min((drillSafePage + 1) * DRILL_PAGE_SIZE, examDrills.length)} of {examDrills.length}
+                </span>
+                <button
+                  type="button"
+                  className="see auth-link"
+                  disabled={drillSafePage >= drillPageCount - 1}
+                  onClick={() => setDrillPage((p) => Math.min(drillPageCount - 1, p + 1))}
+                  style={{ background: "none", border: "none", padding: 0, cursor: drillSafePage >= drillPageCount - 1 ? "default" : "pointer", opacity: drillSafePage >= drillPageCount - 1 ? 0.4 : 1 }}
+                >
+                  Next ›
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

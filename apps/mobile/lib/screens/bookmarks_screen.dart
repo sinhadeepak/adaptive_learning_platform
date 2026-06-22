@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../auth/auth_client.dart';
+import '../quiz/content_language_helper.dart';
 import '../quiz/quiz_client.dart';
 import '../quiz/quiz_screen.dart';
 import '../widgets/alp_card.dart';
@@ -74,9 +75,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     }
     final user = widget.auth.user;
     if (user == null) return;
+    final langField = await contentLanguageField(widget.api);
     final client = QuizClient(auth: widget.auth);
     try {
-      final session = await client.start(topicId: b.topicId!, userId: user.id);
+      final session = await client.start(
+          topicId: b.topicId!, userId: user.id, extraFields: langField);
       if (!mounted) return;
       await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => QuizScreen(client: client, sessionId: session.sessionId, api: widget.api),

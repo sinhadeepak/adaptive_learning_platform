@@ -371,7 +371,7 @@ func TestPG_MockModeOrdersByDifficulty(t *testing.T) {
 		}
 		// Look up difficulty via a direct store call.
 		qid, _ := uuid.Parse(nx.Item.QuestionID)
-		q, err := f.st.GetQuestion(context.Background(), qid)
+		q, err := f.st.GetQuestion(context.Background(), qid, "en")
 		if err != nil {
 			t.Fatalf("step %d: get question: %v", i, err)
 		}
@@ -448,7 +448,7 @@ func correctAnswerFor(t *testing.T, st *store.Store, questionID string) int16 {
 	if err != nil {
 		t.Fatalf("parse questionID: %v", err)
 	}
-	q, err := st.GetQuestion(context.Background(), qid)
+	q, err := st.GetQuestion(context.Background(), qid, "en")
 	if err != nil {
 		t.Fatalf("get question %s: %v", questionID, err)
 	}
@@ -502,5 +502,71 @@ func TestPG_PerfectScoreBumpsCorrectCount(t *testing.T) {
 	}
 	if sr.Score != 1.0 {
 		t.Errorf("submit: want score=1.0, got %v", sr.Score)
+	}
+}
+
+// TestPG_NextFallbackTranslated verifies that the /next fresh-pick path returns
+// translated content even when IRT/ADP are disabled and the fallback picker
+// (PickNextQuestion / binary_search) is used.
+//
+// Uses an isolated topic UUID with only one seeded question so the picker is
+// guaranteed to serve exactly that question on the first /next call.
+func TestPG_NextFallbackTranslated(t *testing.T) {
+	// Force the binary_search fallback by disabling IRT.
+	f := newPGFixture(t, stubFlags{irtEnabled: false})
+	if f == nil {
+		return
+	}
+
+	ctx := context.Background()
+	qid := uuid.New()
+	// Use an isolated topic UUID (no FK constraint on topic_id) so the
+	// bank has exactly one question — the picker MUST serve it first.
+	isolatedTopicID := uuid.New()
+
+	// Seed a single English question in the isolated topic.
+	_, err := f.st.Pool().Exec(ctx, `
+		INSERT INTO quiz_schema.questions
+			(id, topic_id, stem, choices, correct_idx, difficulty_b, language, status)
+		VALUES ($1, $2, 'EN fallback stem', '["a","b","c","d"]'::jsonb, 0, 0.5, 'en', 'PUBLISHED')`,
+		qid, isolatedTopicID)
+	if err != nil {
+		t.Fatalf("seed question: %v", err)
+	}
+	defer func() {
+		_, _ = f.st.Pool().Exec(ctx, `DELETE FROM quiz_schema.question_translations WHERE question_id=$1`, qid)
+		_, _ = f.st.Pool().Exec(ctx, `DELETE FROM quiz_schema.questions WHERE id=$1`, qid)
+	}()
+
+	// Seed a Hindi translation for the question.
+	_, err = f.st.Pool().Exec(ctx, `
+		INSERT INTO quiz_schema.question_translations (question_id, language, stem, choices, version)
+		VALUES ($1, 'hi', 'HI fallback stem', '["क","ख","ग","घ"]'::jsonb, 1)`, qid)
+	if err != nil {
+		t.Fatalf("seed translation: %v", err)
+	}
+
+	// Start a session with content language 'hi' on our isolated topic.
+	body := []byte(fmt.Sprintf(
+		`{"topicId":%q,"userId":%q,"mode":"PRACTICE","language":"hi"}`,
+		isolatedTopicID.String(), uuid.New().String(),
+	))
+	started := startSession(t, f.srv, body)
+	t.Cleanup(func() { f.cleanupSession(t, started.SessionID) })
+
+	if started.Strategy != "binary_search" {
+		t.Skipf("expected binary_search strategy (fallback), got %q — skipping", started.Strategy)
+	}
+
+	// The isolated topic has exactly one question — the first /next MUST return it.
+	nx := getNext(t, f.srv, started.SessionID)
+	if nx.Done || nx.Item == nil {
+		t.Fatalf("expected item on first /next, got done=%v item=%v", nx.Done, nx.Item)
+	}
+	if nx.Item.QuestionID != qid.String() {
+		t.Errorf("expected seeded question %s, got %s", qid, nx.Item.QuestionID)
+	}
+	if nx.Item.Stem != "HI fallback stem" {
+		t.Errorf("fallback picker: want translated stem %q, got %q", "HI fallback stem", nx.Item.Stem)
 	}
 }

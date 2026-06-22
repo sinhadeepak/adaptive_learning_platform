@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 
 import '../auth/auth_client.dart';
 import '../auth/deep_link.dart';
+import '../quiz/content_language_helper.dart';
 import '../screens/main_scaffold.dart';
 import 'aurora_route.dart';
 import 'density_notifier.dart';
@@ -195,6 +196,7 @@ class _VidyaRootAppState extends State<VidyaRootApp> {
 
   Future<void> _onSignOut() async {
     await widget.auth.logout();
+    resetContentLanguageCache();
     if (mounted) setState(() => _screen = _VidyaScreen.login);
   }
 

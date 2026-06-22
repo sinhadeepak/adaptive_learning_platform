@@ -44,6 +44,7 @@ from learning.localisation.repositories import (
     upsert_translation_draft,
 )
 from learning.localisation.review_queue import bulk_decide, list_queue
+from learning.localisation.translation_events import emit_translation_published
 from learning.localisation.language_registry import enabled_target_codes
 from learning.localisation.translate_one import translate_question_into
 from learning.types import is_supported
@@ -341,6 +342,8 @@ async def review_translation(
             reviewer_id=body.reviewerId,
         )
     await session.commit()
+    if body.action == "approve":
+        await emit_translation_published(session, question_id=question_id, language=lang)
     return await get_translation(question_id, lang, session)
 
 
@@ -449,6 +452,27 @@ async def post_review_bulk(
         reviewer_id=body.reviewerId)
     await session.commit()
     return out
+
+
+# ── POST /localisation/translations/backfill ───────────────────────────────
+
+
+@router.post("/localisation/translations/backfill", dependencies=[Depends(require_admin)])
+async def backfill_translations(
+    session: AsyncSession = Depends(_content_session),
+) -> dict[str, int]:
+    """One-time: emit content.translation.published for every PUBLISHED
+    translation so the quiz mirror is seeded. Idempotent (quiz upserts)."""
+    rows = (await session.execute(text(f"""
+        SELECT artifact_id::text AS qid, language
+          FROM {CONTENT_SCHEMA}.content_artifact_translations
+         WHERE status = 'PUBLISHED'
+    """))).mappings().all()
+    emitted = 0
+    for r in rows:
+        await emit_translation_published(session, question_id=r["qid"], language=r["language"])
+        emitted += 1
+    return {"emitted": emitted}
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────

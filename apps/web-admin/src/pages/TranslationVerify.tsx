@@ -78,30 +78,45 @@ export function TranslationVerify() {
     [items],
   );
 
+  const allSelected = items.length > 0 && items.every((i) => selected.has(rowKey(i)));
+  function toggleSelectAll() {
+    setSelected((s) => {
+      if (items.length > 0 && items.every((i) => s.has(rowKey(i)))) return new Set();
+      return new Set(items.map(rowKey));
+    });
+  }
+
   return (
     <AdminShell crumbs="Quality · Verify translations" title="Verify translations">
       {error && <Banner tone="danger">{error}</Banner>}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 12, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, color: "var(--ink-2)", cursor: "pointer" }}>
+          <input type="checkbox" checked={allSelected} onChange={toggleSelectAll}
+            disabled={items.length === 0} aria-label="Select all drafts" />
+          Select all
+        </label>
         <select value={langFilter} onChange={(e) => setLangFilter(e.target.value)}
           style={{ padding: "6px 10px", background: "var(--paper-2)", color: "var(--ink)", border: "1px solid var(--rule)", borderRadius: 4 }}>
           <option value="">All languages</option>
           {langs.map((l) => <option key={l} value={l}>{l.toUpperCase()}</option>)}
         </select>
-        <span style={{ color: "var(--ink-3)", fontSize: 13 }}>{items.length} draft(s)</span>
+        <span style={{ color: "var(--ink-3)", fontSize: 13 }}>
+          {items.length} draft(s){selected.size > 0 ? ` · ${selected.size} selected` : ""}
+        </span>
       </div>
 
-      <div style={{ display: "grid", gap: 8 }}>
+      <div style={{ display: "grid", gap: 8, gridTemplateColumns: "minmax(0, 1fr)" }}>
         {items.map((item) => {
           const k = rowKey(item);
           const isOpen = expanded.has(k);
           return (
-            <div key={k} style={{ border: "1px solid var(--rule)", borderRadius: 8, background: "var(--paper-2)" }}>
+            <div key={k} style={{ minWidth: 0, border: "1px solid var(--rule)", borderRadius: 8, background: "var(--paper-2)" }}>
               <div style={{ display: "flex", gap: 12, alignItems: "center", padding: 12 }}>
                 <input type="checkbox" checked={selected.has(k)} onChange={() => toggleSel(k)}
                   aria-label={`Select ${item.questionId} ${item.language}`} />
                 <Pill tone="muted">{item.language.toUpperCase()}</Pill>
-                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.stem}>{item.stem}</span>
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.stem}>{item.stem}</span>
                 {item.aiConfidence != null && (
                   <Pill tone={item.aiConfidence < 0.6 ? "warning" : "info"}>conf {item.aiConfidence.toFixed(2)}</Pill>
                 )}

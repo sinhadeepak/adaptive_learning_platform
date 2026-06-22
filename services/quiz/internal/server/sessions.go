@@ -184,6 +184,29 @@ type startRequest struct {
 	// Unknown values are coerced to "match" so legacy callers stay safe.
 	// The CHECK constraint in migration 010 enforces the same set DB-side.
 	IntentAnchor string `json:"intentAnchor,omitempty"`
+	// Student translation delivery — BCP-47 language tag the student
+	// wants content delivered in. Allow-list: en, hi, ta, te, bn, mr.
+	// Unknown/absent values are coerced to "en" by normalizeContentLanguage.
+	Language string `json:"language,omitempty"`
+}
+
+// contentLanguages is the allow-list of supported content language tags.
+var contentLanguages = map[string]bool{
+	"en": true,
+	"hi": true,
+	"ta": true,
+	"te": true,
+	"bn": true,
+	"mr": true,
+}
+
+// normalizeContentLanguage coerces an arbitrary client string to a supported
+// BCP-47 tag. Empty / unknown (including "hinglish") → "en".
+func normalizeContentLanguage(s string) string {
+	if contentLanguages[s] {
+		return s
+	}
+	return "en"
 }
 
 // normalizeIntentAnchor coerces an arbitrary client string to one of
@@ -335,6 +358,9 @@ func (svc *SessionService) Start(logger *slog.Logger) http.HandlerFunc {
 				"topic", topicID,
 			)
 		}
+		// Student translation delivery — capture the requested content
+		// language. Unknown/absent values (e.g. "hinglish") fall back to "en".
+		sess.ContentLanguage = normalizeContentLanguage(req.Language)
 		if err := svc.store.CreateSession(r.Context(), sess); err != nil {
 			logger.Error("create_session.failed", "err", err)
 			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to create session")
@@ -834,7 +860,7 @@ func (svc *SessionService) Next(logger *slog.Logger) http.HandlerFunc {
 				})
 				return
 			}
-			q, err := svc.store.GetQuestion(r.Context(), it.QuestionID)
+			q, err := svc.store.GetQuestion(r.Context(), it.QuestionID, sess.ContentLanguage)
 			if err != nil {
 				logger.Error("get_question.failed", "err", err)
 				writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load question")
@@ -871,7 +897,7 @@ func (svc *SessionService) Next(logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 		if has {
-			q, err := svc.store.GetQuestion(r.Context(), current.QuestionID)
+			q, err := svc.store.GetQuestion(r.Context(), current.QuestionID, sess.ContentLanguage)
 			if err != nil {
 				logger.Error("get_question.failed", "err", err)
 				writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load question")
@@ -904,6 +930,16 @@ func (svc *SessionService) Next(logger *slog.Logger) http.HandlerFunc {
 		if err != nil {
 			logger.Error("pick_question.failed", "err", err)
 			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to pick next question")
+			return
+		}
+		// Re-fetch through the translation overlay so every fresh serve is
+		// localised regardless of which picker branch ran (the fallback path
+		// svc.store.PickNextQuestion returns English-only; the IRT/ADP branches
+		// already call GetQuestion, so this re-fetch is idempotent for them).
+		q, err = svc.store.GetQuestion(r.Context(), q.ID, sess.ContentLanguage)
+		if err != nil {
+			logger.Error("get_question.failed", "err", err)
+			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load question")
 			return
 		}
 		nextIdx := sess.ServedCount
@@ -977,7 +1013,7 @@ func (svc *SessionService) Items(logger *slog.Logger) http.HandlerFunc {
 		}
 		out := make([]itemDTO, 0, len(items))
 		for _, it := range items {
-			q, err := svc.store.GetQuestion(r.Context(), it.QuestionID)
+			q, err := svc.store.GetQuestion(r.Context(), it.QuestionID, sess.ContentLanguage)
 			if err != nil {
 				logger.Error("get_question.failed", "err", err, "qid", it.QuestionID)
 				continue
@@ -1024,7 +1060,7 @@ func (svc *SessionService) Answer(logger *slog.Logger) http.HandlerFunc {
 			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load item")
 			return
 		}
-		q, err := svc.store.GetQuestion(r.Context(), item.QuestionID)
+		q, err := svc.store.GetQuestion(r.Context(), item.QuestionID, sess.ContentLanguage)
 		if err != nil {
 			logger.Error("get_question.failed", "err", err)
 			writeProblem(w, http.StatusInternalServerError, "store_error", "Failed to load question")
@@ -1359,7 +1395,7 @@ func (svc *SessionService) pickNextADP(
 		"b", picked.B,
 		"corridor_size", len(inCorridor),
 	)
-	return svc.store.GetQuestion(ctx, picked.QuestionID)
+	return svc.store.GetQuestion(ctx, picked.QuestionID, sess.ContentLanguage)
 }
 
 func (svc *SessionService) pickNext(ctx context.Context, sess domain.Session, logger *slog.Logger) (domain.Question, error) {
@@ -1440,7 +1476,7 @@ func (svc *SessionService) pickNext(ctx context.Context, sess domain.Session, lo
 		logger.Warn("adaptive.select_next.bad_id", "id", *sel.ItemID, "err", err)
 		return svc.store.PickNextQuestion(ctx, sess)
 	}
-	return svc.store.GetQuestion(ctx, chosenID)
+	return svc.store.GetQuestion(ctx, chosenID, sess.ContentLanguage)
 }
 
 type submitResponse struct {
@@ -1625,7 +1661,7 @@ func (svc *SessionService) Get(logger *slog.Logger) http.HandlerFunc {
 				Answered:   it.IsAnswered(),
 			}
 			if hydrate || it.IsAnswered() {
-				if q, qerr := svc.store.GetQuestion(r.Context(), it.QuestionID); qerr == nil {
+				if q, qerr := svc.store.GetQuestion(r.Context(), it.QuestionID, sess.ContentLanguage); qerr == nil {
 					s.Stem = q.Stem
 					s.Choices = q.Choices
 					ci := q.CorrectIdx

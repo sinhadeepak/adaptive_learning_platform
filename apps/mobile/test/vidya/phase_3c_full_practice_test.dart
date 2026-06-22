@@ -153,6 +153,7 @@ class _StubQuizClient extends QuizClient {
     required String topicId,
     required String userId,
     String mode = 'PRACTICE',
+    Map<String, dynamic> extraFields = const {},
   }) async {
     startCalls++;
     lastStartTopicId = topicId;

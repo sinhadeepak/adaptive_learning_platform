@@ -74,10 +74,12 @@ export function Revision() {
     if (!user || starting) return;
     setStarting(topicId);
     try {
+      const { contentLanguageField } = await import("../lib/session-start");
+      const langField = await contentLanguageField();
       const r = await auth.fetch(`/api/v1/quiz/sessions/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topicId, userId: user.id, mode: "PRACTICE" }),
+        body: JSON.stringify({ topicId, userId: user.id, mode: "PRACTICE", ...langField }),
       });
       if (!r.ok) {
         setError("We couldn't start practice for this topic.");

@@ -24,6 +24,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Card } from "@alp/ui";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
+import { _resetContentLanguageCache } from "../lib/session-start";
 import { useTheme, type Theme } from "../lib/theme";
 import { useDensity, type Density } from "../lib/density";
 import { VidyaShell } from "../components/vidya/VidyaShell";
@@ -42,7 +43,7 @@ interface ProfileResponse {
     lastName?: string;
     phone?: string | null;
   };
-  preferences: { language: string; dailyGoalMinutes: number | null };
+  preferences: { language: string; dailyGoalMinutes: number | null; contentLanguage?: string };
   exams: Array<{ examId: string; targetDate: string | null }>;
   notificationPrefs?: Record<string, boolean>;
 }
@@ -107,6 +108,17 @@ const LANG_OPTIONS: Array<{ id: Language; label: string; sub: string; lang?: str
   { id: "hinglish", label: "Hinglish", sub: "Type either; we understand both." },
 ];
 
+type ContentLanguage = "en" | "hi" | "ta" | "te" | "bn" | "mr";
+
+const CONTENT_LANG_OPTIONS: Array<{ id: ContentLanguage; label: string; lang?: string }> = [
+  { id: "en", label: "English" },
+  { id: "hi", label: "हिन्दी", lang: "hi" },
+  { id: "ta", label: "தமிழ்", lang: "ta" },
+  { id: "te", label: "తెలుగు", lang: "te" },
+  { id: "bn", label: "বাংলা", lang: "bn" },
+  { id: "mr", label: "मराठी", lang: "mr" },
+];
+
 const GOAL_OPTIONS = [
   { minutes: 15, label: "Chill — 15 min/day" },
   { minutes: 30, label: "Regular — 30 min/day" },
@@ -119,10 +131,12 @@ export function Settings() {
   const { logout } = useAuth();
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [language, setLanguage] = useState<Language>("en");
+  const [contentLanguage, setContentLanguage] = useState<ContentLanguage>("en");
   const [goal, setGoal] = useState<number>(30);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingContentLang, setSavingContentLang] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({});
 
@@ -158,6 +172,9 @@ export function Settings() {
         if (body.preferences.language) {
           setLanguage(body.preferences.language as Language);
         }
+        if (body.preferences.contentLanguage) {
+          setContentLanguage(body.preferences.contentLanguage as ContentLanguage);
+        }
         if (body.preferences.dailyGoalMinutes) {
           setGoal(body.preferences.dailyGoalMinutes);
         }
@@ -189,6 +206,23 @@ export function Settings() {
       setError("We couldn't save your preferences. Try again in a moment.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveContentLanguage(lang: ContentLanguage) {
+    setSavingContentLang(true);
+    try {
+      const r = await auth.fetch("/api/v1/profile/preferences", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ contentLanguage: lang }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      _resetContentLanguageCache();
+    } catch {
+      setError("We couldn't save your question language. Try again in a moment.");
+    } finally {
+      setSavingContentLang(false);
     }
   }
 
@@ -272,6 +306,41 @@ export function Settings() {
                     {opt.sub ? (
                       <span style={{ fontSize: 11, opacity: 0.75 }}>{opt.sub}</span>
                     ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* QUESTION LANGUAGE */}
+          <section className="vidya-card-block">
+            <div className="vidya-card-block__head">
+              <h2 className="vidya-card-block__title">Question language</h2>
+            </div>
+            <p style={{ fontSize: 14, color: "var(--ink-3)", marginBottom: "var(--sp-3)" }}>
+              Questions will be delivered in this language when a translation is available. Independent of your app interface language.
+            </p>
+            <div role="radiogroup" aria-label="Question language" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {CONTENT_LANG_OPTIONS.map((opt) => {
+                const isSelected = contentLanguage === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    onClick={() => {
+                      setContentLanguage(opt.id);
+                      void saveContentLanguage(opt.id);
+                    }}
+                    className={`vidya-shell__chip${isSelected ? " vidya-shell__chip--on" : ""}`}
+                    lang={opt.lang}
+                    disabled={savingContentLang}
+                  >
+                    <span style={{ fontWeight: 600 }}>
+                      {opt.label}
+                      {isSelected ? " ✓" : ""}
+                    </span>
                   </button>
                 );
               })}

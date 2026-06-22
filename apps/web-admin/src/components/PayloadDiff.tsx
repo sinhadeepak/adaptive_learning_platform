@@ -85,17 +85,17 @@ function expandPaths(paths: string[], source: Record<string, unknown>): string[]
 export function PayloadDiff({ paths, source, translation, editable, onEdit }: PayloadDiffProps) {
   const concrete = expandPaths(paths, source);
   return (
-    <div style={{ display: "grid", gap: 8 }}>
+    <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
       {concrete.map((path) => {
         const src = getAtPath(source, path);
         const tr = getAtPath(translation, path);
         return (
-          <div key={path} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div style={{ background: "var(--paper-2)", border: "1px solid var(--rule)", borderRadius: 4, padding: 8 }}>
+          <div key={path} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 8 }}>
+            <div style={{ minWidth: 0, background: "var(--paper-2)", border: "1px solid var(--rule)", borderRadius: 4, padding: 8 }}>
               <div style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono, monospace)" }}>{path}</div>
-              <div>{String(src ?? "")}</div>
+              <div style={{ overflowWrap: "anywhere" }}>{String(src ?? "")}</div>
             </div>
-            <div style={{ background: "var(--card)", border: "1px solid var(--rule)", borderRadius: 4, padding: 8 }}>
+            <div style={{ minWidth: 0, background: "var(--card)", border: "1px solid var(--rule)", borderRadius: 4, padding: 8 }}>
               {editable ? (
                 <textarea
                   defaultValue={String(tr ?? "")}

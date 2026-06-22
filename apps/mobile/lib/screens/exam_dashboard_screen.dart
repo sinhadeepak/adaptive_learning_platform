@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import '../api/api_client.dart';
 import '../aurora/widgets/widgets.dart';
 import '../auth/auth_client.dart';
+import '../quiz/content_language_helper.dart';
 import '../quiz/quiz_client.dart';
 import '../quiz/quiz_screen.dart';
 import '../widgets/alp_card.dart';
@@ -148,8 +149,10 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
 
     setState(() => _starting = true);
     try {
+      final langField = await contentLanguageField(widget.api);
       final client = QuizClient(auth: widget.auth);
-      final session = await client.start(topicId: topicId, userId: user.id);
+      final session = await client.start(
+          topicId: topicId, userId: user.id, extraFields: langField);
       if (!mounted) return;
       await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => QuizScreen(
@@ -206,8 +209,10 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
     if (user == null) return;
     setState(() => _starting = true);
     try {
+      final langField = await contentLanguageField(widget.api);
       final client = QuizClient(auth: widget.auth);
-      final session = await client.start(topicId: picked, userId: user.id);
+      final session = await client.start(
+          topicId: picked, userId: user.id, extraFields: langField);
       if (!mounted) return;
       await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => QuizScreen(
@@ -401,9 +406,10 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                       final user = widget.auth.user;
                       if (user == null) return;
                       try {
+                        final langField = await contentLanguageField(widget.api);
                         final client = QuizClient(auth: widget.auth);
                         final session = await client.start(
-                            topicId: topicId, userId: user.id);
+                            topicId: topicId, userId: user.id, extraFields: langField);
                         if (!mounted) return;
                         await Navigator.of(context).push(
                           MaterialPageRoute(

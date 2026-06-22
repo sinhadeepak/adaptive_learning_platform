@@ -675,21 +675,68 @@ test("/settings renders preferences form + account actions", async () => {
   // Aurora v2 — "Settings" appears as the AppShell topbar title (a div,
   // not a semantic heading). Section headings below are still semantic.
   expect((await screen.findAllByText(/^Settings$/i)).length).toBeGreaterThanOrEqual(1);
-  // Section headings
+  // Section headings — includes both language controls
   expect(screen.getByRole("heading", { name: /Study language/i })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /Question language/i })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: /Daily goal/i })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: /^Account$/i })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: /Sign out/i })).toBeInTheDocument();
-  // Three language radio cards
-  expect(screen.getByRole("radio", { name: /English/i })).toBeInTheDocument();
-  expect(screen.getByRole("radio", { name: /हिन्दी/ })).toBeInTheDocument();
+  // App Language radiogroup has 3 options; Question Language radiogroup has 6.
+  // "English" appears in both groups — use getAllByRole.
+  expect(screen.getAllByRole("radio", { name: /English/i }).length).toBeGreaterThanOrEqual(2);
+  // App Language exclusive options
   expect(screen.getByRole("radio", { name: /Hinglish/i })).toBeInTheDocument();
+  // Question Language exclusive options
+  expect(screen.getByRole("radio", { name: /தமிழ்/ })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /తెలుగు/ })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /বাংলা/ })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: /मराठी/ })).toBeInTheDocument();
   // Goal cadence cards
   expect(screen.getByRole("radio", { name: /15 min\/day/i })).toBeInTheDocument();
   expect(screen.getByRole("radio", { name: /120 min\/day/i })).toBeInTheDocument();
   // Save (initially disabled because nothing dirty) + sign-out
   expect(screen.getByRole("button", { name: /save preferences/i })).toBeDisabled();
   expect(screen.getByRole("button", { name: /sign out of this device/i })).toBeInTheDocument();
+});
+
+test("/settings question-language chip POSTs { contentLanguage } independently", async () => {
+  asAuthenticated({ id: "u-ql", firstName: "Ravi", onboardingState: "ONBOARDED" });
+  const patchedBodies: string[] = [];
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith("/api/v1/profile/me")) {
+      return new Response(
+        JSON.stringify({
+          user: { id: "u-ql", email: "r@v.com", firstName: "Ravi" },
+          preferences: { language: "en", dailyGoalMinutes: 30, contentLanguage: "en" },
+          exams: [],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.endsWith("/api/v1/profile/preferences") && init?.method === "PATCH") {
+      patchedBodies.push(String(init.body ?? ""));
+      return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return new Response("not found", { status: 404 });
+  });
+  renderAt("/settings");
+  // Wait for settings to load
+  await screen.findByRole("heading", { name: /Question language/i });
+  // Click the Hindi chip in the Question language radiogroup
+  // The Hindi chip in the Question language group (not App Language group)
+  // Find the Question language radiogroup and click its Hindi button
+  const questionLangGroup = screen.getByRole("radiogroup", { name: /Question language/i });
+  const hindiInQuestionGroup = questionLangGroup.querySelector("[lang='hi']") as HTMLElement;
+  expect(hindiInQuestionGroup).not.toBeNull();
+  hindiInQuestionGroup.click();
+  // The PATCH should include only contentLanguage, not language
+  await vi.waitFor(() => {
+    expect(patchedBodies.length).toBeGreaterThanOrEqual(1);
+    const lastPatch = JSON.parse(patchedBodies[patchedBodies.length - 1]) as Record<string, unknown>;
+    expect(lastPatch).toHaveProperty("contentLanguage", "hi");
+    expect(lastPatch).not.toHaveProperty("language");
+  });
 });
 
 test("/profile without auth redirects to /login", () => {

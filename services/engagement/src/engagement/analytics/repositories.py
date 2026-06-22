@@ -46,14 +46,18 @@ async def get_mastery(session: AsyncSession, user_id: str, topic_id: str) -> Mas
     return MasteryRow(user_id=str(row[0]), topic_id=str(row[1]), ewa=float(row[2]), n=int(row[3]))
 
 
-async def list_user_mastery(session: AsyncSession, user_id: str) -> list[MasteryRow]:
-    res = await session.execute(
-        text(
-            f"SELECT user_id, topic_id, ewa, n FROM {SCHEMA}.mastery WHERE user_id = :uid "
-            "ORDER BY topic_id"
-        ),
-        {"uid": user_id},
+async def list_user_mastery(
+    session: AsyncSession, user_id: str, *, topic_ids: set[str] | None = None,
+) -> list[MasteryRow]:
+    sql = (
+        f"SELECT user_id, topic_id, ewa, n FROM {SCHEMA}.mastery WHERE user_id = :uid "
     )
+    params: dict = {"uid": user_id}
+    if topic_ids is not None:
+        sql += "AND topic_id = ANY(CAST(:tids AS uuid[])) "
+        params["tids"] = list(topic_ids)
+    sql += "ORDER BY topic_id"
+    res = await session.execute(text(sql), params)
     return [
         MasteryRow(user_id=str(r[0]), topic_id=str(r[1]), ewa=float(r[2]), n=int(r[3])) for r in res
     ]

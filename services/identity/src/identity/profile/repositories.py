@@ -19,6 +19,7 @@ class ProfileRepo:
             await self.s.execute(
                 text(
                     "SELECT user_id, first_name, last_name, email, avatar_url, locale, language_pref, "
+                    "content_language, "
                     "daily_goal_minutes, onboarding_state, timezone, tenant_id, notification_prefs, "
                     "diagnostic_waived "
                     "FROM profile_schema.profiles WHERE user_id = :uid"
@@ -133,17 +134,20 @@ class ProfileRepo:
         *,
         user_id: UUID | str,
         language: str | None = None,
+        content_language: str | None = None,
         daily_goal_minutes: int | None = None,
     ) -> dict[str, Any]:
         await self.s.execute(
             text(
                 "UPDATE profile_schema.profiles SET "
                 "language_pref = COALESCE(:lang, language_pref), "
+                "content_language = COALESCE(:clang, content_language), "
                 "daily_goal_minutes = COALESCE(:goal, daily_goal_minutes), "
                 "updated_at = NOW() "
                 "WHERE user_id = :uid"
             ),
-            {"uid": str(user_id), "lang": language, "goal": daily_goal_minutes},
+            {"uid": str(user_id), "lang": language, "clang": content_language,
+             "goal": daily_goal_minutes},
         )
         # Advance onboarding FSM on daily-goal set (terminal step).
         # F2b: the legal transitions for "complete onboarding" are now:
