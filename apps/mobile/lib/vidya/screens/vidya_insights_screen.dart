@@ -12,6 +12,7 @@ import '../../screens/concept_profile_screen.dart';
 import '../../screens/diagnostic_deep_dive_screen.dart';
 import '../../screens/progress_tab.dart';
 import '../aurora_route.dart';
+import 'vidya_revision_screen.dart';
 import 'vidya_topic_detail_screen.dart';
 
 class VidyaInsightsScreen extends StatefulWidget {
@@ -290,6 +291,17 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
               ),
             ),
             const SizedBox(height: 12),
+            _DeepDiveRow(
+              icon: Icons.event_repeat,
+              label: 'Revision',
+              sublabel: 'Spaced-repetition topics due for review',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaRevisionScreen(auth: widget.auth),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             _DeepDiveRow(
               icon: Icons.insights_outlined,
               label: 'My Analysis',
