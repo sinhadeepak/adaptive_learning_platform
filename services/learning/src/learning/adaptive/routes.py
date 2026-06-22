@@ -234,12 +234,40 @@ async def get_study_plan(
     return await build_study_plan(user_id=user_id, exam_code=exam)
 
 
+async def _exam_code_for_id(exam_id: str) -> str | None:
+    """Resolve an exam UUID to its short code (e.g. 'NEET') via catalog DB.
+
+    Returns None when the id is unknown or the DB is unreachable — callers
+    fall back to the ?exam param in that case.
+    """
+    from sqlalchemy import text
+
+    from learning.catalog.db import sessionmaker as _catalog_sm
+
+    try:
+        async with _catalog_sm()() as s:
+            rows = (await s.execute(
+                text("SELECT code FROM catalog_schema.exams WHERE id = CAST(:eid AS uuid)"),
+                {"eid": exam_id},
+            )).mappings().all()
+        return rows[0]["code"] if rows else None
+    except Exception:  # noqa: BLE001
+        log.warning("exam_code_for_id_lookup_failed", extra={"exam_id": exam_id})
+        return None
+
+
 @router.get("/adaptive/guided-next-steps/{user_id}")
 async def get_guided_next_steps(
     user_id: str,
     exam: str | None = Query(default=None),
+    exam_id: str | None = Query(default=None),
 ) -> dict:
-    return await build_guided_next_steps(user_id=user_id, exam_code=exam)
+    code = exam
+    if exam_id:
+        resolved = await _exam_code_for_id(exam_id)
+        if resolved:
+            code = resolved
+    return await build_guided_next_steps(user_id=user_id, exam_code=code)
 
 
 # ── Phase 1D-3 — Tutor chat history ────────────────────────────────────
