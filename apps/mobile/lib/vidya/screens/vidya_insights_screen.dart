@@ -8,11 +8,13 @@ import 'package:flutter/material.dart';
 
 import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
+import '../../insights/insights_client.dart';
 import '../../screens/concept_profile_screen.dart';
 import '../../screens/diagnostic_deep_dive_screen.dart';
 import '../../screens/progress_tab.dart';
 import '../aurora_route.dart';
 import 'vidya_revision_screen.dart';
+import 'vidya_syllabus_coverage_screen.dart';
 import 'vidya_topic_detail_screen.dart';
 
 class VidyaInsightsScreen extends StatefulWidget {
@@ -87,6 +89,10 @@ class _FocusTopic {
 class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
   _InsightsState _state = _InsightsState.loading;
   _InsightsData? _data;
+  // Phase 4 — structured 3-zone snapshot (state / meaning / action).
+  // Best-effort: null when the aggregator is unavailable; the bucket
+  // grid + Dig-deeper still render without it.
+  InsightsSnapshot? _snapshot;
 
   @override
   void initState() {
@@ -119,6 +125,15 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
         _data = _InsightsData.fromMastery(rows, topicsById: topicsById);
         _state = _InsightsState.loaded;
       });
+      // Zones 2/3 — fetch the structured snapshot after the bucket grid
+      // is already on screen. Failure degrades silently (zones omitted).
+      try {
+        final snap =
+            await InsightsClient(auth: widget.auth).fetchSnapshot(user.id);
+        if (mounted) setState(() => _snapshot = snap);
+      } catch (_) {
+        // aggregator unavailable — leave zones 2/3 hidden
+      }
     } catch (_) {
       if (mounted) setState(() => _state = _InsightsState.error);
     }
@@ -164,6 +179,83 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
         builder: (_) => AuroraRoute(builder: builder),
       ),
     );
+  }
+
+  void _openRevision() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VidyaRevisionScreen(auth: widget.auth),
+      ),
+    );
+  }
+
+  /// Zones 2 (What this means) and 3 (What to do), rendered from the
+  /// structured insights snapshot. Mirrors web Insights.tsx zones.
+  List<Widget> _buildZones(InsightsSnapshot s, VidyaThemeData v) {
+    final weak = s.weakConcepts.length;
+    final decay = s.decayAlerts.length;
+    final critical = s.decayAlerts
+        .where((c) => c.decaySeverity == DecaySeverity.critical)
+        .length;
+    return [
+      const SizedBox(height: 24),
+      _ZoneHeader(label: 'WHAT THIS MEANS'),
+      const SizedBox(height: 12),
+      _ZoneCard(
+        rows: [
+          if (weak > 0)
+            _ZoneRow(
+              icon: Icons.trending_down,
+              tone: v.bad,
+              title: '$weak weak concept${weak == 1 ? '' : 's'}',
+              detail: 'Mastery is below 40% — prioritise these.',
+            ),
+          if (decay > 0)
+            _ZoneRow(
+              icon: Icons.schedule,
+              tone: v.warn,
+              title: '$decay topic${decay == 1 ? '' : 's'} fading'
+                  '${critical > 0 ? '  ·  $critical critical' : ''}',
+              detail: 'Knowledge is decaying since your last review.',
+            ),
+          if (weak == 0 && decay == 0)
+            _ZoneRow(
+              icon: Icons.check_circle_outline,
+              tone: v.good,
+              title: 'Nothing flagged',
+              detail: 'No weak or decaying concepts right now.',
+            ),
+        ],
+      ),
+      const SizedBox(height: 24),
+      _ZoneHeader(label: 'WHAT TO DO'),
+      const SizedBox(height: 12),
+      _ZoneCard(
+        rows: [
+          _ZoneRow(
+            icon: s.missionsTodayPending ? Icons.flag : Icons.flag_outlined,
+            tone: s.missionsTodayPending ? v.accent : v.ink3,
+            title: s.missionsTodayPending
+                ? "Today's mission is pending"
+                : "Today's mission is done",
+            detail: s.missionsTodayPending
+                ? 'Finish your daily plan to keep your streak.'
+                : "Nice — you've completed today's plan.",
+          ),
+          _ZoneRow(
+            icon: Icons.event_repeat,
+            tone: s.revisionDueToday > 0 ? v.accent : v.ink3,
+            title: s.revisionDueToday > 0
+                ? '${s.revisionDueToday} topic${s.revisionDueToday == 1 ? '' : 's'} due for revision'
+                : 'No revision due today',
+            detail: s.revisionDueToday > 0
+                ? 'Start your spaced-repetition queue.'
+                : 'Your spaced-repetition queue is clear.',
+            onTap: s.revisionDueToday > 0 ? _openRevision : null,
+          ),
+        ],
+      ),
+    ];
   }
 
   @override
@@ -280,6 +372,7 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
                 const SizedBox(height: 10),
               ],
             ],
+            if (_snapshot != null) ..._buildZones(_snapshot!, v),
             const SizedBox(height: 24),
             Text(
               'DIG DEEPER',
@@ -338,6 +431,20 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
                   ),
                 );
               },
+            ),
+            const SizedBox(height: 10),
+            _DeepDiveRow(
+              icon: Icons.fact_check_outlined,
+              label: 'Syllabus Coverage',
+              sublabel: 'Chapter-by-chapter coverage across the syllabus',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaSyllabusCoverageScreen(
+                    auth: widget.auth,
+                    examId: widget.auth.user?.examId ?? '',
+                  ),
+                ),
+              ),
             ),
           ],
         );
@@ -398,6 +505,115 @@ class _DeepDiveRow extends StatelessWidget {
               ),
             ),
             Icon(Icons.chevron_right, color: v.ink3, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small mono eyebrow above an insights zone.
+class _ZoneHeader extends StatelessWidget {
+  final String label;
+  const _ZoneHeader({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return Text(
+      label,
+      style: TextStyle(
+        fontFamily: VidyaFonts.mono,
+        fontSize: 11,
+        color: v.ink3,
+        letterSpacing: 1.4,
+      ),
+    );
+  }
+}
+
+/// A card stacking zone rows with hairline separators.
+class _ZoneCard extends StatelessWidget {
+  final List<_ZoneRow> rows;
+  const _ZoneCard({required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return VidyaCard(
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            rows[i],
+            if (i != rows.length - 1)
+              Divider(
+                height: 1,
+                thickness: 1,
+                indent: 48,
+                color: v.ink3.withValues(alpha: 0.12),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A single insights-zone row: toned icon + title + one-line detail,
+/// optionally tappable (e.g. revision → revision queue).
+class _ZoneRow extends StatelessWidget {
+  final IconData icon;
+  final Color tone;
+  final String title;
+  final String detail;
+  final VoidCallback? onTap;
+  const _ZoneRow({
+    required this.icon,
+    required this.tone,
+    required this.title,
+    required this.detail,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: tone),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.ui,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: v.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    detail,
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.ui,
+                      fontSize: 12,
+                      color: v.ink3,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onTap != null)
+              Icon(Icons.chevron_right, color: v.ink3, size: 22),
           ],
         ),
       ),

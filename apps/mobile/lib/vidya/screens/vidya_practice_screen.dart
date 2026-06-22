@@ -28,11 +28,12 @@ import 'vidya_mock_intro_screen.dart';
 import 'vidya_mock_session_screen.dart';
 import 'vidya_practice_result_screen.dart';
 import 'vidya_practice_session_screen.dart';
+import 'vidya_pyq_screen.dart';
 
 /// Stable identifier for each practice mode, decoupled from the
 /// user-visible `title`. Lets a copy or i18n change touch the
 /// `_modes` literal without silently re-routing dispatch.
-enum _PracticeModeKind { quick, focused, mistakes, mock }
+enum _PracticeModeKind { quick, focused, mistakes, pyq, mock }
 
 class VidyaPracticeScreen extends StatelessWidget {
   final QuizClient client;
@@ -68,6 +69,12 @@ class VidyaPracticeScreen extends StatelessWidget {
       eyebrow: 'MISTAKES • 10 mins',
       title: 'Mistakes Drill',
       body: 'Re-attempt the questions you recently got wrong.',
+    ),
+    _Mode(
+      kind: _PracticeModeKind.pyq,
+      eyebrow: 'PYQ • Browse',
+      title: 'Previous-Year Qs',
+      body: 'Browse real questions from past exam papers by chapter.',
     ),
     _Mode(
       kind: _PracticeModeKind.mock,
@@ -153,6 +160,22 @@ class VidyaPracticeScreen extends StatelessWidget {
             },
             onBack: () => Navigator.of(context).pop(),
           ),
+        ));
+      case _PracticeModeKind.pyq:
+        final user = client.auth.user;
+        final examId = user?.examId;
+        if (user == null || examId == null || examId.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Pick your exam in onboarding to browse previous-year questions.',
+              ),
+            ),
+          );
+          return;
+        }
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => VidyaPyqScreen(auth: client.auth, examId: examId),
         ));
       case _PracticeModeKind.mock:
         final user = client.auth.user;

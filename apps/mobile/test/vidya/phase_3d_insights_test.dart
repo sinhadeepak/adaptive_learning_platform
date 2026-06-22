@@ -48,9 +48,15 @@ MockClient _insightsMocks({
   Map<String, List<Map<String, dynamic>>>? subjectTopics,
   Map<String, dynamic>? profile,
   bool failMastery = false,
+  Map<String, dynamic>? snapshot,
 }) {
   return MockClient((req) async {
     final path = req.url.path;
+    if (path.contains('/analytics/insights/') && path.endsWith('/snapshot')) {
+      if (snapshot == null) return http.Response('{}', 404);
+      return http.Response(jsonEncode(snapshot), 200,
+          headers: {'content-type': 'application/json'});
+    }
     if (path.endsWith('/auth/login')) {
       return http.Response(_sessionJson(), 200,
           headers: {'content-type': 'application/json'});
@@ -228,6 +234,50 @@ void main() {
       await tester.tap(find.text('Concept Profile'));
       await tester.pumpAndSettle();
       expect(find.byType(AuroraRoute), findsOneWidget);
+    });
+
+    testWidgets('renders zones 2 + 3 from the insights snapshot',
+        (tester) async {
+      final auth = await _loggedInAuth(_insightsMocks(snapshot: {
+        'user_id': 'u1',
+        'my_state': {
+          'concept_mastery': const [],
+          'topic_decay': const [],
+          'readiness': {'score': 0.62, 'band': 'on_track'},
+        },
+        'what_this_means': {
+          'weak_concepts': [
+            {
+              'concept_id': 'c1',
+              'ewa': 0.2,
+              'n': 3,
+              'decay_severity': 'fresh',
+              'decay_days': 0,
+            },
+          ],
+          'decay_alerts': [
+            {
+              'concept_id': 'c2',
+              'ewa': 0.5,
+              'n': 4,
+              'decay_severity': 'critical',
+              'decay_days': 20,
+            },
+          ],
+        },
+        'what_to_do': {
+          'missions_today_pending': true,
+          'revision_due_today': 4,
+        },
+      }));
+      await _pump(tester, VidyaInsightsScreen(auth: auth));
+      await tester.pumpAndSettle();
+      expect(find.text('WHAT THIS MEANS'), findsOneWidget);
+      expect(find.text('WHAT TO DO'), findsOneWidget);
+      expect(find.text('1 weak concept'), findsOneWidget);
+      expect(find.textContaining('1 critical'), findsOneWidget);
+      expect(find.text("Today's mission is pending"), findsOneWidget);
+      expect(find.textContaining('4 topics due for revision'), findsOneWidget);
     });
 
     testWidgets('empty state when mastery list is empty',

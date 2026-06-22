@@ -16,6 +16,7 @@ import 'package:adaptive_learning_mobile/vidya/screens/vidya_focused_intro_scree
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_mock_intro_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_session_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_pyq_screen.dart';
 
 AuthClient _auth() => AuthClient(
       baseUrl: 'http://test',
@@ -65,18 +66,33 @@ void main() {
       expect(find.text('Sharpen your edge.'), findsOneWidget);
     });
 
-    testWidgets('renders four mode cards with name + duration eyebrow',
+    testWidgets('renders five mode cards with name + duration eyebrow',
         (tester) async {
       await tester.pumpWidget(_harness(VidyaPracticeScreen(client: _stub(), insights: _stubInsights())));
       await tester.pumpAndSettle();
       expect(find.text('Quick Practice'), findsOneWidget);
       expect(find.text('Focused Practice'), findsOneWidget);
       expect(find.text('Mistakes Drill'), findsOneWidget);
+      expect(find.text('Previous-Year Qs'), findsOneWidget);
       expect(find.text('Mock Test'), findsOneWidget);
       expect(find.textContaining('QUICK'), findsOneWidget);
       expect(find.textContaining('FOCUSED'), findsOneWidget);
       expect(find.textContaining('MISTAKES'), findsOneWidget);
+      expect(find.textContaining('PYQ'), findsOneWidget);
       expect(find.textContaining('MOCK'), findsOneWidget);
+    });
+
+    testWidgets('PYQ tap navigates to the PYQ browser (examId set)',
+        (tester) async {
+      await tester.pumpWidget(_harness(VidyaPracticeScreen(
+        client: _stubWithUser(examId: 'exam-jee-main'),
+        insights: _stubInsights(),
+      )));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Previous-Year Qs'));
+      await tester.tap(find.text('Previous-Year Qs'));
+      await tester.pumpAndSettle();
+      expect(find.byType(VidyaPyqScreen), findsOneWidget);
     });
 
     testWidgets('Quick Practice tap navigates to session screen',
