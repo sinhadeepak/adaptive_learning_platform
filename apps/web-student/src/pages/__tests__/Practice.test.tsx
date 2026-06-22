@@ -205,4 +205,29 @@ describe("Practice page — exam-scoped (Task 6)", () => {
       expect(calls.some((u) => u.includes("/analytics/readiness-band/") && u.includes("exam_id=E1"))).toBe(true);
     });
   });
+
+  test("revision URL includes exam_id=E1", async () => {
+    renderPractice("?examId=E1");
+    await waitFor(() => {
+      const calls = vi.mocked(auth.fetch).mock.calls.map(([url]) => url as string);
+      expect(calls.some((u) => u.includes("/analytics/revision/") && u.includes("exam_id=E1"))).toBe(true);
+    });
+  });
+
+  test("cold-start: exam with topics but empty mastery still renders exam topics as Not started", async () => {
+    // Override mastery to return an empty topic list (cold-start state).
+    vi.mocked(auth.fetch).mockImplementation((url: RequestInfo | URL) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/analytics/mastery/")) return Promise.resolve(makeResp({ userId: "u-test", topics: [] }));
+      return defaultFetch(urlStr);
+    });
+    renderPractice("?examId=E1");
+    // Both exam topics should render as "Not started" since mastery is empty.
+    await waitFor(() => {
+      const notStarted = screen.getAllByText("Not started");
+      expect(notStarted.length).toBeGreaterThanOrEqual(2);
+    });
+    // The generic "Run your first practice round" empty hero should NOT appear.
+    expect(screen.queryByText("Run your first practice round")).toBeNull();
+  });
 });

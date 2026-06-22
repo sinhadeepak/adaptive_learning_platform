@@ -642,7 +642,10 @@ export function Practice() {
 
   const greeting = profile?.user.firstName ?? user?.firstName ?? "there";
 
-  const empty = mastery !== null && mastery.length === 0;
+  // Page is "empty" only when there are no exam topics to show AND mastery is
+  // also empty. When an exam has topics (examDrills.length > 0) we always
+  // render the drill list — cold-start students see every topic as "Not started".
+  const empty = examDrills.length === 0 && (mastery !== null && mastery.length === 0);
 
   return (
     <VidyaShell
@@ -835,9 +838,7 @@ export function Practice() {
         </section>
       ) : null}
 
-      {/* ── Phase 1B — "Today's plan" panel: 3-col grid wiring readiness
-          band, revision queue, and topic decay alerts. Each card surfaces
-          its existing analytics primitive. ─────────────────────────── */}
+      {/* ── Phase 1B — "Today's plan" panel: readiness band + revision queue ── */}
       {(readinessBand || revisionQueue?.length) ? (
         <div
           style={{
