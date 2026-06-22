@@ -36,3 +36,26 @@ async def test_mastery_scoped_to_exam_topics(client, monkeypatch):
     r2 = await client.get(f"/analytics/mastery/{user}")
     ids2 = {t["topicId"] for t in r2.json()["topics"]}
     assert ids2 == {in_topic, out_topic}
+
+
+@pytest.mark.asyncio
+async def test_mastery_resolver_failure_returns_global_topics(client, monkeypatch):
+    """When resolve_exam_topic_ids returns None (upstream failure), the mastery
+    endpoint must degrade gracefully to unscoped (all topics), NOT return empty."""
+    user = str(uuid.uuid4())
+    topic_a = str(uuid.uuid4())
+    topic_b = str(uuid.uuid4())
+    await _seed_mastery(user, [(topic_a, 0.8, 5), (topic_b, 0.3, 2)])
+
+    async def fake_resolve_fail(exam_id, *, clock=None):
+        return None  # simulates catalog service down
+
+    monkeypatch.setattr(analytics_routes, "resolve_exam_topic_ids", fake_resolve_fail)
+
+    r = await client.get(f"/analytics/mastery/{user}?exam_id=11111111-1111-1111-1111-111111111111")
+    assert r.status_code == 200
+    ids = {t["topicId"] for t in r.json()["topics"]}
+    # Resolver returned None → handler must pass topic_ids=None → global (unscoped)
+    assert ids == {topic_a, topic_b}, (
+        "Expected all topics (global) when resolver fails, got: " + repr(ids)
+    )

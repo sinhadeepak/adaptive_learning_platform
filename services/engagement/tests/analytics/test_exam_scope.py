@@ -24,7 +24,8 @@ async def test_resolve_caches_within_ttl(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_fetch_returns_empty_on_http_error(monkeypatch):
+async def test_fetch_returns_none_on_http_error(monkeypatch):
+    """_fetch_exam_topic_ids returns None (not set()) on HTTP error."""
     exam_scope._reset_cache()
     import httpx
 
@@ -36,4 +37,26 @@ async def test_fetch_returns_empty_on_http_error(monkeypatch):
 
     monkeypatch.setattr(exam_scope.httpx, "AsyncClient", _Boom)
     out = await exam_scope._fetch_exam_topic_ids("exam-x")
-    assert out == set()
+    assert out is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_returns_none_on_failure_and_does_not_cache(monkeypatch):
+    """resolve_exam_topic_ids returns None on fetch failure and does NOT cache it."""
+    exam_scope._reset_cache()
+    calls = {"n": 0}
+
+    async def fake_fetch_fail(exam_id: str):
+        calls["n"] += 1
+        return None
+
+    monkeypatch.setattr(exam_scope, "_fetch_exam_topic_ids", fake_fetch_fail)
+
+    result = await exam_scope.resolve_exam_topic_ids("exam-fail", clock=100.0)
+    assert result is None
+    assert calls["n"] == 1
+
+    # Second call at same clock must re-invoke fetch (failure was not cached).
+    result2 = await exam_scope.resolve_exam_topic_ids("exam-fail", clock=100.0)
+    assert result2 is None
+    assert calls["n"] == 2

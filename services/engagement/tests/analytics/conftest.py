@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
@@ -37,6 +36,7 @@ async def _clean_state() -> AsyncIterator[None]:
         await session.execute(text("TRUNCATE analytics_schema.readiness"))
         await session.execute(text("TRUNCATE analytics_schema.processed_sessions"))
         await session.execute(text("TRUNCATE analytics_schema.streaks"))
+        await session.execute(text("TRUNCATE analytics_schema.revision_queue"))
         await session.commit()
     yield
     await db.dispose()
