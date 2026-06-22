@@ -594,6 +594,18 @@ export function Practice() {
     }).sort((a, b) => Number(a.started) - Number(b.started) || a.ewa - b.ewa),
   [examTopics, masteryByTopic]);
 
+  // Paginate the weak-topic list so a full exam catalog (50-90 topics) doesn't
+  // produce an unbounded column. Reset to page 0 when the exam changes.
+  const DRILL_PAGE_SIZE = 8;
+  const [drillPage, setDrillPage] = useState(0);
+  useEffect(() => { setDrillPage(0); }, [examId]);
+  const drillPageCount = Math.max(1, Math.ceil(examDrills.length / DRILL_PAGE_SIZE));
+  const drillSafePage = Math.min(drillPage, drillPageCount - 1);
+  const pagedDrills = examDrills.slice(
+    drillSafePage * DRILL_PAGE_SIZE,
+    drillSafePage * DRILL_PAGE_SIZE + DRILL_PAGE_SIZE,
+  );
+
   // Recent practice — sorted by attempts desc, capped to 6.
   const recentPractice = useMemo<DrillTopic[]>(() => {
     if (!mastery) return [];
@@ -1203,7 +1215,7 @@ export function Practice() {
                 No mastery data yet.
               </div>
             ) : (
-              examDrills.map((t) => {
+              pagedDrills.map((t) => {
                 const pct = Math.round(t.ewa * 100);
                 const strength = strengthFor(t.ewa);
                 const barColor =
@@ -1255,6 +1267,41 @@ export function Practice() {
                 );
               })
             )}
+            {examDrills.length > DRILL_PAGE_SIZE ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginTop: 8,
+                  fontSize: 11.5,
+                  color: "var(--ink-4)",
+                }}
+              >
+                <button
+                  type="button"
+                  className="see auth-link"
+                  disabled={drillSafePage === 0}
+                  onClick={() => setDrillPage((p) => Math.max(0, p - 1))}
+                  style={{ background: "none", border: "none", padding: 0, cursor: drillSafePage === 0 ? "default" : "pointer", opacity: drillSafePage === 0 ? 0.4 : 1 }}
+                >
+                  ‹ Prev
+                </button>
+                <span>
+                  {drillSafePage * DRILL_PAGE_SIZE + 1}–
+                  {Math.min((drillSafePage + 1) * DRILL_PAGE_SIZE, examDrills.length)} of {examDrills.length}
+                </span>
+                <button
+                  type="button"
+                  className="see auth-link"
+                  disabled={drillSafePage >= drillPageCount - 1}
+                  onClick={() => setDrillPage((p) => Math.min(drillPageCount - 1, p + 1))}
+                  style={{ background: "none", border: "none", padding: 0, cursor: drillSafePage >= drillPageCount - 1 ? "default" : "pointer", opacity: drillSafePage >= drillPageCount - 1 ? 0.4 : 1 }}
+                >
+                  Next ›
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
