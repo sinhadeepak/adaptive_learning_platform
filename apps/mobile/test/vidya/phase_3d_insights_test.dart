@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
+import 'package:adaptive_learning_mobile/vidya/aurora_route.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_insights_screen.dart';
 
 Widget _harness(Widget child) => MaterialApp(
@@ -207,12 +208,26 @@ void main() {
       expect(find.textContaining('3 topics attempted'), findsOneWidget);
     });
 
-    testWidgets('shows COMING IN PHASE 3d.full preview card',
+    testWidgets('DIG DEEPER section lists the analytics deep-dives',
         (tester) async {
       final auth = await _loggedInAuth(_insightsMocks());
       await _pump(tester, VidyaInsightsScreen(auth: auth));
       await tester.pumpAndSettle();
-      expect(find.text('COMING IN PHASE 3d.full'), findsOneWidget);
+      expect(find.text('DIG DEEPER'), findsOneWidget);
+      expect(find.text('My Analysis'), findsOneWidget);
+      expect(find.text('Concept Profile'), findsOneWidget);
+      expect(find.text('Diagnostic Deep-Dive'), findsOneWidget);
+    });
+
+    testWidgets('tapping a DIG DEEPER row pushes an Aurora analytics route',
+        (tester) async {
+      final auth = await _loggedInAuth(_insightsMocks());
+      await _pump(tester, VidyaInsightsScreen(auth: auth));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Concept Profile'));
+      await tester.tap(find.text('Concept Profile'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AuroraRoute), findsOneWidget);
     });
 
     testWidgets('empty state when mastery list is empty',

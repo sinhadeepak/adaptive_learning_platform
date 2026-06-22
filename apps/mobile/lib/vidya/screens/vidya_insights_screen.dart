@@ -8,6 +8,10 @@ import 'package:flutter/material.dart';
 
 import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
+import '../../screens/concept_profile_screen.dart';
+import '../../screens/diagnostic_deep_dive_screen.dart';
+import '../../screens/progress_tab.dart';
+import '../aurora_route.dart';
 import 'vidya_topic_detail_screen.dart';
 
 class VidyaInsightsScreen extends StatefulWidget {
@@ -150,6 +154,17 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
     ));
   }
 
+  /// Pushes an Aurora-built analytics screen wrapped in [AuroraRoute] so
+  /// it renders under its own Aurora MaterialApp — the same shim the More
+  /// hub uses to mount legacy screens from the Vidya shell.
+  void _openAurora(Widget Function(BuildContext) builder) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AuroraRoute(builder: builder),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final v = VidyaThemeData.of(context);
@@ -264,40 +279,117 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
                 const SizedBox(height: 10),
               ],
             ],
-            const SizedBox(height: 16),
-            VidyaCard(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'COMING IN PHASE 3d.full',
-                      style: TextStyle(
-                        fontFamily: VidyaFonts.mono,
-                        fontSize: 10,
-                        color: v.ink3,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Named per-topic breakdowns, weekly story, and '
-                      'time-spent trends.',
-                      style: TextStyle(
-                        fontFamily: VidyaFonts.ui,
-                        fontSize: 14,
-                        color: v.ink2,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
+            const SizedBox(height: 24),
+            Text(
+              'DIG DEEPER',
+              style: TextStyle(
+                fontFamily: VidyaFonts.mono,
+                fontSize: 11,
+                color: v.ink3,
+                letterSpacing: 1.4,
               ),
+            ),
+            const SizedBox(height: 12),
+            _DeepDiveRow(
+              icon: Icons.insights_outlined,
+              label: 'My Analysis',
+              sublabel: 'Readiness, activity & topic mastery',
+              onTap: () => _openAurora(
+                (_) =>
+                    ProgressTab(api: ApiClient(widget.auth), auth: widget.auth),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _DeepDiveRow(
+              icon: Icons.radar,
+              label: 'Concept Profile',
+              sublabel: 'Multi-parameter mastery per concept',
+              onTap: () {
+                final userId = widget.auth.user?.id ?? '';
+                _openAurora(
+                  (_) =>
+                      ConceptProfileScreen(userId: userId, auth: widget.auth),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            _DeepDiveRow(
+              icon: Icons.account_tree_outlined,
+              label: 'Diagnostic Deep-Dive',
+              sublabel: 'Trace a weakness to its root cause',
+              onTap: () {
+                final userId = widget.auth.user?.id ?? '';
+                _openAurora(
+                  (_) => DiagnosticDeepDiveScreen(
+                    userId: userId,
+                    auth: widget.auth,
+                  ),
+                );
+              },
             ),
           ],
         );
     }
+  }
+}
+
+/// A tappable "dig deeper" row linking to a richer analytics surface:
+/// leading icon, label + sublabel, trailing chevron. Mirrors web's
+/// Insights → Phase-5 deep-link pattern (ADR-0020).
+class _DeepDiveRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String sublabel;
+  final VoidCallback onTap;
+  const _DeepDiveRow({
+    required this.icon,
+    required this.label,
+    required this.sublabel,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return VidyaCard(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: v.accent),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.ui,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: v.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sublabel,
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.ui,
+                      fontSize: 12,
+                      color: v.ink3,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: v.ink3, size: 22),
+          ],
+        ),
+      ),
+    );
   }
 }
 
