@@ -32,7 +32,7 @@ import 'vidya_practice_session_screen.dart';
 /// Stable identifier for each practice mode, decoupled from the
 /// user-visible `title`. Lets a copy or i18n change touch the
 /// `_modes` literal without silently re-routing dispatch.
-enum _PracticeModeKind { quick, focused, mock }
+enum _PracticeModeKind { quick, focused, mistakes, mock }
 
 class VidyaPracticeScreen extends StatelessWidget {
   final QuizClient client;
@@ -62,6 +62,12 @@ class VidyaPracticeScreen extends StatelessWidget {
       eyebrow: 'FOCUSED • 20 mins',
       title: 'Focused Practice',
       body: "Drill the topics you've struggled with recently.",
+    ),
+    _Mode(
+      kind: _PracticeModeKind.mistakes,
+      eyebrow: 'MISTAKES • 10 mins',
+      title: 'Mistakes Drill',
+      body: 'Re-attempt the questions you recently got wrong.',
     ),
     _Mode(
       kind: _PracticeModeKind.mock,
@@ -125,6 +131,29 @@ class VidyaPracticeScreen extends StatelessWidget {
             onBack: () => Navigator.of(context).pop(),
           ),
         ));
+      case _PracticeModeKind.mistakes:
+        final userId = client.auth.user?.id ?? '';
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => VidyaPracticeSessionScreen(
+            client: client,
+            mode: QuizSessionMode.mistakes,
+            questionCount: 10,
+            // topicId is unused for mistake-replay (server pulls the
+            // user's recent wrong answers); pass empty to satisfy the API.
+            topicId: '',
+            userId: userId,
+            onCompleted: (sessionId) {
+              Navigator.of(context).pushReplacement(MaterialPageRoute(
+                builder: (_) => VidyaPracticeResultScreen(
+                  client: client,
+                  sessionId: sessionId,
+                  onDone: () => Navigator.of(context).pop(),
+                ),
+              ));
+            },
+            onBack: () => Navigator.of(context).pop(),
+          ),
+        ));
       case _PracticeModeKind.mock:
         final user = client.auth.user;
         final examId = user?.examId;
@@ -180,35 +209,41 @@ class VidyaPracticeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final v = VidyaThemeData.of(context);
-    return ListView(
+    // SingleChildScrollView (not ListView) so every mode card builds
+    // eagerly — adding the Mistakes Drill card made four, and a lazy
+    // ListView would leave the last card unbuilt off-screen in tests.
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-      children: [
-        Text(
-          'PRACTICE',
-          style: TextStyle(
-            fontFamily: VidyaFonts.mono,
-            fontSize: 11,
-            color: v.ink3,
-            letterSpacing: 1.5,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'PRACTICE',
+            style: TextStyle(
+              fontFamily: VidyaFonts.mono,
+              fontSize: 11,
+              color: v.ink3,
+              letterSpacing: 1.5,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Sharpen your edge.',
-          style: TextStyle(
-            fontFamily: VidyaFonts.display,
-            fontSize: 32,
-            fontWeight: FontWeight.w500,
-            color: v.ink,
-            height: 1.1,
+          const SizedBox(height: 8),
+          Text(
+            'Sharpen your edge.',
+            style: TextStyle(
+              fontFamily: VidyaFonts.display,
+              fontSize: 32,
+              fontWeight: FontWeight.w500,
+              color: v.ink,
+              height: 1.1,
+            ),
           ),
-        ),
-        const SizedBox(height: 20),
-        for (final m in _modes) ...[
-          _PracticeModeCard(mode: m, onTap: () => _onModeTap(context, m)),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
+          for (final m in _modes) ...[
+            _PracticeModeCard(mode: m, onTap: () => _onModeTap(context, m)),
+            const SizedBox(height: 12),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

@@ -32,15 +32,20 @@ import '../../quiz/quiz_client.dart';
 /// parameterise this enum further (e.g. add subjectId, switch to MOCK).
 enum QuizSessionMode {
   practice,
+  mistakes,
   mock;
 
   String get wireName => switch (this) {
         QuizSessionMode.practice => 'PRACTICE',
+        // Mistake-replay is a PRACTICE-mode session pre-loaded server-side
+        // with the user's recent wrong answers (via startMistakeReplay).
+        QuizSessionMode.mistakes => 'PRACTICE',
         QuizSessionMode.mock => 'MOCK',
       };
 
   String get eyebrow => switch (this) {
         QuizSessionMode.practice => 'PRACTICE · Quick',
+        QuizSessionMode.mistakes => 'PRACTICE · Mistakes',
         QuizSessionMode.mock => 'MOCK',
       };
 }
@@ -118,14 +123,22 @@ class _VidyaPracticeSessionScreenState
       _response = null;
     });
     try {
-      final api = ApiClient(widget.client.auth);
-      final langField = await contentLanguageField(api);
-      final start = await widget.client.start(
-        topicId: widget.topicId,
-        userId: widget.userId,
-        mode: widget.mode.wireName,
-        extraFields: langField,
-      );
+      final QuizSessionStart start;
+      if (widget.mode == QuizSessionMode.mistakes) {
+        // Mistake-replay pulls the user's recent wrong answers server-side;
+        // topicId is unused. Empty-state (no mistakes yet) surfaces as a
+        // QuizError(emptyTopic) → the Retry banner below.
+        start = await widget.client.startMistakeReplay(userId: widget.userId);
+      } else {
+        final api = ApiClient(widget.client.auth);
+        final langField = await contentLanguageField(api);
+        start = await widget.client.start(
+          topicId: widget.topicId,
+          userId: widget.userId,
+          mode: widget.mode.wireName,
+          extraFields: langField,
+        );
+      }
       _sessionId = start.sessionId;
       _started = DateTime.now();
       await _fetchNext();

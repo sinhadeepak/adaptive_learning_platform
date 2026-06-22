@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
+import 'package:adaptive_learning_mobile/vidya/aurora_route.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_more_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/theme_mode_notifier.dart';
 
@@ -83,6 +84,7 @@ void main() {
         VidyaMoreScreen(auth: auth, onSignOut: () {}),
       ));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(Switch));
       final sw = tester.widget<Switch>(find.byType(Switch));
       expect(sw.value, isTrue);
     });
@@ -94,6 +96,7 @@ void main() {
         VidyaMoreScreen(auth: auth, onSignOut: () {}),
       ));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(Switch));
       // Initial state — flag absent → switch off.
       expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
       await tester.tap(find.byType(Switch));
@@ -110,6 +113,7 @@ void main() {
         VidyaMoreScreen(auth: auth, onSignOut: () {}),
       ));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(Switch));
       await tester.tap(find.byType(Switch));
       await tester.pump(); // surface the snackbar
       expect(find.text('Restart app to apply.'), findsOneWidget);
@@ -146,6 +150,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
       // Default is dark; tap Light.
+      await tester.ensureVisible(find.text('Light'));
       await tester.tap(find.text('Light'));
       await tester.pumpAndSettle();
       expect(notifier.mode, ThemeMode.light);
@@ -192,6 +197,7 @@ void main() {
         VidyaMoreScreen(auth: auth, onSignOut: () {}),
       ));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('हि'));
       await tester.tap(find.text('हि'));
       await tester.pumpAndSettle();
       expect(capturedLanguage, 'hi');
@@ -205,6 +211,20 @@ void main() {
       ));
       await tester.pumpAndSettle();
       expect(find.text('THEME'), findsNothing);
+    });
+
+    testWidgets('ACTIVITY hub: tapping Bookmarks pushes an Aurora route',
+        (tester) async {
+      final auth = await _loggedInAuth();
+      await tester.pumpWidget(_harness(
+        VidyaMoreScreen(auth: auth, onSignOut: () {}),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('Bookmarks'), findsOneWidget);
+      await tester.tap(find.text('Bookmarks'));
+      await tester.pumpAndSettle();
+      // The Aurora compatibility shim mounts the legacy screen.
+      expect(find.byType(AuroraRoute), findsOneWidget);
     });
 
     testWidgets('Sign out row fires onSignOut', (tester) async {

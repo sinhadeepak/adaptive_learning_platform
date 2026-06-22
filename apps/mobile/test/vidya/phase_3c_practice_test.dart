@@ -65,15 +65,17 @@ void main() {
       expect(find.text('Sharpen your edge.'), findsOneWidget);
     });
 
-    testWidgets('renders three mode cards with name + duration eyebrow',
+    testWidgets('renders four mode cards with name + duration eyebrow',
         (tester) async {
       await tester.pumpWidget(_harness(VidyaPracticeScreen(client: _stub(), insights: _stubInsights())));
       await tester.pumpAndSettle();
       expect(find.text('Quick Practice'), findsOneWidget);
       expect(find.text('Focused Practice'), findsOneWidget);
+      expect(find.text('Mistakes Drill'), findsOneWidget);
       expect(find.text('Mock Test'), findsOneWidget);
       expect(find.textContaining('QUICK'), findsOneWidget);
       expect(find.textContaining('FOCUSED'), findsOneWidget);
+      expect(find.textContaining('MISTAKES'), findsOneWidget);
       expect(find.textContaining('MOCK'), findsOneWidget);
     });
 
@@ -95,6 +97,22 @@ void main() {
       expect(find.byType(VidyaFocusedIntroScreen), findsOneWidget);
     });
 
+    testWidgets('Mistakes Drill tap navigates to session screen in mistakes mode',
+        (tester) async {
+      await tester.pumpWidget(_harness(
+        VidyaPracticeScreen(client: _stubWithUser(), insights: _stubInsights()),
+      ));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Mistakes Drill'));
+      await tester.tap(find.text('Mistakes Drill'));
+      await tester.pumpAndSettle();
+      final screen = tester.widget<VidyaPracticeSessionScreen>(
+        find.byType(VidyaPracticeSessionScreen),
+      );
+      // mistakes mode is what drives _start → startMistakeReplay.
+      expect(screen.mode, QuizSessionMode.mistakes);
+    });
+
     testWidgets('Mock Test tap navigates to mock intro screen (examId set)',
         (tester) async {
       await tester.pumpWidget(_harness(VidyaPracticeScreen(
@@ -102,6 +120,7 @@ void main() {
         insights: _stubInsights(),
       )));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Mock Test'));
       await tester.tap(find.text('Mock Test'));
       // The intro screen kicks off an HTTP fetch that 500s in tests;
       // pumpAndSettle is safe because that future resolves quickly.
@@ -116,6 +135,7 @@ void main() {
         insights: _stubInsights(),
       )));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Mock Test'));
       await tester.tap(find.text('Mock Test'));
       await tester.pump();
       expect(
