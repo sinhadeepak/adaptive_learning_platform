@@ -39,7 +39,7 @@ class AuthClient {
     final body = jsonEncode({'email': email, 'password': password, 'remember': remember});
     final res = await _http.post(
       Uri.parse('$baseUrl/auth/login'),
-      headers: {'content-type': 'application/json'},
+      headers: baseHeaders(json: true),
       body: body,
     );
     if (res.statusCode != 200) throw _decodeAuthError(res);
@@ -64,7 +64,7 @@ class AuthClient {
     });
     final res = await _http.post(
       Uri.parse('$baseUrl/auth/register'),
-      headers: {'content-type': 'application/json'},
+      headers: baseHeaders(json: true),
       body: body,
     );
     if (res.statusCode != 200) throw _decodeAuthError(res);
@@ -75,7 +75,7 @@ class AuthClient {
   Future<Session> verifyOtp({required String userId, required String code, String channel = 'email'}) async {
     final res = await _http.post(
       Uri.parse('$baseUrl/auth/otp/verify'),
-      headers: {'content-type': 'application/json'},
+      headers: baseHeaders(json: true),
       body: jsonEncode({'userId': userId, 'code': code, 'channel': channel}),
     );
     if (res.statusCode != 200) throw _decodeAuthError(res);
@@ -90,7 +90,7 @@ class AuthClient {
   Future<void> forgotPassword({required String email}) async {
     final res = await _http.post(
       Uri.parse('$baseUrl/auth/password/forgot'),
-      headers: {'content-type': 'application/json'},
+      headers: baseHeaders(json: true),
       body: jsonEncode({'email': email}),
     );
     // 204 on success; 429 on rate-limit. Anything else is a server problem.
@@ -110,7 +110,7 @@ class AuthClient {
   Future<void> resetPassword({required String token, required String newPassword}) async {
     final res = await _http.post(
       Uri.parse('$baseUrl/auth/password/reset'),
-      headers: {'content-type': 'application/json'},
+      headers: baseHeaders(json: true),
       body: jsonEncode({'token': token, 'newPassword': newPassword}),
     );
     if (res.statusCode == 204) return;
@@ -137,7 +137,7 @@ class AuthClient {
       try {
         await _http.post(
           Uri.parse('$baseUrl/auth/logout'),
-          headers: {'content-type': 'application/json'},
+          headers: baseHeaders(json: true),
           body: jsonEncode({'refreshToken': t.refreshToken}),
         );
       } catch (_) {
@@ -179,13 +179,29 @@ class AuthClient {
 
   Uri _uri(String path) => Uri.parse('$baseUrl$path');
 
-  Map<String, String> _authHeaders({bool json = false}) {
-    final h = <String, String>{};
-    final t = _cachedTokens;
-    if (t != null) h['authorization'] = 'Bearer ${t.accessToken}';
+  // zrok's free public shares inject an HTML interstitial page on
+  // requests that lack this header — which would break JSON parsing for
+  // a native client that can't "click through" like a browser. Sending
+  // it on every request is harmless on any other host (unknown headers
+  // are ignored), so the app behaves identically locally and through a
+  // zrok tunnel. See README / zrok docs (skip_zrok_interstitial).
+  static const Map<String, String> _zrokSkip = {'skip_zrok_interstitial': '1'};
+
+  /// Shared header builder for every request (auth endpoints + data
+  /// APIs). [auth] attaches the bearer token; [json] sets the content
+  /// type. Always includes the zrok interstitial-bypass header.
+  Map<String, String> baseHeaders({bool json = false, bool auth = false}) {
+    final h = <String, String>{..._zrokSkip};
     if (json) h['content-type'] = 'application/json';
+    if (auth) {
+      final t = _cachedTokens;
+      if (t != null) h['authorization'] = 'Bearer ${t.accessToken}';
+    }
     return h;
   }
+
+  Map<String, String> _authHeaders({bool json = false}) =>
+      baseHeaders(json: json, auth: true);
 
   /// Update the in-memory user — used when an onboarding step returns a fresh profile
   /// containing the advanced onboardingState.

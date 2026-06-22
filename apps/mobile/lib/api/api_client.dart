@@ -95,7 +95,7 @@ class ApiClient {
     final url = '${auth.baseUrl}/profile/me/avatar';
     final res = await http.delete(
       Uri.parse(url),
-      headers: {'authorization': 'Bearer ${auth.tokens?.accessToken ?? ''}'},
+      headers: auth.baseHeaders(auth: true),
     );
     return res.statusCode == 204 || res.statusCode == 200;
   }
@@ -161,7 +161,7 @@ class ApiClient {
     final url = '${auth.baseUrl}/profile/bookmarks/$questionId';
     final res = await http.delete(
       Uri.parse(url),
-      headers: {'authorization': 'Bearer ${auth.tokens?.accessToken ?? ''}'},
+      headers: auth.baseHeaders(auth: true),
     );
     return res.statusCode == 204 || res.statusCode == 200;
   }
@@ -211,7 +211,7 @@ class ApiClient {
     final url = '${auth.baseUrl}/notifications/$notificationId/read?user_id=$userId';
     final res = await http.post(
       Uri.parse(url),
-      headers: {'authorization': 'Bearer ${auth.tokens?.accessToken ?? ''}'},
+      headers: auth.baseHeaders(auth: true),
     );
     return res.statusCode == 200;
   }
@@ -622,10 +622,7 @@ class ApiClient {
       if (userId != null) 'userId': userId,
     });
     final req = http.Request('POST', Uri.parse('${auth.baseUrl}/adaptive/tutor/chat'))
-      ..headers.addAll({
-        'content-type': 'application/json',
-        'authorization': 'Bearer ${auth.tokens?.accessToken ?? ''}',
-      })
+      ..headers.addAll(auth.baseHeaders(json: true, auth: true))
       ..body = body;
     final res = await req.send();
     if (res.statusCode != 200) {
