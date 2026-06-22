@@ -632,10 +632,29 @@ export function Practice() {
       return true;
     }
   });
-  const showDiagnosticGate =
-    !diagDismissed &&
-    mastery !== null &&
-    mastery.filter((m) => m.n > 0).length === 0;
+  // The diagnostic gate is a once-per-user onboarding nudge for students who
+  // have NEVER practiced. It must key off GLOBAL attempts, not the per-exam
+  // (exam-scoped) `mastery` — otherwise switching to a fresh exam wrongly
+  // re-triggers it, and its full-screen overlay then intercepts the drill
+  // buttons (clicking Drill dismisses the modal instead of starting a session).
+  const [globalHasAttempts, setGlobalHasAttempts] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const r = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
+        if (r.ok) {
+          const b = (await r.json()) as { topics?: Array<{ n: number }> };
+          setGlobalHasAttempts((b.topics ?? []).some((t) => t.n > 0));
+        } else {
+          setGlobalHasAttempts(false);
+        }
+      } catch {
+        setGlobalHasAttempts(false);
+      }
+    })();
+  }, [user]);
+  const showDiagnosticGate = !diagDismissed && globalHasAttempts === false;
 
   function dismissDiagnostic() {
     try {
