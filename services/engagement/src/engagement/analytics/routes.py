@@ -502,7 +502,7 @@ async def error_patterns_route(user_id: str, since: str | None = None) -> dict:
 
 
 @router.get("/analytics/revision/{user_id}")
-async def revision_due(user_id: str, limit: int = 10) -> dict:
+async def revision_due(user_id: str, limit: int = 10, exam_id: str | None = None) -> dict:
     """Top-N topics due today for the user, ordered most-overdue-first.
 
     Per ADR-0014. Each row carries the SM-2 state (interval, ease factor,
@@ -513,9 +513,10 @@ async def revision_due(user_id: str, limit: int = 10) -> dict:
     """
     now = datetime.now(tz=UTC)
     limit = max(1, min(limit, 50))
+    topic_ids = await resolve_exam_topic_ids(exam_id) if exam_id else None
     async with sessionmaker()() as session:
         rows = await _revision_repo.list_due(
-            session, user_id, now=now, limit=limit
+            session, user_id, now=now, limit=limit, topic_ids=topic_ids
         )
     # HTTP-merge topic titles in bulk
     topic_ids = list({r["topicId"] for r in rows})
