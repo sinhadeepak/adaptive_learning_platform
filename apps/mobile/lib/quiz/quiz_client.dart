@@ -275,7 +275,8 @@ class QuizItem {
       required this.questionId,
       required this.stem,
       required this.choices,
-      this.questionType = 'MCQ_SINGLE',});
+      this.questionType = 'MCQ_SINGLE',
+      this.payload = const {},});
   final int itemIdx;
   final String questionId;
   final String stem;
@@ -283,12 +284,26 @@ class QuizItem {
   // Sprint 7/8 — drives renderer choice on the client.
   // Empty / unknown falls back to MCQ_SINGLE (the existing path).
   final String questionType;
+  // P5 — present for non-MCQ types. The PolymorphicRenderer drives the
+  // whole answer surface (including the stem) off this map. Defaults to
+  // `{}` so MCQ_SINGLE / legacy payloads keep parsing. Mirrors web's
+  // `QuizItem.payload` (apps/web-student/src/pages/Quiz.tsx).
+  final Map<String, dynamic> payload;
+
+  /// MCQ_SINGLE (and untyped legacy items) render the lettered-choice UI
+  /// and submit `answerIdx`; every other type renders via
+  /// `PolymorphicRenderer` and submits a structured `responsePayload`.
+  bool get isMcq => questionType.isEmpty || questionType == 'MCQ_SINGLE';
+
   factory QuizItem.fromJson(Map<String, dynamic> j) => QuizItem(
         itemIdx: (j['itemIdx'] as num).toInt(),
         questionId: j['questionId'] as String,
         stem: j['stem'] as String,
-        choices: (j['choices'] as List).cast<String>(),
+        // Non-MCQ items can ship an empty / absent choices array — the
+        // payload carries their options instead. Tolerate both.
+        choices: (j['choices'] as List?)?.cast<String>() ?? const [],
         questionType: (j['questionType'] ?? 'MCQ_SINGLE') as String,
+        payload: (j['payload'] as Map?)?.cast<String, dynamic>() ?? const {},
       );
 }
 

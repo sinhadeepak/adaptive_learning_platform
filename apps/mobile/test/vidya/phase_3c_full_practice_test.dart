@@ -783,11 +783,18 @@ void main() {
       )));
       await tester.pumpAndSettle();
 
-      // Score + Done still render
+      // Score renders at the top.
       expect(find.text('7 / 10'), findsOneWidget);
-      expect(find.text('Done'), findsOneWidget);
-      // But the single-row breakdown is suppressed
+      // The single-row breakdown is suppressed.
       expect(find.text('BY TOPIC'), findsNothing);
+      // Done CTA is still present — it now sits below the per-question
+      // review list (Phase 2), so scroll it into view before asserting.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('vidya.practice.result.done')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.byKey(const Key('vidya.practice.result.done')), findsOneWidget);
     });
   });
 

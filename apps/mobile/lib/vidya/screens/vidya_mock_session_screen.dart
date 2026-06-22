@@ -36,6 +36,7 @@ import 'dart:async';
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 
+import '../../quiz/polymorphic_renderer.dart';
 import '../../quiz/quiz_client.dart';
 
 class VidyaMockSessionScreen extends StatefulWidget {
@@ -83,6 +84,9 @@ class _VidyaMockSessionScreenState extends State<VidyaMockSessionScreen> {
   QuizSessionStartFromBlueprint? _session;
   QuizItem? _item;
   int? _selectedIdx;
+  // Structured renderer value for non-MCQ types — forwarded verbatim as
+  // the grader `responsePayload` on submit (see VidyaPracticeSessionScreen).
+  dynamic _response;
   bool _submitting = false;
   String? _error;
   int _servedCount = 0;
@@ -121,6 +125,7 @@ class _VidyaMockSessionScreenState extends State<VidyaMockSessionScreen> {
       _item = null;
       _session = null;
       _selectedIdx = null;
+      _response = null;
       _servedCount = 0;
     });
     try {
@@ -155,6 +160,7 @@ class _VidyaMockSessionScreenState extends State<VidyaMockSessionScreen> {
       setState(() {
         _item = result.item;
         _selectedIdx = null;
+        _response = null;
         _servedCount += 1;
       });
     } on QuizError catch (e) {
@@ -172,23 +178,40 @@ class _VidyaMockSessionScreenState extends State<VidyaMockSessionScreen> {
     }
   }
 
+  /// Whether the current item has enough input to submit. MCQ needs a
+  /// selected choice; every other type needs a non-null renderer payload.
+  bool get _canSubmit {
+    final item = _item;
+    if (item == null) return false;
+    return item.isMcq ? _selectedIdx != null : _response != null;
+  }
+
   Future<void> _submit() async {
-    if (_selectedIdx == null ||
-        _submitting ||
-        _item == null ||
-        _session == null) {
+    if (!_canSubmit || _submitting || _session == null) {
       return;
     }
+    final item = _item!;
     setState(() {
       _error = null;
       _submitting = true;
     });
     try {
-      await widget.client.answer(
-        _session!.sessionId,
-        itemIdx: _item!.itemIdx,
-        answerIdx: _selectedIdx!,
-      );
+      if (item.isMcq) {
+        await widget.client.answer(
+          _session!.sessionId,
+          itemIdx: item.itemIdx,
+          answerIdx: _selectedIdx!,
+        );
+      } else {
+        await widget.client.answer(
+          _session!.sessionId,
+          itemIdx: item.itemIdx,
+          answerIdx: 0,
+          responsePayload: _response is Map<String, dynamic>
+              ? _response as Map<String, dynamic>
+              : <String, dynamic>{'value': _response},
+        );
+      }
       await _fetchNext();
     } on QuizError catch (e) {
       if (mounted) {
@@ -396,6 +419,12 @@ class _VidyaMockSessionScreenState extends State<VidyaMockSessionScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            // OMR-style status palette: a per-question overview of the
+            // whole paper. Display-only — the mock is server-driven linear
+            // (next-only), so there is no jump-to-question yet; this is the
+            // "where am I across the paper" aid, not a navigator.
+            _QuestionPalette(currentIdx: q.itemIdx, total: total),
             const SizedBox(height: 16),
             if (_expired) ...[
               VidyaBanner(
@@ -404,83 +433,203 @@ class _VidyaMockSessionScreenState extends State<VidyaMockSessionScreen> {
               ),
               const SizedBox(height: 12),
             ],
-            Text(
-              q.stem,
-              style: TextStyle(
-                fontFamily: VidyaFonts.display,
-                fontSize: 22,
-                fontWeight: FontWeight.w500,
-                color: ink,
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: 20),
+            // MCQ_SINGLE / legacy items render the lettered-choice UI and
+            // submit answerIdx; all other question types render through the
+            // PolymorphicRenderer (which owns its stem) and submit a
+            // structured responsePayload. Mirrors web Quiz.tsx.
             Expanded(
-              child: ListView.separated(
-                itemCount: q.choices.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (ctx, i) {
-                  final selected = _selectedIdx == i;
-                  return VidyaCard(
-                    onTap: _submitting
-                        ? null
-                        : () => setState(() => _selectedIdx = i),
-                    tone: selected
-                        ? VidyaCardTone.accent
-                        : VidyaCardTone.defaultTone,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? accent
-                                  : muted.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              String.fromCharCode(65 + i),
-                              style: TextStyle(
-                                fontFamily: VidyaFonts.ui,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: selected ? Colors.white : ink,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              q.choices[i],
-                              style: TextStyle(
-                                fontFamily: VidyaFonts.ui,
-                                fontSize: 15,
-                                color: ink,
-                              ),
-                            ),
-                          ),
-                        ],
+              child: q.isMcq
+                  ? _buildMcqChoices(q, ink, muted, accent)
+                  : SingleChildScrollView(
+                      child: PolymorphicRenderer.build(
+                        typeId: q.questionType,
+                        payload: q.payload,
+                        value: _response,
+                        onChange: (v) => setState(() => _response = v),
+                        disabled: _submitting,
                       ),
                     ),
-                  );
-                },
-              ),
             ),
             const SizedBox(height: 12),
             VidyaButton(
               key: const Key('vidya.mock.session.submit'),
               label: _submitting ? 'Saving…' : 'Submit answer',
-              onPressed: _selectedIdx == null || _submitting ? null : _submit,
-              disabled: _selectedIdx == null || _submitting,
+              onPressed: !_canSubmit || _submitting ? null : _submit,
+              disabled: !_canSubmit || _submitting,
               size: VidyaButtonSize.lg,
             ),
           ],
         ),
       ),
     ),);
+  }
+
+  /// Lettered-choice MCQ body: question stem + scrollable tappable choice
+  /// cards. Used only for MCQ_SINGLE / legacy items — all other types
+  /// render via [PolymorphicRenderer].
+  Widget _buildMcqChoices(QuizItem q, Color ink, Color muted, Color accent) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          q.stem,
+          style: TextStyle(
+            fontFamily: VidyaFonts.display,
+            fontSize: 22,
+            fontWeight: FontWeight.w500,
+            color: ink,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Expanded(
+          child: ListView.separated(
+            itemCount: q.choices.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (ctx, i) {
+              final selected = _selectedIdx == i;
+              return VidyaCard(
+                onTap: _submitting
+                    ? null
+                    : () => setState(() => _selectedIdx = i),
+                tone: selected
+                    ? VidyaCardTone.accent
+                    : VidyaCardTone.defaultTone,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? accent
+                              : muted.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          String.fromCharCode(65 + i),
+                          style: TextStyle(
+                            fontFamily: VidyaFonts.ui,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: selected ? Colors.white : ink,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          q.choices[i],
+                          style: TextStyle(
+                            fontFamily: VidyaFonts.ui,
+                            fontSize: 15,
+                            color: ink,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// OMR-style question-status palette. Cells 0..total-1 render as:
+///   * answered  — indices before the current one (filled accent-soft)
+///   * current   — the question on screen (accent border + bold)
+///   * pending   — not yet reached (muted outline)
+/// Display-only: the linear next-flow has no jump-to-index, so cells are
+/// not tappable. Wraps to multiple rows for long papers.
+class _QuestionPalette extends StatelessWidget {
+  const _QuestionPalette({required this.currentIdx, required this.total});
+  final int currentIdx;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    if (total <= 1) return const SizedBox.shrink();
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (var i = 0; i < total; i++)
+          _PaletteCell(
+            number: i + 1,
+            state: i < currentIdx
+                ? _CellState.answered
+                : i == currentIdx
+                    ? _CellState.current
+                    : _CellState.pending,
+            theme: v,
+          ),
+      ],
+    );
+  }
+}
+
+enum _CellState { answered, current, pending }
+
+class _PaletteCell extends StatelessWidget {
+  const _PaletteCell({
+    required this.number,
+    required this.state,
+    required this.theme,
+  });
+  final int number;
+  final _CellState state;
+  final VidyaThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final (Color bg, Color border, Color fg) = switch (state) {
+      _CellState.answered => (
+          theme.accentSoft,
+          theme.accent,
+          theme.accent,
+        ),
+      _CellState.current => (
+          theme.accent,
+          theme.accent,
+          Colors.white,
+        ),
+      _CellState.pending => (
+          Colors.transparent,
+          theme.ink3.withValues(alpha: 0.3),
+          theme.ink3,
+        ),
+    };
+    return Container(
+      width: 30,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: border,
+          width: state == _CellState.current ? 2 : 1,
+        ),
+      ),
+      child: Text(
+        '$number',
+        style: TextStyle(
+          fontFamily: VidyaFonts.mono,
+          fontSize: 12,
+          fontWeight: state == _CellState.pending
+              ? FontWeight.w400
+              : FontWeight.w600,
+          color: fg,
+        ),
+      ),
+    );
   }
 }
