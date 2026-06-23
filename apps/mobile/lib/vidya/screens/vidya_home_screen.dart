@@ -1,21 +1,42 @@
-// VidyaHomeScreen — Phase 3a.1 implements slide-7 content (greeting +
-// READINESS card + NEXT SESSION card + stats row). Each endpoint
-// degrades independently: a failure renders '—' for that card and lets
-// the rest of the screen continue.
+// VidyaHomeScreen — Phase 4 rich home (web/design parity).
 //
-// Deliberately has no Timer.periodic. The InboxBell-style notification
-// poll lands later via Stream/ValueNotifier so pumpAndSettle() keeps
-// working in tests.
+// Layout (per the design mockup): greeting + bell/avatar, a multi-exam
+// switcher (the student is often enrolled in several exams), a per-exam
+// READINESS hero + band, an AI NEXT BEST ACTION (real guided-next-steps),
+// the streak/today/mocks stat row, and a real TODAY'S PLAN checklist
+// driven by the IGS today-plan endpoint.
 //
-// Phase 3a.2 will add: 12-week readiness sparkline, TODAY checklist,
-// avatar + bell in the header, skeleton placeholders.
+// All data is per the *active* exam. The selection persists in secure
+// storage so it survives app restarts. Every endpoint degrades
+// independently — a failure renders a fallback for that card and lets
+// the rest of the screen render.
+//
+// Deliberately omitted: the readiness *trend* sparkline + "+N this week"
+// + θ readout shown in the web/design — those are hardcoded mocks on web
+// and have no per-user history endpoint yet, so we show the real score +
+// band instead of fabricating a trend.
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
+import '../../igs/igs_client.dart';
+import '../../quiz/quiz_client.dart';
 import '../shell/vidya_main_shell_scope.dart';
+import 'vidya_practice_result_screen.dart';
+import 'vidya_practice_session_screen.dart';
+
+/// One enrolled exam, joined from profile.exams (id + targetDate) and the
+/// catalog (code + name).
+class _ExamRef {
+  final String examId;
+  final String code;
+  final String name;
+  const _ExamRef(
+      {required this.examId, required this.code, required this.name});
+}
 
 class VidyaHomeScreen extends StatefulWidget {
   final AuthClient auth;
@@ -26,14 +47,22 @@ class VidyaHomeScreen extends StatefulWidget {
 }
 
 class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
-  // The score scale on slide 7. Underlying readiness is 0..1.
   static const int _scoreScale = 900;
-  // TODAY shows "questions today / goal". 5 is a v1 placeholder until
-  // UserProfile.dailyGoal{Minutes,Questions} settles in Phase 3a.2.
   static const int _todayGoalQuestions = 5;
+  static const _storage = FlutterSecureStorage();
+  static const _activeExamKey = 'vidya.active_exam_id';
 
   bool _loading = true;
-  _HomeData? _data;
+  String _firstName = 'there';
+  int _unreadCount = 0;
+  List<_ExamRef> _exams = const [];
+  String? _activeExamId;
+
+  // Per-exam data (reloaded on exam switch).
+  bool _examLoading = false;
+  _ExamData? _exam;
+  // Local-only completion state for today's plan (no backend tracking yet).
+  final Set<int> _donePlanItems = <int>{};
 
   @override
   void initState() {
@@ -41,10 +70,6 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
     _load();
   }
 
-  // Per-future best-effort wrapper — Dart 3's Future.catchError requires
-  // the handler return the future's type (e.g. non-nullable Readiness),
-  // so a try/await/catch around each call is the cleanest way to widen
-  // to nullable on failure.
   Future<T?> _safe<T>(Future<T> Function() fetch) async {
     try {
       return await fetch();
@@ -60,78 +85,175 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
       return;
     }
     final api = ApiClient(widget.auth);
+    final profile = await _safe(() => api.getProfile());
+    final catalog = await _safe(() => api.exams()) ?? const <Exam>[];
+    final unread = await _safe(() => api.inboxUnreadCount(user.id)) ?? 0;
+
+    // Join enrolled exams with catalog to get code + name.
+    final byId = {for (final e in catalog) e.id: e};
+    final exams = <_ExamRef>[
+      for (final ue in profile?.exams ?? const <UserExam>[])
+        if (byId[ue.examId] != null)
+          _ExamRef(
+            examId: ue.examId,
+            code: byId[ue.examId]!.code,
+            name: byId[ue.examId]!.name,
+          ),
+    ];
+
+    final stored = await _safe(() => _storage.read(key: _activeExamKey));
+    final active = exams.any((e) => e.examId == stored)
+        ? stored
+        : (exams.isNotEmpty ? exams.first.examId : null);
+
+    if (!mounted) return;
+    setState(() {
+      _firstName = profile?.firstName ?? user.firstName;
+      _unreadCount = unread;
+      _exams = exams;
+      _activeExamId = active;
+      _loading = false;
+    });
+    if (active != null) {
+      await _loadExamData(exams.firstWhere((e) => e.examId == active));
+    }
+  }
+
+  Future<void> _loadExamData(_ExamRef exam) async {
+    final user = widget.auth.user;
+    if (user == null) return;
+    setState(() => _examLoading = true);
+    final api = ApiClient(widget.auth);
+    final igs = IGSClient(widget.auth);
+
     final results = await Future.wait<Object?>([
-      _safe<UserProfile?>(() => api.getProfile()),
-      _safe<Readiness>(() => api.readiness(user.id)),
+      _safe<Readiness>(() => api.readiness(user.id, scope: exam.code)),
       _safe<Streak>(() => api.streak(user.id)),
       _safe<List<DailyActivity>>(() => api.dailyActivity(user.id, days: 1)),
       _safe<List<MockAttemptRow>>(() => api.mockAttempts()),
-      _safe<int>(() => api.inboxUnreadCount(user.id)),
+      _safe<GuidedNextSteps>(
+          () => api.guidedNextSteps(user.id, examCode: exam.code)),
+      _safe<TodayPlan?>(() => igs.fetchTodayPlan(user.id, exam.examId)),
+      _safe<Map<String, String>>(() => _topicTitles(api, exam.examId)),
     ]);
     if (!mounted) return;
-    final profile = results[0] as UserProfile?;
-    final readiness = results[1] as Readiness?;
-    final streak = results[2] as Streak?;
-    final daily = (results[3] as List<DailyActivity>?) ?? const [];
-    final mocks = (results[4] as List<MockAttemptRow>?) ?? const [];
-    final unread = (results[5] as int?) ?? 0;
+    final guided = results[4] as GuidedNextSteps?;
     setState(() {
-      _data = _HomeData(
-        firstName: profile?.firstName ?? user.firstName,
-        readinessScore: readiness?.score,
-        streakDays: streak?.current,
-        questionsToday: daily.fold<int>(0, (sum, d) => sum + d.questions),
-        mockCount: mocks.length,
-        unreadCount: unread,
+      _exam = _ExamData(
+        readinessScore: (results[0] as Readiness?)?.score,
+        streakDays: (results[1] as Streak?)?.current,
+        questionsToday: ((results[2] as List<DailyActivity>?) ?? const [])
+            .fold<int>(0, (sum, d) => sum + d.questions),
+        mockCount: ((results[3] as List<MockAttemptRow>?) ?? const []).length,
+        nextStep:
+            (guided?.steps.isNotEmpty ?? false) ? guided!.steps.first : null,
+        plan: results[5] as TodayPlan?,
+        topicTitles: (results[6] as Map<String, String>?) ?? const {},
       );
-      _loading = false;
+      _donePlanItems.clear();
+      _examLoading = false;
     });
+  }
+
+  /// Best-effort topicId → title map for the exam, so plan / next-step
+  /// items can show human names. Degrades to {} (items fall back to a
+  /// readable action kind).
+  Future<Map<String, String>> _topicTitles(ApiClient api, String examId) async {
+    final subjects = await api.subjectsForExam(examId);
+    final lists =
+        await Future.wait(subjects.map((s) => api.topicsForSubject(s.id)));
+    final out = <String, String>{};
+    for (final topics in lists) {
+      for (final t in topics) {
+        out[t.id] = t.title;
+      }
+    }
+    return out;
+  }
+
+  Future<void> _selectExam(String examId) async {
+    if (examId == _activeExamId) return;
+    await _storage.write(key: _activeExamKey, value: examId);
+    setState(() {
+      _activeExamId = examId;
+      _exam = null;
+    });
+    await _loadExamData(_exams.firstWhere((e) => e.examId == examId));
+  }
+
+  void _goToPractice() =>
+      VidyaMainShellScope.of(context)?.switchTo(VidyaShellTab.practice);
+
+  /// Launch a focused practice session on a specific topic (used by the
+  /// next-best-action CTA). Falls back to the Practice tab if no topic.
+  void _startTopic(String? topicId) {
+    final userId = widget.auth.user?.id ?? '';
+    if (topicId == null || topicId.isEmpty || userId.isEmpty) {
+      _goToPractice();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VidyaPracticeSessionScreen(
+          client: QuizClient(auth: widget.auth),
+          topicId: topicId,
+          userId: userId,
+          onCompleted: (sessionId) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute<void>(
+                builder: (_) => VidyaPracticeResultScreen(
+                  client: QuizClient(auth: widget.auth),
+                  sessionId: sessionId,
+                  onDone: () => Navigator.of(context).pop(),
+                ),
+              ),
+            );
+          },
+          onBack: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
   }
 
   String _todayEyebrow() {
     final now = DateTime.now();
     const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
     const months = [
-      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
     ];
     return '${days[now.weekday - 1]} · ${months[now.month - 1]} ${now.day}';
-  }
-
-  void _startPractice() {
-    VidyaMainShellScope.of(context)?.switchTo(VidyaShellTab.practice);
   }
 
   @override
   Widget build(BuildContext context) {
     final v = VidyaThemeData.of(context);
-    if (_loading) {
-      return const _HomeSkeleton();
-    }
-    final d = _data;
-    if (d == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            "We couldn't load your home yet. Sign out and back in if this persists.",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: VidyaFonts.ui,
-              fontSize: 14,
-              color: v.ink2,
-            ),
-          ),
-        ),
-      );
+    if (_loading) return const _HomeSkeleton();
+
+    final initial =
+        _firstName.isNotEmpty ? _firstName.substring(0, 1).toUpperCase() : '?';
+    _ExamRef? activeExam;
+    for (final e in _exams) {
+      if (e.examId == _activeExamId) {
+        activeExam = e;
+        break;
+      }
     }
 
-    final initial = d.firstName.isNotEmpty
-        ? d.firstName.substring(0, 1).toUpperCase()
-        : '?';
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       children: [
+        // Header.
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -150,7 +272,7 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Hi, ${d.firstName}.',
+                    'Hi, $_firstName.',
                     style: TextStyle(
                       fontFamily: VidyaFonts.display,
                       fontSize: 32,
@@ -163,88 +285,222 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
               ),
             ),
             VidyaBellButton(
-              unreadCount: d.unreadCount,
-              // Phase 3a.2 — no notifications screen yet; route to More
-              // tab where the inbox surface will eventually live.
-              onTap: () => VidyaMainShellScope.of(context)
-                  ?.switchTo(VidyaShellTab.more),
+              unreadCount: _unreadCount,
+              onTap: () =>
+                  VidyaMainShellScope.of(context)?.switchTo(VidyaShellTab.more),
             ),
             const SizedBox(width: 8),
             VidyaAvatar(initials: initial, size: 40),
           ],
         ),
-        const SizedBox(height: 20),
-        _ReadinessCard(score: d.readinessScore, scale: _scoreScale),
-        const SizedBox(height: 12),
-        _NextSessionCard(onStart: _startPractice),
-        const SizedBox(height: 12),
-        _StatsRow(
-          streakDays: d.streakDays,
-          questionsToday: d.questionsToday,
-          mockCount: d.mockCount,
-          todayGoal: _todayGoalQuestions,
-        ),
+        const SizedBox(height: 16),
+
+        // Exam switcher (only when enrolled in 2+ exams).
+        if (_exams.length >= 2) ...[
+          _ExamSwitcher(
+            exams: _exams,
+            activeExamId: _activeExamId,
+            onSelect: _selectExam,
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        if (_exams.isEmpty)
+          _NoExamCard(onPickExam: _goToPractice)
+        else ...[
+          _ReadinessHero(
+            examName: activeExam?.name ?? 'Readiness',
+            score: _exam?.readinessScore,
+            scale: _scoreScale,
+            loading: _examLoading,
+          ),
+          const SizedBox(height: 12),
+          _NextBestActionCard(
+            step: _exam?.nextStep,
+            loading: _examLoading,
+            onStart: () => _startTopic(_exam?.nextStep?.topicId),
+          ),
+          const SizedBox(height: 12),
+          _StatsRow(
+            streakDays: _exam?.streakDays,
+            questionsToday: _exam?.questionsToday,
+            mockCount: _exam?.mockCount,
+            todayGoal: _todayGoalQuestions,
+          ),
+          const SizedBox(height: 12),
+          _TodayPlanCard(
+            plan: _exam?.plan,
+            topicTitles: _exam?.topicTitles ?? const {},
+            done: _donePlanItems,
+            loading: _examLoading,
+            onToggle: (i) => setState(() {
+              _donePlanItems.contains(i)
+                  ? _donePlanItems.remove(i)
+                  : _donePlanItems.add(i);
+            }),
+          ),
+        ],
       ],
     );
   }
 }
 
-class _HomeData {
-  final String firstName;
+class _ExamData {
   final double? readinessScore;
   final int? streakDays;
   final int? questionsToday;
   final int? mockCount;
-  final int unreadCount;
-  const _HomeData({
-    required this.firstName,
+  final GuidedStep? nextStep;
+  final TodayPlan? plan;
+  final Map<String, String> topicTitles;
+  const _ExamData({
     this.readinessScore,
     this.streakDays,
     this.questionsToday,
     this.mockCount,
-    this.unreadCount = 0,
+    this.nextStep,
+    this.plan,
+    this.topicTitles = const {},
   });
 }
 
-class _ReadinessCard extends StatelessWidget {
+// ─── Exam switcher ──────────────────────────────────────────────────
+
+class _ExamSwitcher extends StatelessWidget {
+  final List<_ExamRef> exams;
+  final String? activeExamId;
+  final ValueChanged<String> onSelect;
+  const _ExamSwitcher({
+    required this.exams,
+    required this.activeExamId,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return SizedBox(
+      height: 34,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: exams.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (ctx, i) {
+          final e = exams[i];
+          final selected = e.examId == activeExamId;
+          return GestureDetector(
+            onTap: () => onSelect(e.examId),
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: selected ? v.accent : v.ink3.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                e.name,
+                style: TextStyle(
+                  fontFamily: VidyaFonts.ui,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? Colors.white : v.ink2,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─── Readiness hero ─────────────────────────────────────────────────
+
+({String label, Color tone}) _bandFor(double? score, VidyaThemeData v) {
+  if (score == null) return (label: 'Not enough data yet', tone: v.ink3);
+  if (score >= 0.70) return (label: 'Approaching target', tone: v.good);
+  if (score >= 0.55) return (label: 'On track', tone: v.info);
+  if (score >= 0.40) return (label: 'Behind pace', tone: v.warn);
+  return (label: 'Building foundations', tone: v.bad);
+}
+
+class _ReadinessHero extends StatelessWidget {
+  final String examName;
   final double? score;
   final int scale;
-  const _ReadinessCard({required this.score, required this.scale});
+  final bool loading;
+  const _ReadinessHero({
+    required this.examName,
+    required this.score,
+    required this.scale,
+    required this.loading,
+  });
 
   @override
   Widget build(BuildContext context) {
     final v = VidyaThemeData.of(context);
     final scaled = score == null ? '—' : (score! * scale).round().toString();
+    final band = _bandFor(score, v);
     return VidyaCard(
+      tone: VidyaCardTone.accent,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'READINESS',
+              '${examName.toUpperCase()} · READINESS',
               style: TextStyle(
                 fontFamily: VidyaFonts.mono,
                 fontSize: 11,
                 color: v.ink3,
-                letterSpacing: 1.5,
+                letterSpacing: 1.4,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
-                  '$scaled / $scale',
+                  scaled,
                   style: TextStyle(
                     fontFamily: VidyaFonts.display,
-                    fontSize: 36,
+                    fontSize: 52,
                     fontWeight: FontWeight.w600,
                     color: v.ink,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '/ $scale',
+                  style: TextStyle(
+                    fontFamily: VidyaFonts.display,
+                    fontSize: 20,
+                    color: v.ink3,
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: band.tone.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                loading ? 'Updating…' : band.label,
+                style: TextStyle(
+                  fontFamily: VidyaFonts.ui,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: band.tone,
+                ),
+              ),
             ),
           ],
         ),
@@ -253,13 +509,25 @@ class _ReadinessCard extends StatelessWidget {
   }
 }
 
-class _NextSessionCard extends StatelessWidget {
+// ─── Next best action ───────────────────────────────────────────────
+
+class _NextBestActionCard extends StatelessWidget {
+  final GuidedStep? step;
+  final bool loading;
   final VoidCallback onStart;
-  const _NextSessionCard({required this.onStart});
+  const _NextBestActionCard({
+    required this.step,
+    required this.loading,
+    required this.onStart,
+  });
 
   @override
   Widget build(BuildContext context) {
     final v = VidyaThemeData.of(context);
+    final title = step?.topicTitle.isNotEmpty == true
+        ? step!.topicTitle
+        : 'Take a quick practice session';
+    final why = step?.why ?? '';
     return VidyaCard(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -267,7 +535,7 @@ class _NextSessionCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'NEXT SESSION',
+              'NEXT BEST ACTION',
               style: TextStyle(
                 fontFamily: VidyaFonts.mono,
                 fontSize: 11,
@@ -277,7 +545,7 @@ class _NextSessionCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Take a quick practice session',
+              title,
               style: TextStyle(
                 fontFamily: VidyaFonts.display,
                 fontSize: 20,
@@ -286,11 +554,38 @@ class _NextSessionCard extends StatelessWidget {
                 height: 1.25,
               ),
             ),
+            if (why.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                why,
+                style: TextStyle(
+                  fontFamily: VidyaFonts.ui,
+                  fontSize: 13,
+                  color: v.ink2,
+                  height: 1.35,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
-            VidyaButton(
-              label: 'Start practice',
-              onPressed: onStart,
-              size: VidyaButtonSize.md,
+            Row(
+              children: [
+                VidyaButton(
+                  label: 'Start practice',
+                  onPressed: loading ? null : onStart,
+                  size: VidyaButtonSize.md,
+                ),
+                if (step != null) ...[
+                  const SizedBox(width: 12),
+                  Text(
+                    '~${step!.estMinutes} min',
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.mono,
+                      fontSize: 12,
+                      color: v.ink3,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         ),
@@ -298,6 +593,175 @@ class _NextSessionCard extends StatelessWidget {
     );
   }
 }
+
+// ─── Today's plan ───────────────────────────────────────────────────
+
+String _actionKindLabel(String kind) {
+  switch (kind.toUpperCase()) {
+    case 'PRACTICE':
+      return 'Practice';
+    case 'MOCK':
+    case 'MOCK_BLUEPRINT':
+      return 'Mock test';
+    case 'REVISION':
+    case 'REVISE':
+      return 'Revision';
+    case 'READING':
+    case 'READ':
+      return 'Reading';
+    default:
+      final l = kind.toLowerCase().replaceAll('_', ' ');
+      return l.isEmpty ? 'Session' : '${l[0].toUpperCase()}${l.substring(1)}';
+  }
+}
+
+class _TodayPlanCard extends StatelessWidget {
+  final TodayPlan? plan;
+  final Map<String, String> topicTitles;
+  final Set<int> done;
+  final bool loading;
+  final ValueChanged<int> onToggle;
+  const _TodayPlanCard({
+    required this.plan,
+    required this.topicTitles,
+    required this.done,
+    required this.loading,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    final actions = plan?.actions ?? const <IGSAction>[];
+    return VidyaCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  "TODAY'S PLAN",
+                  style: TextStyle(
+                    fontFamily: VidyaFonts.mono,
+                    fontSize: 11,
+                    color: v.ink3,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const Spacer(),
+                if (actions.isNotEmpty)
+                  Text(
+                    '${done.length}/${actions.length} done',
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.mono,
+                      fontSize: 11,
+                      color: v.ink3,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (loading)
+              Text(
+                'Building your plan…',
+                style: TextStyle(
+                  fontFamily: VidyaFonts.ui,
+                  fontSize: 13,
+                  color: v.ink3,
+                ),
+              )
+            else if (actions.isEmpty)
+              Text(
+                'No plan for today yet — start a practice session and your '
+                'plan will fill in.',
+                style: TextStyle(
+                  fontFamily: VidyaFonts.ui,
+                  fontSize: 13,
+                  color: v.ink2,
+                  height: 1.4,
+                ),
+              )
+            else
+              for (var i = 0; i < actions.length; i++)
+                _PlanRow(
+                  label: _labelFor(actions[i]),
+                  minutes: actions[i].expectedMinutes,
+                  checked: done.contains(i),
+                  onTap: () => onToggle(i),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _labelFor(IGSAction a) {
+    final title = a.conceptId != null ? topicTitles[a.conceptId] : null;
+    final kind = _actionKindLabel(a.actionKind);
+    if (title != null && title.isNotEmpty) return '$kind · $title';
+    if (a.questionCount != null && a.questionCount! > 0) {
+      return '$kind · ${a.questionCount} Qs';
+    }
+    return kind;
+  }
+}
+
+class _PlanRow extends StatelessWidget {
+  final String label;
+  final int minutes;
+  final bool checked;
+  final VoidCallback onTap;
+  const _PlanRow({
+    required this.label,
+    required this.minutes,
+    required this.checked,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(
+              checked ? Icons.check_circle : Icons.radio_button_unchecked,
+              size: 22,
+              color: checked ? v.good : v.ink3,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: VidyaFonts.ui,
+                  fontSize: 15,
+                  color: checked ? v.ink3 : v.ink,
+                  decoration: checked ? TextDecoration.lineThrough : null,
+                ),
+              ),
+            ),
+            Text(
+              '$minutes min',
+              style: TextStyle(
+                fontFamily: VidyaFonts.mono,
+                fontSize: 12,
+                color: v.ink3,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Stats row (unchanged behaviour) ────────────────────────────────
 
 class _StatsRow extends StatelessWidget {
   final int? streakDays;
@@ -318,18 +782,20 @@ class _StatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _StatTile(label: 'STREAK', value: _orDash(streakDays, ' d'))),
+        Expanded(
+            child:
+                _StatTile(label: 'STREAK', value: _orDash(streakDays, ' d'))),
         const SizedBox(width: 8),
         Expanded(
           child: _StatTile(
             label: 'TODAY',
-            value: questionsToday == null
-                ? '—'
-                : '$questionsToday / $todayGoal',
+            value:
+                questionsToday == null ? '—' : '$questionsToday / $todayGoal',
           ),
         ),
         const SizedBox(width: 8),
-        Expanded(child: _StatTile(label: 'MOCKS', value: _orDash(mockCount, ''))),
+        Expanded(
+            child: _StatTile(label: 'MOCKS', value: _orDash(mockCount, ''))),
       ],
     );
   }
@@ -375,10 +841,54 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-// Loading-state placeholder. Mirrors the eventual layout (header row +
-// greeting + readiness card + next-session card + stats row) so the
-// screen doesn't visually jump when data lands. No animation — static
-// placeholders keep pumpAndSettle happy.
+// ─── No-exam + skeleton states ──────────────────────────────────────
+
+class _NoExamCard extends StatelessWidget {
+  final VoidCallback onPickExam;
+  const _NoExamCard({required this.onPickExam});
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return VidyaCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'No exam selected yet',
+              style: TextStyle(
+                fontFamily: VidyaFonts.display,
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+                color: v.ink,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Pick an exam in onboarding to see your readiness and a '
+              'personalised plan.',
+              style: TextStyle(
+                fontFamily: VidyaFonts.ui,
+                fontSize: 13,
+                color: v.ink2,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            VidyaButton(
+              label: 'Start practising',
+              onPressed: onPickExam,
+              size: VidyaButtonSize.md,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _HomeSkeleton extends StatelessWidget {
   const _HomeSkeleton();
 
@@ -415,13 +925,13 @@ class _HomeSkeleton extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         const _SkeletonCard(children: [
-          VidyaSkeletonBlock(width: 80, height: 10),
-          SizedBox(height: 10),
-          VidyaSkeletonBlock(width: 160, height: 30),
+          VidyaSkeletonBlock(width: 140, height: 10),
+          SizedBox(height: 12),
+          VidyaSkeletonBlock(width: 180, height: 48),
         ]),
         const SizedBox(height: 12),
         const _SkeletonCard(children: [
-          VidyaSkeletonBlock(width: 100, height: 10),
+          VidyaSkeletonBlock(width: 120, height: 10),
           SizedBox(height: 8),
           VidyaSkeletonBlock(width: 220, height: 20),
           SizedBox(height: 12),

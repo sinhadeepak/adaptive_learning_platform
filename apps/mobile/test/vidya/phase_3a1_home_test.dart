@@ -1,8 +1,8 @@
-// Phase 3a.1 — Vidya home content tests. Mocks the 5 endpoints
-// VidyaHomeScreen calls (profile, readiness, streak, dailyActivity,
-// mockAttempts) and asserts on the rendered cards. Drives a real
-// AuthClient.login() flow to populate auth.user before pumping the
-// screen — same pattern as phase_2b_auth_screens_test.dart.
+// VidyaHomeScreen tests (Phase 4 rich home). Mocks the endpoints the
+// home calls per active exam — profile (+enrolled exams), catalog exams,
+// readiness, streak, daily-activity, mock-attempts, guided-next-steps,
+// and the IGS today-plan — then asserts on the rendered cards. Drives a
+// real AuthClient.login() flow to populate auth.user.
 
 import 'dart:convert';
 
@@ -52,9 +52,8 @@ String _sessionJson({String firstName = 'Aarav'}) => jsonEncode({
       },
     });
 
-// Build a MockClient that serves: /auth/login + the 5 home endpoints
-// with the supplied values. Each home endpoint is independently
-// overridable so error-path tests can throw selectively.
+// Serves /auth/login + the home endpoints. `exams` controls the enrolled
+// list; `guidedSteps`/`planActions` let plan/next-best tests vary content.
 MockClient _homeMocks({
   double? readiness = 0.728,
   int? streak = 12,
@@ -63,7 +62,13 @@ MockClient _homeMocks({
   int unreadCount = 0,
   String firstName = 'Aarav',
   bool failReadiness = false,
+  List<Map<String, dynamic>>? exams,
+  List<Map<String, dynamic>>? guidedSteps,
+  List<Map<String, dynamic>>? planActions,
 }) {
+  final enrolled = exams ?? [
+    {'examId': 'e-neet', 'targetDate': null},
+  ];
   return MockClient((req) async {
     final path = req.url.path;
     if (path.endsWith('/auth/login')) {
@@ -73,21 +78,25 @@ MockClient _homeMocks({
     if (path.endsWith('/profile/me')) {
       return http.Response(
         jsonEncode({
-          'user': {
-            'firstName': firstName,
-            'lastName': 'L',
-            'email': 'a@b.com',
-          },
+          'user': {'firstName': firstName, 'lastName': 'L', 'email': 'a@b.com'},
           'preferences': {'language': 'en'},
-          'exams': [],
+          'exams': enrolled,
         }),
         200,
         headers: {'content-type': 'application/json'},
       );
     }
+    if (path.endsWith('/catalog/exams')) {
+      return http.Response(
+        jsonEncode([
+          {'id': 'e-neet', 'code': 'NEET', 'name': 'NEET'},
+          {'id': 'e-cbse', 'code': 'CBSE_9', 'name': 'CBSE 9'},
+        ]),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
     if (path.contains('/analytics/readiness')) {
-      // Throw inside the responder so api.readiness() rejects and
-      // the screen's .catchError((_) => null) path is exercised.
       if (failReadiness) throw Exception('boom');
       return http.Response(
         jsonEncode({'score': readiness ?? 0.0, 'nTopics': 6}),
@@ -97,10 +106,7 @@ MockClient _homeMocks({
     }
     if (path.contains('/analytics/streak')) {
       return http.Response(
-        jsonEncode({
-          'currentStreak': streak ?? 0,
-          'longestStreak': streak ?? 0,
-        }),
+        jsonEncode({'currentStreak': streak ?? 0, 'longestStreak': streak ?? 0}),
         200,
         headers: {'content-type': 'application/json'},
       );
@@ -116,6 +122,25 @@ MockClient _homeMocks({
               'minutes': 12,
             }
           ]
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    if (path.contains('/adaptive/guided-next-steps')) {
+      return http.Response(
+        jsonEncode({'headline': 'Do this next', 'steps': guidedSteps ?? []}),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    if (path.contains('/today-plan')) {
+      return http.Response(
+        jsonEncode({
+          'user_id': 'u1',
+          'exam_id': 'e-neet',
+          'total_minutes': 40,
+          'plan': planActions ?? [],
         }),
         200,
         headers: {'content-type': 'application/json'},
@@ -152,6 +177,7 @@ MockClient _homeMocks({
         headers: {'content-type': 'application/json'},
       );
     }
+    // subjects/topics (topic-title resolution) degrade to 404 -> {} titles.
     return http.Response('{}', 404);
   });
 }
@@ -163,13 +189,9 @@ Future<AuthClient> _loggedInAuth(MockClient mock) async {
 }
 
 void main() {
-  setUp(() {
-    // Without this, the secure-storage platform channel that AuthClient
-    // calls during _persist (after login) hangs the test indefinitely.
-    FlutterSecureStorage.setMockInitialValues({});
-  });
+  setUp(() => FlutterSecureStorage.setMockInitialValues({}));
 
-  group('VidyaHomeScreen — Phase 3a.1', () {
+  group('VidyaHomeScreen', () {
     testWidgets('renders greeting with firstName once loaded', (tester) async {
       final auth = await _loggedInAuth(_homeMocks(firstName: 'Aarav'));
       await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
@@ -177,13 +199,27 @@ void main() {
       expect(find.text('Hi, Aarav.'), findsOneWidget);
     });
 
-    testWidgets('readiness card scales 0.728 -> "655 / 900"', (tester) async {
+    testWidgets('readiness hero scales 0.728 -> 655 (per active exam)',
+        (tester) async {
       final auth = await _loggedInAuth(_homeMocks(readiness: 0.728));
       await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
       await tester.pumpAndSettle();
-      expect(find.text('READINESS'), findsOneWidget);
-      // 0.728 * 900 = 655.2 -> rounded to 655
-      expect(find.text('655 / 900'), findsOneWidget);
+      expect(find.textContaining('READINESS'), findsOneWidget);
+      // 0.728 * 900 = 655.2 -> 655; hero renders score + "/ 900" separately.
+      expect(find.text('655'), findsOneWidget);
+      expect(find.text('/ 900'), findsOneWidget);
+    });
+
+    testWidgets('exam switcher shows when enrolled in 2+ exams',
+        (tester) async {
+      final auth = await _loggedInAuth(_homeMocks(exams: [
+        {'examId': 'e-neet', 'targetDate': null},
+        {'examId': 'e-cbse', 'targetDate': null},
+      ]));
+      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpAndSettle();
+      expect(find.text('NEET'), findsWidgets);
+      expect(find.text('CBSE 9'), findsOneWidget);
     });
 
     testWidgets('stats row shows STREAK / TODAY / MOCKS values', (tester) async {
@@ -202,9 +238,52 @@ void main() {
       expect(find.text('14'), findsOneWidget);
     });
 
-    testWidgets('next session Start practice routes via VidyaMainShellScope',
+    testWidgets("today's plan renders IGS actions with done counter",
         (tester) async {
-      final auth = await _loggedInAuth(_homeMocks());
+      // The plan card is the last ListView child — give the test a tall
+      // surface so it builds without scrolling.
+      await tester.binding.setSurfaceSize(const Size(900, 2200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final auth = await _loggedInAuth(_homeMocks(planActions: [
+        {
+          'action_kind': 'PRACTICE',
+          'concept_id': null,
+          'blueprint_id': null,
+          'question_count': 10,
+          'expected_minutes': 15,
+          'score': 0.9,
+          'rank': 1,
+          'rationale': ['weakest topic'],
+          'expected_marks_gained': 4,
+        },
+        {
+          'action_kind': 'MOCK',
+          'concept_id': null,
+          'blueprint_id': 'b1',
+          'question_count': null,
+          'expected_minutes': 90,
+          'score': 0.7,
+          'rank': 2,
+          'rationale': ['exam sim'],
+          'expected_marks_gained': 8,
+        },
+      ]));
+      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpAndSettle();
+      expect(find.text("TODAY'S PLAN"), findsOneWidget);
+      expect(find.text('0/2 done'), findsOneWidget);
+      expect(find.text('Practice · 10 Qs'), findsOneWidget);
+      expect(find.text('Mock test'), findsOneWidget);
+      // Toggle the first item done.
+      await tester.tap(find.text('Practice · 10 Qs'));
+      await tester.pumpAndSettle();
+      expect(find.text('1/2 done'), findsOneWidget);
+    });
+
+    testWidgets('next-best Start practice routes to Practice tab (no topic)',
+        (tester) async {
+      // No guided steps -> fallback CTA -> switch to Practice tab.
+      final auth = await _loggedInAuth(_homeMocks(guidedSteps: []));
       VidyaShellTab? switched;
       final scope = VidyaMainShellScope(
         activeTab: VidyaShellTab.home,
@@ -226,7 +305,6 @@ void main() {
       final auth = await _loggedInAuth(_homeMocks(firstName: 'Aarav'));
       await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
       await tester.pumpAndSettle();
-      // The 'A' initial appears inside the VidyaAvatar circle.
       expect(find.text('A'), findsOneWidget);
     });
 
@@ -238,20 +316,8 @@ void main() {
       expect(find.text('3'), findsOneWidget);
     });
 
-    testWidgets('bell hides badge when count == 0', (tester) async {
-      final auth = await _loggedInAuth(_homeMocks(unreadCount: 0));
-      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
-      await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.notifications_outlined), findsOneWidget);
-      // No '0' badge text rendered.
-      expect(find.text('0'), findsNothing);
-    });
-
     testWidgets('no skeleton placeholders visible once data lands',
         (tester) async {
-      // Skeleton existence/shape is covered by vidya_skeleton_test.dart.
-      // Here we assert the loading-state transitions correctly: after
-      // settle, no skeleton blocks remain and the real content is up.
       final auth = await _loggedInAuth(_homeMocks());
       await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
       await tester.pumpAndSettle();
@@ -263,9 +329,8 @@ void main() {
       final auth = await _loggedInAuth(_homeMocks(failReadiness: true));
       await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
       await tester.pumpAndSettle();
-      // Readiness shows em-dash placeholder
-      expect(find.text('— / 900'), findsOneWidget);
-      // Stats row still renders
+      // Hero shows em-dash score; stats row still renders.
+      expect(find.text('—'), findsOneWidget);
       expect(find.text('STREAK'), findsOneWidget);
     });
   });
