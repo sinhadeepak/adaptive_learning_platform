@@ -112,11 +112,16 @@ MockClient _homeMocks({
       );
     }
     if (path.contains('/analytics/daily-activity')) {
+      // Dated "today" so the home's questions-today (derived from today's
+      // entry) matches; the home now requests an 84-day window.
+      final t = DateTime.now();
+      final todayStr = '${t.year}-${t.month.toString().padLeft(2, '0')}-'
+          '${t.day.toString().padLeft(2, '0')}';
       return http.Response(
         jsonEncode({
           'activity': [
             {
-              'date': '2026-05-26',
+              'date': todayStr,
               'sessions': 1,
               'questions': questionsToday ?? 0,
               'minutes': 12,

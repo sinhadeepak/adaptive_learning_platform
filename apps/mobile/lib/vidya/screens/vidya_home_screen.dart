@@ -129,7 +129,7 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
     final results = await Future.wait<Object?>([
       _safe<Readiness>(() => api.readiness(user.id, scope: exam.code)),
       _safe<Streak>(() => api.streak(user.id)),
-      _safe<List<DailyActivity>>(() => api.dailyActivity(user.id, days: 1)),
+      _safe<List<DailyActivity>>(() => api.dailyActivity(user.id, days: 84)),
       _safe<List<MockAttemptRow>>(() => api.mockAttempts()),
       _safe<GuidedNextSteps>(
           () => api.guidedNextSteps(user.id, examCode: exam.code)),
@@ -138,12 +138,15 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
     ]);
     if (!mounted) return;
     final guided = results[4] as GuidedNextSteps?;
+    final activity = _activityFrom(
+      (results[2] as List<DailyActivity>?) ?? const [],
+    );
     setState(() {
       _exam = _ExamData(
         readinessScore: (results[0] as Readiness?)?.score,
         streakDays: (results[1] as Streak?)?.current,
-        questionsToday: ((results[2] as List<DailyActivity>?) ?? const [])
-            .fold<int>(0, (sum, d) => sum + d.questions),
+        questionsToday: activity.today,
+        activitySeries: activity.series,
         mockCount: ((results[3] as List<MockAttemptRow>?) ?? const []).length,
         nextStep:
             (guided?.steps.isNotEmpty ?? false) ? guided!.steps.first : null,
@@ -153,6 +156,24 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
       _donePlanItems.clear();
       _examLoading = false;
     });
+  }
+
+  /// Turn the daily-activity rows into a contiguous last-84-day series of
+  /// questions/day (missing days → 0), plus today's count. Real data; the
+  /// home renders this as an activity sparkline (no fabricated readiness
+  /// trend).
+  ({int today, List<int> series}) _activityFrom(List<DailyActivity> daily) {
+    String key(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final byDay = {for (final d in daily) key(d.date): d.questions};
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    const span = 84;
+    final series = <int>[
+      for (var i = span - 1; i >= 0; i--)
+        byDay[key(today.subtract(Duration(days: i)))] ?? 0,
+    ];
+    return (today: byDay[key(today)] ?? 0, series: series);
   }
 
   /// Best-effort topicId → title map for the exam, so plan / next-step
@@ -313,6 +334,7 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
             score: _exam?.readinessScore,
             scale: _scoreScale,
             loading: _examLoading,
+            activitySeries: _exam?.activitySeries ?? const [],
           ),
           const SizedBox(height: 12),
           _NextBestActionCard(
@@ -353,6 +375,7 @@ class _ExamData {
   final GuidedStep? nextStep;
   final TodayPlan? plan;
   final Map<String, String> topicTitles;
+  final List<int> activitySeries;
   const _ExamData({
     this.readinessScore,
     this.streakDays,
@@ -361,6 +384,7 @@ class _ExamData {
     this.nextStep,
     this.plan,
     this.topicTitles = const {},
+    this.activitySeries = const [],
   });
 }
 
@@ -429,11 +453,13 @@ class _ReadinessHero extends StatelessWidget {
   final double? score;
   final int scale;
   final bool loading;
+  final List<int> activitySeries;
   const _ReadinessHero({
     required this.examName,
     required this.score,
     required this.scale,
     required this.loading,
+    this.activitySeries = const [],
   });
 
   @override
@@ -502,11 +528,92 @@ class _ReadinessHero extends StatelessWidget {
                 ),
               ),
             ),
+            if (activitySeries.any((q) => q > 0)) ...[
+              const SizedBox(height: 16),
+              Text(
+                'ACTIVITY · LAST 12 WEEKS',
+                style: TextStyle(
+                  fontFamily: VidyaFonts.mono,
+                  fontSize: 9,
+                  color: v.ink3,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 40,
+                child: _ActivitySparkline(
+                  series: activitySeries,
+                  color: v.accent,
+                  trackColor: v.ink3.withValues(alpha: 0.18),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+/// Lightweight bars sparkline of questions/day (real daily-activity).
+/// Not a readiness trend — labelled as activity. Bars are normalised to
+/// the series max so a quiet week still reads.
+class _ActivitySparkline extends StatelessWidget {
+  final List<int> series;
+  final Color color;
+  final Color trackColor;
+  const _ActivitySparkline({
+    required this.series,
+    required this.color,
+    required this.trackColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size.infinite,
+      painter: _SparkPainter(series, color, trackColor),
+    );
+  }
+}
+
+class _SparkPainter extends CustomPainter {
+  final List<int> series;
+  final Color color;
+  final Color trackColor;
+  _SparkPainter(this.series, this.color, this.trackColor);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (series.isEmpty) return;
+    final maxV = series.reduce((a, b) => a > b ? a : b);
+    final n = series.length;
+    const gap = 1.0;
+    final barW = (size.width - gap * (n - 1)) / n;
+    final base = Paint()..color = trackColor;
+    final fill = Paint()..color = color;
+    for (var i = 0; i < n; i++) {
+      final x = i * (barW + gap);
+      // Baseline track so empty days still show a faint tick.
+      final trackRect = Rect.fromLTWH(x, size.height - 2, barW, 2);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(trackRect, const Radius.circular(1)),
+        base,
+      );
+      if (maxV <= 0 || series[i] <= 0) continue;
+      final h = (series[i] / maxV) * size.height;
+      final rect = Rect.fromLTWH(x, size.height - h, barW, h);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(1)),
+        fill,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SparkPainter old) =>
+      old.series != series || old.color != color;
 }
 
 // ─── Next best action ───────────────────────────────────────────────
