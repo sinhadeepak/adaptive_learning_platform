@@ -194,6 +194,81 @@ BoxDecoration _cardDecoration(VidyaThemeData v, {bool selected = false}) =>
       borderRadius: BorderRadius.circular(6),
     );
 
+/// A text field that owns a persistent controller.
+///
+/// The renderers are rebuilt on every keystroke (parent holds the answer
+/// and re-passes `value`). A naive `TextField(controller:
+/// TextEditingController(text: value))` recreates the controller each
+/// build, collapsing the cursor to the start so input is *prepended* —
+/// the "this is fine" → "enif si siht" reversal. This widget keeps one
+/// controller for its lifetime, only re-seeding it when [resetToken]
+/// changes (i.e. a new question/blank), and never echoes the user's own
+/// edits back into the field.
+class _ReactiveField extends StatefulWidget {
+  const _ReactiveField({
+    super.key,
+    required this.resetToken,
+    required this.initialText,
+    required this.onChanged,
+    required this.decoration,
+    this.enabled = true,
+    this.maxLines = 1,
+    this.keyboardType,
+    this.inputFormatters,
+    this.style,
+  });
+  final Object resetToken;
+  final String initialText;
+  final ValueChanged<String> onChanged;
+  final InputDecoration decoration;
+  final bool enabled;
+  final int maxLines;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
+  final TextStyle? style;
+
+  @override
+  State<_ReactiveField> createState() => _ReactiveFieldState();
+}
+
+class _ReactiveFieldState extends State<_ReactiveField> {
+  late final TextEditingController _c =
+      TextEditingController(text: widget.initialText);
+
+  @override
+  void didUpdateWidget(_ReactiveField old) {
+    super.didUpdateWidget(old);
+    // Re-seed ONLY on an external reset (new question/blank), placing the
+    // cursor at the end. Never sync on same-token rebuilds — that's what
+    // caused the cursor-reset reversal.
+    if (widget.resetToken != old.resetToken && widget.initialText != _c.text) {
+      _c.value = TextEditingValue(
+        text: widget.initialText,
+        selection:
+            TextSelection.collapsed(offset: widget.initialText.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => TextField(
+        controller: _c,
+        enabled: widget.enabled,
+        maxLines: widget.maxLines,
+        keyboardType: widget.keyboardType,
+        inputFormatters: widget.inputFormatters,
+        style: widget.style,
+        decoration: widget.decoration,
+        onChanged: widget.onChanged,
+      );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Objective: MCQ_SINGLE / ASSERTION_REASON / MULTI_STATEMENT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -444,14 +519,16 @@ class _Numeric extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: TextField(
+              child: _ReactiveField(
+                resetToken: stem,
+                initialText: ans?.toString() ?? '',
                 enabled: !disabled,
                 keyboardType: TextInputType.numberWithOptions(
                   decimal: allowDecimal,
                   signed: true,
                 ),
                 inputFormatters: allowDecimal
-                    ? <TextInputFormatter>[]
+                    ? const <TextInputFormatter>[]
                     : <TextInputFormatter>[
                         FilteringTextInputFormatter.allow(RegExp(r'[-0-9]')),
                       ],
@@ -464,7 +541,6 @@ class _Numeric extends StatelessWidget {
                       allowDecimal ? double.tryParse(v) : int.tryParse(v);
                   if (parsed != null) onChange({'answer': parsed});
                 },
-                controller: TextEditingController(text: ans?.toString() ?? ''),
                 decoration: _inputDecoration,
                 style:
                     const TextStyle(fontSize: 18, fontFamily: 'monospace'),
@@ -510,7 +586,9 @@ class _FormulaInput extends StatelessWidget {
       children: [
         _stem(stem),
         const SizedBox(height: 16),
-        TextField(
+        _ReactiveField(
+          resetToken: stem,
+          initialText: expr,
           enabled: !disabled,
           onChanged: (v) {
             if (v.isEmpty) {
@@ -519,7 +597,6 @@ class _FormulaInput extends StatelessWidget {
               onChange({'expression': v});
             }
           },
-          controller: TextEditingController(text: expr),
           decoration: _inputDecoration.copyWith(hintText: 'e.g.  x^2 + 2*x + 1'),
           style: const TextStyle(fontSize: 18, fontFamily: 'monospace'),
         ),
@@ -848,7 +925,9 @@ class _FillBlankSingle extends StatelessWidget {
         if (isBlank) {
           return SizedBox(
             width: 160,
-            child: TextField(
+            child: _ReactiveField(
+              resetToken: stem,
+              initialText: answer,
               enabled: !disabled,
               onChanged: (v) {
                 if (v.isEmpty) {
@@ -857,7 +936,6 @@ class _FillBlankSingle extends StatelessWidget {
                   onChange({'answer': v});
                 }
               },
-              controller: TextEditingController(text: answer),
               decoration: const InputDecoration(
                 isDense: true,
                 contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
@@ -940,11 +1018,12 @@ class _FillBlankMulti extends StatelessWidget {
                   style: const TextStyle(fontSize: 16, height: 1.8))
               : SizedBox(
                   width: 130,
-                  child: TextField(
+                  child: _ReactiveField(
+                    key: ValueKey('cloze:${p.blankId}'),
+                    resetToken: '${payload['stem']}:${p.blankId}',
+                    initialText: answers[p.blankId!] ?? '',
                     enabled: !disabled,
                     onChanged: (v) => setAnswer(p.blankId!, v),
-                    controller:
-                        TextEditingController(text: answers[p.blankId!] ?? ''),
                     decoration: const InputDecoration(
                       isDense: true,
                       contentPadding:
@@ -1075,7 +1154,9 @@ class _TextResponse extends StatelessWidget {
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ),
-        TextField(
+        _ReactiveField(
+          resetToken: stem,
+          initialText: text,
           enabled: !disabled,
           maxLines: rows,
           onChanged: (v) {
@@ -1085,7 +1166,6 @@ class _TextResponse extends StatelessWidget {
               onChange({'text': v});
             }
           },
-          controller: TextEditingController(text: text),
           decoration: _inputDecoration,
         ),
         const SizedBox(height: 4),
@@ -1223,11 +1303,13 @@ class _CaseStudy extends StatelessWidget {
                   Text(prompt,
                       style: const TextStyle(fontSize: 14, height: 1.5)),
                   const SizedBox(height: 8),
-                  TextField(
+                  _ReactiveField(
+                    key: ValueKey('case:$id'),
+                    resetToken: '${payload['stem']}:$id',
+                    initialText: text,
                     enabled: !disabled,
                     maxLines: 5,
                     onChanged: (v) => setAnswer(id, v),
-                    controller: TextEditingController(text: text),
                     decoration: _inputDecoration,
                   ),
                   const SizedBox(height: 4),
