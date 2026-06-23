@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -179,10 +180,15 @@ InputDecoration get _inputDecoration => const InputDecoration(
       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     );
 
-BoxDecoration _cardDecoration({bool selected = false}) => BoxDecoration(
-      color: selected ? Colors.blue.shade50 : Colors.white,
+// Theme-aware option card. Reads VidyaThemeData so option cards are a
+// proper surface (dark card in dark mode, light in light mode) with the
+// accent for the selected state — instead of a hardcoded white card that
+// renders invisible text under the Vidya dark theme.
+BoxDecoration _cardDecoration(VidyaThemeData v, {bool selected = false}) =>
+    BoxDecoration(
+      color: selected ? v.accent.withValues(alpha: 0.16) : v.card,
       border: Border.all(
-        color: selected ? Colors.blue : Colors.grey.shade300,
+        color: selected ? v.accent : v.rule,
         width: selected ? 2 : 1,
       ),
       borderRadius: BorderRadius.circular(6),
@@ -206,6 +212,7 @@ class _MCQSingle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
     final stem = payload['stem'] as String? ?? '';
     final options =
         ((payload['options'] as List?) ?? const []).cast<Map<String, dynamic>>();
@@ -226,7 +233,7 @@ class _MCQSingle extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
               child: Container(
                 padding: const EdgeInsets.all(12),
-                decoration: _cardDecoration(selected: isSelected),
+                decoration: _cardDecoration(v, selected: isSelected),
                 child: Row(
                   children: [
                     Radio<String>(
@@ -269,6 +276,7 @@ class _MCQMulti extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
     final stem = payload['stem'] as String? ?? '';
     final partial = payload['partial_credit'] == true;
     final options =
@@ -311,7 +319,7 @@ class _MCQMulti extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
               child: Container(
                 padding: const EdgeInsets.all(12),
-                decoration: _cardDecoration(selected: isSelected),
+                decoration: _cardDecoration(v, selected: isSelected),
                 child: Row(
                   children: [
                     Checkbox(
@@ -635,6 +643,7 @@ class _Sequencing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
     final stem = payload['stem'] as String? ?? '';
     final items =
         ((payload['items'] as List?) ?? const []).cast<Map<String, dynamic>>();
@@ -676,7 +685,7 @@ class _Sequencing extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 8),
             child: Container(
               padding: const EdgeInsets.all(10),
-              decoration: _cardDecoration(),
+              decoration: _cardDecoration(v),
               child: Row(
                 children: [
                   SizedBox(
@@ -726,6 +735,7 @@ class _Classification extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
     final stem = payload['stem'] as String? ?? '';
     final items =
         ((payload['items'] as List?) ?? const []).cast<Map<String, dynamic>>();
@@ -762,7 +772,7 @@ class _Classification extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 8),
             child: Container(
               padding: const EdgeInsets.all(10),
-              decoration: _cardDecoration(),
+              decoration: _cardDecoration(v),
               child: Row(
                 children: [
                   Expanded(child: Text(it['text'] as String)),
@@ -1636,6 +1646,7 @@ class _PictorialIdentify extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
     final stem = payload['stem'] as String? ?? '';
     final mediaId = payload['image_media_id'] as String? ?? '';
     final options =
@@ -1669,7 +1680,7 @@ class _PictorialIdentify extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
               child: Container(
                 padding: const EdgeInsets.all(12),
-                decoration: _cardDecoration(selected: isSelected),
+                decoration: _cardDecoration(v, selected: isSelected),
                 child: Row(
                   children: [
                     Radio<String>(

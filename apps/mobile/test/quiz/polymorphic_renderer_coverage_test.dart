@@ -10,6 +10,7 @@
 // renderer must emit `{selected_id}` / `{selected_ids}` via onChange,
 // which the session screens forward verbatim as `responsePayload`.
 
+import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:adaptive_learning_mobile/quiz/polymorphic_renderer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -100,6 +101,13 @@ Map<String, dynamic> _payload() => <String, dynamic>{
     };
 
 Widget _host(Widget child) => MaterialApp(
+      // The renderer reads VidyaThemeData for option-card colours, so the
+      // harness must supply the Vidya theme.
+      theme: VidyaTheme.material(
+        brightness: Brightness.light,
+        persona: VidyaPersona.aspirant,
+        density: VidyaDensity.regular,
+      ),
       home: Scaffold(
         body: SingleChildScrollView(child: child),
       ),
