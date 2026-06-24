@@ -381,6 +381,36 @@ class ApiClient {
     return j['id'] as String;
   }
 
+  /// The current user's authored tests (CUSTOM / SHARED / AI_SUGGESTED).
+  /// Wraps `GET /catalog/exam-blueprints/mine`.
+  Future<List<ExamBlueprint>> myBlueprints() async {
+    final r = await auth.apiGet('/catalog/exam-blueprints/mine');
+    if (r.statusCode != 200) return const [];
+    final j = jsonDecode(r.body) as Map<String, dynamic>;
+    final items =
+        (j['items'] as List? ?? const []).cast<Map<String, dynamic>>();
+    return items.map(ExamBlueprint.fromJson).toList();
+  }
+
+  /// The user's unexpired AI-suggested tests (≤24h old). Wraps
+  /// `GET /catalog/exam-blueprints/ai-suggested/active`.
+  Future<List<ExamBlueprint>> aiSuggestedBlueprints() async {
+    final r = await auth.apiGet('/catalog/exam-blueprints/ai-suggested/active');
+    if (r.statusCode != 200) return const [];
+    final j = jsonDecode(r.body) as Map<String, dynamic>;
+    final items =
+        (j['items'] as List? ?? const []).cast<Map<String, dynamic>>();
+    return items.map(ExamBlueprint.fromJson).toList();
+  }
+
+  /// Soft-delete (retire) one of the user's authored tests. Wraps
+  /// `DELETE /catalog/exam-blueprints/mine/{id}`.
+  Future<bool> deleteBlueprint(String blueprintId) async {
+    final res =
+        await auth.apiDelete('/catalog/exam-blueprints/mine/$blueprintId');
+    return res.statusCode == 204 || res.statusCode == 200;
+  }
+
   Future<Topic?> topic(String topicId) async {
     final r = await auth.apiGet('/catalog/topics/$topicId');
     if (r.statusCode != 200) return null;

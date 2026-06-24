@@ -5,7 +5,10 @@ import 'package:http/http.dart' as http;
 /// Mirror of @alp/auth-client (TS) for Flutter — JWT login + refresh + secure-storage of tokens.
 /// Sprint 1: register / verifyOtp / login / logout, plus refreshing fetch wrapper.
 class AuthClient {
-  AuthClient({required this.baseUrl, FlutterSecureStorage? storage, http.Client? httpClient})
+  AuthClient(
+      {required this.baseUrl,
+      FlutterSecureStorage? storage,
+      http.Client? httpClient})
       : _storage = storage ?? const FlutterSecureStorage(),
         _http = httpClient ?? http.Client();
 
@@ -35,15 +38,20 @@ class AuthClient {
     await _loadTokens();
   }
 
-  Future<Session> login({required String email, required String password, bool remember = false}) async {
-    final body = jsonEncode({'email': email, 'password': password, 'remember': remember});
+  Future<Session> login(
+      {required String email,
+      required String password,
+      bool remember = false}) async {
+    final body = jsonEncode(
+        {'email': email, 'password': password, 'remember': remember});
     final res = await _http.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: baseHeaders(json: true),
       body: body,
     );
     if (res.statusCode != 200) throw _decodeAuthError(res);
-    final session = Session.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+    final session =
+        Session.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
     await _persist(session);
     return session;
   }
@@ -69,17 +77,23 @@ class AuthClient {
     );
     if (res.statusCode != 200) throw _decodeAuthError(res);
     final json = jsonDecode(res.body) as Map<String, dynamic>;
-    return RegisterResult(userId: json['userId'] as String, otpChannel: json['otpChannel'] as String);
+    return RegisterResult(
+        userId: json['userId'] as String,
+        otpChannel: json['otpChannel'] as String);
   }
 
-  Future<Session> verifyOtp({required String userId, required String code, String channel = 'email'}) async {
+  Future<Session> verifyOtp(
+      {required String userId,
+      required String code,
+      String channel = 'email'}) async {
     final res = await _http.post(
       Uri.parse('$baseUrl/auth/otp/verify'),
       headers: baseHeaders(json: true),
       body: jsonEncode({'userId': userId, 'code': code, 'channel': channel}),
     );
     if (res.statusCode != 200) throw _decodeAuthError(res);
-    final session = Session.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+    final session =
+        Session.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
     await _persist(session);
     return session;
   }
@@ -107,7 +121,8 @@ class AuthClient {
 
   /// Consume a reset token and set a new password. Returns 204; throws on
   /// expired/invalid token (410) or weak password (422).
-  Future<void> resetPassword({required String token, required String newPassword}) async {
+  Future<void> resetPassword(
+      {required String token, required String newPassword}) async {
     final res = await _http.post(
       Uri.parse('$baseUrl/auth/password/reset'),
       headers: baseHeaders(json: true),
@@ -125,7 +140,8 @@ class AuthClient {
       throw AuthException(
         code: AuthErrorCode.weakPassword,
         statusCode: 422,
-        message: 'Password is too weak. Try at least 8 characters with a digit.',
+        message:
+            'Password is too weak. Try at least 8 characters with a digit.',
       );
     }
     throw _decodeAuthError(res);
@@ -152,7 +168,8 @@ class AuthClient {
   Future<void> _persist(Session session) async {
     _cachedTokens = session.tokens;
     _user = session.user;
-    await _storage.write(key: _tokenKey, value: jsonEncode(session.tokens.toJson()));
+    await _storage.write(
+        key: _tokenKey, value: jsonEncode(session.tokens.toJson()));
   }
 
   /// Authenticated GET. Adds the Bearer header automatically; returns the raw http.Response
@@ -163,18 +180,27 @@ class AuthClient {
 
   /// Authenticated PUT with JSON body.
   Future<http.Response> apiPut(String path, Object body) {
-    return _http.put(_uri(path), headers: _authHeaders(json: true), body: jsonEncode(body));
+    return _http.put(_uri(path),
+        headers: _authHeaders(json: true), body: jsonEncode(body));
   }
 
   /// Authenticated PATCH with JSON body.
   Future<http.Response> apiPatch(String path, Object body) {
-    return _http.patch(_uri(path), headers: _authHeaders(json: true), body: jsonEncode(body));
+    return _http.patch(_uri(path),
+        headers: _authHeaders(json: true), body: jsonEncode(body));
   }
 
   /// Authenticated POST with JSON body. Use empty {} for endpoints that take
   /// no body (e.g. /quiz/sessions/{id}/submit).
   Future<http.Response> apiPost(String path, Object body) {
-    return _http.post(_uri(path), headers: _authHeaders(json: true), body: jsonEncode(body));
+    return _http.post(_uri(path),
+        headers: _authHeaders(json: true), body: jsonEncode(body));
+  }
+
+  /// Authenticated DELETE. Routes through the injected http client (so it's
+  /// testable) — prefer this over the top-level `http.delete`.
+  Future<http.Response> apiDelete(String path) {
+    return _http.delete(_uri(path), headers: _authHeaders());
   }
 
   Uri _uri(String path) => Uri.parse('$baseUrl$path');
@@ -286,7 +312,10 @@ class User {
 }
 
 class Tokens {
-  Tokens({required this.accessToken, required this.refreshToken, required this.expiresAt});
+  Tokens(
+      {required this.accessToken,
+      required this.refreshToken,
+      required this.expiresAt});
   final String accessToken;
   final String refreshToken;
   final int expiresAt;
@@ -319,7 +348,8 @@ enum AuthErrorCode {
 }
 
 class AuthException implements Exception {
-  AuthException({required this.code, required this.statusCode, required this.message});
+  AuthException(
+      {required this.code, required this.statusCode, required this.message});
   final AuthErrorCode code;
   final int statusCode;
   final String message;
@@ -353,5 +383,6 @@ AuthException _decodeAuthError(http.Response res) {
     default:
       code = AuthErrorCode.unknown;
   }
-  return AuthException(code: code, statusCode: res.statusCode, message: message);
+  return AuthException(
+      code: code, statusCode: res.statusCode, message: message);
 }

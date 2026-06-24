@@ -14,6 +14,7 @@ import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
 import '../../quiz/quiz_client.dart';
 import 'vidya_mock_session_screen.dart';
+import 'vidya_my_tests_screen.dart';
 import 'vidya_practice_result_screen.dart';
 
 class VidyaTestBuilderScreen extends StatefulWidget {
@@ -162,6 +163,16 @@ class _VidyaTestBuilderScreenState extends State<VidyaTestBuilderScreen> {
           icon: Icon(Icons.arrow_back, color: v.ink),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => VidyaMyTestsScreen(auth: widget.auth),
+              ),
+            ),
+            child: Text('My tests', style: TextStyle(color: v.accent)),
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
