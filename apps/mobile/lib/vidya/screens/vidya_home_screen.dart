@@ -18,25 +18,18 @@
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
 import '../../igs/igs_client.dart';
 import '../../quiz/quiz_client.dart';
 import '../shell/vidya_main_shell_scope.dart';
+import '../state/active_exam_notifier.dart';
+import '../state/exam_ref.dart';
+import '../widgets/vidya_exam_switcher.dart';
 import 'vidya_practice_result_screen.dart';
 import 'vidya_practice_session_screen.dart';
-
-/// One enrolled exam, joined from profile.exams (id + targetDate) and the
-/// catalog (code + name).
-class _ExamRef {
-  final String examId;
-  final String code;
-  final String name;
-  const _ExamRef(
-      {required this.examId, required this.code, required this.name});
-}
 
 class VidyaHomeScreen extends StatefulWidget {
   final AuthClient auth;
@@ -49,14 +42,15 @@ class VidyaHomeScreen extends StatefulWidget {
 class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
   static const int _scoreScale = 900;
   static const int _todayGoalQuestions = 5;
-  static const _storage = FlutterSecureStorage();
-  static const _activeExamKey = 'vidya.active_exam_id';
 
   bool _loading = true;
   String _firstName = 'there';
   int _unreadCount = 0;
-  List<_ExamRef> _exams = const [];
-  String? _activeExamId;
+
+  // The app-wide multi-exam spine. Home reads the active exam from here and
+  // reloads its per-exam cards whenever the student switches.
+  VidyaActiveExamNotifier? _examNotifier;
+  String? _loadedExamId;
 
   // Per-exam data (reloaded on exam switch).
   bool _examLoading = false;
@@ -68,6 +62,52 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final n = VidyaActiveExam.of(context);
+    if (!identical(n, _examNotifier)) {
+      _examNotifier?.removeListener(_onActiveExamChanged);
+      _examNotifier = n;
+      _examNotifier?.addListener(_onActiveExamChanged);
+      _onActiveExamChanged();
+    }
+  }
+
+  @override
+  void dispose() {
+    _examNotifier?.removeListener(_onActiveExamChanged);
+    super.dispose();
+  }
+
+  /// React to the shared notifier: (re)load per-exam cards when the active
+  /// exam changes, and clear them when there's no active exam.
+  void _onActiveExamChanged() {
+    final active = _examNotifier?.active;
+    if (active == null) {
+      if (_loadedExamId != null && mounted) {
+        setState(() {
+          _loadedExamId = null;
+          _exam = null;
+        });
+      }
+      return;
+    }
+    if (active.examId != _loadedExamId) {
+      _loadedExamId = active.examId;
+      // When triggered from didChangeDependencies we're mid-build, so defer
+      // the load (its first setState would otherwise fire during build).
+      if (WidgetsBinding.instance.schedulerPhase ==
+          SchedulerPhase.persistentCallbacks) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _loadExamData(active);
+        });
+      } else {
+        _loadExamData(active);
+      }
+    }
   }
 
   Future<T?> _safe<T>(Future<T> Function() fetch) async {
@@ -86,40 +126,16 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
     }
     final api = ApiClient(widget.auth);
     final profile = await _safe(() => api.getProfile());
-    final catalog = await _safe(() => api.exams()) ?? const <Exam>[];
     final unread = await _safe(() => api.inboxUnreadCount(user.id)) ?? 0;
-
-    // Join enrolled exams with catalog to get code + name.
-    final byId = {for (final e in catalog) e.id: e};
-    final exams = <_ExamRef>[
-      for (final ue in profile?.exams ?? const <UserExam>[])
-        if (byId[ue.examId] != null)
-          _ExamRef(
-            examId: ue.examId,
-            code: byId[ue.examId]!.code,
-            name: byId[ue.examId]!.name,
-          ),
-    ];
-
-    final stored = await _safe(() => _storage.read(key: _activeExamKey));
-    final active = exams.any((e) => e.examId == stored)
-        ? stored
-        : (exams.isNotEmpty ? exams.first.examId : null);
-
     if (!mounted) return;
     setState(() {
       _firstName = profile?.firstName ?? user.firstName;
       _unreadCount = unread;
-      _exams = exams;
-      _activeExamId = active;
       _loading = false;
     });
-    if (active != null) {
-      await _loadExamData(exams.firstWhere((e) => e.examId == active));
-    }
   }
 
-  Future<void> _loadExamData(_ExamRef exam) async {
+  Future<void> _loadExamData(ExamRef exam) async {
     final user = widget.auth.user;
     if (user == null) return;
     setState(() => _examLoading = true);
@@ -192,16 +208,6 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
     return out;
   }
 
-  Future<void> _selectExam(String examId) async {
-    if (examId == _activeExamId) return;
-    await _storage.write(key: _activeExamKey, value: examId);
-    setState(() {
-      _activeExamId = examId;
-      _exam = null;
-    });
-    await _loadExamData(_exams.firstWhere((e) => e.examId == examId));
-  }
-
   void _goToPractice() =>
       VidyaMainShellScope.of(context)?.switchTo(VidyaShellTab.practice);
 
@@ -263,13 +269,10 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
 
     final initial =
         _firstName.isNotEmpty ? _firstName.substring(0, 1).toUpperCase() : '?';
-    _ExamRef? activeExam;
-    for (final e in _exams) {
-      if (e.examId == _activeExamId) {
-        activeExam = e;
-        break;
-      }
-    }
+    final notifier = VidyaActiveExam.of(context);
+    final activeExam = notifier?.active;
+    final examsLoading = notifier?.loading ?? true;
+    final hasExam = activeExam != null;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
@@ -316,21 +319,23 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Exam switcher (only when enrolled in 2+ exams).
-        if (_exams.length >= 2) ...[
-          _ExamSwitcher(
-            exams: _exams,
-            activeExamId: _activeExamId,
-            onSelect: _selectExam,
-          ),
-          const SizedBox(height: 16),
-        ],
+        // Exam switcher (renders only when enrolled in 2+ exams). Driven by
+        // the shared notifier — switching here re-scopes the whole app.
+        const VidyaExamChips(),
+        if (notifier?.hasMultiple ?? false) const SizedBox(height: 16),
 
-        if (_exams.isEmpty)
-          _NoExamCard(onPickExam: _goToPractice)
+        if (!hasExam)
+          examsLoading
+              ? const _ReadinessHero(
+                  examName: 'Readiness',
+                  score: null,
+                  scale: _scoreScale,
+                  loading: true,
+                )
+              : _NoExamCard(onPickExam: _goToPractice)
         else ...[
           _ReadinessHero(
-            examName: activeExam?.name ?? 'Readiness',
+            examName: activeExam.name,
             score: _exam?.readinessScore,
             scale: _scoreScale,
             loading: _examLoading,
@@ -386,56 +391,6 @@ class _ExamData {
     this.topicTitles = const {},
     this.activitySeries = const [],
   });
-}
-
-// ─── Exam switcher ──────────────────────────────────────────────────
-
-class _ExamSwitcher extends StatelessWidget {
-  final List<_ExamRef> exams;
-  final String? activeExamId;
-  final ValueChanged<String> onSelect;
-  const _ExamSwitcher({
-    required this.exams,
-    required this.activeExamId,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final v = VidyaThemeData.of(context);
-    return SizedBox(
-      height: 34,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: exams.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (ctx, i) {
-          final e = exams[i];
-          final selected = e.examId == activeExamId;
-          return GestureDetector(
-            onTap: () => onSelect(e.examId),
-            child: Container(
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: selected ? v.accent : v.ink3.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                e.name,
-                style: TextStyle(
-                  fontFamily: VidyaFonts.ui,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : v.ink2,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
 }
 
 // ─── Readiness hero ─────────────────────────────────────────────────

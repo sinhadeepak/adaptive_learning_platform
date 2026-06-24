@@ -16,8 +16,9 @@ import 'package:http/testing.dart';
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_home_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/shell/vidya_main_shell_scope.dart';
+import 'package:adaptive_learning_mobile/vidya/state/active_exam_notifier.dart';
 
-Widget _harness(Widget child, {VidyaMainShellScope? scope}) {
+Widget _harness(AuthClient auth, Widget child, {VidyaMainShellScope? scope}) {
   Widget wrapped = child;
   if (scope != null) {
     wrapped = VidyaMainShellScope(
@@ -26,6 +27,13 @@ Widget _harness(Widget child, {VidyaMainShellScope? scope}) {
       child: wrapped,
     );
   }
+  // Home reads the active exam from the app-wide spine. Drive a real
+  // notifier off the same mock (profile + catalog) so the enrolled-exam
+  // list under test resolves exactly as the shell would resolve it.
+  wrapped = VidyaActiveExam(
+    notifier: VidyaActiveExamNotifier(auth)..load(),
+    child: wrapped,
+  );
   return MaterialApp(
     theme: VidyaTheme.material(
       brightness: Brightness.light,
@@ -66,9 +74,10 @@ MockClient _homeMocks({
   List<Map<String, dynamic>>? guidedSteps,
   List<Map<String, dynamic>>? planActions,
 }) {
-  final enrolled = exams ?? [
-    {'examId': 'e-neet', 'targetDate': null},
-  ];
+  final enrolled = exams ??
+      [
+        {'examId': 'e-neet', 'targetDate': null},
+      ];
   return MockClient((req) async {
     final path = req.url.path;
     if (path.endsWith('/auth/login')) {
@@ -106,7 +115,8 @@ MockClient _homeMocks({
     }
     if (path.contains('/analytics/streak')) {
       return http.Response(
-        jsonEncode({'currentStreak': streak ?? 0, 'longestStreak': streak ?? 0}),
+        jsonEncode(
+            {'currentStreak': streak ?? 0, 'longestStreak': streak ?? 0}),
         200,
         headers: {'content-type': 'application/json'},
       );
@@ -199,7 +209,7 @@ void main() {
   group('VidyaHomeScreen', () {
     testWidgets('renders greeting with firstName once loaded', (tester) async {
       final auth = await _loggedInAuth(_homeMocks(firstName: 'Aarav'));
-      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaHomeScreen(auth: auth)));
       await tester.pumpAndSettle();
       expect(find.text('Hi, Aarav.'), findsOneWidget);
     });
@@ -207,7 +217,7 @@ void main() {
     testWidgets('readiness hero scales 0.728 -> 655 (per active exam)',
         (tester) async {
       final auth = await _loggedInAuth(_homeMocks(readiness: 0.728));
-      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaHomeScreen(auth: auth)));
       await tester.pumpAndSettle();
       expect(find.textContaining('READINESS'), findsOneWidget);
       // 0.728 * 900 = 655.2 -> 655; hero renders score + "/ 900" separately.
@@ -221,19 +231,20 @@ void main() {
         {'examId': 'e-neet', 'targetDate': null},
         {'examId': 'e-cbse', 'targetDate': null},
       ]));
-      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaHomeScreen(auth: auth)));
       await tester.pumpAndSettle();
       expect(find.text('NEET'), findsWidgets);
       expect(find.text('CBSE 9'), findsOneWidget);
     });
 
-    testWidgets('stats row shows STREAK / TODAY / MOCKS values', (tester) async {
+    testWidgets('stats row shows STREAK / TODAY / MOCKS values',
+        (tester) async {
       final auth = await _loggedInAuth(_homeMocks(
         streak: 12,
         questionsToday: 3,
         mockCount: 14,
       ));
-      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaHomeScreen(auth: auth)));
       await tester.pumpAndSettle();
       expect(find.text('STREAK'), findsOneWidget);
       expect(find.text('TODAY'), findsOneWidget);
@@ -273,7 +284,7 @@ void main() {
           'expected_marks_gained': 8,
         },
       ]));
-      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaHomeScreen(auth: auth)));
       await tester.pumpAndSettle();
       expect(find.text("TODAY'S PLAN"), findsOneWidget);
       expect(find.text('0/2 done'), findsOneWidget);
@@ -296,6 +307,7 @@ void main() {
         child: const SizedBox(),
       );
       await tester.pumpWidget(_harness(
+        auth,
         VidyaHomeScreen(auth: auth),
         scope: scope,
       ));
@@ -308,14 +320,14 @@ void main() {
     testWidgets('header renders initials avatar from firstName',
         (tester) async {
       final auth = await _loggedInAuth(_homeMocks(firstName: 'Aarav'));
-      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaHomeScreen(auth: auth)));
       await tester.pumpAndSettle();
       expect(find.text('A'), findsOneWidget);
     });
 
     testWidgets('bell shows unread badge when count > 0', (tester) async {
       final auth = await _loggedInAuth(_homeMocks(unreadCount: 3));
-      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaHomeScreen(auth: auth)));
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.notifications_outlined), findsOneWidget);
       expect(find.text('3'), findsOneWidget);
@@ -324,7 +336,7 @@ void main() {
     testWidgets('no skeleton placeholders visible once data lands',
         (tester) async {
       final auth = await _loggedInAuth(_homeMocks());
-      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaHomeScreen(auth: auth)));
       await tester.pumpAndSettle();
       expect(find.byType(VidyaSkeletonBlock), findsNothing);
       expect(find.text('Hi, Aarav.'), findsOneWidget);
@@ -332,7 +344,7 @@ void main() {
 
     testWidgets('readiness fetch failure keeps other cards', (tester) async {
       final auth = await _loggedInAuth(_homeMocks(failReadiness: true));
-      await tester.pumpWidget(_harness(VidyaHomeScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaHomeScreen(auth: auth)));
       await tester.pumpAndSettle();
       // Hero shows em-dash score; stats row still renders.
       expect(find.text('—'), findsOneWidget);

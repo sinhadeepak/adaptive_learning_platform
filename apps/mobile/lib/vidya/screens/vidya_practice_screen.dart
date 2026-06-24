@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 
 import '../../insights/insights_client.dart';
 import '../../quiz/quiz_client.dart';
+import '../state/active_exam_notifier.dart';
 import 'vidya_focused_intro_screen.dart';
 import 'vidya_mock_intro_screen.dart';
 import 'vidya_mock_session_screen.dart';
@@ -163,7 +164,9 @@ class VidyaPracticeScreen extends StatelessWidget {
         ));
       case _PracticeModeKind.pyq:
         final user = client.auth.user;
-        final examId = user?.examId;
+        // Scope to the app-wide active exam (not the stale single-exam
+        // user.examId), so PYQ follows the exam the student switched to.
+        final examId = VidyaActiveExam.of(context)?.activeExamId;
         if (user == null || examId == null || examId.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -179,7 +182,7 @@ class VidyaPracticeScreen extends StatelessWidget {
         ));
       case _PracticeModeKind.mock:
         final user = client.auth.user;
-        final examId = user?.examId;
+        final examId = VidyaActiveExam.of(context)?.activeExamId;
         if (user == null || examId == null || examId.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

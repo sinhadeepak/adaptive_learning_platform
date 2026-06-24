@@ -23,6 +23,7 @@ import '../screens/vidya_insights_screen.dart';
 import '../screens/vidya_more_screen.dart';
 import '../screens/vidya_practice_screen.dart';
 import '../screens/vidya_study_screen.dart';
+import '../state/active_exam_notifier.dart';
 import '../theme_mode_notifier.dart';
 import 'vidya_main_shell_scope.dart';
 
@@ -54,8 +55,25 @@ class _VidyaMainShellState extends State<VidyaMainShell> {
   // Focused Practice (Phase 3c.full v2) reads the user's weakest topic
   // from the engagement insights snapshot. Sibling to _quizClient so the
   // same bearer-token path is reused.
-  late final InsightsClient _insightsClient =
-      InsightsClient(auth: widget.auth);
+  late final InsightsClient _insightsClient = InsightsClient(auth: widget.auth);
+
+  // The app-wide multi-exam spine. Provided to the whole tab subtree via
+  // VidyaActiveExam so every exam-scoped screen reads the same active exam
+  // and re-scopes when the student switches.
+  late final VidyaActiveExamNotifier _activeExam =
+      VidyaActiveExamNotifier(widget.auth);
+
+  @override
+  void initState() {
+    super.initState();
+    _activeExam.load();
+  }
+
+  @override
+  void dispose() {
+    _activeExam.dispose();
+    super.dispose();
+  }
 
   void _switchTo(VidyaShellTab t) => setState(() => _active = t);
 
@@ -90,14 +108,17 @@ class _VidyaMainShellState extends State<VidyaMainShell> {
         ),
       ),
     ];
-    return VidyaMainShellScope(
-      activeTab: _active,
-      switchTo: _switchTo,
-      child: VidyaScaffold(
-        body: IndexedStack(index: _active.index, children: tabs),
-        bottomNavigationBar: VidyaBottomNav(
-          active: _active,
-          onTap: _switchTo,
+    return VidyaActiveExam(
+      notifier: _activeExam,
+      child: VidyaMainShellScope(
+        activeTab: _active,
+        switchTo: _switchTo,
+        child: VidyaScaffold(
+          body: IndexedStack(index: _active.index, children: tabs),
+          bottomNavigationBar: VidyaBottomNav(
+            active: _active,
+            onTap: _switchTo,
+          ),
         ),
       ),
     );

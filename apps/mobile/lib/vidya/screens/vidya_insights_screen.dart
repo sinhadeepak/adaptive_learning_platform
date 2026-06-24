@@ -13,6 +13,8 @@ import '../../screens/concept_profile_screen.dart';
 import '../../screens/diagnostic_deep_dive_screen.dart';
 import '../../screens/progress_tab.dart';
 import '../aurora_route.dart';
+import '../state/active_exam_notifier.dart';
+import '../widgets/vidya_exam_switcher.dart';
 import 'vidya_revision_screen.dart';
 import 'vidya_syllabus_coverage_screen.dart';
 import 'vidya_topic_detail_screen.dart';
@@ -94,14 +96,42 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
   // grid + Dig-deeper still render without it.
   InsightsSnapshot? _snapshot;
 
+  // Active-exam spine: the FOCUS-ON topic catalog and the Syllabus link are
+  // exam-scoped, so reload when the student switches exam.
+  VidyaActiveExamNotifier? _examNotifier;
+  String? _loadedExamId;
+  bool _didInitialLoad = false;
+
   @override
-  void initState() {
-    super.initState();
-    _load();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final n = VidyaActiveExam.of(context);
+    if (!identical(n, _examNotifier)) {
+      _examNotifier?.removeListener(_onActiveExamChanged);
+      _examNotifier = n;
+      _examNotifier?.addListener(_onActiveExamChanged);
+    }
+    if (!_didInitialLoad) {
+      _didInitialLoad = true;
+      _load();
+    }
+  }
+
+  @override
+  void dispose() {
+    _examNotifier?.removeListener(_onActiveExamChanged);
+    super.dispose();
+  }
+
+  void _onActiveExamChanged() {
+    final n = _examNotifier;
+    if (n == null || n.loading) return;
+    if (n.active?.examId != _loadedExamId) _load();
   }
 
   Future<void> _load() async {
     if (!mounted) return;
+    _loadedExamId = _examNotifier?.active?.examId;
     setState(() => _state = _InsightsState.loading);
     final user = widget.auth.user;
     if (user == null) {
@@ -141,10 +171,9 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
 
   Future<Map<String, Topic>> _resolveTopicsCatalog(ApiClient api) async {
     try {
-      final profile = await api.getProfile();
-      final examId = (profile?.exams.isNotEmpty ?? false)
-          ? profile!.exams.first.examId
-          : null;
+      // Scope to the app-wide active exam so FOCUS-ON shows that exam's
+      // topics (not always the primary exam's).
+      final examId = _examNotifier?.active?.examId;
       if (examId == null) return const {};
       final subjects = await api.subjectsForExam(examId);
       if (subjects.isEmpty) return const {};
@@ -273,14 +302,21 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
           children: [
-            Text(
-              'INSIGHTS',
-              style: TextStyle(
-                fontFamily: VidyaFonts.mono,
-                fontSize: 11,
-                color: v.ink3,
-                letterSpacing: 1.5,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'INSIGHTS',
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.mono,
+                      fontSize: 11,
+                      color: v.ink3,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+                const VidyaExamPill(),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
@@ -441,7 +477,7 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
                 MaterialPageRoute<void>(
                   builder: (_) => VidyaSyllabusCoverageScreen(
                     auth: widget.auth,
-                    examId: widget.auth.user?.examId ?? '',
+                    examId: _examNotifier?.active?.examId ?? '',
                   ),
                 ),
               ),
