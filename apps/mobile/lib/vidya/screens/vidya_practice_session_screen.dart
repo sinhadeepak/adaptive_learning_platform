@@ -78,6 +78,12 @@ class VidyaPracticeSessionScreen extends StatefulWidget {
   final String topicId;
   final String userId;
 
+  /// When set, resume an existing IN_PROGRESS session instead of starting a
+  /// new one — the screen skips `start()` and continues straight from
+  /// `next()` (the server returns the unanswered item). Used by the
+  /// "Continue where you left off" resume surface.
+  final String? resumeSessionId;
+
   const VidyaPracticeSessionScreen({
     super.key,
     required this.client,
@@ -87,6 +93,7 @@ class VidyaPracticeSessionScreen extends StatefulWidget {
     required this.onBack,
     required this.topicId,
     required this.userId,
+    this.resumeSessionId,
   });
 
   @override
@@ -123,6 +130,14 @@ class _VidyaPracticeSessionScreenState
       _response = null;
     });
     try {
+      // Resume path: re-enter an existing session; the server's /next
+      // returns the unanswered item, so no new session is created.
+      if (widget.resumeSessionId != null) {
+        _sessionId = widget.resumeSessionId;
+        _started = DateTime.now();
+        await _fetchNext();
+        return;
+      }
       final QuizSessionStart start;
       if (widget.mode == QuizSessionMode.mistakes) {
         // Mistake-replay pulls the user's recent wrong answers server-side;
@@ -144,7 +159,8 @@ class _VidyaPracticeSessionScreenState
       await _fetchNext();
     } on QuizError catch (e) {
       if (mounted) {
-        setState(() => _error = "We couldn't start your practice. ${e.message}");
+        setState(
+            () => _error = "We couldn't start your practice. ${e.message}");
       }
     } catch (_) {
       if (mounted) setState(() => _error = "We couldn't start your practice.");
@@ -171,7 +187,8 @@ class _VidyaPracticeSessionScreenState
         return;
       }
       if (mounted) {
-        setState(() => _error = "We couldn't load the next question. ${e.message}");
+        setState(
+            () => _error = "We couldn't load the next question. ${e.message}");
       }
     } catch (_) {
       if (mounted) {
@@ -320,9 +337,8 @@ class _VidyaPracticeSessionScreenState
     final q = _item!;
     final currentNumber = q.itemIdx + 1;
     final total = widget.questionCount;
-    final progressValue = total > 0
-        ? (currentNumber / total).clamp(0.0, 1.0)
-        : 0.0;
+    final progressValue =
+        total > 0 ? (currentNumber / total).clamp(0.0, 1.0) : 0.0;
 
     return VidyaScaffold(
       appBar: VidyaAppBar(
@@ -435,8 +451,10 @@ class _VidyaPracticeSessionScreenState
             itemBuilder: (ctx, i) {
               final selected = _selectedIdx == i;
               return VidyaCard(
-                onTap: _submitting ? null : () => setState(() => _selectedIdx = i),
-                tone: selected ? VidyaCardTone.accent : VidyaCardTone.defaultTone,
+                onTap:
+                    _submitting ? null : () => setState(() => _selectedIdx = i),
+                tone:
+                    selected ? VidyaCardTone.accent : VidyaCardTone.defaultTone,
                 child: Padding(
                   padding: const EdgeInsets.all(8),
                   child: Row(
@@ -445,9 +463,8 @@ class _VidyaPracticeSessionScreenState
                         width: 32,
                         height: 32,
                         decoration: BoxDecoration(
-                          color: selected
-                              ? accent
-                              : muted.withValues(alpha: 0.15),
+                          color:
+                              selected ? accent : muted.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         alignment: Alignment.center,

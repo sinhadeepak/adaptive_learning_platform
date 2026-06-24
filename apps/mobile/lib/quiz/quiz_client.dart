@@ -157,6 +157,26 @@ class QuizClient {
         jsonDecode(res.body) as Map<String, dynamic>);
   }
 
+  /// List the user's recent sessions (newest first). Wraps
+  /// `GET /quiz/sessions?userId=&limit=&mode=`. Used by the resume surface
+  /// to find IN_PROGRESS practice sessions. Returns [] on any error.
+  Future<List<SessionSummary>> listSessions(
+    String userId, {
+    int limit = 50,
+    String? mode,
+  }) async {
+    final modeQ = mode != null ? '&mode=$mode' : '';
+    final res =
+        await auth.apiGet('/quiz/sessions?userId=$userId&limit=$limit$modeQ');
+    if (res.statusCode != 200) return const [];
+    final j = jsonDecode(res.body) as Map<String, dynamic>;
+    final items = (j['items'] as List? ?? const [])
+        .cast<Map<String, dynamic>>()
+        .map(SessionSummary.fromJson)
+        .toList();
+    return items;
+  }
+
   /// Per-question detail for the post-test deep-dive: time, correctness,
   /// section, difficulty. Wraps `GET /quiz/sessions/{id}/per-question-time`
   /// (quiz Go service `SessionService.PerQuestionTime`).
@@ -179,6 +199,41 @@ class QuizClient {
         .toList();
     return items;
   }
+}
+
+/// One row from `GET /quiz/sessions` (the session list). Mirrors the quiz
+/// service's `sessionListItem`. `targetCount`/`servedCount` drive the
+/// resume surface's progress label.
+class SessionSummary {
+  SessionSummary({
+    required this.sessionId,
+    required this.topicId,
+    required this.mode,
+    required this.status,
+    required this.targetCount,
+    required this.servedCount,
+    this.blueprintId,
+  });
+  final String sessionId;
+  final String topicId;
+  final String mode; // PRACTICE | MOCK | ...
+  final String status; // IN_PROGRESS | COMPLETED | EXPIRED | ...
+  final int targetCount;
+  final int servedCount;
+  final String? blueprintId;
+
+  bool get inProgress => status == 'IN_PROGRESS';
+  bool get isPractice => mode == 'PRACTICE';
+
+  factory SessionSummary.fromJson(Map<String, dynamic> j) => SessionSummary(
+        sessionId: (j['sessionId'] ?? '') as String,
+        topicId: (j['topicId'] ?? '') as String,
+        mode: (j['mode'] ?? '') as String,
+        status: (j['status'] ?? '') as String,
+        targetCount: (j['targetCount'] as num?)?.toInt() ?? 0,
+        servedCount: (j['servedCount'] as num?)?.toInt() ?? 0,
+        blueprintId: j['blueprintId'] as String?,
+      );
 }
 
 /// One row from `GET /quiz/sessions/{id}/per-question-time`. Mirrors the

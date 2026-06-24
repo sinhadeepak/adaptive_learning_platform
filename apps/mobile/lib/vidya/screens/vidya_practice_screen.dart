@@ -261,6 +261,12 @@ class VidyaPracticeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
+          // "Continue where you left off" — resumes IN_PROGRESS practice
+          // sessions (renders nothing when there are none).
+          _ResumeBanner(
+            client: client,
+            onResume: (s) => _resumeSession(context, s),
+          ),
           for (final m in _modes) ...[
             _PracticeModeCard(mode: m, onTap: () => _onModeTap(context, m)),
             const SizedBox(height: 12),
@@ -268,6 +274,29 @@ class VidyaPracticeScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _resumeSession(BuildContext context, SessionSummary s) {
+    final userId = client.auth.user?.id ?? '';
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => VidyaPracticeSessionScreen(
+        client: client,
+        topicId: s.topicId,
+        userId: userId,
+        questionCount: s.targetCount > 0 ? s.targetCount : 10,
+        resumeSessionId: s.sessionId,
+        onCompleted: (sessionId) {
+          Navigator.of(context).pushReplacement(MaterialPageRoute(
+            builder: (_) => VidyaPracticeResultScreen(
+              client: client,
+              sessionId: sessionId,
+              onDone: () => Navigator.of(context).pop(),
+            ),
+          ));
+        },
+        onBack: () => Navigator.of(context).pop(),
+      ),
+    ));
   }
 }
 
@@ -331,6 +360,131 @@ class _PracticeModeCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Continue where you left off" — loads the user's IN_PROGRESS practice
+/// sessions and offers to resume them. Self-contained (manages its own
+/// fetch) so the stateless Practice landing stays unchanged; renders
+/// nothing while loading or when there's nothing to resume. Mock sessions
+/// are deliberately excluded — they're timed, so resuming client-side would
+/// reset the window.
+class _ResumeBanner extends StatefulWidget {
+  final QuizClient client;
+  final void Function(SessionSummary) onResume;
+  const _ResumeBanner({required this.client, required this.onResume});
+
+  @override
+  State<_ResumeBanner> createState() => _ResumeBannerState();
+}
+
+class _ResumeBannerState extends State<_ResumeBanner> {
+  List<SessionSummary> _sessions = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final userId = widget.client.auth.user?.id ?? '';
+    if (userId.isEmpty) return;
+    try {
+      final all = await widget.client.listSessions(userId, mode: 'PRACTICE');
+      if (!mounted) return;
+      final resumable = all
+          .where((s) =>
+              s.inProgress &&
+              s.isPractice &&
+              (s.targetCount == 0 || s.servedCount < s.targetCount))
+          .take(2)
+          .toList();
+      setState(() => _sessions = resumable);
+    } catch (_) {/* no banner on failure */}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_sessions.isEmpty) return const SizedBox.shrink();
+    final v = VidyaThemeData.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        VidyaCard(
+          tone: VidyaCardTone.accent,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'CONTINUE WHERE YOU LEFT OFF',
+                  style: TextStyle(
+                    fontFamily: VidyaFonts.mono,
+                    fontSize: 11,
+                    color: v.ink3,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                for (final s in _sessions) ...[
+                  _ResumeRow(session: s, onTap: () => widget.onResume(s)),
+                  const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+}
+
+class _ResumeRow extends StatelessWidget {
+  final SessionSummary session;
+  final VoidCallback onTap;
+  const _ResumeRow({required this.session, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    final target = session.targetCount > 0 ? session.targetCount : null;
+    final progress = target != null
+        ? '${session.servedCount} / $target answered'
+        : '${session.servedCount} answered';
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(Icons.play_circle_outline, size: 22, color: v.accent),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Practice session · $progress',
+                style: TextStyle(
+                  fontFamily: VidyaFonts.ui,
+                  fontSize: 15,
+                  color: v.ink,
+                ),
+              ),
+            ),
+            Text(
+              'Resume',
+              style: TextStyle(
+                fontFamily: VidyaFonts.ui,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: v.accent,
+              ),
+            ),
+          ],
         ),
       ),
     );
