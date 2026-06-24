@@ -9,15 +9,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
-import '../../screens/doubts_tab.dart';
+import '../theme_mode_notifier.dart';
 import 'vidya_assignments_screen.dart';
 import 'vidya_bookmarks_screen.dart';
 import 'vidya_edit_profile_screen.dart';
 import 'vidya_history_screen.dart';
 import 'vidya_inbox_screen.dart';
 import 'vidya_notification_prefs_screen.dart';
-import '../aurora_route.dart';
-import '../theme_mode_notifier.dart';
+import 'vidya_tutor_chat_screen.dart';
 
 class VidyaMoreScreen extends StatefulWidget {
   final AuthClient auth;
@@ -112,19 +111,7 @@ class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
     if (mounted) setState(() {});
   }
 
-  /// Pushes an Aurora-built screen wrapped in [AuroraRoute] so it gets
-  /// its own Aurora MaterialApp (theme + persona + density) — the
-  /// sanctioned way to mount legacy Aurora screens from the Vidya shell
-  /// without editing them (see vidya_root_app.dart).
-  void _openAurora(Widget Function(BuildContext) builder) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AuroraRoute(builder: builder),
-      ),
-    );
-  }
-
-  /// Pushes a native Vidya screen (no Aurora shim).
+  /// Pushes a native Vidya screen.
   void _push(Widget Function(BuildContext) builder) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: builder));
   }
@@ -208,12 +195,9 @@ class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
                 ),
                 _NavRow(
                   icon: Icons.help_outline,
-                  label: 'Doubts & AI tutor',
-                  onTap: () => _openAurora(
-                    (_) => DoubtsTab(
-                      api: ApiClient(widget.auth),
-                      auth: widget.auth,
-                    ),
+                  label: 'AI tutor',
+                  onTap: () => _push(
+                    (_) => VidyaTutorChatScreen(auth: widget.auth),
                   ),
                 ),
                 _NavRow(
