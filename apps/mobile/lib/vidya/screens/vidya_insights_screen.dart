@@ -16,6 +16,7 @@ import 'vidya_catalog_screen.dart';
 import 'vidya_concept_profile_screen.dart';
 import 'vidya_diagnostic_deep_dive_screen.dart';
 import 'vidya_revision_screen.dart';
+import 'vidya_study_plan_screen.dart';
 import 'vidya_syllabus_coverage_screen.dart';
 import 'vidya_topic_detail_screen.dart';
 
@@ -474,6 +475,17 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
                     auth: widget.auth,
                     examId: _examNotifier?.active?.examId ?? '',
                   ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _DeepDiveRow(
+              icon: Icons.event_note_outlined,
+              label: 'Study Plan',
+              sublabel: 'Your AI weekly plan — view & regenerate',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaStudyPlanScreen(auth: widget.auth),
                 ),
               ),
             ),
