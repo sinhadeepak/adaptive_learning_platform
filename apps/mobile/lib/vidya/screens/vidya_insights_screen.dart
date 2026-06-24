@@ -11,10 +11,10 @@ import '../../auth/auth_client.dart';
 import '../../insights/insights_client.dart';
 import '../../screens/concept_profile_screen.dart';
 import '../../screens/diagnostic_deep_dive_screen.dart';
-import '../../screens/progress_tab.dart';
 import '../aurora_route.dart';
 import '../state/active_exam_notifier.dart';
 import '../widgets/vidya_exam_switcher.dart';
+import 'vidya_analysis_screen.dart';
 import 'vidya_catalog_screen.dart';
 import 'vidya_revision_screen.dart';
 import 'vidya_syllabus_coverage_screen.dart';
@@ -445,10 +445,11 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
             _DeepDiveRow(
               icon: Icons.insights_outlined,
               label: 'My Analysis',
-              sublabel: 'Readiness, activity & topic mastery',
-              onTap: () => _openAurora(
-                (_) =>
-                    ProgressTab(api: ApiClient(widget.auth), auth: widget.auth),
+              sublabel: 'Dimension fluency, weakest concepts & calibration',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaAnalysisScreen(auth: widget.auth),
+                ),
               ),
             ),
             const SizedBox(height: 10),
