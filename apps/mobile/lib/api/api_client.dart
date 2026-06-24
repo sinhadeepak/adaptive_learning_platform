@@ -167,11 +167,7 @@ class ApiClient {
   }
 
   Future<bool> removeBookmark(String questionId) async {
-    final url = '${auth.baseUrl}/profile/bookmarks/$questionId';
-    final res = await http.delete(
-      Uri.parse(url),
-      headers: auth.baseHeaders(auth: true),
-    );
+    final res = await auth.apiDelete('/profile/bookmarks/$questionId');
     return res.statusCode == 204 || res.statusCode == 200;
   }
 
@@ -218,11 +214,9 @@ class ApiClient {
 
   Future<bool> markNotificationRead(
       String userId, String notificationId) async {
-    final url =
-        '${auth.baseUrl}/notifications/$notificationId/read?user_id=$userId';
-    final res = await http.post(
-      Uri.parse(url),
-      headers: auth.baseHeaders(auth: true),
+    final res = await auth.apiPost(
+      '/notifications/$notificationId/read?user_id=$userId',
+      const {},
     );
     return res.statusCode == 200;
   }

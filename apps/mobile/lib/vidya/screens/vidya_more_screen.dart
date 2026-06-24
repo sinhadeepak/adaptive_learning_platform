@@ -11,12 +11,12 @@ import '../../api/api_client.dart';
 import '../../api/assignments.dart';
 import '../../auth/auth_client.dart';
 import '../../screens/assignments_screen.dart';
-import '../../screens/bookmarks_screen.dart';
 import '../../screens/doubts_tab.dart';
 import '../../screens/edit_profile_screen.dart';
-import '../../screens/history_screen.dart';
-import '../../screens/inbox_screen.dart';
 import '../../screens/notification_preferences_screen.dart';
+import 'vidya_bookmarks_screen.dart';
+import 'vidya_history_screen.dart';
+import 'vidya_inbox_screen.dart';
 import '../aurora_route.dart';
 import '../theme_mode_notifier.dart';
 
@@ -125,6 +125,11 @@ class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
     );
   }
 
+  /// Pushes a native Vidya screen (no Aurora shim).
+  void _push(Widget Function(BuildContext) builder) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: builder));
+  }
+
   Future<void> _loadFlag() async {
     final v = await _storage.read(key: _useAuroraShellKey);
     if (!mounted) return;
@@ -184,31 +189,22 @@ class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
                 _NavRow(
                   icon: Icons.bookmark_outline,
                   label: 'Bookmarks',
-                  onTap: () => _openAurora(
-                    (_) => BookmarksScreen(
-                      api: ApiClient(widget.auth),
-                      auth: widget.auth,
-                    ),
+                  onTap: () => _push(
+                    (_) => VidyaBookmarksScreen(auth: widget.auth),
                   ),
                 ),
                 _NavRow(
                   icon: Icons.history,
                   label: 'History',
-                  onTap: () => _openAurora(
-                    (_) => HistoryScreen(
-                      api: ApiClient(widget.auth),
-                      auth: widget.auth,
-                    ),
+                  onTap: () => _push(
+                    (_) => VidyaHistoryScreen(auth: widget.auth),
                   ),
                 ),
                 _NavRow(
                   icon: Icons.notifications_none,
                   label: 'Notifications',
-                  onTap: () => _openAurora(
-                    (_) => InboxScreen(
-                      api: ApiClient(widget.auth),
-                      auth: widget.auth,
-                    ),
+                  onTap: () => _push(
+                    (_) => VidyaInboxScreen(auth: widget.auth),
                   ),
                 ),
                 _NavRow(

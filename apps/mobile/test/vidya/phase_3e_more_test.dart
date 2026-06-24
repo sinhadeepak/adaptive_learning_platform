@@ -11,7 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
-import 'package:adaptive_learning_mobile/vidya/aurora_route.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_bookmarks_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_more_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/theme_mode_notifier.dart';
 
@@ -47,7 +47,8 @@ Future<AuthClient> _loggedInAuth({
 }) async {
   final mock = MockClient((req) async {
     if (req.url.path.endsWith('/auth/login')) {
-      return http.Response(_sessionJson(firstName: firstName, email: email), 200,
+      return http.Response(
+          _sessionJson(firstName: firstName, email: email), 200,
           headers: {'content-type': 'application/json'});
     }
     return http.Response('{}', 404);
@@ -63,7 +64,8 @@ void main() {
   });
 
   group('VidyaMoreScreen', () {
-    testWidgets('renders profile header with firstName + email + initial avatar',
+    testWidgets(
+        'renders profile header with firstName + email + initial avatar',
         (tester) async {
       final auth = await _loggedInAuth(firstName: 'Aarav', email: 'a@b.com');
       await tester.pumpWidget(_harness(
@@ -119,7 +121,8 @@ void main() {
       expect(find.text('Restart app to apply.'), findsOneWidget);
     });
 
-    testWidgets('renders THEME section with 3 mode options when notifier supplied',
+    testWidgets(
+        'renders THEME section with 3 mode options when notifier supplied',
         (tester) async {
       final auth = await _loggedInAuth();
       final notifier = VidyaThemeModeNotifier();
@@ -181,7 +184,11 @@ void main() {
           capturedLanguage = body['language'] as String?;
           return http.Response(
             jsonEncode({
-              'user': {'firstName': 'Aarav', 'lastName': 'L', 'email': 'a@b.com'},
+              'user': {
+                'firstName': 'Aarav',
+                'lastName': 'L',
+                'email': 'a@b.com'
+              },
               'preferences': {'language': 'hi'},
               'exams': [],
             }),
@@ -203,8 +210,7 @@ void main() {
       expect(capturedLanguage, 'hi');
     });
 
-    testWidgets('THEME section hidden when no notifier passed',
-        (tester) async {
+    testWidgets('THEME section hidden when no notifier passed', (tester) async {
       final auth = await _loggedInAuth();
       await tester.pumpWidget(_harness(
         VidyaMoreScreen(auth: auth, onSignOut: () {}),
@@ -213,7 +219,7 @@ void main() {
       expect(find.text('THEME'), findsNothing);
     });
 
-    testWidgets('ACTIVITY hub: tapping Bookmarks pushes an Aurora route',
+    testWidgets('ACTIVITY hub: tapping Bookmarks pushes the native screen',
         (tester) async {
       final auth = await _loggedInAuth();
       await tester.pumpWidget(_harness(
@@ -223,8 +229,7 @@ void main() {
       expect(find.text('Bookmarks'), findsOneWidget);
       await tester.tap(find.text('Bookmarks'));
       await tester.pumpAndSettle();
-      // The Aurora compatibility shim mounts the legacy screen.
-      expect(find.byType(AuroraRoute), findsOneWidget);
+      expect(find.byType(VidyaBookmarksScreen), findsOneWidget);
     });
 
     testWidgets('Sign out row fires onSignOut', (tester) async {

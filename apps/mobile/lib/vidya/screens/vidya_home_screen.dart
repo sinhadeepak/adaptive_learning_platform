@@ -29,6 +29,7 @@ import '../state/active_exam_notifier.dart';
 import '../state/exam_ref.dart';
 import '../widgets/vidya_exam_switcher.dart';
 import 'vidya_practice_result_screen.dart';
+import 'vidya_inbox_screen.dart';
 import 'vidya_practice_session_screen.dart';
 
 class VidyaHomeScreen extends StatefulWidget {
@@ -310,8 +311,11 @@ class _VidyaHomeScreenState extends State<VidyaHomeScreen> {
             ),
             VidyaBellButton(
               unreadCount: _unreadCount,
-              onTap: () =>
-                  VidyaMainShellScope.of(context)?.switchTo(VidyaShellTab.more),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaInboxScreen(auth: widget.auth),
+                ),
+              ),
             ),
             const SizedBox(width: 8),
             VidyaAvatar(initials: initial, size: 40),
