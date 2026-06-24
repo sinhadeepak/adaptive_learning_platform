@@ -13,6 +13,7 @@ class QuizClient {
     required String topicId,
     required String userId,
     String mode = 'PRACTICE',
+
     /// Optional extra fields merged into the request body (e.g. `language`
     /// for content-language delivery — Task 8 translation feature).
     Map<String, dynamic> extraFields = const {},
@@ -24,12 +25,15 @@ class QuizClient {
       ...extraFields,
     });
     if (res.statusCode == 422) {
-      throw const QuizError('No published questions for this topic.', QuizErrorCode.emptyTopic);
+      throw const QuizError(
+          'No published questions for this topic.', QuizErrorCode.emptyTopic);
     }
     if (res.statusCode != 201) {
-      throw QuizError('Could not start quiz (${res.statusCode}).', QuizErrorCode.unknown);
+      throw QuizError(
+          'Could not start quiz (${res.statusCode}).', QuizErrorCode.unknown);
     }
-    return QuizSessionStart.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+    return QuizSessionStart.fromJson(
+        jsonDecode(res.body) as Map<String, dynamic>);
   }
 
   /// F1 — Mistake replay. Pre-loads a PRACTICE-mode session with the
@@ -57,7 +61,8 @@ class QuizClient {
         QuizErrorCode.unknown,
       );
     }
-    return QuizSessionStart.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+    return QuizSessionStart.fromJson(
+        jsonDecode(res.body) as Map<String, dynamic>);
   }
 
   /// Phase 3c.full v3 — Mock blueprint launch (Sprint 23 P4-S23).
@@ -97,10 +102,12 @@ class QuizClient {
   Future<QuizNext> next(String sessionId) async {
     final res = await auth.apiGet('/quiz/sessions/$sessionId/next');
     if (res.statusCode == 409) {
-      throw const QuizError('Session is already submitted or expired.', QuizErrorCode.sessionDone);
+      throw const QuizError('Session is already submitted or expired.',
+          QuizErrorCode.sessionDone);
     }
     if (res.statusCode != 200) {
-      throw QuizError('Could not load next question (${res.statusCode}).', QuizErrorCode.unknown);
+      throw QuizError('Could not load next question (${res.statusCode}).',
+          QuizErrorCode.unknown);
     }
     return QuizNext.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
@@ -121,15 +128,18 @@ class QuizClient {
       if (responsePayload != null) 'responsePayload': responsePayload,
     });
     if (res.statusCode != 200) {
-      throw QuizError('Answer rejected (${res.statusCode}).', QuizErrorCode.unknown);
+      throw QuizError(
+          'Answer rejected (${res.statusCode}).', QuizErrorCode.unknown);
     }
     return QuizAnswer.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
   Future<QuizSession> submit(String sessionId) async {
-    final res = await auth.apiPost('/quiz/sessions/$sessionId/submit', const {});
+    final res =
+        await auth.apiPost('/quiz/sessions/$sessionId/submit', const {});
     if (res.statusCode != 200) {
-      throw QuizError('Could not submit (${res.statusCode}).', QuizErrorCode.unknown);
+      throw QuizError(
+          'Could not submit (${res.statusCode}).', QuizErrorCode.unknown);
     }
     return QuizSession.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
@@ -140,10 +150,74 @@ class QuizClient {
       throw const QuizError('Session not found.', QuizErrorCode.notFound);
     }
     if (res.statusCode != 200) {
-      throw QuizError('Could not load session (${res.statusCode}).', QuizErrorCode.unknown);
+      throw QuizError(
+          'Could not load session (${res.statusCode}).', QuizErrorCode.unknown);
     }
-    return QuizSessionDetail.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+    return QuizSessionDetail.fromJson(
+        jsonDecode(res.body) as Map<String, dynamic>);
   }
+
+  /// Per-question detail for the post-test deep-dive: time, correctness,
+  /// section, difficulty. Wraps `GET /quiz/sessions/{id}/per-question-time`
+  /// (quiz Go service `SessionService.PerQuestionTime`).
+  Future<List<SessionItemTime>> perQuestionTime(String sessionId) async {
+    final res =
+        await auth.apiGet('/quiz/sessions/$sessionId/per-question-time');
+    if (res.statusCode == 404) {
+      throw const QuizError('Session not found.', QuizErrorCode.notFound);
+    }
+    if (res.statusCode != 200) {
+      throw QuizError(
+        'Could not load session detail (${res.statusCode}).',
+        QuizErrorCode.unknown,
+      );
+    }
+    final j = jsonDecode(res.body) as Map<String, dynamic>;
+    final items = (j['items'] as List? ?? const [])
+        .cast<Map<String, dynamic>>()
+        .map(SessionItemTime.fromJson)
+        .toList();
+    return items;
+  }
+}
+
+/// One row from `GET /quiz/sessions/{id}/per-question-time`. Mirrors the
+/// quiz service's `perQuestionTimeItem`.
+class SessionItemTime {
+  SessionItemTime({
+    required this.itemIdx,
+    required this.questionId,
+    this.sectionId,
+    this.timeSeconds,
+    this.isCorrect,
+    this.answerIdx,
+    required this.correctIdx,
+    required this.difficultyB,
+    required this.topicId,
+  });
+  final int itemIdx;
+  final String questionId;
+  final String? sectionId;
+  final double? timeSeconds;
+  final bool? isCorrect;
+  final int? answerIdx;
+  final int correctIdx;
+  final double difficultyB;
+  final String topicId;
+
+  bool get answered => answerIdx != null;
+
+  factory SessionItemTime.fromJson(Map<String, dynamic> j) => SessionItemTime(
+        itemIdx: (j['itemIdx'] as num).toInt(),
+        questionId: (j['questionId'] ?? '') as String,
+        sectionId: j['sectionId'] as String?,
+        timeSeconds: (j['timeSeconds'] as num?)?.toDouble(),
+        isCorrect: j['isCorrect'] as bool?,
+        answerIdx: (j['answerIdx'] as num?)?.toInt(),
+        correctIdx: (j['correctIdx'] as num?)?.toInt() ?? -1,
+        difficultyB: (j['difficultyB'] as num?)?.toDouble() ?? 0.0,
+        topicId: (j['topicId'] ?? '') as String,
+      );
 }
 
 enum QuizErrorCode { emptyTopic, sessionDone, notFound, unknown }
@@ -157,7 +231,11 @@ class QuizError implements Exception {
 }
 
 class QuizSessionStart {
-  QuizSessionStart({required this.sessionId, required this.strategy, required this.mode, required this.expiresAt});
+  QuizSessionStart(
+      {required this.sessionId,
+      required this.strategy,
+      required this.mode,
+      required this.expiresAt});
   final String sessionId;
   final String strategy;
   final String mode;
@@ -256,7 +334,11 @@ class MockBlueprintSection {
 }
 
 class QuizNext {
-  QuizNext({required this.sessionId, required this.status, required this.done, this.item});
+  QuizNext(
+      {required this.sessionId,
+      required this.status,
+      required this.done,
+      this.item});
   final String sessionId;
   final String status;
   final bool done;
@@ -265,18 +347,21 @@ class QuizNext {
         sessionId: j['sessionId'] as String,
         status: j['status'] as String,
         done: j['done'] as bool,
-        item: j['item'] is Map ? QuizItem.fromJson(j['item'] as Map<String, dynamic>) : null,
+        item: j['item'] is Map
+            ? QuizItem.fromJson(j['item'] as Map<String, dynamic>)
+            : null,
       );
 }
 
 class QuizItem {
-  QuizItem(
-      {required this.itemIdx,
-      required this.questionId,
-      required this.stem,
-      required this.choices,
-      this.questionType = 'MCQ_SINGLE',
-      this.payload = const {},});
+  QuizItem({
+    required this.itemIdx,
+    required this.questionId,
+    required this.stem,
+    required this.choices,
+    this.questionType = 'MCQ_SINGLE',
+    this.payload = const {},
+  });
   final int itemIdx;
   final String questionId;
   final String stem;
@@ -377,7 +462,8 @@ class QuizSessionDetail {
   final int servedCount;
   final int correctCount;
   final List<QuizItemSummary> items;
-  factory QuizSessionDetail.fromJson(Map<String, dynamic> j) => QuizSessionDetail(
+  factory QuizSessionDetail.fromJson(Map<String, dynamic> j) =>
+      QuizSessionDetail(
         sessionId: j['sessionId'] as String,
         userId: j['userId'] as String,
         topicId: j['topicId'] as String,
@@ -387,7 +473,9 @@ class QuizSessionDetail {
         targetCount: (j['targetCount'] as num).toInt(),
         servedCount: (j['servedCount'] as num).toInt(),
         correctCount: (j['correctCount'] as num).toInt(),
-        items: (j['items'] as List).map((e) => QuizItemSummary.fromJson(e as Map<String, dynamic>)).toList(),
+        items: (j['items'] as List)
+            .map((e) => QuizItemSummary.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 }
 

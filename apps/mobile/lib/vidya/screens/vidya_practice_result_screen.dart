@@ -34,6 +34,7 @@ import 'package:flutter/material.dart';
 import '../../api/api_client.dart';
 import '../../quiz/quiz_client.dart';
 import '../shell/vidya_main_shell_scope.dart';
+import 'vidya_session_deep_dive_screen.dart';
 
 class VidyaPracticeResultScreen extends StatefulWidget {
   final QuizClient client;
@@ -102,8 +103,7 @@ List<TopicBreakdownRow> computeTopicBreakdown(
   return rows;
 }
 
-class _VidyaPracticeResultScreenState
-    extends State<VidyaPracticeResultScreen> {
+class _VidyaPracticeResultScreenState extends State<VidyaPracticeResultScreen> {
   QuizSessionDetail? _summary;
   List<TopicBreakdownRow> _breakdown = const [];
   Map<String, String> _topicLabels = const {};
@@ -301,8 +301,9 @@ class _VidyaPracticeResultScreenState
     final skipped = s.items.isNotEmpty
         ? (s.targetCount - answeredItems.length).clamp(0, s.targetCount)
         : (s.targetCount - s.servedCount).clamp(0, s.targetCount);
-    final accuracyPct =
-        s.servedCount > 0 ? ((s.correctCount / s.servedCount) * 100).round() : 0;
+    final accuracyPct = s.servedCount > 0
+        ? ((s.correctCount / s.servedCount) * 100).round()
+        : 0;
 
     return VidyaScaffold(
       appBar: VidyaAppBar(title: ''),
@@ -415,6 +416,21 @@ class _VidyaPracticeResultScreenState
             ),
             const SizedBox(height: 24),
             VidyaButton(
+              key: const Key('vidya.practice.result.deepdive'),
+              label: 'Session deep-dive',
+              style: VidyaButtonStyle.ghost,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaSessionDeepDiveScreen(
+                    client: widget.client,
+                    sessionId: widget.sessionId,
+                  ),
+                ),
+              ),
+              size: VidyaButtonSize.lg,
+            ),
+            const SizedBox(height: 10),
+            VidyaButton(
               key: const Key('vidya.practice.result.done'),
               label: 'Done',
               onPressed: widget.onDone,
@@ -499,7 +515,8 @@ class _KpiRow extends StatelessWidget {
 }
 
 class _KpiTile extends StatelessWidget {
-  const _KpiTile({required this.value, required this.label, required this.tone});
+  const _KpiTile(
+      {required this.value, required this.label, required this.tone});
   final String value;
   final String label;
   final Color tone;
