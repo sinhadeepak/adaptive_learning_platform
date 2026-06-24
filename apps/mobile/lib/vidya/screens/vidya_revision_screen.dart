@@ -9,9 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/analytics.dart';
 import '../../auth/auth_client.dart';
-import '../../quiz/quiz_client.dart';
-import 'vidya_practice_result_screen.dart';
-import 'vidya_practice_session_screen.dart';
+import 'vidya_revision_ritual_screen.dart';
 
 enum _RevState { loading, loaded, empty, error }
 
@@ -54,28 +52,18 @@ class _VidyaRevisionScreenState extends State<VidyaRevisionScreen> {
   }
 
   void _startRevision(RevisionItem item) {
-    final userId = widget.auth.user?.id ?? '';
-    Navigator.of(context).push(
+    Navigator.of(context)
+        .push(
       MaterialPageRoute<void>(
-        builder: (_) => VidyaPracticeSessionScreen(
-          client: QuizClient(auth: widget.auth),
-          topicId: item.topicId,
-          userId: userId,
-          onCompleted: (sessionId) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute<void>(
-                builder: (_) => VidyaPracticeResultScreen(
-                  client: QuizClient(auth: widget.auth),
-                  sessionId: sessionId,
-                  onDone: () => Navigator.of(context).pop(),
-                ),
-              ),
-            );
-          },
-          onBack: () => Navigator.of(context).pop(),
-        ),
+        builder: (_) =>
+            VidyaRevisionRitualScreen(auth: widget.auth, item: item),
       ),
-    );
+    )
+        .then((_) {
+      // Refresh the queue when the ritual closes — the reviewed topic may
+      // have been rescheduled out of the due list.
+      if (mounted) _load();
+    });
   }
 
   @override
@@ -111,7 +99,8 @@ class _VidyaRevisionScreenState extends State<VidyaRevisionScreen> {
               ),
               const SizedBox(height: 16),
               for (final item in _items) ...[
-                _RevisionCard(item: item, onPractice: () => _startRevision(item)),
+                _RevisionCard(
+                    item: item, onPractice: () => _startRevision(item)),
                 const SizedBox(height: 10),
               ],
             ],
@@ -172,8 +161,7 @@ class _RevisionCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               [
-                if (item.intervalDays != null)
-                  'Interval ${item.intervalDays}d',
+                if (item.intervalDays != null) 'Interval ${item.intervalDays}d',
                 if (item.attemptCount != null)
                   '${item.attemptCount} review${item.attemptCount == 1 ? '' : 's'}',
               ].join('  ·  '),
