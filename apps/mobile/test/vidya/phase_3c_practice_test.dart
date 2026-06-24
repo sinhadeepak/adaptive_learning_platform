@@ -13,7 +13,7 @@ import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/insights/insights_client.dart';
 import 'package:adaptive_learning_mobile/quiz/quiz_client.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_focused_intro_screen.dart';
-import 'package:adaptive_learning_mobile/vidya/screens/vidya_mock_intro_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_mocks_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_session_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_pyq_screen.dart';
@@ -156,7 +156,7 @@ void main() {
       expect(screen.mode, QuizSessionMode.mistakes);
     });
 
-    testWidgets('Mock Test tap navigates to mock intro screen (examId set)',
+    testWidgets('Mock Test tap navigates to the mocks catalog (examId set)',
         (tester) async {
       await tester.pumpWidget(_harness(
         VidyaPracticeScreen(
@@ -168,10 +168,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Mock Test'));
       await tester.tap(find.text('Mock Test'));
-      // The intro screen kicks off an HTTP fetch that 500s in tests;
+      // The catalog kicks off an HTTP fetch that 500s in tests;
       // pumpAndSettle is safe because that future resolves quickly.
       await tester.pumpAndSettle();
-      expect(find.byType(VidyaMockIntroScreen), findsOneWidget);
+      expect(find.byType(VidyaMocksScreen), findsOneWidget);
     });
 
     testWidgets('Mock Test tap shows onboarding nudge when examId is null',
@@ -188,7 +188,7 @@ void main() {
         find.textContaining('Pick your exam in onboarding'),
         findsOneWidget,
       );
-      expect(find.byType(VidyaMockIntroScreen), findsNothing);
+      expect(find.byType(VidyaMocksScreen), findsNothing);
     });
   });
 }

@@ -25,8 +25,7 @@ import '../../insights/insights_client.dart';
 import '../../quiz/quiz_client.dart';
 import '../state/active_exam_notifier.dart';
 import 'vidya_focused_intro_screen.dart';
-import 'vidya_mock_intro_screen.dart';
-import 'vidya_mock_session_screen.dart';
+import 'vidya_mocks_screen.dart';
 import 'vidya_practice_result_screen.dart';
 import 'vidya_practice_session_screen.dart';
 import 'vidya_pyq_screen.dart';
@@ -182,8 +181,8 @@ class VidyaPracticeScreen extends StatelessWidget {
         ));
       case _PracticeModeKind.mock:
         final user = client.auth.user;
-        final examId = VidyaActiveExam.of(context)?.activeExamId;
-        if (user == null || examId == null || examId.isEmpty) {
+        final exam = VidyaActiveExam.of(context)?.active;
+        if (user == null || exam == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
@@ -193,40 +192,13 @@ class VidyaPracticeScreen extends StatelessWidget {
           );
           return;
         }
-        final userId = user.id;
+        // Open the mocks catalog (choose a blueprint / review attempts)
+        // rather than auto-launching the first blueprint.
         Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => VidyaMockIntroScreen(
-            client: client,
-            userId: userId,
-            examId: examId,
-            onStart: ({
-              required String blueprintId,
-              required String blueprintName,
-              required int itemCount,
-              required int totalMinutes,
-            }) {
-              Navigator.of(context).pushReplacement(MaterialPageRoute(
-                builder: (_) => VidyaMockSessionScreen(
-                  client: client,
-                  blueprintId: blueprintId,
-                  blueprintName: blueprintName,
-                  userId: userId,
-                  itemCount: itemCount,
-                  totalMinutes: totalMinutes,
-                  onCompleted: (sessionId) {
-                    Navigator.of(context).pushReplacement(MaterialPageRoute(
-                      builder: (_) => VidyaPracticeResultScreen(
-                        client: client,
-                        sessionId: sessionId,
-                        onDone: () => Navigator.of(context).pop(),
-                      ),
-                    ));
-                  },
-                  onBack: () => Navigator.of(context).pop(),
-                ),
-              ));
-            },
-            onBack: () => Navigator.of(context).pop(),
+          builder: (_) => VidyaMocksScreen(
+            auth: client.auth,
+            examId: exam.examId,
+            examName: exam.name,
           ),
         ));
     }
