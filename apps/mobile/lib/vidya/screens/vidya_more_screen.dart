@@ -8,15 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../api/api_client.dart';
-import '../../api/assignments.dart';
 import '../../auth/auth_client.dart';
-import '../../screens/assignments_screen.dart';
 import '../../screens/doubts_tab.dart';
-import '../../screens/edit_profile_screen.dart';
-import '../../screens/notification_preferences_screen.dart';
+import 'vidya_assignments_screen.dart';
 import 'vidya_bookmarks_screen.dart';
+import 'vidya_edit_profile_screen.dart';
 import 'vidya_history_screen.dart';
 import 'vidya_inbox_screen.dart';
+import 'vidya_notification_prefs_screen.dart';
 import '../aurora_route.dart';
 import '../theme_mode_notifier.dart';
 
@@ -220,10 +219,8 @@ class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
                 _NavRow(
                   icon: Icons.assignment_outlined,
                   label: 'Assignments',
-                  onTap: () => _openAurora(
-                    (_) => AssignmentsScreen(
-                      client: AssignmentsClient(widget.auth),
-                    ),
+                  onTap: () => _push(
+                    (_) => VidyaAssignmentsScreen(auth: widget.auth),
                   ),
                 ),
               ],
@@ -307,20 +304,15 @@ class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
                 _NavRow(
                   icon: Icons.person_outline,
                   label: 'Edit profile',
-                  onTap: () => _openAurora(
-                    (_) => EditProfileScreen(
-                      api: ApiClient(widget.auth),
-                      auth: widget.auth,
-                    ),
+                  onTap: () => _push(
+                    (_) => VidyaEditProfileScreen(auth: widget.auth),
                   ),
                 ),
                 _NavRow(
                   icon: Icons.tune,
                   label: 'Notification preferences',
-                  onTap: () => _openAurora(
-                    (_) => NotificationPreferencesScreen(
-                      api: ApiClient(widget.auth),
-                    ),
+                  onTap: () => _push(
+                    (_) => VidyaNotificationPrefsScreen(auth: widget.auth),
                   ),
                 ),
                 _NavRow(
