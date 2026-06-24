@@ -195,7 +195,8 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
 
   void _onFocusTopicTap(_FocusTopic t) {
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => VidyaTopicDetailScreen(topic: t.topic, ewa: t.ewa),
+      builder: (_) =>
+          VidyaTopicDetailScreen(auth: widget.auth, topic: t.topic, ewa: t.ewa),
     ));
   }
 
