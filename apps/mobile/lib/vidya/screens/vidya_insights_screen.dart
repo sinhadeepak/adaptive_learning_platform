@@ -9,13 +9,12 @@ import 'package:flutter/material.dart';
 import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
 import '../../insights/insights_client.dart';
-import '../../screens/concept_profile_screen.dart';
-import '../../screens/diagnostic_deep_dive_screen.dart';
-import '../aurora_route.dart';
 import '../state/active_exam_notifier.dart';
 import '../widgets/vidya_exam_switcher.dart';
 import 'vidya_analysis_screen.dart';
 import 'vidya_catalog_screen.dart';
+import 'vidya_concept_profile_screen.dart';
+import 'vidya_diagnostic_deep_dive_screen.dart';
 import 'vidya_revision_screen.dart';
 import 'vidya_syllabus_coverage_screen.dart';
 import 'vidya_topic_detail_screen.dart';
@@ -199,17 +198,6 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
       builder: (_) =>
           VidyaTopicDetailScreen(auth: widget.auth, topic: t.topic, ewa: t.ewa),
     ));
-  }
-
-  /// Pushes an Aurora-built analytics screen wrapped in [AuroraRoute] so
-  /// it renders under its own Aurora MaterialApp — the same shim the More
-  /// hub uses to mount legacy screens from the Vidya shell.
-  void _openAurora(Widget Function(BuildContext) builder) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AuroraRoute(builder: builder),
-      ),
-    );
   }
 
   void _openRevision() {
@@ -456,29 +444,24 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
             _DeepDiveRow(
               icon: Icons.radar,
               label: 'Concept Profile',
-              sublabel: 'Multi-parameter mastery per concept',
-              onTap: () {
-                final userId = widget.auth.user?.id ?? '';
-                _openAurora(
-                  (_) =>
-                      ConceptProfileScreen(userId: userId, auth: widget.auth),
-                );
-              },
+              sublabel: 'Per-concept mastery, weakest first',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaConceptProfileScreen(auth: widget.auth),
+                ),
+              ),
             ),
             const SizedBox(height: 10),
             _DeepDiveRow(
               icon: Icons.account_tree_outlined,
               label: 'Diagnostic Deep-Dive',
-              sublabel: 'Trace a weakness to its root cause',
-              onTap: () {
-                final userId = widget.auth.user?.id ?? '';
-                _openAurora(
-                  (_) => DiagnosticDeepDiveScreen(
-                    userId: userId,
-                    auth: widget.auth,
-                  ),
-                );
-              },
+              sublabel: 'Readiness band + focus zones',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      VidyaDiagnosticDeepDiveScreen(auth: widget.auth),
+                ),
+              ),
             ),
             const SizedBox(height: 10),
             _DeepDiveRow(

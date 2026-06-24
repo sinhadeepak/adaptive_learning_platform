@@ -11,7 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
-import 'package:adaptive_learning_mobile/vidya/aurora_route.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_concept_profile_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_insights_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/state/active_exam_notifier.dart';
 import 'package:adaptive_learning_mobile/vidya/state/exam_ref.dart';
@@ -241,7 +241,7 @@ void main() {
       expect(find.text('Diagnostic Deep-Dive'), findsOneWidget);
     });
 
-    testWidgets('tapping a DIG DEEPER row pushes an Aurora analytics route',
+    testWidgets('tapping Concept Profile pushes the native concept screen',
         (tester) async {
       final auth = await _loggedInAuth(_insightsMocks());
       await _pump(tester, auth, VidyaInsightsScreen(auth: auth));
@@ -249,7 +249,7 @@ void main() {
       await tester.ensureVisible(find.text('Concept Profile'));
       await tester.tap(find.text('Concept Profile'));
       await tester.pumpAndSettle();
-      expect(find.byType(AuroraRoute), findsOneWidget);
+      expect(find.byType(VidyaConceptProfileScreen), findsOneWidget);
     });
 
     testWidgets('renders zones 2 + 3 from the insights snapshot',
