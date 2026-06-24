@@ -29,11 +29,12 @@ import 'vidya_mocks_screen.dart';
 import 'vidya_practice_result_screen.dart';
 import 'vidya_practice_session_screen.dart';
 import 'vidya_pyq_screen.dart';
+import 'vidya_test_builder_screen.dart';
 
 /// Stable identifier for each practice mode, decoupled from the
 /// user-visible `title`. Lets a copy or i18n change touch the
 /// `_modes` literal without silently re-routing dispatch.
-enum _PracticeModeKind { quick, focused, mistakes, pyq, mock }
+enum _PracticeModeKind { quick, focused, mistakes, pyq, mock, build }
 
 class VidyaPracticeScreen extends StatelessWidget {
   final QuizClient client;
@@ -81,6 +82,12 @@ class VidyaPracticeScreen extends StatelessWidget {
       eyebrow: 'MOCK • 3 hrs',
       title: 'Mock Test',
       body: 'Full-length test under timed exam conditions.',
+    ),
+    _Mode(
+      kind: _PracticeModeKind.build,
+      eyebrow: 'BUILD • Custom',
+      title: 'Build a Test',
+      body: 'Pick a topic, difficulty, and length — then start.',
     ),
   ];
 
@@ -196,6 +203,24 @@ class VidyaPracticeScreen extends StatelessWidget {
         // rather than auto-launching the first blueprint.
         Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => VidyaMocksScreen(
+            auth: client.auth,
+            examId: exam.examId,
+            examName: exam.name,
+          ),
+        ));
+      case _PracticeModeKind.build:
+        final user = client.auth.user;
+        final exam = VidyaActiveExam.of(context)?.active;
+        if (user == null || exam == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Pick your exam in onboarding to build a test.'),
+            ),
+          );
+          return;
+        }
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => VidyaTestBuilderScreen(
             auth: client.auth,
             examId: exam.examId,
             examName: exam.name,

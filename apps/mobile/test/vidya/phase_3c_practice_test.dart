@@ -17,6 +17,7 @@ import 'package:adaptive_learning_mobile/vidya/screens/vidya_mocks_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_practice_session_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_pyq_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/screens/vidya_test_builder_screen.dart';
 import 'package:adaptive_learning_mobile/vidya/state/active_exam_notifier.dart';
 import 'package:adaptive_learning_mobile/vidya/state/exam_ref.dart';
 
@@ -86,7 +87,7 @@ void main() {
       expect(find.text('Sharpen your edge.'), findsOneWidget);
     });
 
-    testWidgets('renders five mode cards with name + duration eyebrow',
+    testWidgets('renders six mode cards with name + duration eyebrow',
         (tester) async {
       await tester.pumpWidget(_harness(
           VidyaPracticeScreen(client: _stub(), insights: _stubInsights())));
@@ -96,11 +97,13 @@ void main() {
       expect(find.text('Mistakes Drill'), findsOneWidget);
       expect(find.text('Previous-Year Qs'), findsOneWidget);
       expect(find.text('Mock Test'), findsOneWidget);
+      expect(find.text('Build a Test'), findsOneWidget);
       expect(find.textContaining('QUICK'), findsOneWidget);
       expect(find.textContaining('FOCUSED'), findsOneWidget);
       expect(find.textContaining('MISTAKES'), findsOneWidget);
       expect(find.textContaining('PYQ'), findsOneWidget);
       expect(find.textContaining('MOCK'), findsOneWidget);
+      expect(find.textContaining('BUILD'), findsOneWidget);
     });
 
     testWidgets('PYQ tap navigates to the PYQ browser (examId set)',
@@ -189,6 +192,22 @@ void main() {
         findsOneWidget,
       );
       expect(find.byType(VidyaMocksScreen), findsNothing);
+    });
+
+    testWidgets('Build a Test tap navigates to the test builder (examId set)',
+        (tester) async {
+      await tester.pumpWidget(_harness(
+        VidyaPracticeScreen(
+          client: _stubWithUser(examId: 'exam-jee-main'),
+          insights: _stubInsights(),
+        ),
+        activeExamId: 'exam-jee-main',
+      ));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Build a Test'));
+      await tester.tap(find.text('Build a Test'));
+      await tester.pumpAndSettle();
+      expect(find.byType(VidyaTestBuilderScreen), findsOneWidget);
     });
   });
 }
