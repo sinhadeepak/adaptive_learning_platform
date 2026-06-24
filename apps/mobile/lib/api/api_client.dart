@@ -411,6 +411,19 @@ class ApiClient {
     return res.statusCode == 204 || res.statusCode == 200;
   }
 
+  /// Full-text search across topics/lessons/questions. Wraps
+  /// `GET /search?q=` (learning search service). Returns [] on any error.
+  Future<List<SearchHit>> search(String query, {String? type}) async {
+    final q = Uri.encodeQueryComponent(query);
+    final path = '/search?q=$q${type != null ? '&type=$type' : ''}';
+    final r = await auth.apiGet(path);
+    if (r.statusCode != 200) return const [];
+    final j = jsonDecode(r.body) as Map<String, dynamic>;
+    final results =
+        (j['results'] as List? ?? const []).cast<Map<String, dynamic>>();
+    return results.map(SearchHit.fromJson).toList();
+  }
+
   Future<Topic?> topic(String topicId) async {
     final r = await auth.apiGet('/catalog/topics/$topicId');
     if (r.statusCode != 200) return null;
@@ -1572,6 +1585,29 @@ class MockResult {
   final List<MockSectionResult> sections;
   final String? error;
   final String? message;
+}
+
+/// One hit from `GET /search`. Mirrors the learning search SearchHit.
+class SearchHit {
+  SearchHit({
+    required this.type,
+    required this.id,
+    required this.title,
+    this.subtitle,
+  });
+  final String type; // topic | lesson | question
+  final String id;
+  final String title;
+  final String? subtitle;
+
+  bool get isTopic => type == 'topic';
+
+  factory SearchHit.fromJson(Map<String, dynamic> j) => SearchHit(
+        type: (j['type'] ?? '') as String,
+        id: (j['id'] ?? '') as String,
+        title: (j['title'] ?? '') as String,
+        subtitle: j['subtitle'] as String?,
+      );
 }
 
 /// Thrown by ApiClient methods that surface a backend error message to the

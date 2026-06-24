@@ -10,6 +10,7 @@ import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
 import '../state/active_exam_notifier.dart';
 import '../widgets/vidya_exam_switcher.dart';
+import 'vidya_search_screen.dart';
 import 'vidya_subject_detail_screen.dart';
 
 class VidyaStudyScreen extends StatefulWidget {
@@ -128,6 +129,16 @@ class _VidyaStudyScreenState extends State<VidyaStudyScreen> {
                     ),
                   ),
                 ),
+                IconButton(
+                  icon: Icon(Icons.search, color: v.ink2),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => VidyaSearchScreen(auth: widget.auth),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
                 const VidyaExamPill(),
               ],
             ),
