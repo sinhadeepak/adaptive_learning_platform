@@ -411,6 +411,15 @@ class ApiClient {
     return res.statusCode == 204 || res.statusCode == 200;
   }
 
+  /// Enroll the user in another exam. Wraps `PUT /profile/exams {examId}`
+  /// (identity profile service) — idempotent upsert. Returns the updated
+  /// profile, or null on failure.
+  Future<UserProfile?> addExam(String examId) async {
+    final r = await auth.apiPut('/profile/exams', {'examId': examId});
+    if (r.statusCode != 200) return null;
+    return UserProfile.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
+  }
+
   /// Full-text search across topics/lessons/questions. Wraps
   /// `GET /search?q=` (learning search service). Returns [] on any error.
   Future<List<SearchHit>> search(String query, {String? type}) async {

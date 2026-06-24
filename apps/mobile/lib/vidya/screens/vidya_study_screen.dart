@@ -10,6 +10,7 @@ import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
 import '../state/active_exam_notifier.dart';
 import '../widgets/vidya_exam_switcher.dart';
+import 'vidya_catalog_screen.dart';
 import 'vidya_search_screen.dart';
 import 'vidya_subject_detail_screen.dart';
 
@@ -92,6 +93,17 @@ class _VidyaStudyScreenState extends State<VidyaStudyScreen> {
     }
   }
 
+  void _openCatalog(BuildContext context) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => VidyaCatalogScreen(
+        auth: widget.auth,
+        // Repopulate the active-exam spine so a newly-added exam shows up in
+        // the switcher immediately.
+        onExamAdded: () => _examNotifier?.refresh(),
+      ),
+    ));
+  }
+
   void _onSubjectTap(Subject s) {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => VidyaSubjectDetailScreen(
@@ -139,7 +151,7 @@ class _VidyaStudyScreenState extends State<VidyaStudyScreen> {
                   ),
                 ),
                 const SizedBox(width: 4),
-                const VidyaExamPill(),
+                VidyaExamPill(onAddExam: () => _openCatalog(context)),
               ],
             ),
             const SizedBox(height: 8),

@@ -32,11 +32,15 @@ class VidyaExamPill extends StatelessWidget {
     if (notifier == null || active == null) return const SizedBox.shrink();
 
     final multiple = notifier.hasMultiple;
+    // Tappable when there's more than one exam to switch between, OR when an
+    // "Add exam" affordance is offered (so single-exam users can still reach
+    // the catalog to enrol in another).
+    final tappable = multiple || onAddExam != null;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
-        onTap: multiple ? () => _openSheet(context, notifier) : null,
+        onTap: tappable ? () => _openSheet(context, notifier) : null,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
@@ -57,7 +61,7 @@ class VidyaExamPill extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-              if (multiple) ...[
+              if (tappable) ...[
                 const SizedBox(width: 4),
                 Icon(Icons.expand_more, size: 16, color: v.ink3),
               ],

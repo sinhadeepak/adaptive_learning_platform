@@ -15,6 +15,7 @@ import '../../screens/progress_tab.dart';
 import '../aurora_route.dart';
 import '../state/active_exam_notifier.dart';
 import '../widgets/vidya_exam_switcher.dart';
+import 'vidya_catalog_screen.dart';
 import 'vidya_revision_screen.dart';
 import 'vidya_syllabus_coverage_screen.dart';
 import 'vidya_topic_detail_screen.dart';
@@ -316,7 +317,16 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
                     ),
                   ),
                 ),
-                const VidyaExamPill(),
+                VidyaExamPill(
+                  onAddExam: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => VidyaCatalogScreen(
+                        auth: widget.auth,
+                        onExamAdded: () => _examNotifier?.refresh(),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
