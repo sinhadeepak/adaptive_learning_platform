@@ -411,6 +411,24 @@ class ApiClient {
     return res.statusCode == 204 || res.statusCode == 200;
   }
 
+  /// Current-vs-optimal study allocation (PCE). Wraps
+  /// `GET /pce/{userId}/portfolio?exam_id=`. Returns null on any error.
+  Future<Portfolio?> portfolio(String userId, String examId) async {
+    final r = await auth.apiGet('/pce/$userId/portfolio?exam_id=$examId');
+    if (r.statusCode != 200) return null;
+    return Portfolio.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
+  }
+
+  /// Recompute the PCE allocation before fetching the portfolio. Wraps
+  /// `POST /pce/{userId}/recompute?exam_id=`. Best-effort (returns bool).
+  Future<bool> recomputePortfolio(String userId, String examId) async {
+    final r = await auth.apiPost(
+      '/pce/$userId/recompute?exam_id=$examId',
+      const {},
+    );
+    return r.statusCode >= 200 && r.statusCode < 300;
+  }
+
   /// Enroll the user in another exam. Wraps `PUT /profile/exams {examId}`
   /// (identity profile service) — idempotent upsert. Returns the updated
   /// profile, or null on failure.
@@ -1594,6 +1612,41 @@ class MockResult {
   final List<MockSectionResult> sections;
   final String? error;
   final String? message;
+}
+
+/// Current-vs-optimal allocation per yield bucket (PCE portfolio).
+class PortfolioBucket {
+  PortfolioBucket({
+    required this.bucket,
+    required this.currentShare,
+    required this.optimalShare,
+    required this.delta,
+  });
+  final String bucket; // High | Medium | Low
+  final double currentShare;
+  final double optimalShare;
+  final double delta; // optimal - current
+
+  factory PortfolioBucket.fromJson(Map<String, dynamic> j) => PortfolioBucket(
+        bucket: (j['bucket'] ?? '') as String,
+        currentShare: ((j['currentMasteryShare'] ?? 0) as num).toDouble(),
+        optimalShare: ((j['optimalShare'] ?? 0) as num).toDouble(),
+        delta: ((j['delta'] ?? 0) as num).toDouble(),
+      );
+}
+
+class Portfolio {
+  Portfolio({required this.buckets, required this.reallocationHint});
+  final List<PortfolioBucket> buckets;
+  final String reallocationHint;
+
+  factory Portfolio.fromJson(Map<String, dynamic> j) => Portfolio(
+        buckets: ((j['buckets'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(PortfolioBucket.fromJson)
+            .toList(),
+        reallocationHint: (j['reallocationHint'] ?? '') as String,
+      );
 }
 
 /// One hit from `GET /search`. Mirrors the learning search SearchHit.

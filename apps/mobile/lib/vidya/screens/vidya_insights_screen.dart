@@ -15,6 +15,7 @@ import 'vidya_analysis_screen.dart';
 import 'vidya_catalog_screen.dart';
 import 'vidya_concept_profile_screen.dart';
 import 'vidya_diagnostic_deep_dive_screen.dart';
+import 'vidya_portfolio_screen.dart';
 import 'vidya_revision_screen.dart';
 import 'vidya_study_plan_screen.dart';
 import 'vidya_syllabus_coverage_screen.dart';
@@ -486,6 +487,20 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => VidyaStudyPlanScreen(auth: widget.auth),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _DeepDiveRow(
+              icon: Icons.pie_chart_outline,
+              label: 'Study Portfolio',
+              sublabel: 'Current vs optimal effort allocation',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaPortfolioScreen(
+                    auth: widget.auth,
+                    examId: _examNotifier?.active?.examId ?? '',
+                  ),
                 ),
               ),
             ),
