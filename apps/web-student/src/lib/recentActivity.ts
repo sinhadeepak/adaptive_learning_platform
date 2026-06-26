@@ -137,6 +137,7 @@ async function fetchMockAttempts(): Promise<RawMockAttempt[]> {
 
 async function fetchSessions(userId: string): Promise<RawSession[]> {
   try {
+    // Fetch a wide candidate pool (more than the display limit) so the merge+sort+slice in mergeRecent has enough rows to pick the true most-recent.
     const r = await auth.fetch(
       `/api/v1/quiz/sessions?userId=${encodeURIComponent(userId)}&limit=100`,
     );

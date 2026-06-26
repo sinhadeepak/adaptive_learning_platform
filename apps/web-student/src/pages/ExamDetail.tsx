@@ -363,6 +363,7 @@ export function ExamDetail() {
   }, [user?.id]);
 
   // Mock-only stat strip (latest/best/avg/taken) from real scored mocks.
+  // NOTE: Latest/Best/Avg/Mocks-taken are computed over the fetched recent rows (≤5), not lifetime stats.
   const mockStats = useMemo(() => {
     if (!recentTests) return null;
     const scores = recentTests

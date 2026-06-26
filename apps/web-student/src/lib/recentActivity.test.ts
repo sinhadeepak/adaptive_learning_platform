@@ -3,6 +3,7 @@ import {
   mergeRecent,
   normalizeMockAttempt,
   normalizePracticeSession,
+  relativeTime,
   type RawMockAttempt,
   type RawSession,
 } from "./recentActivity";
@@ -72,6 +73,36 @@ describe("normalizePracticeSession", () => {
       normalizePracticeSession(session({ servedCount: 0, correctCount: 0 }))
         .accuracyPct,
     ).toBeNull();
+  });
+});
+
+describe("relativeTime", () => {
+  it('returns "just now" for deltas under 1 minute', () => {
+    const iso = new Date(Date.now() - 30 * 1000).toISOString();
+    expect(relativeTime(iso)).toBe("just now");
+  });
+
+  it('returns "Xm ago" for minute-range deltas', () => {
+    const iso = new Date(Date.now() - 5 * 60000).toISOString();
+    expect(relativeTime(iso)).toBe("5m ago");
+  });
+
+  it('returns "Xh ago" for hour-range deltas', () => {
+    const iso = new Date(Date.now() - 3 * 3600000).toISOString();
+    expect(relativeTime(iso)).toBe("3h ago");
+  });
+
+  it('returns "Xd ago" for day-range deltas (under 7 days)', () => {
+    const iso = new Date(Date.now() - 2 * 86400000).toISOString();
+    expect(relativeTime(iso)).toBe("2d ago");
+  });
+
+  it("does not throw and returns a non-empty string for an unparseable input", () => {
+    // new Date("not-a-date") produces NaN in V8 without throwing, so the catch
+    // block is not triggered; the function still returns a non-empty string.
+    const result = relativeTime("not-a-date");
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
   });
 });
 
