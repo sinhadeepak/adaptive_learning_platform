@@ -30,9 +30,13 @@ import { VidyaShell } from "../components/vidya/VidyaShell";
 import { QuickActions } from "../components/vidya/QuickActions";
 import {
   GoalBar,
-  MockTestSparkline,
   SubjectCoverage,
 } from "../components/vidya/dashboardParts";
+import {
+  fetchRecentTests,
+  relativeTime,
+  type RecentTest,
+} from "../lib/recentActivity";
 
 interface ExamMeta {
   id: string;
@@ -345,19 +349,31 @@ export function ExamDetail() {
     return { total: topics.length, buckets: { mastered, strong, dev, weak, none } };
   }, [topics]);
 
-  // Mock test history (stub — no /mocks/history endpoint yet)
-  const mockScores = useMemo(
-    () => deriveMockHistory(readiness),
-    [readiness],
-  );
+  // Recent tests (real) — unified mock + practice history across all exams.
+  const [recentTests, setRecentTests] = useState<RecentTest[] | null>(null);
+  useEffect(() => {
+    if (!user?.id) return;
+    let alive = true;
+    void fetchRecentTests(user.id, { limit: 5 }).then((rows) => {
+      if (alive) setRecentTests(rows);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [user?.id]);
+
+  // Mock-only stat strip (latest/best/avg/taken) from real scored mocks.
   const mockStats = useMemo(() => {
-    if (!mockScores.length) return null;
-    const values = mockScores.map((s) => s.value);
-    const latest = values[values.length - 1]!;
-    const best = Math.max(...values);
-    const avg = Math.round(values.reduce((a, b) => a + b, 0) / values.length);
-    return { latest, best, avg, count: 14 };
-  }, [mockScores]);
+    if (!recentTests) return null;
+    const scores = recentTests
+      .filter((r) => r.kind === "mock" && r.accuracyPct !== null)
+      .map((r) => r.accuracyPct as number);
+    if (!scores.length) return null;
+    const latest = scores[0]!; // recentTests is newest-first
+    const best = Math.max(...scores);
+    const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    return { latest, best, avg, count: scores.length };
+  }, [recentTests]);
 
   const projectedRank = readiness
     ? Math.max(50, Math.round(50000 * (1 - readiness / 900)))
@@ -515,13 +531,93 @@ export function ExamDetail() {
               </button>
             </div>
           </div>
-          <div className="vidya-mocks__sub">Recent attempts</div>
-          <MockTestSparkline scores={mockScores} max={900} />
+          <div className="vidya-mocks__sub">Recent tests</div>
+          {recentTests === null ? (
+            <p style={{ color: "var(--ink-3)", fontSize: 13 }}>Loading…</p>
+          ) : recentTests.length === 0 ? (
+            <p style={{ color: "var(--ink-3)", fontSize: 13 }}>
+              No tests yet — start a mock or a practice session to see your
+              history and review mistakes here.
+            </p>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--sp-2)",
+                marginBottom: "var(--sp-3)",
+              }}
+            >
+              {recentTests.map((r) => {
+                const label =
+                  r.kind === "practice" && r.topicId
+                    ? topics.find((t) => t.id === r.topicId)?.title ?? r.title
+                    : r.title;
+                return (
+                  <div
+                    key={`${r.kind}-${r.id}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(r.href)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(r.href);
+                      }
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "var(--sp-3)",
+                      padding: "var(--sp-2) var(--sp-3)",
+                      border: "1px solid var(--rule)",
+                      borderRadius: 10,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: 13 }}>
+                        {label}
+                      </p>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--ink-3)",
+                          marginTop: 2,
+                          display: "flex",
+                          gap: 4,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span>{r.kind === "mock" ? "Mock" : "Practice"}</span>
+                        <span>·</span>
+                        <span>
+                          {r.status === "IN_PROGRESS"
+                            ? "In progress"
+                            : r.scoreLabel
+                              ? r.scoreLabel
+                              : r.accuracyPct !== null
+                                ? `${r.accuracyPct}%`
+                                : "—"}
+                        </span>
+                        <span>·</span>
+                        <span>{relativeTime(r.when)}</span>
+                      </div>
+                    </div>
+                    <span className="vidya-shell__chip" style={{ flexShrink: 0 }}>
+                      {r.status === "IN_PROGRESS" ? "Resume →" : "Review →"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {mockStats ? (
             <div className="vidya-mocks__stats">
               <div>
                 <div className="vidya-mocks__stat-label">Latest</div>
-                <div className="vidya-mocks__stat-value">{mockStats.latest}</div>
+                <div className="vidya-mocks__stat-value">{mockStats.latest}%</div>
               </div>
               <div>
                 <div className="vidya-mocks__stat-label">Best</div>
@@ -529,15 +625,15 @@ export function ExamDetail() {
                   className="vidya-mocks__stat-value"
                   style={{ color: "var(--good)" }}
                 >
-                  {mockStats.best}
+                  {mockStats.best}%
                 </div>
               </div>
               <div>
-                <div className="vidya-mocks__stat-label">Avg (last 6)</div>
-                <div className="vidya-mocks__stat-value">{mockStats.avg}</div>
+                <div className="vidya-mocks__stat-label">Avg</div>
+                <div className="vidya-mocks__stat-value">{mockStats.avg}%</div>
               </div>
               <div>
-                <div className="vidya-mocks__stat-label">Tests taken</div>
+                <div className="vidya-mocks__stat-label">Mocks taken</div>
                 <div className="vidya-mocks__stat-value">{mockStats.count}</div>
               </div>
             </div>
@@ -617,16 +713,3 @@ function ReadinessRingCard({
   );
 }
 
-/* ─── Stub helpers (replace when endpoints exist) ────────────── */
-
-function deriveMockHistory(currentReadiness: number) {
-  if (!currentReadiness) return [];
-  // Build a monotonically improving 6-test history bracketing current readiness.
-  const cur = currentReadiness;
-  const base = Math.max(400, cur - 116);
-  const step = (cur - base) / 5;
-  return Array.from({ length: 6 }, (_, i) => ({
-    label: `M-${String(9 + i).padStart(2, "0")}`,
-    value: Math.round(base + step * i),
-  }));
-}
