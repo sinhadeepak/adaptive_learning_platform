@@ -116,6 +116,7 @@ function buildNav(enrolledExams: ExamMeta[]): NavGroup[] {
     {
       heading: "Progress",
       items: [
+        { href: "/history", label: "History", icon: <IconClock /> },
         { href: "/analysis", label: "My analysis", icon: <IconChart /> },
         { href: "/insights", label: "Insights", icon: <IconSparkles /> },
         { href: "/syllabus", label: "Syllabus", icon: <IconLibrary /> },
@@ -303,7 +304,6 @@ export function VidyaShell({
                 [
                   { href: "/search",    label: "Search",   icon: <IconSearch /> },
                   { href: "/bookmarks", label: "Saved",    icon: <IconStar /> },
-                  { href: "/history",   label: "History",  icon: <IconClock /> },
                   { href: "/profile",   label: "Profile",  icon: <IconUser /> },
                   { href: "/settings",  label: "Settings", icon: <IconCog /> },
                 ] as const
