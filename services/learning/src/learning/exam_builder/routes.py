@@ -110,7 +110,7 @@ class ResearchJobResult(BaseModel):
 
     jobId: str
     status: str
-    result: ExamProposal | None = None
+    result: dict[str, Any] | None = None
     error: str | None = None
 
 
@@ -559,7 +559,7 @@ async def get_job(job_id: str, principal: PrincipalDep) -> ResearchJobResult:
     return ResearchJobResult(
         jobId=job["jobId"],
         status=job["status"],
-        result=ExamProposal.model_validate(job["result"]) if job["result"] else None,
+        result=job["result"],
         error=job["error"],
     )
 
@@ -616,6 +616,99 @@ async def generate_subject_topics(
             detail={"code": "ai_failed", "message": str(e)},
         ) from e
     return SubjectTopicsResponse(topics=topics)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Bulk async fill-empty topics — enqueue + worker + poller
+# ─────────────────────────────────────────────────────────────────────
+
+TOPICS_FILL_TEMPLATE_ID = "exam_topics_fill"
+
+
+class FillSubject(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=120)
+    existing: list[ExistingTopic] = Field(default_factory=list)
+
+
+class TopicsFillRequest(BaseModel):
+    code: str = Field(min_length=2, max_length=40)
+    name: str = Field(min_length=2, max_length=120)
+    level: str = "other"
+    subjects: list[FillSubject] = Field(min_length=1, max_length=80)
+    notes: str | None = Field(default=None, max_length=1000)
+    target_year: int | None = Field(default=None, ge=2020, le=2050)
+
+
+async def run_topics_fill_job(job_id: str, req: TopicsFillRequest) -> None:
+    """Background worker: generate topics for each requested subject in
+    bounded parallel. Partial-failure tolerant — a subject whose call fails
+    records a per-subject error rather than failing the whole batch."""
+    sema = asyncio.Semaphore(_TOPIC_CONCURRENCY)
+
+    async def _one(sub: FillSubject) -> dict[str, Any]:
+        async with sema:
+            try:
+                topics = await generate_topics_for_subject(
+                    exam_name=req.name, exam_code=req.code, level=req.level,
+                    subject_code=sub.code, subject_name=sub.name,
+                    existing_topics=sub.existing, notes=req.notes,
+                    target_year=req.target_year,
+                )
+                return {"code": sub.code, "topics": [t.model_dump() for t in topics]}
+            except Exception as e:  # noqa: BLE001
+                return {"code": sub.code, "topics": [], "error": str(e)[:300]}
+
+    try:
+        results = await asyncio.gather(*(_one(s) for s in req.subjects))
+        async with content_sessionmaker()() as s:
+            await complete_research_job(s, job_id=job_id, output={"subjects": list(results)})
+            await s.commit()
+    except Exception as e:  # noqa: BLE001
+        async with content_sessionmaker()() as s:
+            await fail_research_job(s, job_id=job_id, error=str(e) or e.__class__.__name__)
+            await s.commit()
+
+
+@router.post("/topics/fill-empty", status_code=202, response_model=ResearchJobRef)
+async def fill_empty_topics(
+    req: TopicsFillRequest, principal: PrincipalDep, background: BackgroundTasks
+) -> ResearchJobRef:
+    """Enqueue a background job that generates topics for the given subjects
+    (typically those with 0 topics). Returns a job id to poll."""
+    _require_admin(principal)
+    async with content_sessionmaker()() as s:
+        if not await _list_enabled(s):
+            raise HTTPException(
+                status_code=503,
+                detail={"code": "ai_unavailable", "message": (
+                    "No AI provider is enabled. Configure one on the AI "
+                    "Providers screen, or add topics manually.")},
+            )
+        job_id = await create_research_job(
+            s, request_input=req.model_dump(), requested_by=principal.user_id,
+            template_id=TOPICS_FILL_TEMPLATE_ID,
+        )
+        await s.commit()
+    background.add_task(run_topics_fill_job, job_id, req)
+    return ResearchJobRef(jobId=job_id, status="pending")
+
+
+@router.get("/topics/fill-empty/{job_id}", response_model=ResearchJobResult)
+async def get_fill_job(job_id: str, principal: PrincipalDep) -> ResearchJobResult:
+    """Status + per-subject result for one bulk fill job."""
+    _require_admin(principal)
+    async with content_sessionmaker()() as s:
+        job = await get_research_job(
+            s, job_id=job_id, requested_by=principal.user_id,
+            template_id=TOPICS_FILL_TEMPLATE_ID,
+        )
+    if job is None:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "No such job."})
+    return ResearchJobResult(
+        jobId=job["jobId"], status=job["status"],
+        result=job["result"], error=job["error"],
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────
