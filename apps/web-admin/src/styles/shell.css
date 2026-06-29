@@ -159,6 +159,9 @@
   50%      { opacity: 0.45; }
 }
 
+/* Async research job indicator (toaster pill + ExamBuilder generating panel). */
+.vidya-pulse { animation: dotPulse 1.4s ease-in-out infinite; }
+
 /* ── Intro / lede paragraph ────────────────────────────────── */
 .dash-lede {
   margin: 0;

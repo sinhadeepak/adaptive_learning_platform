@@ -15,6 +15,7 @@
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth-provider";
+import { ResearchJobsToaster } from "./ResearchJobsToaster";
 
 export interface AdminShellProps {
   crumbs?: string;
@@ -105,6 +106,7 @@ export function AdminShell({
 
   return (
     <div className="vidya-shell">
+      <ResearchJobsToaster />
       <aside className="vidya-shell__sidebar" aria-label="Admin navigation">
         <Link to="/dashboard" className="vidya-shell__brand" aria-label="Vidya admin home">
           <span className="vidya-shell__brand-mark">V</span>
