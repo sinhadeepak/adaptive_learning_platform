@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { auth } from "../lib/api";
 import { ResourceShelf } from "./ResourceShelf";
+import { MarkdownMath } from "./MarkdownMath";
 
 // ─────────────────────────────────────────────────────────────────────────
 // ExplainCard (v2 — rich, structured, video-linked)
@@ -40,6 +41,14 @@ interface ExplainCardProps {
   isCorrect?: boolean;
   storedExplanation?: string | null;
   topicTitle?: string;
+  // When true, the rich teaching note auto-fetches for CORRECT answers too
+  // (not just wrong ones). Used by the quiz-results review drawer where the
+  // student is explicitly studying every question. Defaults to false to
+  // preserve the cost-saving "button on correct" behavior elsewhere.
+  autoFetchOnCorrect?: boolean;
+  // Forwarded to the embedded video shelf so resource view-events correlate
+  // back to the quiz session that surfaced them.
+  sessionId?: string;
 }
 
 interface OptionVerdict {
@@ -78,6 +87,8 @@ export function ExplainCard({
   isCorrect,
   storedExplanation,
   topicTitle,
+  autoFetchOnCorrect = false,
+  sessionId,
 }: ExplainCardProps) {
   const [generated, setGenerated] = useState<ExplainResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -91,14 +102,13 @@ export function ExplainCard({
   // author" caption inside it (rendered below).
   useEffect(() => {
     if (generated || loading || !stem || !choices || correctIdx === undefined) return;
-    // Correct answer + stored note: keep current confirmation-only render.
-    if (answered && isCorrect && storedExplanation) return;
-    // Correct answer + no stored note: don't auto-fetch (the manual
-    // "Explain this answer" button still works).
-    if (answered && isCorrect) return;
+    // Correct answers normally don't auto-fetch (a confirmation note or the
+    // manual "Explain this answer" button is enough). In review contexts the
+    // caller opts into depth via autoFetchOnCorrect.
+    if (answered && isCorrect && !autoFetchOnCorrect) return;
     void fetchExplanation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storedExplanation, stem, choices, correctIdx, answered, isCorrect]);
+  }, [storedExplanation, stem, choices, correctIdx, answered, isCorrect, autoFetchOnCorrect]);
 
   async function fetchExplanation() {
     setLoading(true);
@@ -130,7 +140,7 @@ export function ExplainCard({
   // the student picked correctly, so a one-line confirmation is enough.
   // Wrong answers fall through and render the full rich card below, with
   // the authored note shown as a supplementary "From the author" caption.
-  if (storedExplanation && answered && isCorrect) {
+  if (storedExplanation && answered && isCorrect && !autoFetchOnCorrect) {
     return (
       <div style={cardStyle}>
         <div style={eyebrowRow}>
@@ -188,7 +198,9 @@ export function ExplainCard({
       {isRich ? (
         <>
           {/* ── Headline ──────────────────────────────────────── */}
-          <h3 style={headlineStyle}>{generated.headline}</h3>
+          <h3 style={headlineStyle}>
+            <MarkdownMath text={generated.headline ?? ""} inline />
+          </h3>
 
           {/* ── Author's supplementary note (when present) ─────
               When the question carries a short authored explanation
@@ -204,7 +216,9 @@ export function ExplainCard({
           {/* ── Why correct ──────────────────────────────────── */}
           {generated.why_correct && (
             <Section label="Why this is correct">
-              <p style={paragraphText}>{generated.why_correct}</p>
+              <div style={proseBlock}>
+                <MarkdownMath text={generated.why_correct} />
+              </div>
             </Section>
           )}
 
@@ -247,7 +261,7 @@ export function ExplainCard({
                             "{choiceText}" —{" "}
                           </span>
                         )}
-                        {o.verdict}
+                        <MarkdownMath text={o.verdict} inline />
                       </span>
                     </li>
                   );
@@ -260,7 +274,9 @@ export function ExplainCard({
           {generated.common_pitfall && (
             <div style={pitfallCallout}>
               <div style={pitfallHeader}>⚠ Common pitfall</div>
-              <p style={pitfallBodyLong}>{generated.common_pitfall}</p>
+              <div style={proseBlock}>
+                <MarkdownMath text={generated.common_pitfall} />
+              </div>
             </div>
           )}
 
@@ -275,9 +291,9 @@ export function ExplainCard({
                 {showWorkedExample ? "▾" : "▸"} Worked example
               </button>
               {showWorkedExample && (
-                <p
+                <div
                   style={{
-                    ...paragraphText,
+                    ...proseBlock,
                     marginTop: 8,
                     padding: "12px 14px",
                     background: "var(--paper-2)",
@@ -285,8 +301,8 @@ export function ExplainCard({
                     borderLeft: "2px solid var(--gold, #22D4EE)",
                   }}
                 >
-                  {generated.worked_example}
-                </p>
+                  <MarkdownMath text={generated.worked_example} />
+                </div>
               )}
             </Section>
           )}
@@ -295,6 +311,7 @@ export function ExplainCard({
           <ResourceShelf
             questionId={questionId}
             topicId={topicId}
+            sessionId={sessionId}
             title="Watch & Learn"
             subtitle={
               correctText
@@ -313,7 +330,9 @@ export function ExplainCard({
                 {generated.next_steps.map((s, i) => (
                   <li key={i} style={nextStepItem}>
                     <span style={{ color: "var(--good, #10C47A)" }}>→</span>
-                    <span>{s}</span>
+                    <span>
+                      <MarkdownMath text={s} inline />
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -323,7 +342,9 @@ export function ExplainCard({
       ) : (
         // ── v1 fallback (legacy rows, heuristic mode) ──
         <>
-          <p style={bodyText}>{generated.explanation}</p>
+          <p style={bodyText}>
+            <MarkdownMath text={generated.explanation} inline />
+          </p>
           {generated.common_pitfall && (
             <p style={{ ...bodyText, fontSize: 12, marginTop: 6, opacity: 0.85 }}>
               <strong>Pitfall:</strong> {generated.common_pitfall}
@@ -473,15 +494,13 @@ const bodyText: React.CSSProperties = {
   color: "var(--ink-2, #B8C5E0)",
 };
 
-// Looser line-height for longer prose — applied to why_correct,
-// common_pitfall, and worked_example so multi-paragraph explanations
-// don't feel cramped.
-const paragraphText: React.CSSProperties = {
+// Wrapper for markdown-rendered prose (why_correct, common_pitfall,
+// worked_example). MarkdownMath renders its own <p>/<ul>/<li> with spacing,
+// so this only sets the inherited font + colour (no pre-wrap, which would
+// double-space the rendered markdown).
+const proseBlock: React.CSSProperties = {
   fontSize: 13.5,
-  lineHeight: 1.7,
-  margin: 0,
   color: "var(--ink, #EEF2FF)",
-  whiteSpace: "pre-wrap",
 };
 
 const authorNoteBlock: React.CSSProperties = {
@@ -565,15 +584,6 @@ const pitfallHeader: React.CSSProperties = {
   textTransform: "uppercase",
   color: "var(--warn, #F5A623)",
   marginBottom: 4,
-};
-
-// Loose-line variant for the longer common-pitfall prose.
-const pitfallBodyLong: React.CSSProperties = {
-  fontSize: 13.5,
-  lineHeight: 1.7,
-  margin: 0,
-  color: "var(--ink, #EEF2FF)",
-  whiteSpace: "pre-wrap",
 };
 
 const collapseToggle: React.CSSProperties = {

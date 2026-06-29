@@ -4675,6 +4675,9 @@
   overflow-y: auto;
   animation: vidya-slide-in var(--m-slow) var(--m-ease);
 }
+/* Wider variant for content-heavy drawers (e.g. the quiz-results review
+   panel with its rich teaching note) — less vertical scrolling. */
+.vidya-drawer--wide { width: min(720px, 96vw); }
 @keyframes vidya-slide-in {
   from { transform: translateX(100%); }
   to   { transform: translateX(0); }
