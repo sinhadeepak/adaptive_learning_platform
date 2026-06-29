@@ -741,6 +741,8 @@ class ExamListEntry(BaseModel):
     subject_count: int
     pool_count: int
     topic_count: int
+    question_count: int
+    blueprint_count: int
 
 
 @router.get("/exams", response_model=list[ExamListEntry])
@@ -763,7 +765,14 @@ async def list_exams(
                    (SELECT COUNT(*) FROM catalog_schema.topics t
                       JOIN catalog_schema.subjects s ON s.id = t.subject_id
                      WHERE s.exam_id = e.id AND t.is_published = TRUE
-                       AND s.is_published = TRUE) AS topic_count
+                       AND s.is_published = TRUE) AS topic_count,
+                   (SELECT COUNT(*) FROM content_schema.questions q
+                     WHERE q.topic_id IN (
+                       SELECT t.id FROM catalog_schema.topics t
+                         JOIN catalog_schema.subjects s ON s.id = t.subject_id
+                        WHERE s.exam_id = e.id)) AS question_count,
+                   (SELECT COUNT(*) FROM catalog_schema.exam_blueprints b
+                      WHERE b.exam_id = e.id) AS blueprint_count
               FROM catalog_schema.exams e
              ORDER BY e.is_published DESC, e.sort_order, e.name
             """
@@ -779,6 +788,8 @@ async def list_exams(
             subject_count=int(r["subject_count"]),
             pool_count=int(r["pool_count"]),
             topic_count=int(r["topic_count"]),
+            question_count=int(r["question_count"]),
+            blueprint_count=int(r["blueprint_count"]),
         )
         for r in res.mappings().all()
     ]
