@@ -231,6 +231,73 @@ export function ExamBuilder() {
   }
 
   const [regenSubject, setRegenSubject] = useState<string | null>(null);
+  const [fillingEmpty, setFillingEmpty] = useState(false);
+
+  async function fillEmptySubjects() {
+    if (!proposal) return;
+    const empties = proposal.subjects.filter((s) => s.topics.length === 0);
+    if (empties.length === 0) {
+      setError("No empty subjects — every subject already has topics.");
+      return;
+    }
+    setFillingEmpty(true);
+    setError(null);
+    try {
+      const res = await auth.fetch("/api/v1/admin/exam-builder/topics/fill-empty", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: proposal.code,
+          name: proposal.name,
+          level,
+          subjects: empties.map((s) => ({ code: s.code, name: s.name, existing: [] })),
+        }),
+      });
+      if (!res.ok) {
+        const detail = await safeDetail(res);
+        throw new Error(detail || `Fill failed (HTTP ${res.status})`);
+      }
+      const { jobId } = (await res.json()) as { jobId: string };
+
+      // Poll the job until it finishes (~once/2s), then merge per-subject.
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const pr = await auth.fetch(
+          `/api/v1/admin/exam-builder/topics/fill-empty/${encodeURIComponent(jobId)}`,
+        );
+        if (!pr.ok) throw new Error(`Poll failed (HTTP ${pr.status})`);
+        const body = (await pr.json()) as {
+          status: string;
+          result: { subjects: { code: string; topics: { code: string; title: string; description: string | null }[]; error?: string }[] } | null;
+          error: string | null;
+        };
+        if (body.status === "failed") throw new Error(body.error || "Fill job failed.");
+        if (body.status === "succeeded" && body.result) {
+          const byCode = new Map(body.result.subjects.map((s) => [s.code, s]));
+          let failed = 0;
+          setProposal((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              subjects: prev.subjects.map((s) => {
+                const r = byCode.get(s.code);
+                if (!r) return s;
+                if (r.error) { failed += 1; return s; }
+                return { ...s, topics: mergeRegeneratedTopics(s.topics, r.topics) };
+              }),
+            };
+          });
+          const ok = body.result.subjects.length - failed;
+          if (failed > 0) setError(`${ok}/${body.result.subjects.length} subjects filled — ${failed} failed, retry those individually.`);
+          break;
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Fill failed");
+    } finally {
+      setFillingEmpty(false);
+    }
+  }
 
   async function regenerateSubjectTopics(index: number) {
     if (!proposal) return;
@@ -491,6 +558,8 @@ export function ExamBuilder() {
             onReanalyze={isEditMode ? reanalyze : undefined}
             onRegenerateSubject={regenerateSubjectTopics}
             regenSubjectCode={regenSubject}
+            onFillEmpty={fillEmptySubjects}
+            fillingEmpty={fillingEmpty}
           />
         )}
 
@@ -724,9 +793,11 @@ interface ReviewProps {
   onReanalyze?: (remark: string) => void;
   onRegenerateSubject: (index: number) => void;
   regenSubjectCode: string | null;
+  onFillEmpty: () => void;
+  fillingEmpty: boolean;
 }
 
-function ReviewStep({ proposal, setProposal, busy, onBack, onSave, onReanalyze, onRegenerateSubject, regenSubjectCode }: ReviewProps) {
+function ReviewStep({ proposal, setProposal, busy, onBack, onSave, onReanalyze, onRegenerateSubject, regenSubjectCode, onFillEmpty, fillingEmpty }: ReviewProps) {
   // True once a re-analyze has tagged rows with diff status.
   const hasDiff = proposal.subjects.some(
     (s) => s._status || s.topics.some((t) => t._status),
@@ -807,16 +878,36 @@ function ReviewStep({ proposal, setProposal, busy, onBack, onSave, onReanalyze, 
               {subjectCount} subjects · {mandatoryCount} mandatory ·{" "}
               {proposal.pools.length} pools · {topicCount} topics
             </div>
-            {onReanalyze && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {onReanalyze && (
+                <button
+                  onClick={() => setRemarkOpen((o) => !o)}
+                  disabled={busy}
+                  className="btn btn-ghost"
+                  style={{ padding: "6px 12px", fontSize: 12 }}
+                >
+                  ⟳ Re-analyze with AI
+                </button>
+              )}
               <button
-                onClick={() => setRemarkOpen((o) => !o)}
-                disabled={busy}
-                className="btn btn-ghost"
-                style={{ padding: "6px 12px", fontSize: 12 }}
+                type="button"
+                onClick={onFillEmpty}
+                disabled={fillingEmpty}
+                style={{
+                  background: "transparent",
+                  border: "1px solid var(--accent)",
+                  borderRadius: 6,
+                  padding: "8px 14px",
+                  color: "var(--accent)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: fillingEmpty ? "default" : "pointer",
+                  opacity: fillingEmpty ? 0.6 : 1,
+                }}
               >
-                ⟳ Re-analyze with AI
+                {fillingEmpty ? "Filling empty subjects…" : "✦ Fill topics for empty subjects"}
               </button>
-            )}
+            </div>
           </div>
         </div>
         {onReanalyze && remarkOpen && (
