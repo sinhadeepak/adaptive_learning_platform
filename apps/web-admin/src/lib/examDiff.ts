@@ -63,7 +63,7 @@ function subjectChanged(a: SubjectDraft, b: SubjectDraft): boolean {
   );
 }
 
-function diffTopics(baseline: TopicDraft[], next: TopicDraft[]): TopicDiff[] {
+export function diffTopics(baseline: TopicDraft[], next: TopicDraft[]): TopicDiff[] {
   const baseByCode = new Map(baseline.map((t) => [t.code, t]));
   const nextCodes = new Set(next.map((t) => t.code));
 
@@ -78,6 +78,23 @@ function diffTopics(baseline: TopicDraft[], next: TopicDraft[]): TopicDiff[] {
     if (!nextCodes.has(t.code)) out.push({ ...t, _status: "removed" });
   }
   return out;
+}
+
+// Merge a freshly AI-generated topic list into a subject's CURRENT topics
+// (which may already carry diff fields). Strips diff-only fields from the
+// current list to form a clean baseline, then diffs — so a per-subject
+// regenerate produces the same added/modified/removed/Keep review as a
+// full re-analyze.
+export function mergeRegeneratedTopics(
+  current: Array<TopicDraft & { _status?: DiffStatus; _kept?: boolean }>,
+  aiTopics: TopicDraft[],
+): TopicDiff[] {
+  const baseline: TopicDraft[] = current.map((t) => ({
+    code: t.code,
+    title: t.title,
+    description: t.description ?? null,
+  }));
+  return diffTopics(baseline, aiTopics);
 }
 
 export function diffExam(baseline: ExamProposal, next: ExamProposal): ExamDiff {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { diffExam } from "./examDiff";
+import { diffExam, mergeRegeneratedTopics } from "./examDiff";
 import type { ExamProposal } from "./examDiff";
 
 function exam(subjects: ExamProposal["subjects"]): ExamProposal {
@@ -72,5 +72,21 @@ describe("diffExam", () => {
     expect(byCode.A1).toBe("modified");
     expect(byCode.A3).toBe("added");
     expect(byCode.A2).toBe("removed");
+  });
+});
+
+describe("mergeRegeneratedTopics", () => {
+  it("tags added / modified / unchanged / removed vs current", () => {
+    const current = [
+      { code: "KEEP", title: "Keep", description: null, _status: "unchanged" as const },
+      { code: "GONE", title: "Gone", description: null, _status: "unchanged" as const },
+    ];
+    const ai = [
+      { code: "KEEP", title: "Keep Renamed", description: null },
+      { code: "NEW", title: "New", description: null },
+    ];
+    const out = mergeRegeneratedTopics(current, ai);
+    const byCode = Object.fromEntries(out.map((t) => [t.code, t._status]));
+    expect(byCode).toEqual({ KEEP: "modified", NEW: "added", GONE: "removed" });
   });
 });
