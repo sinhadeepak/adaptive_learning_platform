@@ -829,6 +829,45 @@ async def retire_exam(
         subjects_retired=subj.rowcount or 0, topics_retired=top.rowcount or 0)
 
 
+class RestoreResponse(BaseModel):
+    exam_id: str
+    code: str
+    subjects_restored: int
+    topics_restored: int
+
+
+@router.post("/exams/{exam_id}/restore", response_model=RestoreResponse)
+async def restore_exam(
+    exam_id: str, session: SessionDep, principal: PrincipalDep,
+) -> RestoreResponse:
+    """Re-publish: set is_published=TRUE on the exam + its subjects + topics."""
+    _require_admin(principal)
+    row = (await session.execute(
+        text("SELECT code FROM catalog_schema.exams WHERE id = CAST(:eid AS uuid)"),
+        {"eid": exam_id},
+    )).mappings().first()
+    if row is None:
+        raise HTTPException(status_code=404,
+                            detail={"code": "not_found", "message": "exam not found"})
+    subj = await session.execute(
+        text("UPDATE catalog_schema.subjects SET is_published = TRUE "
+             "WHERE exam_id = CAST(:eid AS uuid) AND is_published = FALSE"),
+        {"eid": exam_id})
+    top = await session.execute(
+        text("UPDATE catalog_schema.topics SET is_published = TRUE "
+             "WHERE subject_id IN (SELECT id FROM catalog_schema.subjects "
+             "WHERE exam_id = CAST(:eid AS uuid)) AND is_published = FALSE"),
+        {"eid": exam_id})
+    await session.execute(
+        text("UPDATE catalog_schema.exams SET is_published = TRUE "
+             "WHERE id = CAST(:eid AS uuid)"),
+        {"eid": exam_id})
+    await session.commit()
+    return RestoreResponse(
+        exam_id=exam_id, code=row["code"],
+        subjects_restored=subj.rowcount or 0, topics_restored=top.rowcount or 0)
+
+
 @router.get("/exams/{exam_id}", response_model=ExamProposal)
 async def load_exam(
     exam_id: str, session: SessionDep, principal: PrincipalDep,

@@ -168,3 +168,22 @@ def test_retire_flips_published_false(client: TestClient) -> None:
         assert flags == {"exam": False, "subjects": False, "topics": False}
     finally:
         asyncio.run(_cleanup(seed["exam_id"]))
+
+
+def test_restore_unknown_exam_404(client: TestClient) -> None:
+    r = client.post(f"{PREFIX}/exams/{uuid4()}/restore", headers=_auth())
+    assert r.status_code == 404
+
+
+def test_restore_reverses_retire(client: TestClient) -> None:
+    seed = asyncio.run(_seed_exam(published=False))
+    try:
+        r = client.post(f"{PREFIX}/exams/{seed['exam_id']}/restore", headers=_auth())
+        assert r.status_code == 200
+        body = r.json()
+        assert body["subjects_restored"] == 1
+        assert body["topics_restored"] == 1
+        flags = asyncio.run(_published_flags(seed["exam_id"]))
+        assert flags == {"exam": True, "subjects": True, "topics": True}
+    finally:
+        asyncio.run(_cleanup(seed["exam_id"]))
