@@ -21,6 +21,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # AI generation routes through the admin-managed provider chain
@@ -924,25 +925,36 @@ async def delete_exam(
         })
 
     eid = {"eid": exam_id}
-    # FK-safe order: cross-ref tables → topics → subjects → pools → blueprints → exam.
-    await session.execute(text(
-        "DELETE FROM catalog_schema.topic_importance_overrides "
-        "WHERE exam_id = CAST(:eid AS uuid)"), eid)
-    await session.execute(text(
-        "DELETE FROM catalog_schema.educator_assignments "
-        "WHERE exam_id = CAST(:eid AS uuid)"), eid)
-    top = await session.execute(text(
-        "DELETE FROM catalog_schema.topics WHERE subject_id IN "
-        "(SELECT id FROM catalog_schema.subjects WHERE exam_id = CAST(:eid AS uuid))"), eid)
-    subj = await session.execute(text(
-        "DELETE FROM catalog_schema.subjects WHERE exam_id = CAST(:eid AS uuid)"), eid)
-    pools = await session.execute(text(
-        "DELETE FROM catalog_schema.subject_pools WHERE exam_id = CAST(:eid AS uuid)"), eid)
-    bps = await session.execute(text(
-        "DELETE FROM catalog_schema.exam_blueprints WHERE exam_id = CAST(:eid AS uuid)"), eid)
-    await session.execute(text(
-        "DELETE FROM catalog_schema.exams WHERE id = CAST(:eid AS uuid)"), eid)
-    await session.commit()
+    # FK-safe order: cross-ref tables → topics → syllabus_chapters → subjects → pools → blueprints → exam.
+    try:
+        await session.execute(text(
+            "DELETE FROM catalog_schema.topic_importance_overrides "
+            "WHERE exam_id = CAST(:eid AS uuid)"), eid)
+        await session.execute(text(
+            "DELETE FROM catalog_schema.educator_assignments "
+            "WHERE exam_id = CAST(:eid AS uuid)"), eid)
+        top = await session.execute(text(
+            "DELETE FROM catalog_schema.topics WHERE subject_id IN "
+            "(SELECT id FROM catalog_schema.subjects WHERE exam_id = CAST(:eid AS uuid))"), eid)
+        await session.execute(text(
+            "DELETE FROM catalog_schema.syllabus_chapters WHERE exam_id = CAST(:eid AS uuid)"), eid)
+        subj = await session.execute(text(
+            "DELETE FROM catalog_schema.subjects WHERE exam_id = CAST(:eid AS uuid)"), eid)
+        pools = await session.execute(text(
+            "DELETE FROM catalog_schema.subject_pools WHERE exam_id = CAST(:eid AS uuid)"), eid)
+        bps = await session.execute(text(
+            "DELETE FROM catalog_schema.exam_blueprints WHERE exam_id = CAST(:eid AS uuid)"), eid)
+        await session.execute(text(
+            "DELETE FROM catalog_schema.exams WHERE id = CAST(:eid AS uuid)"), eid)
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail={
+            "code": "exam_in_use",
+            "questionCount": int(question_count),
+            "blueprintCount": int(blueprint_count),
+            "message": "Exam is still referenced by other catalog records and cannot be deleted.",
+        })
     return DeleteResponse(
         exam_id=exam_id, code=row["code"],
         subjects_deleted=subj.rowcount or 0, topics_deleted=top.rowcount or 0,

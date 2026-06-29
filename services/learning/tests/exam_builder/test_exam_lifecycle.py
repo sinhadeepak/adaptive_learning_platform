@@ -33,7 +33,7 @@ async def _connect() -> asyncpg.Connection:
 
 async def _seed_exam(*, published: bool = True, with_topics: bool = True,
                      with_blueprint: bool = False, with_question: bool = False,
-                     with_cross_refs: bool = False) -> dict:
+                     with_cross_refs: bool = False, with_chapters: bool = False) -> dict:
     """Insert an exam (+subjects/topics, optionally a blueprint, a content
     question, and cross-ref rows). Returns ids + code for assertions."""
     conn = await _connect()
@@ -74,6 +74,16 @@ async def _seed_exam(*, published: bool = True, with_topics: bool = True,
                 "INSERT INTO catalog_schema.topic_importance_overrides "
                 "(exam_id, topic_id, weight) VALUES ($1, $2, $3)",
                 exam_id, topic_id, 0.5)
+        if with_chapters:
+            chapter_id = uuid4()
+            await conn.execute(
+                "INSERT INTO catalog_schema.syllabus_chapters "
+                "(id, exam_id, subject_id, name, position) VALUES ($1, $2, $3, $4, $5)",
+                chapter_id, exam_id, subject_id, "Chapter One", 1)
+            if with_topics:
+                await conn.execute(
+                    "UPDATE catalog_schema.topics SET chapter_id = $1 WHERE id = $2",
+                    chapter_id, topic_id)
         return {"exam_id": str(exam_id), "code": code,
                 "subject_id": str(subject_id), "topic_id": str(topic_id)}
     finally:
@@ -93,6 +103,7 @@ async def _cleanup(exam_id: str) -> None:
         await conn.execute(
             "DELETE FROM catalog_schema.topics WHERE subject_id IN "
             "(SELECT id FROM catalog_schema.subjects WHERE exam_id=$1::uuid)", eid)
+        await conn.execute("DELETE FROM catalog_schema.syllabus_chapters WHERE exam_id=$1::uuid", eid)
         await conn.execute("DELETE FROM catalog_schema.subjects WHERE exam_id=$1::uuid", eid)
         await conn.execute("DELETE FROM catalog_schema.subject_pools WHERE exam_id=$1::uuid", eid)
         await conn.execute("DELETE FROM catalog_schema.exam_blueprints WHERE exam_id=$1::uuid", eid)
@@ -212,6 +223,15 @@ async def _row_counts(exam_id: str) -> dict:
         await conn.close()
 
 
+async def _chapter_count(exam_id: str) -> int:
+    conn = await _connect()
+    try:
+        return await conn.fetchval(
+            "SELECT COUNT(*) FROM catalog_schema.syllabus_chapters WHERE exam_id=$1::uuid", exam_id)
+    finally:
+        await conn.close()
+
+
 def test_delete_requires_admin(client: TestClient) -> None:
     seed = asyncio.run(_seed_exam())
     try:
@@ -265,5 +285,16 @@ def test_delete_clean_exam_removes_all_rows(client: TestClient) -> None:
         counts = asyncio.run(_row_counts(seed["exam_id"]))
         assert counts == {"subjects": 0, "topics": 0,
                           "educator_assignments": 0, "importance": 0}
+    finally:
+        asyncio.run(_cleanup(seed["exam_id"]))
+
+
+def test_delete_clean_exam_with_chapters_succeeds(client: TestClient) -> None:
+    seed = asyncio.run(_seed_exam(with_chapters=True))
+    try:
+        r = client.delete(f"{PREFIX}/exams/{seed['exam_id']}", headers=_auth())
+        assert r.status_code == 200
+        assert asyncio.run(_exam_exists(seed["exam_id"])) is False
+        assert asyncio.run(_chapter_count(seed["exam_id"])) == 0
     finally:
         asyncio.run(_cleanup(seed["exam_id"]))
