@@ -274,15 +274,14 @@ export function ExamBuilder() {
         if (body.status === "failed") throw new Error(body.error || "Fill job failed.");
         if (body.status === "succeeded" && body.result) {
           const byCode = new Map(body.result.subjects.map((s) => [s.code, s]));
-          let failed = 0;
+          const failed = body.result.subjects.filter((s) => s.error).length;
           setProposal((prev) => {
             if (!prev) return prev;
             return {
               ...prev,
               subjects: prev.subjects.map((s) => {
                 const r = byCode.get(s.code);
-                if (!r) return s;
-                if (r.error) { failed += 1; return s; }
+                if (!r || r.error) return s;
                 return { ...s, topics: mergeRegeneratedTopics(s.topics, r.topics) };
               }),
             };
