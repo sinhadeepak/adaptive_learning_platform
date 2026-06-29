@@ -565,6 +565,60 @@ async def get_job(job_id: str, principal: PrincipalDep) -> ResearchJobResult:
 
 
 # ─────────────────────────────────────────────────────────────────────
+# Per-subject topic generation — synchronous (one fast LLM call)
+# ─────────────────────────────────────────────────────────────────────
+
+
+class SubjectRef(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=120)
+
+
+class SubjectTopicsRequest(BaseModel):
+    code: str = Field(min_length=2, max_length=40)
+    name: str = Field(min_length=2, max_length=120)
+    level: str = "other"
+    subject: SubjectRef
+    existing: list[ExistingTopic] = Field(default_factory=list)
+    notes: str | None = Field(default=None, max_length=1000)
+    target_year: int | None = Field(default=None, ge=2020, le=2050)
+
+
+class SubjectTopicsResponse(BaseModel):
+    topics: list[TopicDraft]
+
+
+@router.post("/subjects/topics", response_model=SubjectTopicsResponse)
+async def generate_subject_topics(
+    req: SubjectTopicsRequest, principal: PrincipalDep
+) -> SubjectTopicsResponse:
+    """Generate (or regenerate) the topic list for ONE subject, synchronously.
+    A single LLM call — fast enough to await inline. The result is returned to
+    the editor; nothing is persisted until the admin saves the exam."""
+    _require_admin(principal)
+    async with content_sessionmaker()() as s:
+        if not await _list_enabled(s):
+            raise HTTPException(
+                status_code=503,
+                detail={"code": "ai_unavailable", "message": (
+                    "No AI provider is enabled. Configure one on the AI "
+                    "Providers screen, or add topics manually.")},
+            )
+    try:
+        topics = await generate_topics_for_subject(
+            exam_name=req.name, exam_code=req.code, level=req.level,
+            subject_code=req.subject.code, subject_name=req.subject.name,
+            existing_topics=req.existing, notes=req.notes, target_year=req.target_year,
+        )
+    except ResearchError as e:
+        raise HTTPException(
+            status_code=502,
+            detail={"code": "ai_failed", "message": str(e)},
+        ) from e
+    return SubjectTopicsResponse(topics=topics)
+
+
+# ─────────────────────────────────────────────────────────────────────
 # Save endpoint — transactional create
 # ─────────────────────────────────────────────────────────────────────
 
