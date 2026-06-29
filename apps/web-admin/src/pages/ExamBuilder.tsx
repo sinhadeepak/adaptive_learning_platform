@@ -18,7 +18,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { AdminShell } from "../components/AdminShell";
 import { auth } from "../lib/api";
-import { diffExam, type DiffStatus } from "../lib/examDiff";
+import { diffExam, mergeRegeneratedTopics, type DiffStatus } from "../lib/examDiff";
 
 type Step = "basics" | "review" | "saved";
 
@@ -227,6 +227,44 @@ export function ExamBuilder() {
       setError(e instanceof Error ? e.message : "Re-analyze failed");
     } finally {
       setBusy(false);
+    }
+  }
+
+  const [regenSubject, setRegenSubject] = useState<string | null>(null);
+
+  async function regenerateSubjectTopics(index: number) {
+    if (!proposal) return;
+    const subject = proposal.subjects[index];
+    setRegenSubject(subject.code);
+    setError(null);
+    try {
+      const res = await auth.fetch("/api/v1/admin/exam-builder/subjects/topics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: proposal.code,
+          name: proposal.name,
+          level,
+          subject: { code: subject.code, name: subject.name },
+          existing: subject.topics.map((t) => ({ code: t.code, title: t.title })),
+        }),
+      });
+      if (!res.ok) {
+        const detail = await safeDetail(res);
+        throw new Error(detail || `Generate failed (HTTP ${res.status})`);
+      }
+      const body = (await res.json()) as { topics: { code: string; title: string; description: string | null }[] };
+      const merged = mergeRegeneratedTopics(subject.topics, body.topics);
+      setProposal((prev) => {
+        if (!prev) return prev;
+        const subjects = prev.subjects.slice();
+        subjects[index] = { ...subjects[index], topics: merged };
+        return { ...prev, subjects };
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Generate failed");
+    } finally {
+      setRegenSubject(null);
     }
   }
 
@@ -451,6 +489,8 @@ export function ExamBuilder() {
             onBack={() => setStep("basics")}
             onSave={save}
             onReanalyze={isEditMode ? reanalyze : undefined}
+            onRegenerateSubject={regenerateSubjectTopics}
+            regenSubjectCode={regenSubject}
           />
         )}
 
@@ -682,9 +722,11 @@ interface ReviewProps {
   onBack: () => void;
   onSave: () => void;
   onReanalyze?: (remark: string) => void;
+  onRegenerateSubject: (index: number) => void;
+  regenSubjectCode: string | null;
 }
 
-function ReviewStep({ proposal, setProposal, busy, onBack, onSave, onReanalyze }: ReviewProps) {
+function ReviewStep({ proposal, setProposal, busy, onBack, onSave, onReanalyze, onRegenerateSubject, regenSubjectCode }: ReviewProps) {
   // True once a re-analyze has tagged rows with diff status.
   const hasDiff = proposal.subjects.some(
     (s) => s._status || s.topics.some((t) => t._status),
@@ -947,6 +989,8 @@ function ReviewStep({ proposal, setProposal, busy, onBack, onSave, onReanalyze }
               poolOptions={proposal.pools.map((p) => p.code)}
               onPatch={(p) => patchSubject(i, p)}
               onRemove={() => removeSubject(i)}
+              onRegenerate={() => onRegenerateSubject(i)}
+              regenerating={regenSubjectCode === s.code}
             />
           ))}
           <button
@@ -990,11 +1034,15 @@ function SubjectRow({
   poolOptions,
   onPatch,
   onRemove,
+  onRegenerate,
+  regenerating,
 }: {
   subject: SubjectDraft;
   poolOptions: string[];
   onPatch: (p: Partial<SubjectDraft>) => void;
   onRemove: () => void;
+  onRegenerate: () => void;
+  regenerating: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -1234,6 +1282,30 @@ function SubjectRow({
             }}
           >
             + Add topic
+          </button>
+          <button
+            type="button"
+            onClick={onRegenerate}
+            disabled={regenerating}
+            style={{
+              marginTop: 10,
+              marginLeft: 8,
+              background: "transparent",
+              border: "1px dashed var(--accent)",
+              borderRadius: 6,
+              padding: "6px 10px",
+              color: "var(--accent)",
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: regenerating ? "default" : "pointer",
+              opacity: regenerating ? 0.6 : 1,
+            }}
+          >
+            {regenerating
+              ? "Generating…"
+              : subject.topics.length === 0
+                ? "↻ Generate topics (AI)"
+                : "↻ Regenerate topics (AI)"}
           </button>
         </div>
       )}
