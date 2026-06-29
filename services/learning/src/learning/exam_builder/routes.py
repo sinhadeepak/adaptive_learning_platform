@@ -784,6 +784,51 @@ async def list_exams(
     ]
 
 
+# ─────────────────────────────────────────────────────────────────────
+# Lifecycle — retire / restore / delete an exam
+# ─────────────────────────────────────────────────────────────────────
+
+
+class RetireResponse(BaseModel):
+    exam_id: str
+    code: str
+    subjects_retired: int
+    topics_retired: int
+
+
+@router.post("/exams/{exam_id}/retire", response_model=RetireResponse)
+async def retire_exam(
+    exam_id: str, session: SessionDep, principal: PrincipalDep,
+) -> RetireResponse:
+    """Soft-delete: set is_published=FALSE on the exam + its subjects + topics.
+    Idempotent. All rows preserved so FK references stay intact."""
+    _require_admin(principal)
+    row = (await session.execute(
+        text("SELECT code FROM catalog_schema.exams WHERE id = CAST(:eid AS uuid)"),
+        {"eid": exam_id},
+    )).mappings().first()
+    if row is None:
+        raise HTTPException(status_code=404,
+                            detail={"code": "not_found", "message": "exam not found"})
+    subj = await session.execute(
+        text("UPDATE catalog_schema.subjects SET is_published = FALSE "
+             "WHERE exam_id = CAST(:eid AS uuid) AND is_published = TRUE"),
+        {"eid": exam_id})
+    top = await session.execute(
+        text("UPDATE catalog_schema.topics SET is_published = FALSE "
+             "WHERE subject_id IN (SELECT id FROM catalog_schema.subjects "
+             "WHERE exam_id = CAST(:eid AS uuid)) AND is_published = TRUE"),
+        {"eid": exam_id})
+    await session.execute(
+        text("UPDATE catalog_schema.exams SET is_published = FALSE "
+             "WHERE id = CAST(:eid AS uuid)"),
+        {"eid": exam_id})
+    await session.commit()
+    return RetireResponse(
+        exam_id=exam_id, code=row["code"],
+        subjects_retired=subj.rowcount or 0, topics_retired=top.rowcount or 0)
+
+
 @router.get("/exams/{exam_id}", response_model=ExamProposal)
 async def load_exam(
     exam_id: str, session: SessionDep, principal: PrincipalDep,
