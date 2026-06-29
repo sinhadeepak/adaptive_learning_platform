@@ -541,6 +541,81 @@ async def revision_due(user_id: str, limit: int = 10, exam_id: str | None = None
     }
 
 
+# ── Study Materials hub — fused per-topic revision readiness ──────────────────
+
+
+def _revision_need(overdue_days_: int, has_due: bool, ewa: float | None, minutes: int) -> str:
+    """Heuristic label fusing the three signals (no SM-2 change).
+
+    HIGH   — overdue AND weak, or very overdue (≥7d).
+    MEDIUM — due now, or mastery still weak (<0.5).
+    LOW    — otherwise.
+    """
+    weak = ewa is not None and ewa < 0.4
+    if (overdue_days_ > 0 and weak) or overdue_days_ >= 7:
+        return "HIGH"
+    if has_due or (ewa is not None and ewa < 0.5):
+        return "MEDIUM"
+    return "LOW"
+
+
+@router.get("/analytics/study-readiness/{user_id}")
+async def study_readiness(user_id: str, exam_id: str) -> dict:
+    """Per-topic revision need for the Study Materials hub.
+
+    Fuses three EXISTING signals — no SM-2 math change:
+      1. revision_queue due/overdue  (list_due)
+      2. mastery EWA                 (list_user_mastery)
+      3. watch progress per topic    (learning_client.fetch_watch_summary)
+
+    Returns one row per topic that carries any signal, with a derived
+    `revisionNeed` label. Degrades to revision + mastery when the watch
+    fetch fails (empty watch map).
+    """
+    now = datetime.now(tz=UTC)
+    topic_ids = await resolve_exam_topic_ids(exam_id)
+    async with sessionmaker()() as session:
+        due_rows = await _revision_repo.list_due(
+            session, user_id, now=now, limit=50, topic_ids=topic_ids
+        )
+        mastery_rows = await list_user_mastery(session, user_id, topic_ids=topic_ids)
+    watch = await _learning_client.fetch_watch_summary(user_id, exam_id)
+
+    due_by_topic = {r["topicId"]: r for r in due_rows}
+    mastery_by_topic = {str(m.topic_id): m for m in mastery_rows}
+
+    all_ids = set(due_by_topic) | set(mastery_by_topic) | set(watch.keys())
+    titles = await _learning_client.fetch_topics_bulk(list(all_ids))
+
+    topics = []
+    for tid in all_ids:
+        due = due_by_topic.get(tid)
+        m = mastery_by_topic.get(tid)
+        w = watch.get(tid, {})
+        ewa = float(m.ewa) if m else None
+        od = overdue_days(due["dueAt"], now=now) if due else 0
+        minutes = int(w.get("minutesWatched", 0))
+        topics.append(
+            {
+                "topicId": tid,
+                "topicTitle": (titles.get(tid) or {}).get("title", ""),
+                "dueAt": due["dueAt"].isoformat() if due and due["dueAt"] else None,
+                "overdueDays": od,
+                "intervalDays": due["intervalDays"] if due else None,
+                "easeFactor": due["easeFactor"] if due else None,
+                "attempts": due["attempts"] if due else None,
+                "ewa": ewa,
+                "n": m.n if m else 0,
+                "minutesWatched": minutes,
+                "resourcesCompleted": int(w.get("resourcesCompleted", 0)),
+                "revisionNeed": _revision_need(od, due is not None, ewa, minutes),
+            }
+        )
+    # Most-urgent first: overdue desc, then weakest mastery first.
+    topics.sort(key=lambda t: (-t["overdueDays"], t["ewa"] if t["ewa"] is not None else 1.0))
+    return {"userId": user_id, "examId": exam_id, "now": now.isoformat(), "topics": topics}
+
+
 # ── Phase 5 (P5-S39) — multi-parameter mastery surface ────────────────────────
 
 @router.get("/analytics/concept-mastery/{user_id}")

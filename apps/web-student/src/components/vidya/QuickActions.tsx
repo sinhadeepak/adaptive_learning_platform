@@ -33,6 +33,9 @@ export function QuickActions({ firstExamId, nextBestTopicId }: QuickActionsProps
   const mockHref = withExam("/mocks");
   const studyHref = firstExamId ? `/study/${firstExamId}` : "/study-map";
   const expertsHref = withExam("/experts");
+  // Study Materials hub is exam-scoped via a PATH param (not a query),
+  // so it's built explicitly rather than via withExam().
+  const contentHref = firstExamId ? `/exams/${firstExamId}/content` : "/exams/add";
 
   const items: Array<{
     href: string;
@@ -73,6 +76,14 @@ export function QuickActions({ firstExamId, nextBestTopicId }: QuickActionsProps
       title: "Ask Vidya",
       body: "Stuck on a problem? Drop a photo or text — AI drafts, expert verifies.",
       cta: "Open doubts →",
+    },
+    {
+      href: contentHref,
+      icon: "📚",
+      iconTone: "accent",
+      title: "Study materials",
+      body: "Videos, notes & PDFs for every topic — organized by subject.",
+      cta: "Open hub →",
     },
   ];
 

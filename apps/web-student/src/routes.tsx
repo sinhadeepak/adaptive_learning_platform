@@ -18,6 +18,7 @@ import { Doubts } from "./pages/Doubts";
 import { Catalog } from "./pages/Catalog";
 import { CatalogExam } from "./pages/CatalogExam";
 import { ExamDetail } from "./pages/ExamDetail";
+import { ExamContent } from "./pages/ExamContent";
 import { Experts } from "./pages/Experts";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { History } from "./pages/History";
@@ -209,6 +210,14 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <ExamDetail />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/exams/:examId/content",
+    element: (
+      <ProtectedRoute>
+        <ExamContent />
       </ProtectedRoute>
     ),
   },

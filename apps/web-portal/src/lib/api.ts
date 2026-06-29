@@ -843,7 +843,7 @@ export interface ResourceDetail {
   topic_id: string | null;
   concept_id: string | null;
   question_id: string | null;
-  resource_type: "youtube_video" | "youtube_playlist" | "url" | "note";
+  resource_type: "youtube_video" | "youtube_playlist" | "url" | "note" | "document";
   external_id: string | null;
   url: string;
   title: string;
@@ -861,15 +861,19 @@ export interface ResourceDetail {
   approved_at: string | null;
   review_notes: string | null;
   is_available: boolean;
+  doc_object_key?: string | null;
+  doc_mime_type?: string | null;
+  doc_size_bytes?: number | null;
+  doc_page_count?: number | null;
 }
 
 export interface ResourceCreateInput {
   topic_id?: string;
   concept_id?: string;
   question_id?: string;
-  resource_type?: "youtube_video" | "youtube_playlist" | "url" | "note";
+  resource_type?: "youtube_video" | "youtube_playlist" | "url" | "note" | "document";
   external_id?: string;
-  url: string;
+  url?: string;
   title: string;
   description?: string | null;
   channel_name?: string | null;
@@ -878,6 +882,10 @@ export interface ResourceCreateInput {
   language?: string;
   difficulty?: "EASY" | "MEDIUM" | "HARD";
   position?: number;
+  doc_object_key?: string;
+  doc_mime_type?: string;
+  doc_size_bytes?: number;
+  upload_claim?: string;
 }
 
 export const contentResources = {
@@ -907,6 +915,45 @@ export const contentResources = {
       body: JSON.stringify(input),
     });
     return asJson<ResourceDetail>(res);
+  },
+
+  /** Ask the server to sign a PUT URL for a study-material upload. */
+  async requestUpload(input: {
+    topic_id: string;
+    content_type: string;
+    original_name?: string;
+  }): Promise<{ url: string; object_key: string; upload_claim: string }> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/uploads/presign`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "study-material", ...input }),
+    });
+    return asJson(res);
+  },
+
+  /** Upload bytes straight to S3/MinIO. Bare fetch — S3 rejects the
+   *  Authorization header our auth.fetch wrapper attaches. */
+  async putToPresigned(uploadUrl: string, file: File): Promise<void> {
+    const res = await fetch(uploadUrl, {
+      method: "PUT",
+      body: file,
+      headers: { "content-type": file.type },
+    });
+    if (!res.ok) throw new Error(`Upload failed: HTTP ${res.status}`);
+  },
+
+  /** Confirm the object landed; returns its verified size + mime. */
+  async finalizeUpload(objectKey: string): Promise<{
+    object_key: string;
+    size: number;
+    content_type: string | null;
+  }> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/uploads/finalize`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ object_key: objectKey }),
+    });
+    return asJson(res);
   },
 
   async list(opts: {

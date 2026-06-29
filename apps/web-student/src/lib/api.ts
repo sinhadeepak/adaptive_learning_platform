@@ -425,12 +425,19 @@ export const predictive = {
 // Reads PUBLISHED resources curated by teachers + emits view events.
 // ─────────────────────────────────────────────────────────────────────
 
+export type ResourceType =
+  | "youtube_video"
+  | "youtube_playlist"
+  | "url"
+  | "note"
+  | "document";
+
 export interface StudentResource {
   id: string;
   topic_id: string | null;
   concept_id: string | null;
   question_id: string | null;
-  resource_type: "youtube_video" | "youtube_playlist" | "url" | "note";
+  resource_type: ResourceType;
   external_id: string | null;
   url: string;
   title: string;
@@ -440,6 +447,67 @@ export interface StudentResource {
   thumbnail_url: string | null;
   language: string;
   difficulty: "EASY" | "MEDIUM" | "HARD" | null;
+  doc_object_key?: string | null;
+  doc_mime_type?: string | null;
+  doc_size_bytes?: number | null;
+  doc_page_count?: number | null;
+}
+
+/** Subject → topic → resources tree for the Study Materials hub. */
+export interface ExamContentTopic {
+  topic_id: string;
+  topic_title: string;
+  resources: StudentResource[];
+  counts: Record<string, number>;
+}
+export interface ExamContentSubject {
+  subject_id: string;
+  subject_name: string;
+  topics: ExamContentTopic[];
+}
+export interface ExamContentTree {
+  exam_id: string;
+  subjects: ExamContentSubject[];
+}
+
+export interface ResourceWatchProgress {
+  furthestPositionSeconds: number;
+  resumePositionSeconds: number;
+  furthestPercent: number;
+  watched: boolean;
+}
+export interface TopicWatchProgress {
+  minutesWatched: number;
+  resourcesWatched: number;
+  resourcesCompleted: number;
+  documentsCompleted: number;
+}
+export interface WatchSummary {
+  user_id: string;
+  exam_id: string;
+  perResource: Record<string, ResourceWatchProgress>;
+  perTopic: Record<string, TopicWatchProgress>;
+}
+
+export interface StudyReadinessTopic {
+  topicId: string;
+  topicTitle: string;
+  dueAt: string | null;
+  overdueDays: number;
+  intervalDays: number | null;
+  easeFactor: number | null;
+  attempts: number | null;
+  ewa: number | null;
+  n: number;
+  minutesWatched: number;
+  resourcesCompleted: number;
+  revisionNeed: "HIGH" | "MEDIUM" | "LOW";
+}
+export interface StudyReadiness {
+  userId: string;
+  examId: string;
+  now: string;
+  topics: StudyReadinessTopic[];
 }
 
 export type ViewEventType =
@@ -476,6 +544,41 @@ export const contentResources = {
     return body.items;
   },
 
+  /** Study Materials hub — every PUBLISHED item for an exam, grouped
+   *  subject → topic, in one call. */
+  async listForExam(
+    examId: string,
+    opts: { language?: string } = {},
+  ): Promise<ExamContentTree> {
+    const params = new URLSearchParams({ scope: "student" });
+    if (opts.language) params.set("language", opts.language);
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/resources/by-exam/${encodeURIComponent(examId)}?${params}`,
+    );
+    if (!res.ok) return { exam_id: examId, subjects: [] };
+    return (await res.json()) as ExamContentTree;
+  },
+
+  /** Per-resource resume position + per-topic minutes for the caller. */
+  async watchSummary(examId: string): Promise<WatchSummary> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/resources/watch-summary?exam_id=${encodeURIComponent(examId)}`,
+    );
+    if (!res.ok)
+      return { user_id: "", exam_id: examId, perResource: {}, perTopic: {} };
+    return (await res.json()) as WatchSummary;
+  },
+
+  /** Sign a short-lived GET URL for an uploaded document key. */
+  async signDocument(objectKey: string): Promise<string | null> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/uploads/sign?key=${encodeURIComponent(objectKey)}`,
+    );
+    if (!res.ok) return null;
+    const body = (await res.json()) as { url: string };
+    return body.url;
+  },
+
   /** Append-only telemetry. Best-effort — failures are silent so a
    *  flaky network never blocks the player. */
   async recordView(
@@ -497,3 +600,17 @@ export const contentResources = {
     }
   },
 };
+
+/** Fused per-topic revision need (revision_queue + mastery + watch) for the
+ *  Study Materials hub. Returns an empty topic list on any error. */
+export async function fetchStudyReadiness(
+  userId: string,
+  examId: string,
+): Promise<StudyReadiness> {
+  const res = await auth.fetch(
+    `${env.apiBaseUrl}/analytics/study-readiness/${encodeURIComponent(userId)}?exam_id=${encodeURIComponent(examId)}`,
+  );
+  if (!res.ok)
+    return { userId, examId, now: new Date().toISOString(), topics: [] };
+  return (await res.json()) as StudyReadiness;
+}

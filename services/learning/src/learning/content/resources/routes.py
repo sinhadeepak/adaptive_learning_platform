@@ -11,13 +11,15 @@ Endpoints (R-S1):
 
 from __future__ import annotations
 
+import secrets
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from learning.content.config import settings as content_settings
 from learning.content.db import sessionmaker
 from learning.content.resources import ai_suggest, cache, quotas
 from learning.content.resources.repositories import (
@@ -25,12 +27,15 @@ from learning.content.resources.repositories import (
     insert_resource,
     insert_view_event,
     list_resources,
+    list_resources_by_exam,
     soft_delete,
     update_status,
+    watch_summary_for_user,
 )
 from learning.content.resources.schemas import (
     AISuggestRequest,
     AISuggestResponse,
+    ExamContentTree,
     ResourceCreate,
     ResourceDetail,
     ResourceList,
@@ -38,13 +43,17 @@ from learning.content.resources.schemas import (
     ReviewDecision,
     SearchResponse,
     SearchResultItem,
+    SubjectContent,
+    TopicContent,
     ViewEventCreate,
+    WatchSummary,
 )
 from learning.content.resources.youtube_client import (
     extract_video_id,
     get_client,
 )
 from learning.content.security import JwtPrincipal, current_principal
+from learning.storage import verify_upload_claim
 
 router = APIRouter(prefix="/content/resources", tags=["content-resources"])
 
@@ -175,9 +184,19 @@ async def create_resource(
     session: SessionDep,
     principal: PrincipalDep,
 ) -> ResourceDetail:
-    _require_role(
-        principal, "TEACHER", "EXPERT", "MODERATOR", "INSTITUTION_ADMIN", "PLATFORM_ADMIN"
-    )
+    # Documents may be uploaded by students too (the Study Materials hub
+    # lets learners contribute their own notes/PDFs, which still flow
+    # through moderation). Every other resource type stays curator-only.
+    if body.resource_type == "document":
+        _require_role(
+            principal, "STUDENT", "TEACHER", "EXPERT", "MODERATOR",
+            "INSTITUTION_ADMIN", "PLATFORM_ADMIN",
+        )
+    else:
+        _require_role(
+            principal, "TEACHER", "EXPERT", "MODERATOR",
+            "INSTITUTION_ADMIN", "PLATFORM_ADMIN",
+        )
 
     initial_status = (
         "PUBLISHED"
@@ -194,6 +213,29 @@ async def create_resource(
     duration_seconds = body.duration_seconds
     thumbnail_url = body.thumbnail_url
     external_id = body.external_id
+    # Documents store their S3 key in url so the existing list/detail
+    # projections keep working; the viewer re-signs a fresh GET at view
+    # time via /uploads/sign (the key itself is not directly fetchable).
+    url = body.url or (body.doc_object_key if body.resource_type == "document" else "")
+
+    # Anti-IDOR: prove the caller actually uploaded doc_object_key. Without
+    # this a user could pin someone else's object key and exfiltrate it via
+    # the public /uploads/sign for study-materials. The claim is an HMAC
+    # over (object_key, user_id, exp) issued by /uploads/presign.
+    if body.resource_type == "document":
+        if not body.upload_claim or not verify_upload_claim(
+            body.upload_claim,
+            body.doc_object_key or "",
+            principal.user_id,
+            content_settings.jwt_secret,
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "invalid_upload_claim",
+                    "message": "Document upload claim missing or invalid; re-upload the file.",
+                },
+            )
 
     if body.resource_type == "youtube_video":
         if not external_id:
@@ -218,7 +260,7 @@ async def create_resource(
         question_id=body.question_id,
         resource_type=body.resource_type,
         external_id=external_id,
-        url=body.url,
+        url=url,
         title=title,
         description=description,
         channel_name=channel_name,
@@ -229,6 +271,10 @@ async def create_resource(
         position=body.position,
         added_by=UUID(principal.user_id),
         initial_status=initial_status,
+        doc_object_key=body.doc_object_key,
+        doc_mime_type=body.doc_mime_type,
+        doc_size_bytes=body.doc_size_bytes,
+        doc_page_count=body.doc_page_count,
     )
     await session.commit()
     return ResourceDetail.model_validate(row)
@@ -289,6 +335,108 @@ async def list_resources_endpoint(
     return ResourceList(
         items=[ResourceDetail.model_validate(r) for r in rows],
         total=total,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Study Materials hub — exam-wide content tree + per-user watch summary.
+# Declared BEFORE GET /{rid} so the literal paths aren't captured by the
+# {rid} param route (Starlette matches in declaration order).
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def _build_tree(exam_id: UUID, rows: list[dict]) -> ExamContentTree:
+    """Group flat (subject, topic, resource) rows into the nested tree."""
+    subjects: dict[str, SubjectContent] = {}
+    topics: dict[tuple[str, str], TopicContent] = {}
+    for r in rows:
+        sid = r.pop("subject_id")
+        sname = r.pop("subject_name")
+        ttitle = r.pop("topic_title")
+        tid = r["topic_id"]
+        if sid not in subjects:
+            subjects[sid] = SubjectContent(
+                subject_id=UUID(sid), subject_name=sname, topics=[]
+            )
+        key = (sid, tid)
+        if key not in topics:
+            tc = TopicContent(topic_id=UUID(tid), topic_title=ttitle, resources=[], counts={})
+            topics[key] = tc
+            subjects[sid].topics.append(tc)
+        tc = topics[key]
+        tc.resources.append(ResourceDetail.model_validate(r))
+        bucket = "video" if r["resource_type"].startswith("youtube") else r["resource_type"]
+        tc.counts[bucket] = tc.counts.get(bucket, 0) + 1
+    return ExamContentTree(exam_id=exam_id, subjects=list(subjects.values()))
+
+
+@router.get("/by-exam/{exam_id}", response_model=ExamContentTree)
+async def list_resources_by_exam_endpoint(
+    exam_id: UUID,
+    session: SessionDep,
+    principal: PrincipalDep,
+    language: str | None = None,
+    scope: Annotated[str, Query(pattern="^(student|all)$")] = "student",
+) -> ExamContentTree:
+    """Every content item for an exam, grouped subject → topic, in one call.
+
+    scope=student (default) returns PUBLISHED only; scope=all (MODERATOR+)
+    returns every status for curation review.
+    """
+    if scope == "all":
+        _require_role(principal, "MODERATOR", "INSTITUTION_ADMIN", "PLATFORM_ADMIN")
+        statuses: list[str] = []
+    else:
+        statuses = ["PUBLISHED"]
+    rows = await list_resources_by_exam(
+        session, exam_id=exam_id, statuses=statuses, language=language
+    )
+    return _build_tree(exam_id, rows)
+
+
+@router.get("/watch-summary", response_model=WatchSummary)
+async def watch_summary_endpoint(
+    exam_id: UUID,
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> WatchSummary:
+    """This caller's watch progress for an exam — per-resource resume
+    position + per-topic minutes. User comes from the JWT (own data only)."""
+    data = await watch_summary_for_user(
+        session, user_id=UUID(principal.user_id), exam_id=exam_id
+    )
+    return WatchSummary(
+        user_id=UUID(principal.user_id),
+        exam_id=exam_id,
+        perResource=data["perResource"],
+        perTopic=data["perTopic"],
+    )
+
+
+@router.get("/watch-summary/internal", response_model=WatchSummary)
+async def watch_summary_internal_endpoint(
+    exam_id: UUID,
+    user_id: UUID,
+    session: SessionDep,
+    x_internal_token: Annotated[str | None, Header()] = None,
+) -> WatchSummary:
+    """Service-to-service variant: the engagement study-readiness endpoint
+    fuses this with revision + mastery. Carries no user bearer, so it
+    requires a shared internal-service token (defence-in-depth — safe even
+    if the gateway's network rules regress). Without this an attacker on the
+    internal network could read any user's watch data by passing user_id."""
+    expected = content_settings.internal_service_token
+    if not x_internal_token or not secrets.compare_digest(x_internal_token, expected):
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "internal_token_required", "message": "Invalid internal token."},
+        )
+    data = await watch_summary_for_user(session, user_id=user_id, exam_id=exam_id)
+    return WatchSummary(
+        user_id=user_id,
+        exam_id=exam_id,
+        perResource=data["perResource"],
+        perTopic=data["perTopic"],
     )
 
 

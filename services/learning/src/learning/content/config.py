@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:36379/0")
     nats_url: str = Field(default="nats://localhost:34222")
     jwt_secret: str = Field(default="dev-only-change-me-in-staging-at-least-32-bytes-long")
+    # Shared secret for service-to-service calls that don't carry a user
+    # bearer (e.g. engagement → learning watch-summary). Must match the
+    # caller service's INTERNAL_SERVICE_TOKEN in every non-local env.
+    internal_service_token: str = Field(
+        default="dev-internal-svc-token-change-me-32-bytes-minimum"
+    )
 
     # Catalog service — POST /content/questions calls catalog's
     # /catalog/educators/me/topics/{id}/authorize before persisting,

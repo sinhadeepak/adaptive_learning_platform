@@ -71,6 +71,11 @@ export function ResourceCurator() {
   const [pasteTitle, setPasteTitle] = useState("");
   const [pasting, setPasting] = useState(false);
 
+  // Document (PDF) upload
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docTitle, setDocTitle] = useState("");
+  const [uploading, setUploading] = useState(false);
+
   // AI suggestions (LLM proposes search queries for the picked topic)
   type Suggestion = {
     query: string;
@@ -306,6 +311,44 @@ export function ResourceCurator() {
       setSearchError(e instanceof Error ? e.message : "Pin failed.");
     } finally {
       setPasting(false);
+    }
+  }
+
+  // ── Upload a document (PDF) ──────────────────────────────────────
+  async function uploadDocument(evt: FormEvent) {
+    evt.preventDefault();
+    if (!topicId) {
+      setSearchError("Pick a topic before uploading.");
+      return;
+    }
+    if (!docFile || !docTitle.trim()) return;
+    setUploading(true);
+    setSearchError(null);
+    try {
+      const { url, object_key, upload_claim } = await contentResources.requestUpload({
+        topic_id: topicId,
+        content_type: docFile.type || "application/pdf",
+        original_name: docFile.name,
+      });
+      await contentResources.putToPresigned(url, docFile);
+      const meta = await contentResources.finalizeUpload(object_key);
+      await contentResources.pin({
+        topic_id: topicId,
+        resource_type: "document",
+        title: docTitle.trim(),
+        doc_object_key: object_key,
+        doc_mime_type: meta.content_type ?? "application/pdf",
+        doc_size_bytes: meta.size,
+        upload_claim,
+        language: searchLanguage,
+      });
+      setDocFile(null);
+      setDocTitle("");
+      await refreshPinned();
+    } catch (e) {
+      setSearchError(e instanceof Error ? e.message : "Upload failed.");
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -725,7 +768,6 @@ export function ResourceCurator() {
                   }}
                 >
                   {item.thumbnail_url && (
-                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={item.thumbnail_url}
                       alt={item.title}
@@ -826,6 +868,50 @@ export function ResourceCurator() {
         </form>
       </section>
 
+      {/* ── Upload a document (PDF) ─────────────────────────── */}
+      <section style={cardStyle}>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            textTransform: "uppercase",
+            color: "var(--ink-4, #7A8BAD)",
+            marginBottom: 10,
+          }}
+        >
+          Or upload a document (PDF)
+        </div>
+        <form
+          onSubmit={uploadDocument}
+          style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
+        >
+          <input
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+            style={{ flex: "2 1 320px", fontSize: 13 }}
+          />
+          <input
+            value={docTitle}
+            onChange={(e) => setDocTitle(e.target.value)}
+            placeholder="Title for the student"
+            style={{ ...fieldStyle, flex: "1 1 220px" }}
+          />
+          <button
+            type="submit"
+            disabled={!docFile || !docTitle.trim() || !topicId || uploading}
+            className="btn btn-primary"
+          >
+            {uploading ? "Uploading…" : "Upload PDF"}
+          </button>
+        </form>
+        <div style={{ fontSize: 11, color: "var(--ink-4, #7A8BAD)", marginTop: 8 }}>
+          PDFs go through the same review queue — submit the draft below, then
+          a moderator approves it for students. Max 25 MB.
+        </div>
+      </section>
+
       {/* ── Pinned list ────────────────────────────────────── */}
       <section style={cardStyle}>
         <div
@@ -877,7 +963,6 @@ export function ResourceCurator() {
                 }}
               >
                 {p.thumbnail_url && (
-                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={p.thumbnail_url}
                     alt={p.title}

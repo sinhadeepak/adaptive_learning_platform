@@ -72,3 +72,29 @@ async def fetch_topics_bulk(topic_ids: list[str]) -> dict[str, dict[str, Any]]:
             return {}
     body = r.json()
     return {t["id"]: t for t in body.get("topics", [])}
+
+
+async def fetch_watch_summary(user_id: str, exam_id: str) -> dict[str, dict[str, Any]]:
+    """Study Materials hub — per-topic watch progress for a user.
+
+    Calls alp-learning's internal watch-summary endpoint (service network,
+    no bearer). Returns the `perTopic` map `{topic_id: {minutesWatched,
+    resourcesWatched, resourcesCompleted, documentsCompleted}}` for fusing
+    into study-readiness. Empty dict on any error so readiness degrades to
+    revision + mastery only.
+    """
+    url = f"{settings.learning_base_url}/content/resources/watch-summary/internal"
+    headers = {"x-internal-token": settings.internal_service_token}
+    async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+        try:
+            r = await client.get(
+                url, params={"user_id": user_id, "exam_id": exam_id}, headers=headers
+            )
+            r.raise_for_status()
+        except httpx.HTTPError as e:
+            log.warning(
+                "fetch_watch_summary.failed user=%s exam=%s err=%s",
+                user_id, exam_id, e,
+            )
+            return {}
+    return r.json().get("perTopic", {})

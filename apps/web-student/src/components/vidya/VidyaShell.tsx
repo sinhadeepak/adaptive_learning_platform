@@ -94,6 +94,13 @@ function buildNav(enrolledExams: ExamMeta[]): NavGroup[] {
         { href: "/experts", label: "AI Tutor", icon: <IconChat /> },
         { href: "/pyq", label: "PYQ Hub", icon: <IconArchive /> },
         { href: "/library", label: "Library", icon: <IconLibrary /> },
+        {
+          href: enrolledExams[0]
+            ? `/exams/${enrolledExams[0].id}/content`
+            : "/exams/add",
+          label: "Study materials",
+          icon: <IconDoc />,
+        },
         { href: "/doubts", label: "Doubts", icon: <IconQuestion /> },
         {
           href: "/exams/add",
@@ -537,6 +544,16 @@ function IconQuestion() {
       <circle cx="8" cy="8" r="5.5" />
       <path d="M6.5 6.5a1.5 1.5 0 013 .5c0 1-1.5 1.5-1.5 2.5" strokeLinecap="round" />
       <circle cx="8" cy="11.5" r=".5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+function IconDoc() {
+  // Page-with-fold — distinguishes Study materials from the Library books glyph.
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <path d="M3.5 2h5l4 4v8h-9V2z" strokeLinejoin="round" />
+      <path d="M8.5 2v4h4" strokeLinejoin="round" />
+      <path d="M5.5 9h5M5.5 11.5h5" strokeLinecap="round" />
     </svg>
   );
 }
