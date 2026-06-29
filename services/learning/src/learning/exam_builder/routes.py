@@ -13,11 +13,12 @@ Auth: PLATFORM_ADMIN only. Other roles get 403.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +34,13 @@ from learning.catalog.db import get_session
 from learning.content.db import sessionmaker as content_sessionmaker
 from learning.content.repositories import insert_question
 from learning.content.security import JwtPrincipal, current_principal
+from learning.exam_builder.job_repo import (
+    complete_research_job,
+    create_research_job,
+    fail_research_job,
+    get_research_job,
+    list_research_jobs,
+)
 
 log = logging.getLogger(__name__)
 
@@ -87,9 +95,60 @@ class ExamProposal(BaseModel):
     notes: str | None = Field(default=None, max_length=2000)
 
 
+# ── Async research job envelopes ─────────────────────────────────────
+
+
+class ResearchJobRef(BaseModel):
+    """Returned by POST /research — the handle to poll."""
+
+    jobId: str
+    status: str
+
+
+class ResearchJobResult(BaseModel):
+    """Returned by GET /research/{job_id} — status + the proposal once ready."""
+
+    jobId: str
+    status: str
+    result: ExamProposal | None = None
+    error: str | None = None
+
+
+class ResearchJobSummary(BaseModel):
+    """One row in the poller's job list."""
+
+    jobId: str
+    status: str
+    examCode: str | None = None
+    examName: str | None = None
+    createdAt: str | None = None
+    completedAt: str | None = None
+
+
+class ResearchJobList(BaseModel):
+    jobs: list[ResearchJobSummary]
+
+
 # ─────────────────────────────────────────────────────────────────────
 # Research endpoint — calls OpenAI
 # ─────────────────────────────────────────────────────────────────────
+
+
+# Current structure passed on a "re-analyze" so the AI proposes a delta
+# (keep existing codes, add new, drop outdated) instead of researching fresh.
+class ExistingTopic(BaseModel):
+    code: str
+    title: str | None = None
+
+
+class ExistingSubject(BaseModel):
+    code: str
+    name: str | None = None
+    topics: list[ExistingTopic] = Field(default_factory=list)
+
+
+class ExistingStructure(BaseModel):
+    subjects: list[ExistingSubject] = Field(default_factory=list)
 
 
 class ResearchRequest(BaseModel):
@@ -104,6 +163,8 @@ class ResearchRequest(BaseModel):
         max_length=1000,
         description="Free-form admin hints, e.g. 'UPSC Mains 2027 — qualifying papers + 4 GS + 1 optional'",
     )
+    # Present on a re-analyze of an existing exam — triggers delta mode.
+    existing: ExistingStructure | None = None
 
 
 SYSTEM_PROMPT = """You are an expert academic content architect helping a learning
@@ -190,25 +251,271 @@ PROPOSAL_SCHEMA: dict[str, Any] = {
     },
 }
 
+# ── Chunked research schemas ─────────────────────────────────────────
+#
+# A full exam tree (every subject x 8-20 topics) is too large for the
+# claude_code CLI to emit in one synchronous call — it runs past any
+# sane web timeout. So research runs in two passes:
+#   1. SKELETON_SCHEMA — code/name/pools + the subject LIST (no topics).
+#   2. TOPICS_SCHEMA — one small call per subject, run bounded-parallel.
+# Each call is "authoring-sized", so none can time out, and the assembled
+# result is the same ExamProposal the UI already expects.
 
-@router.post("/research", response_model=ExamProposal)
-async def research(req: ResearchRequest, principal: PrincipalDep) -> ExamProposal:
-    """Ask OpenAI to draft the exam structure. Returns a proposal the
-    admin reviews + edits before saving. No DB writes here.
+# Skeleton = PROPOSAL_SCHEMA minus the per-subject `topics` array.
+SKELETON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["code", "name", "subtitle", "pools", "subjects", "notes"],
+    "properties": {
+        "code": {"type": "string"},
+        "name": {"type": "string"},
+        "subtitle": {"type": ["string", "null"]},
+        "pools": PROPOSAL_SCHEMA["properties"]["pools"],
+        "subjects": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": [
+                    "code", "name", "description", "is_mandatory", "pool_code",
+                ],
+                "properties": {
+                    "code": {"type": "string"},
+                    "name": {"type": "string"},
+                    "description": {"type": ["string", "null"]},
+                    "is_mandatory": {"type": "boolean"},
+                    "pool_code": {"type": ["string", "null"]},
+                },
+            },
+        },
+        "notes": {"type": ["string", "null"]},
+    },
+}
+
+# Per-subject topics — a small object wrapping the topic list.
+TOPICS_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["topics"],
+    "properties": {
+        "topics": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["code", "title", "description"],
+                "properties": {
+                    "code": {"type": "string"},
+                    "title": {"type": "string"},
+                    "description": {"type": ["string", "null"]},
+                },
+            },
+        },
+    },
+}
+
+TOPIC_SYSTEM_PROMPT = """You are an expert academic content architect. Given an exam
+and ONE of its subjects, list that subject's canonical chapter-grain topics.
+
+Hard rules:
+  - 8-20 topics, drawn from the official syllabus or NCERT/NCERT-equivalent.
+  - Topic codes are ALL_CAPS_SNAKE and AT MOST 80 chars.
+  - Topic titles are short (proper-case English), no trailing punctuation.
+  - Cover the real syllabus for this subject. Don't pad or repeat.
+"""
+
+# Bound concurrent per-subject topic calls. Matches the claude_code CLI
+# concurrency cap so we saturate it without opening a DB session per
+# subject all at once on large exams.
+_TOPIC_CONCURRENCY = 4
+
+
+class ResearchError(Exception):
+    """A handled generation failure. The worker records the message on the
+    job row; never escapes as an HTTP error (research runs in the
+    background after the response is already sent)."""
+
+
+async def generate_topics_for_subject(
+    *,
+    exam_name: str,
+    exam_code: str,
+    level: str,
+    subject_code: str,
+    subject_name: str,
+    existing_topics: list[ExistingTopic],
+    notes: str | None = None,
+    target_year: int | None = None,
+) -> list[TopicDraft]:
+    """Generate the canonical topic list for ONE subject. Delta-seeds the
+    prompt with existing topic codes so re-runs preserve codes (clean diff).
+    Raises ResearchError on empty/invalid output. Shared by the full-exam
+    research flow, the sync per-subject endpoint, and the bulk fill worker.
     """
-    _require_admin(principal)
+    base_ctx = (
+        f"Exam name: {exam_name}\n"
+        f"Exam code (admin-supplied): {exam_code}\n"
+        f"Level: {level}\n"
+        + (f"Target year: {target_year}\n" if target_year else "")
+        + (f"Admin notes: {notes}\n" if notes else "")
+    )
+    user = (
+        base_ctx
+        + f"\nSubject: {subject_name} (code {subject_code})\n"
+        + "List 8-20 canonical chapter-grain topics for THIS subject only."
+    )
+    if existing_topics:
+        current = "; ".join(f"{t.code} ({t.title or t.code})" for t in existing_topics)
+        user += (
+            f"\n\nThis subject already has these topics: {current}. "
+            "KEEP the same `code` for topics that still belong, ADD new "
+            "ones, and OMIT only genuinely outdated ones."
+        )
+    async with content_sessionmaker()() as s:
+        raw = await call_structured(
+            s, system=TOPIC_SYSTEM_PROMPT, user=user,
+            schema_name="subject_topics", schema=TOPICS_SCHEMA,
+        )
+    if raw is None:
+        raise ResearchError(f"AI returned no topics for subject {subject_code}.")
+    try:
+        return [TopicDraft.model_validate(t) for t in raw.get("topics", [])]
+    except Exception as e:  # noqa: BLE001
+        raise ResearchError(f"AI returned invalid topics for {subject_code}: {e}") from e
 
-    user_prompt = (
+
+async def _generate_proposal(req: ResearchRequest) -> ExamProposal:
+    """The chunked generation: one small skeleton call, then one small
+    topics call per subject in bounded parallel — so no single LLM call has
+    to emit the whole tree. Raises ResearchError on any handled failure.
+    """
+    base_ctx = (
         f"Exam name: {req.name}\n"
         f"Exam code (admin-supplied): {req.code}\n"
         f"Level: {req.level}\n"
         + (f"Target year: {req.target_year}\n" if req.target_year else "")
         + (f"Admin notes: {req.notes}\n" if req.notes else "")
-        + "\nProduce the structured JSON proposal."
     )
 
+    # Delta mode: when re-analyzing an existing exam, seed the current
+    # structure so the AI preserves codes (clean diff) rather than churning.
+    existing_subjects = req.existing.subjects if req.existing else []
+    existing_by_code = {s.code: s for s in existing_subjects}
+    skeleton_delta = ""
+    if existing_subjects:
+        current = "; ".join(
+            f"{s.code} ({s.name or s.code})" for s in existing_subjects
+        )
+        skeleton_delta = (
+            "\n\nThis exam ALREADY EXISTS. Its current subjects are: "
+            f"{current}. Re-analyse the syllabus: KEEP the same `code` for "
+            "subjects that still belong, ADD subjects now relevant, and OMIT "
+            "only genuinely outdated ones. Do not rename codes for concepts "
+            "that already exist."
+        )
+
+    # ── Pass 1: skeleton (subjects + pools, no topics) ──────────────
     async with content_sessionmaker()() as ai_sess:
-        if not await _list_enabled(ai_sess):
+        skeleton_raw = await call_structured(
+            ai_sess,
+            system=SYSTEM_PROMPT,
+            user=base_ctx
+            + "\nProduce ONLY the exam SKELETON: code, name, subtitle, pools, "
+            "and the subject list (each with code, name, description, "
+            "is_mandatory, pool_code). Do NOT include topics — those are "
+            "generated in a separate step."
+            + skeleton_delta,
+            schema_name="exam_skeleton",
+            schema=SKELETON_SCHEMA,
+        )
+    if skeleton_raw is None:
+        raise ResearchError("AI returned no usable skeleton. Try again or use the manual form.")
+
+    try:
+        pools = [PoolDraft.model_validate(p) for p in skeleton_raw.get("pools", [])]
+        subjects = [
+            SubjectDraft.model_validate({**s, "topics": []})
+            for s in skeleton_raw.get("subjects", [])
+        ]
+    except Exception as e:
+        log.warning("research.skeleton_invalid", extra={"err": str(e)})
+        raise ResearchError(f"AI returned an invalid skeleton: {e}") from e
+
+    if not subjects:
+        raise ResearchError("AI returned no subjects.")
+
+    # ── Pass 2: topics per subject, bounded-parallel ────────────────
+    sema = asyncio.Semaphore(_TOPIC_CONCURRENCY)
+
+    async def _fill_topics(subject: SubjectDraft) -> None:
+        ex = existing_by_code.get(subject.code)
+        existing_topics = ex.topics if ex else []
+        async with sema:
+            subject.topics = await generate_topics_for_subject(
+                exam_name=req.name,
+                exam_code=req.code,
+                level=req.level,
+                subject_code=subject.code,
+                subject_name=subject.name,
+                existing_topics=existing_topics,
+                notes=req.notes,
+                target_year=req.target_year,
+            )
+
+    await asyncio.gather(*(_fill_topics(s) for s in subjects))
+
+    proposal = ExamProposal(
+        code=skeleton_raw.get("code") or req.code,
+        name=skeleton_raw.get("name") or req.name,
+        subtitle=skeleton_raw.get("subtitle"),
+        pools=pools,
+        subjects=subjects,
+        notes=skeleton_raw.get("notes"),
+    )
+
+    # Reconcile subject ↔ pool consistency. Rather than failing a multi-minute
+    # job over one inconsistent subject, coerce to a sane default — the admin
+    # re-pools in review. Mandatory subjects never sit in a pool; an optional
+    # subject with a missing/unknown pool falls back to mandatory.
+    pool_codes = {p.code for p in proposal.pools}
+    for s in proposal.subjects:
+        if s.is_mandatory:
+            s.pool_code = None
+        elif s.pool_code is None or s.pool_code not in pool_codes:
+            log.info("research.coerced_orphan_optional", extra={"code": s.code})
+            s.is_mandatory = True
+            s.pool_code = None
+    return proposal
+
+
+async def run_research_job(job_id: str, req: ResearchRequest) -> None:
+    """Background worker: generate the proposal and record it on the job
+    row. Never raises — failures land in `error_message`."""
+    try:
+        proposal = await _generate_proposal(req)
+        async with content_sessionmaker()() as s:
+            await complete_research_job(s, job_id=job_id, output=proposal.model_dump())
+            await s.commit()
+    except Exception as e:
+        log.warning("research.job_failed", extra={"job_id": job_id, "err": str(e)[:300]})
+        async with content_sessionmaker()() as s:
+            await fail_research_job(s, job_id=job_id, error=str(e) or e.__class__.__name__)
+            await s.commit()
+
+
+@router.post("/research", status_code=202, response_model=ResearchJobRef)
+async def research(
+    req: ResearchRequest, principal: PrincipalDep, background: BackgroundTasks
+) -> ResearchJobRef:
+    """Enqueue a background research job and return its id immediately. The
+    admin is free to navigate away; a poller surfaces completion. The
+    provider-availability check runs synchronously so an unconfigured stack
+    fails fast (503) instead of enqueuing a doomed job.
+    """
+    _require_admin(principal)
+
+    async with content_sessionmaker()() as s:
+        if not await _list_enabled(s):
             raise HTTPException(
                 status_code=503,
                 detail={
@@ -219,63 +526,42 @@ async def research(req: ResearchRequest, principal: PrincipalDep) -> ExamProposa
                     ),
                 },
             )
-        raw = await call_structured(
-            ai_sess,
-            system=SYSTEM_PROMPT,
-            user=user_prompt,
-            schema_name="exam_proposal",
-            schema=PROPOSAL_SCHEMA,
+        job_id = await create_research_job(
+            s, request_input=req.model_dump(), requested_by=principal.user_id
         )
-    if raw is None:
-        raise HTTPException(
-            status_code=502,
-            detail={
-                "code": "ai_failed",
-                "message": "OpenAI returned no usable response. Try again or fall back to manual entry.",
-            },
-        )
-    try:
-        proposal = ExamProposal.model_validate(raw)
-    except Exception as e:  # noqa: BLE001
-        log.warning("research.proposal_invalid", extra={"err": str(e)})
-        raise HTTPException(
-            status_code=502,
-            detail={
-                "code": "ai_invalid_proposal",
-                "message": f"AI returned an invalid proposal: {e}",
-            },
-        ) from e
+        await s.commit()
 
-    # Cross-check: every pool referenced by a subject must exist; every
-    # non-mandatory subject must be in a pool. Better to reject early
-    # than to silently re-bucket subjects later.
-    pool_codes = {p.code for p in proposal.pools}
-    for s in proposal.subjects:
-        if s.is_mandatory and s.pool_code is not None:
-            raise HTTPException(
-                status_code=502,
-                detail={
-                    "code": "ai_invalid_proposal",
-                    "message": f"AI marked {s.code} mandatory AND placed it in pool {s.pool_code}",
-                },
-            )
-        if not s.is_mandatory and s.pool_code is None:
-            raise HTTPException(
-                status_code=502,
-                detail={
-                    "code": "ai_invalid_proposal",
-                    "message": f"AI marked {s.code} optional but didn't assign it a pool",
-                },
-            )
-        if s.pool_code and s.pool_code not in pool_codes:
-            raise HTTPException(
-                status_code=502,
-                detail={
-                    "code": "ai_invalid_proposal",
-                    "message": f"AI referenced unknown pool {s.pool_code} for {s.code}",
-                },
-            )
-    return proposal
+    background.add_task(run_research_job, job_id, req)
+    return ResearchJobRef(jobId=job_id, status="pending")
+
+
+@router.get("/research/jobs", response_model=ResearchJobList)
+async def list_jobs(principal: PrincipalDep) -> ResearchJobList:
+    """The requesting admin's active + recently-completed research jobs —
+    drives the in-app poller/toast."""
+    _require_admin(principal)
+    async with content_sessionmaker()() as s:
+        jobs = await list_research_jobs(s, requested_by=principal.user_id)
+    return ResearchJobList(jobs=[ResearchJobSummary(**j) for j in jobs])
+
+
+@router.get("/research/{job_id}", response_model=ResearchJobResult)
+async def get_job(job_id: str, principal: PrincipalDep) -> ResearchJobResult:
+    """Status + result for one research job, scoped to the requesting admin."""
+    _require_admin(principal)
+    async with content_sessionmaker()() as s:
+        job = await get_research_job(s, job_id=job_id, requested_by=principal.user_id)
+    if job is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "not_found", "message": "No such research job."},
+        )
+    return ResearchJobResult(
+        jobId=job["jobId"],
+        status=job["status"],
+        result=ExamProposal.model_validate(job["result"]) if job["result"] else None,
+        error=job["error"],
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -882,7 +1168,7 @@ async def seed_questions(
                     schema_name="seed_questions",
                     schema=SEED_SCHEMA,
                 )
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 failures.append({"topic_id": str(t["id"]), "error": str(e)[:200]})
                 continue
             if draft is None or not draft.get("questions"):
@@ -918,7 +1204,7 @@ async def seed_questions(
                         },
                     )
                     questions_created += 1
-                except Exception as e:  # noqa: BLE001
+                except Exception as e:
                     failures.append(
                         {
                             "topic_id": str(t["id"]),
