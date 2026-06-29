@@ -39,7 +39,8 @@ def _as_dict(value: Any) -> dict[str, Any] | None:
 
 
 async def create_research_job(
-    session: AsyncSession, *, request_input: dict[str, Any], requested_by: str
+    session: AsyncSession, *, request_input: dict[str, Any], requested_by: str,
+    template_id: str = TEMPLATE_ID
 ) -> str:
     job_id = str(uuid.uuid4())
     await session.execute(
@@ -54,7 +55,7 @@ async def create_research_job(
         ),
         {
             "id": job_id,
-            "tid": TEMPLATE_ID,
+            "tid": template_id,
             "ver": TEMPLATE_VERSION,
             "rb": requested_by,
             "ri": json.dumps(request_input),
@@ -106,7 +107,8 @@ def _effective_status(status: str, created_at: Any, completed_at: Any) -> str:
 
 
 async def get_research_job(
-    session: AsyncSession, *, job_id: str, requested_by: str
+    session: AsyncSession, *, job_id: str, requested_by: str,
+    template_id: str = TEMPLATE_ID
 ) -> dict[str, Any] | None:
     row = (
         (
@@ -118,7 +120,7 @@ async def get_research_job(
                  WHERE id=:id AND prompt_template_id=:tid AND requested_by=:rb
                 """
                 ),
-                {"id": job_id, "tid": TEMPLATE_ID, "rb": requested_by},
+                {"id": job_id, "tid": template_id, "rb": requested_by},
             )
         )
         .mappings()
@@ -139,7 +141,8 @@ async def get_research_job(
 
 
 async def list_research_jobs(
-    session: AsyncSession, *, requested_by: str, since_hours: int = 24
+    session: AsyncSession, *, requested_by: str, since_hours: int = 24,
+    template_id: str = TEMPLATE_ID
 ) -> list[dict[str, Any]]:
     rows = (
         (
@@ -154,7 +157,7 @@ async def list_research_jobs(
                  ORDER BY created_at DESC
                 """
                 ),
-                {"tid": TEMPLATE_ID, "rb": requested_by, "hrs": since_hours},
+                {"tid": template_id, "rb": requested_by, "hrs": since_hours},
             )
         )
         .mappings()
