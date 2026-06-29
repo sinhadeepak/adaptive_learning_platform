@@ -42,7 +42,7 @@ PROMPT_TEMPLATE_ID = "question_explanation"
 # 2.1.0 — longer, seasoned-teacher depth on all fields. Cache rows
 # carrying 2.0.0 are not served; new generation runs the next time a
 # student expands the card. See ADR-0026 follow-up + UX-feedback log.
-PROMPT_TEMPLATE_VERSION = "2.1.0"
+PROMPT_TEMPLATE_VERSION = "2.2.0"
 
 EXPLAIN_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -206,6 +206,20 @@ Output a structured note per the schema. Aim for depth, not breadth:
     a vivid memory-hook story or analogy. Only leave empty when truly
     impossible.
   - **next_steps[]** — 2-3 concrete actions, each doable in under 20 minutes.
+
+Formatting (the note is rendered as Markdown + LaTeX — use it):
+- Use **bold** for the key term, law, or final answer in each field, and
+  *italics* for the subtle qualifier or contrast that students miss.
+- Wrap EVERY formula, variable, unit-bearing quantity, and symbol in LaTeX:
+  inline as $...$ (e.g. $KE = h\\nu - \\phi$, $\\eta = 1 - T_2/T_1$) and use
+  proper LaTeX ($\\frac{a}{b}$, subscripts $T_2$, superscripts $x^2$, Greek
+  $\\nu, \\phi, \\eta$). Never write formulae as plain text like "T_1" or
+  "hv".
+- In **worked_example**, put each step on its OWN line as a Markdown numbered
+  list ("1. …", "2. …") — never run steps together in one paragraph.
+- In **common_pitfall**, lead with the bolded mistake, then the why, then the
+  heuristic; use a short Markdown list when you name more than one trap.
+- Keep each **next_steps[]** entry to one concrete imperative line.
 
 Hard rules:
 - BE CONCRETE. Cite specific concepts, formulae, dates, units, signs, edge
