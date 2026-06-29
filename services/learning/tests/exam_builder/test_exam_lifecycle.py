@@ -187,3 +187,83 @@ def test_restore_reverses_retire(client: TestClient) -> None:
         assert flags == {"exam": True, "subjects": True, "topics": True}
     finally:
         asyncio.run(_cleanup(seed["exam_id"]))
+
+
+async def _exam_exists(exam_id: str) -> bool:
+    conn = await _connect()
+    try:
+        v = await conn.fetchval("SELECT 1 FROM catalog_schema.exams WHERE id=$1::uuid", exam_id)
+        return v is not None
+    finally:
+        await conn.close()
+
+
+async def _row_counts(exam_id: str) -> dict:
+    conn = await _connect()
+    try:
+        subj = await conn.fetchval("SELECT COUNT(*) FROM catalog_schema.subjects WHERE exam_id=$1::uuid", exam_id)
+        top = await conn.fetchval(
+            "SELECT COUNT(*) FROM catalog_schema.topics WHERE subject_id IN "
+            "(SELECT id FROM catalog_schema.subjects WHERE exam_id=$1::uuid)", exam_id)
+        ea = await conn.fetchval("SELECT COUNT(*) FROM catalog_schema.educator_assignments WHERE exam_id=$1::uuid", exam_id)
+        tio = await conn.fetchval("SELECT COUNT(*) FROM catalog_schema.topic_importance_overrides WHERE exam_id=$1::uuid", exam_id)
+        return {"subjects": subj, "topics": top, "educator_assignments": ea, "importance": tio}
+    finally:
+        await conn.close()
+
+
+def test_delete_requires_admin(client: TestClient) -> None:
+    seed = asyncio.run(_seed_exam())
+    try:
+        r = client.delete(f"{PREFIX}/exams/{seed['exam_id']}", headers=_auth("STUDENT"))
+        assert r.status_code == 403
+    finally:
+        asyncio.run(_cleanup(seed["exam_id"]))
+
+
+def test_delete_unknown_exam_404(client: TestClient) -> None:
+    r = client.delete(f"{PREFIX}/exams/{uuid4()}", headers=_auth())
+    assert r.status_code == 404
+
+
+def test_delete_blocked_by_blueprint_409(client: TestClient) -> None:
+    seed = asyncio.run(_seed_exam(with_blueprint=True))
+    try:
+        r = client.delete(f"{PREFIX}/exams/{seed['exam_id']}", headers=_auth())
+        assert r.status_code == 409
+        body = r.json()["detail"]
+        assert body["code"] == "exam_in_use"
+        assert body["blueprintCount"] == 1
+        assert body["questionCount"] == 0
+        assert asyncio.run(_exam_exists(seed["exam_id"])) is True  # nothing deleted
+    finally:
+        asyncio.run(_cleanup(seed["exam_id"]))
+
+
+def test_delete_blocked_by_question_409(client: TestClient) -> None:
+    seed = asyncio.run(_seed_exam(with_question=True))
+    try:
+        r = client.delete(f"{PREFIX}/exams/{seed['exam_id']}", headers=_auth())
+        assert r.status_code == 409
+        body = r.json()["detail"]
+        assert body["questionCount"] == 1
+        assert asyncio.run(_exam_exists(seed["exam_id"])) is True
+    finally:
+        asyncio.run(_cleanup(seed["exam_id"]))
+
+
+def test_delete_clean_exam_removes_all_rows(client: TestClient) -> None:
+    seed = asyncio.run(_seed_exam(with_cross_refs=True))
+    try:
+        r = client.delete(f"{PREFIX}/exams/{seed['exam_id']}", headers=_auth())
+        assert r.status_code == 200
+        body = r.json()
+        assert body["code"] == seed["code"]
+        assert body["subjects_deleted"] == 1
+        assert body["topics_deleted"] == 1
+        assert asyncio.run(_exam_exists(seed["exam_id"])) is False
+        counts = asyncio.run(_row_counts(seed["exam_id"]))
+        assert counts == {"subjects": 0, "topics": 0,
+                          "educator_assignments": 0, "importance": 0}
+    finally:
+        asyncio.run(_cleanup(seed["exam_id"]))

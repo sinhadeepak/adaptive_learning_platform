@@ -868,6 +868,76 @@ async def restore_exam(
         subjects_restored=subj.rowcount or 0, topics_restored=top.rowcount or 0)
 
 
+class DeleteResponse(BaseModel):
+    exam_id: str
+    code: str
+    subjects_deleted: int
+    topics_deleted: int
+    pools_deleted: int
+    blueprints_deleted: int
+
+
+@router.delete("/exams/{exam_id}", response_model=DeleteResponse)
+async def delete_exam(
+    exam_id: str, session: SessionDep, principal: PrincipalDep,
+) -> DeleteResponse:
+    """Permanently delete a content-free exam. Guarded: refuses (409) if the
+    exam has any authored questions or blueprints. FK-safe single transaction."""
+    _require_admin(principal)
+    row = (await session.execute(
+        text("SELECT code FROM catalog_schema.exams WHERE id = CAST(:eid AS uuid)"),
+        {"eid": exam_id},
+    )).mappings().first()
+    if row is None:
+        raise HTTPException(status_code=404,
+                            detail={"code": "not_found", "message": "exam not found"})
+
+    question_count = (await session.execute(
+        text("SELECT COUNT(*) FROM content_schema.questions WHERE topic_id IN "
+             "(SELECT t.id FROM catalog_schema.topics t "
+             " JOIN catalog_schema.subjects s ON s.id = t.subject_id "
+             " WHERE s.exam_id = CAST(:eid AS uuid))"),
+        {"eid": exam_id})).scalar_one()
+    blueprint_count = (await session.execute(
+        text("SELECT COUNT(*) FROM catalog_schema.exam_blueprints "
+             "WHERE exam_id = CAST(:eid AS uuid)"),
+        {"eid": exam_id})).scalar_one()
+
+    if question_count > 0 or blueprint_count > 0:
+        raise HTTPException(status_code=409, detail={
+            "code": "exam_in_use",
+            "questionCount": int(question_count),
+            "blueprintCount": int(blueprint_count),
+            "message": (f"Exam has {question_count} questions and "
+                        f"{blueprint_count} blueprints — retire it instead."),
+        })
+
+    eid = {"eid": exam_id}
+    # FK-safe order: cross-ref tables → topics → subjects → pools → blueprints → exam.
+    await session.execute(text(
+        "DELETE FROM catalog_schema.topic_importance_overrides "
+        "WHERE exam_id = CAST(:eid AS uuid)"), eid)
+    await session.execute(text(
+        "DELETE FROM catalog_schema.educator_assignments "
+        "WHERE exam_id = CAST(:eid AS uuid)"), eid)
+    top = await session.execute(text(
+        "DELETE FROM catalog_schema.topics WHERE subject_id IN "
+        "(SELECT id FROM catalog_schema.subjects WHERE exam_id = CAST(:eid AS uuid))"), eid)
+    subj = await session.execute(text(
+        "DELETE FROM catalog_schema.subjects WHERE exam_id = CAST(:eid AS uuid)"), eid)
+    pools = await session.execute(text(
+        "DELETE FROM catalog_schema.subject_pools WHERE exam_id = CAST(:eid AS uuid)"), eid)
+    bps = await session.execute(text(
+        "DELETE FROM catalog_schema.exam_blueprints WHERE exam_id = CAST(:eid AS uuid)"), eid)
+    await session.execute(text(
+        "DELETE FROM catalog_schema.exams WHERE id = CAST(:eid AS uuid)"), eid)
+    await session.commit()
+    return DeleteResponse(
+        exam_id=exam_id, code=row["code"],
+        subjects_deleted=subj.rowcount or 0, topics_deleted=top.rowcount or 0,
+        pools_deleted=pools.rowcount or 0, blueprints_deleted=bps.rowcount or 0)
+
+
 @router.get("/exams/{exam_id}", response_model=ExamProposal)
 async def load_exam(
     exam_id: str, session: SessionDep, principal: PrincipalDep,
