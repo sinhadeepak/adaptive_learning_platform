@@ -6,7 +6,8 @@
 // "Use in form" action that hands the draft back to the parent for
 // manual editing + save via the standard /content/questions flow.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { aiAuthoring, type AIDraftMarker } from "../lib/phase5-api";
 import { content } from "../lib/api";
 
@@ -63,37 +64,108 @@ export function BulkAIGenerator({
   disabled,
   onDraftChosen,
 }: Props) {
-  const [count, setCount] = useState(3);
+  const [count, setCount] = useState(20);
   const [difficulty, setDifficulty] = useState<"EASY" | "MEDIUM" | "HARD">("MEDIUM");
   const [brief, setBrief] = useState("");
   const [results, setResults] = useState<Draft[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Async job: jobId being polled (set on Generate, or from ?bulkJob via toast).
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  // Save-context restored from a job opened via the toast (when the form's
+  // exam/topic isn't selected). Falls back to the live props otherwise.
+  const [jobCtx, setJobCtx] = useState<{
+    topicId: string | null;
+    typeId: string | null;
+    language: string | null;
+  } | null>(null);
+  const [searchParams] = useSearchParams();
 
   const supported = SUPPORTED_TYPES.has(typeId);
   const canGenerate = supported && !disabled && !!topicTitle.trim();
 
+  // Effective values for saving — the live form selection wins; when absent
+  // (job opened via toast), fall back to what was persisted with the job.
+  const saveTopicId = topicId || jobCtx?.topicId || "";
+  const saveType = typeId || jobCtx?.typeId || "MCQ_SINGLE";
+  const saveLang = (jobCtx?.language as "en" | "hi" | null) || language;
+
+  // Arriving via the completion toast (/questions/new?bulkJob=<id>) loads that
+  // job's drafts for review.
+  useEffect(() => {
+    const b = searchParams.get("bulkJob");
+    if (b) setJobId(b);
+  }, [searchParams]);
+
+  // Enqueue a background job — the generation runs server-side in chunks.
   async function generate() {
     setBusy(true);
     setError(null);
     setResults(null);
+    setProgress(null);
     try {
-      const out = await aiAuthoring.bulkDraft({
+      const { jobId: id } = await aiAuthoring.bulkDraftJob({
         typeId,
         topic: topicTitle,
         count,
         difficulty,
         exam,
         sourceMaterial: brief || undefined,
+        topicId,
+        topicTitle,
+        language,
       });
-      setResults(out.items.map((it) => ({ ...it, status: "idle" as DraftStatus })));
+      setJobId(id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Bulk generate failed");
-    } finally {
       setBusy(false);
     }
   }
+
+  // Poll the active job until it finishes, then load all drafts into the list.
+  useEffect(() => {
+    if (!jobId) return;
+    let cancelled = false;
+    let timer: number | undefined;
+    setBusy(true);
+    setError(null);
+
+    const poll = async () => {
+      try {
+        const job = await aiAuthoring.getBulkJob(jobId);
+        if (cancelled) return;
+        if (job.context) {
+          setJobCtx({
+            topicId: job.context.topicId,
+            typeId: job.context.typeId,
+            language: job.context.language,
+          });
+        }
+        if (job.status === "succeeded" && job.result) {
+          setResults(job.result.items.map((it) => ({ ...it, status: "idle" as DraftStatus })));
+          setBusy(false);
+        } else if (job.status === "failed") {
+          setError(job.error || "Generation failed. Please try again.");
+          setBusy(false);
+        } else {
+          if (job.progress) setProgress(job.progress);
+          timer = window.setTimeout(poll, 5000);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Failed to load job");
+          setBusy(false);
+        }
+      }
+    };
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [jobId]);
 
   // Bulk-save every successful draft as a DRAFT question. Bypasses
   // the form entirely — the existing per-item "Use in form" path is
@@ -102,7 +174,7 @@ export function BulkAIGenerator({
   const MAX_PARALLEL_SAVES = 5;
 
   async function saveAll() {
-    if (!results || !topicId) return;
+    if (!results || !saveTopicId) return;
     setSavingAll(true);
     setError(null);
 
@@ -130,16 +202,16 @@ export function BulkAIGenerator({
       try {
         const choicesAndIdx = extractChoices(item.draft);
         const created = await content.create({
-          topicId,
+          topicId: saveTopicId,
           stem: typeof item.draft.stem === "string" ? item.draft.stem : "(no stem)",
           choices: choicesAndIdx.choices,
           correctIdx: choicesAndIdx.correctIdx,
-          language,
+          language: saveLang,
           explanation:
             typeof item.draft.explanation === "string"
               ? item.draft.explanation
               : null,
-          questionType: typeId,
+          questionType: saveType,
         });
         patch(idx, { status: "saved", questionId: created.id });
       } catch (e) {
@@ -210,10 +282,10 @@ export function BulkAIGenerator({
               <input
                 type="number"
                 min={1}
-                max={100}
+                max={300}
                 value={count}
                 onChange={(e) =>
-                  setCount(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 1)))
+                  setCount(Math.max(1, Math.min(300, parseInt(e.target.value, 10) || 1)))
                 }
                 style={inputStyle}
               />
@@ -257,9 +329,47 @@ export function BulkAIGenerator({
                 fontWeight: 600,
               }}
             >
-              {busy ? `Generating ${count}…` : `Generate ${count}`}
+              {busy ? "Generating…" : `Generate ${count}`}
             </button>
           </div>
+
+          {busy && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 12px",
+                marginBottom: 12,
+                borderRadius: 6,
+                background: "var(--paper-2, #f3f4f6)",
+                fontSize: 12,
+                color: "var(--ink-2, #6b7280)",
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: "var(--info, #4F87F6)",
+                  flexShrink: 0,
+                }}
+              />
+              <span>
+                {progress ? (
+                  <>
+                    Generated <strong>{progress.done}/{progress.total}</strong> so far —{" "}
+                  </>
+                ) : (
+                  <>Generating in the background — </>
+                )}
+                this can take a few minutes for a large batch.{" "}
+                <strong>You can leave this page</strong>; we'll notify you when the
+                drafts are ready to review.
+              </span>
+            </div>
+          )}
 
           {!canGenerate && (
             <p style={{ fontSize: 12, color: "var(--ink-3)", margin: 0 }}>
@@ -316,7 +426,7 @@ export function BulkAIGenerator({
                   onClick={saveAll}
                   disabled={
                     savingAll ||
-                    !topicId ||
+                    !saveTopicId ||
                     results.filter(
                       (r) => r.draft && r.status !== "saved" && r.status !== "saving",
                     ).length === 0
@@ -324,18 +434,19 @@ export function BulkAIGenerator({
                   style={{
                     padding: "6px 14px",
                     background:
-                      savingAll || !topicId
-                        ? "var(--card, #2a2f3a)"
+                      savingAll || !saveTopicId
+                        ? "var(--ink-4, #94a3b8)"
                         : "var(--good, #10C47A)",
                     color: "white",
                     border: "none",
                     borderRadius: 4,
-                    cursor: savingAll || !topicId ? "not-allowed" : "pointer",
+                    cursor: savingAll || !saveTopicId ? "not-allowed" : "pointer",
                     fontSize: 12,
                     fontWeight: 600,
+                    opacity: savingAll || !saveTopicId ? 0.7 : 1,
                   }}
                   title={
-                    !topicId
+                    !saveTopicId
                       ? "Pick a topic above to enable bulk-save"
                       : "Save every generated draft to the question bank as DRAFT — review + publish later from My questions"
                   }
