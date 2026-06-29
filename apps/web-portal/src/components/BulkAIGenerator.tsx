@@ -71,6 +71,8 @@ export function BulkAIGenerator({
   const [busy, setBusy] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Running tally of drafts saved (they're removed from the list on save).
+  const [savedCount, setSavedCount] = useState(0);
   // Async job: jobId being polled (set on Generate, or from ?bulkJob via toast).
   const [jobId, setJobId] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -105,6 +107,7 @@ export function BulkAIGenerator({
     setError(null);
     setResults(null);
     setProgress(null);
+    setSavedCount(0);
     try {
       const { jobId: id } = await aiAuthoring.bulkDraftJob({
         typeId,
@@ -201,7 +204,7 @@ export function BulkAIGenerator({
       patch(idx, { status: "saving", saveError: undefined });
       try {
         const choicesAndIdx = extractChoices(item.draft);
-        const created = await content.create({
+        await content.create({
           topicId: saveTopicId,
           stem: typeof item.draft.stem === "string" ? item.draft.stem : "(no stem)",
           choices: choicesAndIdx.choices,
@@ -213,7 +216,9 @@ export function BulkAIGenerator({
               : null,
           questionType: saveType,
         });
-        patch(idx, { status: "saved", questionId: created.id });
+        // Saved → drop it from the list so only un-saved drafts remain.
+        setResults((prev) => (prev ? prev.filter((r) => r.index !== idx) : prev));
+        setSavedCount((n) => n + 1);
       } catch (e) {
         patch(idx, {
           status: "save_failed",
@@ -404,14 +409,18 @@ export function BulkAIGenerator({
                 }}
               >
                 <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
-                  {results.filter((r) => r.draft).length} of {results.length} succeeded
+                  {results.filter((r) => r.draft).length} draft
+                  {results.filter((r) => r.draft).length === 1 ? "" : "s"} to review
                   {(() => {
-                    const saved = results.filter((r) => r.status === "saved").length;
                     const failed = results.filter((r) => r.status === "save_failed").length;
-                    if (saved === 0 && failed === 0) return null;
+                    if (savedCount === 0 && failed === 0) return null;
                     return (
                       <span style={{ marginLeft: 8 }}>
-                        · {saved} saved
+                        {savedCount > 0 && (
+                          <span style={{ color: "var(--good, #10C47A)" }}>
+                            · {savedCount} saved to question bank
+                          </span>
+                        )}
                         {failed > 0 && (
                           <span style={{ color: "var(--warn, #f59e0b)" }}>
                             {" "}· {failed} failed
