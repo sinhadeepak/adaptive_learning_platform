@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../auth/auth_client.dart';
+import '../quiz/explanation_models.dart';
 
 /// Typed wrapper around AuthClient for the data-plane endpoints the mobile
 /// surfaces hit. Mirrors the backend shapes; one method per endpoint so each
@@ -819,6 +820,86 @@ class ApiClient {
         }
       }
     }
+  }
+
+  // ── Quiz-results explanation + curated videos ─────────────────────────
+
+  /// Rich teaching note for one question (POST /adaptive/explain). The note
+  /// is cached per-question on the server, so only the first viewer pays the
+  /// LLM round-trip. Returns null on any error so the panel degrades quietly.
+  Future<ExplainResult?> explainQuestion({
+    required String questionId,
+    String? stem,
+    List<String>? choices,
+    int? correctIdx,
+    int? pickedIdx,
+    String? topicTitle,
+  }) async {
+    try {
+      final r = await auth.apiPost('/adaptive/explain', {
+        'questionId': questionId,
+        if (stem != null) 'stem': stem,
+        if (choices != null) 'choices': choices,
+        if (correctIdx != null) 'correctIdx': correctIdx,
+        if (pickedIdx != null) 'pickedIdx': pickedIdx,
+        if (topicTitle != null) 'topicTitle': topicTitle,
+      });
+      if (r.statusCode >= 300) return null;
+      return ExplainResult.fromJson(
+          jsonDecode(r.body) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Curated PUBLISHED videos for a question, falling back to its topic —
+  /// mirrors the web ResourceShelf's most-specific-first lookup. Returns an
+  /// empty list when nothing is curated (the shelf then hides itself).
+  Future<List<StudentResource>> listResources({
+    String? questionId,
+    String? topicId,
+    String? language,
+    int limit = 6,
+  }) async {
+    Future<List<StudentResource>> tryScope(String key, String value) async {
+      try {
+        final lang = language != null ? '&language=$language' : '';
+        final r = await auth
+            .apiGet('/content/resources?scope=student&$key=$value&limit=$limit$lang');
+        if (r.statusCode != 200) return [];
+        final j = jsonDecode(r.body) as Map<String, dynamic>;
+        final items = (j['items'] as List? ?? []).cast<Map<String, dynamic>>();
+        return items.map(StudentResource.fromJson).toList();
+      } catch (_) {
+        return [];
+      }
+    }
+
+    if (questionId != null) {
+      final byQuestion = await tryScope('question_id', questionId);
+      if (byQuestion.isNotEmpty) return byQuestion;
+    }
+    if (topicId != null) {
+      return tryScope('topic_id', topicId);
+    }
+    return [];
+  }
+
+  /// Best-effort video view telemetry (POST /content/resources/{id}/view).
+  /// Failures are swallowed so a flaky network never blocks the player.
+  Future<void> recordResourceView({
+    required String resourceId,
+    required String eventType,
+    int? positionSeconds,
+    String? sessionId,
+  }) async {
+    try {
+      await auth.apiPost('/content/resources/$resourceId/view', {
+        'event_type': eventType,
+        if (positionSeconds != null) 'position_seconds': positionSeconds,
+        if (sessionId != null) 'session_id': sessionId,
+      });
+    } catch (_) {/* best-effort */}
   }
 }
 
