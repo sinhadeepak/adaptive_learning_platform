@@ -41,6 +41,11 @@ export function NotesPanel({ examId }: { examId: string }) {
     })();
     return () => {
       alive = false;
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+      setSave("idle");
     };
   }, [activeId]);
 
