@@ -6,6 +6,7 @@ import { MasteryBar } from "../components/stats";
 import { EmbeddedVideoPlayer } from "../components/EmbeddedVideoPlayer";
 import { DocumentViewer } from "../components/content/DocumentViewer";
 import { ContentCard } from "../components/content/ContentCard";
+import { NotesPanel } from "../components/notes/NotesPanel";
 import {
   contentResources,
   fetchStudyReadiness,
@@ -199,6 +200,8 @@ export function ExamContent() {
               </section>
             );
           })}
+
+          {examId ? <NotesPanel examId={examId} /> : null}
         </>
       )}
 
