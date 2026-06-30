@@ -19,6 +19,12 @@ interface Props {
   onChange: (doc: ProseMirrorDoc) => void;
 }
 
+// Returns value only when it is a valid ProseMirror doc (has a `type` string).
+// Falls back to EMPTY_DOC for null, undefined, `{}`, or any other invalid shape
+// that would cause ProseMirror to throw RangeError: Invalid input for Node.fromJSON.
+const docOf = (v: ProseMirrorDoc | null): ProseMirrorDoc =>
+  v && typeof v.type === "string" ? v : EMPTY_DOC;
+
 export function NoteEditor({ value, onChange }: Props) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -29,7 +35,7 @@ export function NoteEditor({ value, onChange }: Props) {
       Link.configure({ openOnClick: false }),
       NoteImage,
     ],
-    content: value ?? EMPTY_DOC,
+    content: docOf(value),
     onUpdate: ({ editor }) => {
       onChangeRef.current(stripTransientSrc(editor.getJSON() as ProseMirrorDoc));
     },
@@ -56,8 +62,8 @@ export function NoteEditor({ value, onChange }: Props) {
   // Resolve image objectKeys → signed URLs whenever the loaded note changes.
   useEffect(() => {
     if (!editor) return;
-    editor.commands.setContent(value ?? EMPTY_DOC, false);
-    const keys = collectObjectKeys((value ?? EMPTY_DOC) as ProseMirrorDoc);
+    editor.commands.setContent(docOf(value), false);
+    const keys = collectObjectKeys(docOf(value));
     if (keys.length === 0) return;
     let cancelled = false;
     void (async () => {

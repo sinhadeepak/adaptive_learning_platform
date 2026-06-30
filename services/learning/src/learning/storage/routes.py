@@ -264,11 +264,11 @@ def sign_get(
     else:
         raise HTTPException(status_code=400, detail="unknown object key prefix")
 
-    if owner_segment is not None and owner_segment != principal.user_id and principal.role not in (
-        "MODERATOR",
-        "INSTITUTION_ADMIN",
-        "PLATFORM_ADMIN",
-    ):
+    # note-images are private to their owner — no admin role bypass.
+    # All other owner-scoped kinds allow MODERATOR+ to act on behalf of any user.
+    is_note_image = parts[:1] == ["note-images"]
+    privileged = principal.role in ("MODERATOR", "INSTITUTION_ADMIN", "PLATFORM_ADMIN")
+    if owner_segment is not None and owner_segment != principal.user_id and (is_note_image or not privileged):
         raise HTTPException(status_code=403, detail="not your upload")
 
     signed = presign_get(key)

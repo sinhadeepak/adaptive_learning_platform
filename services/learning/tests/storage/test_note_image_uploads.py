@@ -52,3 +52,12 @@ def test_sign_note_image_owner_only(client: TestClient) -> None:
     # A different user may not.
     no = client.get(f"/uploads/sign?key={key}", headers=_auth(other))
     assert no.status_code == 403
+
+
+def test_sign_note_image_admin_cannot_read_others(client: TestClient) -> None:
+    # note-images are private by design — even PLATFORM_ADMIN must not bypass
+    # owner scoping, unlike other upload kinds where admins get a pass.
+    owner, admin = str(uuid4()), str(uuid4())
+    key = f"note-images/{owner}/{uuid4().hex}.png"
+    r = client.get(f"/uploads/sign?key={key}", headers=_auth(admin, "PLATFORM_ADMIN"))
+    assert r.status_code == 403
