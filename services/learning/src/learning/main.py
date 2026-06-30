@@ -66,6 +66,7 @@ from learning.content.assignments_routes import router as assignments_router
 from learning.content.db import dispose as dispose_content_db
 from learning.content.notes_routes import router as content_notes_router
 from learning.content.resources.routes import router as content_resources_router
+from learning.content.user_notes_routes import router as user_notes_router
 from learning.content.routes import router as content_router
 
 # Phase 5 (P5-S51) — Per-artifact translation routes (Cat §8.1, CE-401/402)
@@ -391,6 +392,7 @@ app.include_router(syllabus_router)
 app.include_router(syllabus_references_router)
 app.include_router(content_router)
 app.include_router(content_notes_router)  # Phase 7 (P7-A1) — per-topic notes
+app.include_router(user_notes_router)     # Task 2 — per-exam student notebook
 app.include_router(content_resources_router)  # R-S1 — YouTube curation
 # Phase 1D-8 — flashcard SRS
 from learning.flashcards.routes import router as flashcards_router  # noqa: E402
