@@ -81,7 +81,10 @@ export function NoteEditor({ value, onChange }: Props) {
           if (url) tr.setNodeMarkup(pos, undefined, { ...node.attrs, src: url });
         }
       });
-      if (tr.docChanged) view.dispatch(tr);
+      if (tr.docChanged) {
+        tr.setMeta("preventUpdate", true);
+        view.dispatch(tr);
+      }
     })();
     return () => {
       cancelled = true;
