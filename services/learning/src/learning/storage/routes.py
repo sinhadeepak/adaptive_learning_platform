@@ -52,6 +52,7 @@ class PresignRequest(BaseModel):
         "profile-avatar",
         "profile-id-proof",
         "tmp",
+        "note-image",
     ]
     content_type: str = Field(..., min_length=3, max_length=80)
     original_name: str | None = Field(default=None, max_length=200)
@@ -92,6 +93,13 @@ def presign(
             },
         )
     extension = ALLOWED_MIME[body.content_type]
+
+    if body.kind == "note-image" and not body.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=415,
+            detail={"code": "unsupported_media_type",
+                    "message": "note-image accepts image/* only."},
+        )
 
     # Tenancy: principal carries it on hosted; default in dev.
     tenant_id = getattr(principal, "tenant_id", None) or "default"
@@ -165,6 +173,8 @@ def finalize(body: FinalizeRequest, principal: PrincipalDep) -> FinalizeResponse
     elif parts[:1] == ["doubts"] and len(parts) >= 3:
         owner_segment = parts[2]
     elif parts[:1] == ["profile-uploads"] and len(parts) >= 2:
+        owner_segment = parts[1]
+    elif parts[:1] == ["note-images"] and len(parts) >= 2:
         owner_segment = parts[1]
     elif parts[:1] == ["tmp"] and len(parts) >= 3:
         owner_segment = parts[2]
@@ -240,6 +250,8 @@ def sign_get(
     elif parts[:1] == ["doubts"] and len(parts) >= 3:
         owner_segment = parts[2]
     elif parts[:1] == ["profile-uploads"] and len(parts) >= 2:
+        owner_segment = parts[1]
+    elif parts[:1] == ["note-images"] and len(parts) >= 2:
         owner_segment = parts[1]
     elif parts[:1] == ["tmp"] and len(parts) >= 3:
         owner_segment = parts[2]

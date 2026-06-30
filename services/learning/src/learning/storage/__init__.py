@@ -39,6 +39,7 @@ UploadKind = Literal[
     "profile-avatar",
     "profile-id-proof",
     "tmp",
+    "note-image",
 ]
 
 # Allowed MIME → file extension. Anything outside this map is rejected
@@ -173,6 +174,10 @@ def object_key(
         if not user_id:
             raise ValueError("tmp requires user_id")
         return f"tmp/{tenant_id}/{user_id}/{fid}.{extension}"
+    if kind == "note-image":
+        if not user_id:
+            raise ValueError("note-image requires user_id")
+        return f"note-images/{user_id}/{fid}.{extension}"
     raise ValueError(f"unknown upload kind: {kind}")
 
 
