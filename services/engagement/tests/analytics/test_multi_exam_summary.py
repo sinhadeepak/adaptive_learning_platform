@@ -46,3 +46,58 @@ def test_build_exam_summary_empty_mastery() -> None:
     assert s.n_topics == 0
     assert s.weakest_topic_id is None
     assert s.weakest_ewa is None
+
+
+# --- append to services/engagement/tests/analytics/test_multi_exam_summary.py ---
+from datetime import UTC, datetime
+from uuid import uuid4
+
+import pytest
+
+from engagement.analytics import db, mistakes_repo, revision_queue_repo
+
+
+@pytest.mark.asyncio
+async def test_mistakes_count_due_respects_topic_set() -> None:
+    uid = str(uuid4())
+    t_in, t_out = str(uuid4()), str(uuid4())
+    now = datetime.now(tz=UTC)
+    async with db.sessionmaker()() as session:
+        for tid in (t_in, t_out):
+            mid = await mistakes_repo.upsert_mistake(
+                session, user_id=uid, session_id=str(uuid4()), item_idx=0,
+                topic_id=tid, question_id=str(uuid4()), error_tag="conceptual_gap",
+                stem_snapshot="s", chosen_text="x", correct_text="y",
+                explanation_snapshot="e",
+            )
+            await mistakes_repo.seed_review_state(
+                session, mistake_id=mid, user_id=uid, now=now
+            )
+        await session.commit()
+    async with db.sessionmaker()() as session:
+        all_due = await mistakes_repo.count_due(session, uid, now=now)
+        scoped = await mistakes_repo.count_due(session, uid, now=now, topic_ids={t_in})
+        empty = await mistakes_repo.count_due(session, uid, now=now, topic_ids=set())
+    assert all_due == 2
+    assert scoped == 1
+    assert empty == 0
+
+
+@pytest.mark.asyncio
+async def test_revision_count_due_respects_topic_set() -> None:
+    uid = str(uuid4())
+    t_in, t_out = str(uuid4()), str(uuid4())
+    past = datetime(2020, 1, 1, tzinfo=UTC)
+    now = datetime.now(tz=UTC)
+    async with db.sessionmaker()() as session:
+        for tid in (t_in, t_out):
+            await revision_queue_repo.upsert(
+                session, user_id=uid, topic_id=tid, last_attempt_at=past,
+                due_at=past, interval_days=1, ease_factor=2.5, attempts=1,
+            )
+        await session.commit()
+    async with db.sessionmaker()() as session:
+        all_due = await revision_queue_repo.count_due(session, uid, now=now)
+        scoped = await revision_queue_repo.count_due(session, uid, now=now, topic_ids={t_in})
+    assert all_due == 2
+    assert scoped == 1

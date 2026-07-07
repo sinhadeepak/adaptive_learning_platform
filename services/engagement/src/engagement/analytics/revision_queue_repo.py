@@ -138,3 +138,26 @@ async def list_due(
         }
         for r in rows
     ]
+
+
+async def count_due(
+    session: AsyncSession,
+    user_id: str,
+    *,
+    now: datetime,
+    topic_ids: set[str] | None = None,
+) -> int:
+    """Count of revision-queue rows due (`due_at <= now`), optionally scoped
+    to `topic_ids`. `topic_ids=set()` → 0."""
+    if topic_ids is not None and not topic_ids:
+        return 0
+    sql = f"""
+        SELECT COUNT(*) FROM {SCHEMA}.revision_queue
+         WHERE user_id = :uid AND due_at <= :now
+    """
+    params: dict[str, Any] = {"uid": user_id, "now": now}
+    if topic_ids is not None:
+        sql += " AND topic_id = ANY(CAST(:tids AS uuid[]))"
+        params["tids"] = list(topic_ids)
+    row = (await session.execute(text(sql), params)).first()
+    return int(row[0]) if row else 0
