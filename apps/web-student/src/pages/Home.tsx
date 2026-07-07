@@ -104,7 +104,8 @@ export function Home() {
   const [weekActivity, setWeekActivity] = useState<DailyActivity[]>([]);
   const [heatmap, setHeatmap] = useState<number[]>([]);
 
-  // Profile + full enrolled-exam catalog (used for the multi-exam fork)
+  // Profile + full enrolled-exam catalog (drives the readiness carousel +
+  // per-exam attention cards).
   useEffect(() => {
     let alive = true;
     (async () => {
