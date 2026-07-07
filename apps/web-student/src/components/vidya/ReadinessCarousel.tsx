@@ -59,6 +59,16 @@ export function ReadinessCarousel({ exams, summaries }: Props) {
               aria-label="Previous exam"
               className="vidya-hero__nav"
               onClick={prev}
+              style={{
+                background: "transparent",
+                border: "1px solid var(--ink-3)",
+                color: "var(--paper)",
+                borderRadius: "6px",
+                width: 28,
+                height: 28,
+                cursor: "pointer",
+                lineHeight: 1,
+              }}
             >
               ‹
             </button>
@@ -67,6 +77,16 @@ export function ReadinessCarousel({ exams, summaries }: Props) {
               aria-label="Next exam"
               className="vidya-hero__nav"
               onClick={next}
+              style={{
+                background: "transparent",
+                border: "1px solid var(--ink-3)",
+                color: "var(--paper)",
+                borderRadius: "6px",
+                width: 28,
+                height: 28,
+                cursor: "pointer",
+                lineHeight: 1,
+              }}
             >
               ›
             </button>
