@@ -1,15 +1,18 @@
-// Home — Vidya v1 Master Dashboard.
+// Home — Vidya unified multi-exam dashboard.
 //
 // Spec: docs/02-design/design-system/04_components.md
 //       + the 8-screen mockup set delivered with Vidya v1 (page 1/8).
 // ADR:  docs/adr/0034-design-system-v3-vidya.md
 //
-// Layout (single-exam variant — multi-track variant lives in
-// VidyaShellMultiTrack and shares no data path with this page):
+// Layout (single /home route for all students, regardless of enrolled-exam
+// count — the old 2+ exam fork into MultiTrackBody has been retired in
+// favor of a per-exam carousel + attention cards):
 //
 //   ┌─────── topbar (greeting + resume session) ───────┐
-//   │  ┌─ hero readiness ───┐ ┌─ next best action ┐ ┌─ today's plan ┐
-//   │  └────────────────────┘ └───────────────────┘ └────────────────┘
+//   │  ┌─ readiness carousel ┐ ┌─ next best action ┐ ┌─ today's plan ┐
+//   │  └──────────────────────┘ └───────────────────┘ └────────────────┘
+//   │  ┌─ per-exam attention cards ─────────────────────────────────┐
+//   │  └──────────────────────────────────────────────────────────────┘
 //   │  ┌─ stat ┐ ┌─ stat ┐ ┌─ stat ┐ ┌─ stat ┐
 //   │  └───────┘ └───────┘ └───────┘ └───────┘
 //   │  ┌─ mastery-by-subject table ──────┐ ┌─ activity heatmap ─┐
@@ -24,33 +27,21 @@ import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { VidyaShell } from "../components/vidya/VidyaShell";
 import { ActivityHeatmap } from "../components/vidya/dashboardParts";
-import { QuickActions } from "../components/vidya/QuickActions";
+import { ReadinessCarousel } from "../components/vidya/ReadinessCarousel";
+import { ExamAttentionCards } from "../components/vidya/ExamAttentionCards";
 import { Sparkline } from "@alp/ui";
+import { type ExamMeta as MultiExamMeta } from "./MultiTrack";
 import {
-  MultiTrackBody,
-  buildTracksFromExams,
-  type ExamMeta as MultiExamMeta,
-} from "./MultiTrack";
+  buildEnrolledExams,
+  fetchMultiExamSummary,
+  type EnrolledExam,
+  type ExamSummary,
+} from "../lib/multiExam";
 
 interface Profile {
   user: { firstName: string };
   preferences: { language: string; dailyGoalMinutes: number | null };
   exams: Array<{ examId: string; targetDate: string | null }>;
-}
-
-interface ExamMeta {
-  id: string;
-  code: string;
-  name: string;
-  subtitle?: string | null;
-}
-
-interface ReadinessResponse {
-  userId: string;
-  scope: string;
-  score: number;
-  nTopics: number;
-  updatedAt: string | null;
 }
 
 interface StreakResponse {
@@ -106,9 +97,8 @@ const SUBJECT_HUES: Record<string, { name: string; color: string }> = {
 export function Home() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [exam, setExam] = useState<ExamMeta | null>(null);
-  const [enrolledCatalog, setEnrolledCatalog] = useState<MultiExamMeta[]>([]);
-  const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
+  const [enrolledExams, setEnrolledExams] = useState<EnrolledExam[]>([]);
+  const [examSummaries, setExamSummaries] = useState<Record<string, ExamSummary>>({});
   const [streak, setStreak] = useState<StreakResponse | null>(null);
   const [mastery, setMastery] = useState<TopicCard[]>([]);
   const [weekActivity, setWeekActivity] = useState<DailyActivity[]>([]);
@@ -127,11 +117,6 @@ export function Home() {
         if (profileRes.ok) {
           const data = (await profileRes.json()) as Profile;
           setProfile(data);
-          const examId = data.exams?.[0]?.examId;
-          if (examId) {
-            const ex = await auth.fetch(`/api/v1/catalog/exams/${examId}`);
-            if (ex.ok && alive) setExam((await ex.json()) as ExamMeta);
-          }
         }
         if (profileRes.ok && examsRes.ok) {
           const profileData = (await profileRes.clone().json()) as Profile;
@@ -143,13 +128,14 @@ export function Home() {
             : Array.isArray(examsBody.exams)
               ? examsBody.exams
               : [];
-          const enrolledIds = new Set(
-            (Array.isArray(profileData.exams) ? profileData.exams : []).map(
-              (e) => e.examId,
-            ),
-          );
           if (alive) {
-            setEnrolledCatalog(catalog.filter((c) => enrolledIds.has(c.id)));
+            const merged = buildEnrolledExams(
+              (Array.isArray(profileData.exams) ? profileData.exams : []).map(
+                (e) => ({ examId: e.examId, targetDate: e.targetDate }),
+              ),
+              catalog.map((c) => ({ id: c.id, code: c.code, name: c.name })),
+            );
+            setEnrolledExams(merged);
           }
         }
       } catch { /* offline */ }
@@ -168,8 +154,7 @@ export function Home() {
           return r.ok ? ((await r.json()) as T) : null;
         } catch { return null; }
       };
-      const [r, s, a] = await Promise.all([
-        safe<ReadinessResponse>(`/api/v1/analytics/readiness/${user.id}`),
+      const [s, a] = await Promise.all([
         safe<StreakResponse>(`/api/v1/analytics/streak/${user.id}`),
         // Engagement returns {userId, days: <int window>, activity: DailyActivity[]}.
         // The `days` field is the integer query param echo, NOT the records.
@@ -178,7 +163,6 @@ export function Home() {
         ),
       ]);
       if (!alive) return;
-      setReadiness(r);
       setStreak(s);
       const records = Array.isArray(a?.activity) ? a!.activity : [];
       setWeekActivity(records.slice(-7));
@@ -224,6 +208,20 @@ export function Home() {
     return () => { alive = false; };
   }, [user?.id]);
 
+  // Per-exam readiness/attention summaries (fetched once exams are known)
+  useEffect(() => {
+    if (!user?.id || enrolledExams.length === 0) return;
+    let alive = true;
+    (async () => {
+      const map = await fetchMultiExamSummary(
+        user.id,
+        enrolledExams.map((e) => e.examId),
+      );
+      if (alive) setExamSummaries(map);
+    })();
+    return () => { alive = false; };
+  }, [user?.id, enrolledExams]);
+
   /* ── Derived values ─────────────────────────────────────── */
 
   const greeting = useMemo(() => greetTime(), []);
@@ -241,6 +239,11 @@ export function Home() {
   const minutesThisWeek = weekActivity.reduce((acc, d) => acc + d.minutes, 0);
 
   const subjectRows = useMemo(() => groupBySubject(mastery), [mastery]);
+  const topicTitles = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const t of mastery) m[t.topicId] = t.title;
+    return m;
+  }, [mastery]);
   const masteryIndex = useMemo(() => {
     if (!mastery.length) return null;
     const sum = mastery.reduce((acc, t) => acc + t.ewa, 0);
@@ -261,39 +264,6 @@ export function Home() {
   );
   const planDone = plan.filter((p) => p.done).length;
 
-  const examShort = exam?.code ?? "NEET";
-  const score = readiness?.score ?? 0;
-  const readinessScaled = Math.round(score * 900);
-
-  // Multi-exam fork: the same /home route renders the "Three pursuits
-  // in motion" surface when the user has 2+ enrolled exams. Drops back
-  // to the single-exam Master Dashboard for 0-1 exams.
-  if (enrolledCatalog.length >= 2) {
-    const tracks = buildTracksFromExams(enrolledCatalog);
-    const trackCount = tracks.length;
-    return (
-      <VidyaShell
-        crumbs="All tracks · overview"
-        title={`${trackCount} pursuits in motion.`}
-        subtitle={
-          tracks.map((t) => t.code).join(" + ") +
-          ". AI re-allocates time daily."
-        }
-        actions={
-          <button className="vidya-shell__primary">
-            ⚡ Auto-balance plan
-          </button>
-        }
-      >
-        <QuickActions
-          firstExamId={enrolledCatalog[0]?.id}
-          nextBestTopicId={nextBest?.topicId}
-        />
-        <MultiTrackBody tracks={tracks} />
-      </VidyaShell>
-    );
-  }
-
   return (
     <VidyaShell
       crumbs="Home"
@@ -306,25 +276,8 @@ export function Home() {
       }
     >
       <div className="vidya-grid-3">
-        {/* Hero readiness card */}
-        <section className="vidya-hero" aria-labelledby="hero-readiness">
-          <p className="vidya-hero__eyebrow" id="hero-readiness">
-            {examShort} Readiness · AI estimate
-          </p>
-          <div className="vidya-hero__number">
-            {readinessScaled || "—"}
-            <span className="vidya-hero__number-unit">/ 900</span>
-          </div>
-          <div className="vidya-hero__meta-row">
-            <span className="vidya-hero__delta">▲ +18 this week</span>
-            <span className="vidya-hero__theta">θ = +0.79</span>
-          </div>
-          <p className="vidya-hero__caption" style={{ marginTop: "var(--sp-4)" }}>
-            {readinessScaled
-              ? `${percentile(score)} percentile · projection Exam Day (${exam?.subtitle ?? "May 2027"})`
-              : "Practice 10 more questions to see your readiness."}
-          </p>
-        </section>
+        {/* Hero readiness — per-exam carousel */}
+        <ReadinessCarousel exams={enrolledExams} summaries={examSummaries} />
 
         {/* Next Best Action */}
         <section className="vidya-nba">
@@ -398,9 +351,10 @@ export function Home() {
         </section>
       </div>
 
-      <QuickActions
-        firstExamId={profile?.exams?.[0]?.examId}
-        nextBestTopicId={nextBest?.topicId}
+      <ExamAttentionCards
+        exams={enrolledExams}
+        summaries={examSummaries}
+        topicTitles={topicTitles}
       />
 
       {/* 4 KPI tiles */}
@@ -557,14 +511,6 @@ function greetTime(): string {
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
   return "Good evening";
-}
-
-function percentile(score: number): string {
-  if (!score) return "—";
-  // Simple monotonic mapping for the headline; the real number comes
-  // from /api/v1/analytics/percentile once that endpoint lands.
-  const p = Math.min(99, Math.round(50 + score * 36));
-  return `${p}th`;
 }
 
 function pickNextBest(mastery: TopicCard[]): TopicCard | null {
