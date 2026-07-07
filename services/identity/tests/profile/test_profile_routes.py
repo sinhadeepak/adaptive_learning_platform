@@ -80,6 +80,27 @@ async def test_get_me_lazy_creates_profile(client: AsyncClient, clean_db: None) 
     assert body["exams"] == []
 
 
+async def test_get_me_exposes_goal_target_rank(client: AsyncClient, clean_db: None) -> None:
+    """GET /profile/me surfaces the goal target rank/date so the exam
+    dashboard can render a real Goal Targets card instead of a stub."""
+    uid = "00000000-0000-0000-0000-00000000000a"
+    # Cold profile → goal fields are null.
+    r0 = await client.get("/profile/me", headers=_auth_header(uid))
+    assert r0.status_code == 200
+    assert r0.json()["targetRank"] is None
+    # Set a goal via PATCH /me/goals, then confirm GET /me reflects it.
+    rp = await client.patch(
+        "/profile/me/goals",
+        headers=_auth_header(uid),
+        json={"targetRank": 1500},
+    )
+    assert rp.status_code == 200
+    assert rp.json()["targetRank"] == 1500
+    r1 = await client.get("/profile/me", headers=_auth_header(uid))
+    assert r1.status_code == 200
+    assert r1.json()["targetRank"] == 1500
+
+
 async def test_patch_me_updates_names(client: AsyncClient, clean_db: None) -> None:
     uid = "00000000-0000-0000-0000-000000000002"
     r = await client.patch(
