@@ -230,8 +230,13 @@ export function ExamDetail() {
       try {
         const r = await auth.fetch("/api/v1/catalog/exams");
         if (r.ok && alive) {
-          const data = (await r.json()) as { exams?: ExamMeta[] | null };
-          const list = Array.isArray(data.exams) ? data.exams : [];
+          // /catalog/exams returns a bare array; tolerate a {exams:[]} wrapper too.
+          const data = (await r.json()) as ExamMeta[] | { exams?: ExamMeta[] | null };
+          const list = Array.isArray(data)
+            ? data
+            : Array.isArray(data.exams)
+              ? data.exams
+              : [];
           setExam(list.find((e) => e.id === examId) ?? null);
         }
       } catch { /* offline */ }
@@ -319,8 +324,13 @@ export function ExamDetail() {
       try {
         const subRes = await auth.fetch(`/api/v1/catalog/exams/${examId}/subjects`);
         if (!subRes.ok || !alive) return;
-        const subBody = (await subRes.json()) as { subjects?: Subject[] | null };
-        const subList = Array.isArray(subBody.subjects) ? subBody.subjects : [];
+        // Endpoint returns a bare array; tolerate a {subjects:[]} wrapper too.
+        const subBody = (await subRes.json()) as Subject[] | { subjects?: Subject[] | null };
+        const subList = Array.isArray(subBody)
+          ? subBody
+          : Array.isArray(subBody.subjects)
+            ? subBody.subjects
+            : [];
         if (alive) setSubjects(subList);
 
         const mRes = await auth.fetch(`/api/v1/analytics/mastery/${user.id}`);
@@ -336,8 +346,14 @@ export function ExamDetail() {
             try {
               const tr = await auth.fetch(`/api/v1/catalog/subjects/${s.id}/topics`);
               if (tr.ok) {
-                const td = (await tr.json()) as { topics?: Array<{ id: string; title: string }> | null };
-                const ts = Array.isArray(td.topics) ? td.topics : [];
+                // Endpoint returns a bare array; tolerate a {topics:[]} wrapper too.
+                type TopicRow = { id: string; title: string };
+                const td = (await tr.json()) as TopicRow[] | { topics?: TopicRow[] | null };
+                const ts = Array.isArray(td)
+                  ? td
+                  : Array.isArray(td.topics)
+                    ? td.topics
+                    : [];
                 for (const t of ts) {
                   const m = masteryByTopic.get(t.id);
                   all.push({

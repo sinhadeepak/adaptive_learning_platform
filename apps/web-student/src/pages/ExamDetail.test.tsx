@@ -84,13 +84,22 @@ const fetchMock = vi.fn(async (path: string) => {
   if (path === "/api/v1/profile/mock-attempts") {
     return json({ items: mockAttempts });
   }
+  // Catalog endpoints return BARE ARRAYS (matching the real API shape).
   if (path === "/api/v1/catalog/exams") {
-    return json({ exams: [{ id: "e1", code: "NEET", name: "NEET UG" }] });
+    return json([{ id: "e1", code: "NEET", name: "NEET UG" }]);
   }
-  // subjects / mastery / topics / sessions / blueprints → empty-ish OK.
-  if (path.includes("/subjects")) return json({ subjects: [] });
+  if (path === "/api/v1/catalog/exams/e1/subjects") {
+    return json([
+      { id: "s1", examId: "e1", name: "Physics", topicCount: 2 },
+    ]);
+  }
+  if (path === "/api/v1/catalog/subjects/s1/topics") {
+    return json([
+      { id: "t1", subjectId: "s1", title: "Kinematics" },
+      { id: "t2", subjectId: "s1", title: "Thermodynamics" },
+    ]);
+  }
   if (path.includes("/analytics/mastery/")) return json({ topics: [] });
-  if (path.includes("/topics")) return json({ topics: [] });
   return json({ items: [] });
 });
 
@@ -140,6 +149,25 @@ describe("ExamDetail — honest data", () => {
     await waitFor(() =>
       expect(screen.getByText(/Rank 2,500/)).toBeInTheDocument(),
     );
+  });
+
+  test("subject-derived cards populate from bare-array catalog responses", async () => {
+    // Regression: the catalog endpoints return bare arrays, not {subjects:[]}.
+    // A wrapper-only parse left subjects/topics empty, blanking the Goal bars
+    // and the AI weekly plan.
+    renderPage();
+    // AI weekly plan shows the real weakest subject, not the empty diagnostic prompt.
+    await waitFor(() =>
+      expect(screen.getByText(/of next 7 days/i)).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText(/Complete your diagnostic/i),
+    ).not.toBeInTheDocument();
+    // Goal targets shows subject bars, not the "add topics" empty state.
+    expect(
+      screen.queryByText(/Add topics from the study map/i),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Physics/i).length).toBeGreaterThan(0);
   });
 
   test("Projected rank comes from the latest scored mock attempt", async () => {
