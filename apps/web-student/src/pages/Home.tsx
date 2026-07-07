@@ -115,12 +115,14 @@ export function Home() {
           auth.fetch("/api/v1/catalog/exams"),
         ]);
         if (!alive) return;
-        if (profileRes.ok) {
-          const data = (await profileRes.json()) as Profile;
-          setProfile(data);
-        }
-        if (profileRes.ok && examsRes.ok) {
-          const profileData = (await profileRes.clone().json()) as Profile;
+        // Parse the profile body ONCE — a Response body can only be read a
+        // single time, so re-reading via clone() after .json() throws
+        // "Body already used" and silently drops the enrolled-exam list.
+        const profileData = profileRes.ok
+          ? ((await profileRes.json()) as Profile)
+          : null;
+        if (profileData) setProfile(profileData);
+        if (profileData && examsRes.ok) {
           const examsBody = (await examsRes.json()) as
             | MultiExamMeta[]
             | { exams?: MultiExamMeta[] | null };
