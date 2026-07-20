@@ -95,8 +95,13 @@ export function Analysis() {
       try {
         const sr = await auth.fetch(`/api/v1/catalog/exams/${examId}/subjects`);
         if (!sr.ok || !alive) return;
-        const sBody = (await sr.json()) as { subjects?: Subject[] | null };
-        const subs = Array.isArray(sBody.subjects) ? sBody.subjects : [];
+        // /catalog/exams/{id}/subjects returns a bare array; tolerate a wrapper.
+        const sBody = (await sr.json()) as Subject[] | { subjects?: Subject[] | null };
+        const subs = Array.isArray(sBody)
+          ? sBody
+          : Array.isArray(sBody.subjects)
+            ? sBody.subjects
+            : [];
         if (alive) {
           setSubjects(subs);
           setActiveSubjectId((cur) => cur ?? subs[0]?.id ?? null);
@@ -116,8 +121,13 @@ export function Analysis() {
             try {
               const tr = await auth.fetch(`/api/v1/catalog/subjects/${s.id}/topics`);
               if (tr.ok) {
-                const td = (await tr.json()) as { topics?: Topic[] | null };
-                const ts = Array.isArray(td.topics) ? td.topics : [];
+                // /catalog/subjects/{id}/topics returns a bare array; tolerate a wrapper.
+                const td = (await tr.json()) as Topic[] | { topics?: Topic[] | null };
+                const ts = Array.isArray(td)
+                  ? td
+                  : Array.isArray(td.topics)
+                    ? td.topics
+                    : [];
                 for (const t of ts) {
                   const m = masteryMap.get(t.id);
                   all.push({

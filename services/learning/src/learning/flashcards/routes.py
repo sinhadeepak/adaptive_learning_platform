@@ -35,6 +35,7 @@ import httpx
 import logging
 
 _xp_log = logging.getLogger("flashcards.xp")
+log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["flashcards"])
 
@@ -214,6 +215,83 @@ async def list_community_decks(
             for r in rows
         ],
     }
+
+
+@router.get("/content/decks/recommended")
+async def list_recommended_decks(
+    session: SessionDep,
+    principal: PrincipalDep,
+    limit: int = Query(12, ge=1, le=50),
+) -> dict:
+    """Published community decks for the caller's WEAKEST topics, ranked so the
+    topics you're worst at (and that have a deck) come first — a fast on-ramp
+    from "I'm weak here" to "here's a deck to drill it". Weakness comes from the
+    engagement mastery signal; ties break on deck popularity."""
+    # Caller's mastery (weakest-first). Best-effort: no mastery yet → no recs.
+    try:
+        from learning.adaptive.clients import fetch_mastery
+
+        mastery = await fetch_mastery(principal.user_id)
+    except Exception:
+        log.warning("recommended_decks.mastery_fetch_failed user=%s", principal.user_id)
+        mastery = []
+
+    # Weak = mastery below "comfortable" (0.6); take the weakest handful to scope
+    # the deck query. Unknown/never-attempted (ewa 0) counts as weak.
+    weak = sorted(
+        (m for m in mastery if float(m.get("ewa", 0.0)) < 0.6),
+        key=lambda m: float(m.get("ewa", 0.0)),
+    )[:20]
+    ewa_by_topic = {m["topicId"]: float(m.get("ewa", 0.0)) for m in weak}
+    weak_ids = list(ewa_by_topic.keys())
+    if not weak_ids:
+        return {"items": []}
+
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT id::text, owner_user_id::text, title, description,
+                       topic_id::text, language, created_at::text,
+                       (SELECT COUNT(*) FROM content_schema.flashcards c
+                         WHERE c.deck_id = d.id) AS n_cards,
+                       (SELECT COUNT(*) FROM content_schema.deck_subscriptions s
+                         WHERE s.deck_id = d.id) AS n_subscribers
+                  FROM content_schema.decks d
+                 WHERE status = 'PUBLISHED' AND visibility = 'PUBLIC'
+                   AND topic_id = ANY(CAST(:tids AS uuid[]))
+                """
+            ),
+            {"tids": weak_ids},
+        )
+    ).mappings().all()
+
+    def _reason(ewa: float) -> str:
+        if ewa <= 0.0:
+            return "You haven't started this topic yet"
+        if ewa < 0.4:
+            return f"You're weak here (mastery {ewa:.0%})"
+        return f"Room to grow (mastery {ewa:.0%})"
+
+    items = [
+        {
+            "id": r["id"],
+            "ownerUserId": r["owner_user_id"],
+            "title": r["title"],
+            "description": r["description"],
+            "topicId": r["topic_id"],
+            "language": r["language"],
+            "createdAt": r["created_at"],
+            "nCards": int(r["n_cards"]),
+            "nSubscribers": int(r["n_subscribers"]),
+            "topicEwa": ewa_by_topic.get(r["topic_id"], 0.0),
+            "reason": _reason(ewa_by_topic.get(r["topic_id"], 0.0)),
+        }
+        for r in rows
+    ]
+    # Weakest topic first; break ties on popularity so a well-loved deck wins.
+    items.sort(key=lambda d: (d["topicEwa"], -d["nSubscribers"]))
+    return {"items": items[:limit]}
 
 
 @router.get("/content/decks/{deck_id}")

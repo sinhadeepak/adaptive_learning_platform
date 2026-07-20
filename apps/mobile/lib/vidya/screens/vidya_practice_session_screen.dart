@@ -24,6 +24,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/api_client.dart';
 import '../../quiz/content_language_helper.dart';
+import '../../quiz/polymorphic_renderer.dart';
 import '../../quiz/quiz_client.dart';
 
 /// Practice session mode. v1 only ships PRACTICE (Quick mode). The
@@ -31,15 +32,20 @@ import '../../quiz/quiz_client.dart';
 /// parameterise this enum further (e.g. add subjectId, switch to MOCK).
 enum QuizSessionMode {
   practice,
+  mistakes,
   mock;
 
   String get wireName => switch (this) {
         QuizSessionMode.practice => 'PRACTICE',
+        // Mistake-replay is a PRACTICE-mode session pre-loaded server-side
+        // with the user's recent wrong answers (via startMistakeReplay).
+        QuizSessionMode.mistakes => 'PRACTICE',
         QuizSessionMode.mock => 'MOCK',
       };
 
   String get eyebrow => switch (this) {
         QuizSessionMode.practice => 'PRACTICE · Quick',
+        QuizSessionMode.mistakes => 'PRACTICE · Mistakes',
         QuizSessionMode.mock => 'MOCK',
       };
 }
@@ -72,6 +78,12 @@ class VidyaPracticeSessionScreen extends StatefulWidget {
   final String topicId;
   final String userId;
 
+  /// When set, resume an existing IN_PROGRESS session instead of starting a
+  /// new one — the screen skips `start()` and continues straight from
+  /// `next()` (the server returns the unanswered item). Used by the
+  /// "Continue where you left off" resume surface.
+  final String? resumeSessionId;
+
   const VidyaPracticeSessionScreen({
     super.key,
     required this.client,
@@ -81,6 +93,7 @@ class VidyaPracticeSessionScreen extends StatefulWidget {
     required this.onBack,
     required this.topicId,
     required this.userId,
+    this.resumeSessionId,
   });
 
   @override
@@ -93,6 +106,10 @@ class _VidyaPracticeSessionScreenState
   String? _sessionId;
   QuizItem? _item;
   int? _selectedIdx;
+  // Structured renderer value for non-MCQ types. This is exactly the map
+  // the grader expects as `responsePayload` — the PolymorphicRenderer
+  // emits it via onChange and we forward it verbatim on submit.
+  dynamic _response;
   bool _submitting = false;
   String? _error;
   DateTime? _started;
@@ -110,22 +127,40 @@ class _VidyaPracticeSessionScreenState
       _item = null;
       _sessionId = null;
       _selectedIdx = null;
+      _response = null;
     });
     try {
-      final api = ApiClient(widget.client.auth);
-      final langField = await contentLanguageField(api);
-      final start = await widget.client.start(
-        topicId: widget.topicId,
-        userId: widget.userId,
-        mode: widget.mode.wireName,
-        extraFields: langField,
-      );
+      // Resume path: re-enter an existing session; the server's /next
+      // returns the unanswered item, so no new session is created.
+      if (widget.resumeSessionId != null) {
+        _sessionId = widget.resumeSessionId;
+        _started = DateTime.now();
+        await _fetchNext();
+        return;
+      }
+      final QuizSessionStart start;
+      if (widget.mode == QuizSessionMode.mistakes) {
+        // Mistake-replay pulls the user's recent wrong answers server-side;
+        // topicId is unused. Empty-state (no mistakes yet) surfaces as a
+        // QuizError(emptyTopic) → the Retry banner below.
+        start = await widget.client.startMistakeReplay(userId: widget.userId);
+      } else {
+        final api = ApiClient(widget.client.auth);
+        final langField = await contentLanguageField(api);
+        start = await widget.client.start(
+          topicId: widget.topicId,
+          userId: widget.userId,
+          mode: widget.mode.wireName,
+          extraFields: langField,
+        );
+      }
       _sessionId = start.sessionId;
       _started = DateTime.now();
       await _fetchNext();
     } on QuizError catch (e) {
       if (mounted) {
-        setState(() => _error = "We couldn't start your practice. ${e.message}");
+        setState(
+            () => _error = "We couldn't start your practice. ${e.message}");
       }
     } catch (_) {
       if (mounted) setState(() => _error = "We couldn't start your practice.");
@@ -143,6 +178,7 @@ class _VidyaPracticeSessionScreenState
       setState(() {
         _item = result.item;
         _selectedIdx = null;
+        _response = null;
       });
     } on QuizError catch (e) {
       if (e.code == QuizErrorCode.sessionDone) {
@@ -151,7 +187,8 @@ class _VidyaPracticeSessionScreenState
         return;
       }
       if (mounted) {
-        setState(() => _error = "We couldn't load the next question. ${e.message}");
+        setState(
+            () => _error = "We couldn't load the next question. ${e.message}");
       }
     } catch (_) {
       if (mounted) {
@@ -160,20 +197,43 @@ class _VidyaPracticeSessionScreenState
     }
   }
 
+  /// Whether the current item has enough input to submit. MCQ needs a
+  /// selected choice; every other type needs the renderer to have emitted
+  /// a non-null response payload.
+  bool get _canSubmit {
+    final item = _item;
+    if (item == null) return false;
+    return item.isMcq ? _selectedIdx != null : _response != null;
+  }
+
   Future<void> _submit() async {
-    if (_selectedIdx == null || _submitting || _item == null || _sessionId == null) {
+    if (!_canSubmit || _submitting || _sessionId == null) {
       return;
     }
+    final item = _item!;
     setState(() {
       _error = null;
       _submitting = true;
     });
     try {
-      await widget.client.answer(
-        _sessionId!,
-        itemIdx: _item!.itemIdx,
-        answerIdx: _selectedIdx!,
-      );
+      if (item.isMcq) {
+        await widget.client.answer(
+          _sessionId!,
+          itemIdx: item.itemIdx,
+          answerIdx: _selectedIdx!,
+        );
+      } else {
+        // Non-MCQ: the renderer's value IS the grader payload. answerIdx is
+        // ignored server-side for typed grading (canonical for MCQ only).
+        await widget.client.answer(
+          _sessionId!,
+          itemIdx: item.itemIdx,
+          answerIdx: 0,
+          responsePayload: _response is Map<String, dynamic>
+              ? _response as Map<String, dynamic>
+              : <String, dynamic>{'value': _response},
+        );
+      }
       await _fetchNext();
     } on QuizError catch (e) {
       if (mounted) {
@@ -277,9 +337,8 @@ class _VidyaPracticeSessionScreenState
     final q = _item!;
     final currentNumber = q.itemIdx + 1;
     final total = widget.questionCount;
-    final progressValue = total > 0
-        ? (currentNumber / total).clamp(0.0, 1.0)
-        : 0.0;
+    final progressValue =
+        total > 0 ? (currentNumber / total).clamp(0.0, 1.0) : 0.0;
 
     return VidyaScaffold(
       appBar: VidyaAppBar(
@@ -332,67 +391,22 @@ class _VidyaPracticeSessionScreenState
             const SizedBox(height: 16),
             const _MetadataRow(),
             const SizedBox(height: 16),
-            Text(
-              q.stem,
-              style: TextStyle(
-                fontFamily: VidyaFonts.display,
-                fontSize: 22,
-                fontWeight: FontWeight.w500,
-                color: ink,
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: 20),
+            // MCQ_SINGLE / legacy items render the lettered-choice UI and
+            // submit answerIdx. Every other of the 29 question types renders
+            // through the PolymorphicRenderer (which owns its own stem) and
+            // submits a structured responsePayload. Mirrors web Quiz.tsx.
             Expanded(
-              child: ListView.separated(
-                itemCount: q.choices.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (ctx, i) {
-                  final selected = _selectedIdx == i;
-                  return VidyaCard(
-                    onTap: _submitting ? null : () => setState(() => _selectedIdx = i),
-                    tone: selected ? VidyaCardTone.accent : VidyaCardTone.defaultTone,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? accent
-                                  : muted.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              String.fromCharCode(65 + i),
-                              style: TextStyle(
-                                fontFamily: VidyaFonts.ui,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: selected ? Colors.white : ink,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              q.choices[i],
-                              style: TextStyle(
-                                fontFamily: VidyaFonts.ui,
-                                fontSize: 15,
-                                color: ink,
-                              ),
-                            ),
-                          ),
-                        ],
+              child: q.isMcq
+                  ? _buildMcqChoices(q, ink, muted, accent)
+                  : SingleChildScrollView(
+                      child: PolymorphicRenderer.build(
+                        typeId: q.questionType,
+                        payload: q.payload,
+                        value: _response,
+                        onChange: (v) => setState(() => _response = v),
+                        disabled: _submitting,
                       ),
                     ),
-                  );
-                },
-              ),
             ),
             // θ readout deferred to Phase 3c.full v4 (requires
             // /quiz/sessions/next to expose theta_estimate + next_q_b,
@@ -402,13 +416,87 @@ class _VidyaPracticeSessionScreenState
             VidyaButton(
               key: const Key('vidya.practice.session.submit'),
               label: _submitting ? 'Saving…' : 'Submit answer',
-              onPressed: _selectedIdx == null || _submitting ? null : _submit,
-              disabled: _selectedIdx == null || _submitting,
+              onPressed: !_canSubmit || _submitting ? null : _submit,
+              disabled: !_canSubmit || _submitting,
               size: VidyaButtonSize.lg,
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Lettered-choice MCQ body: the question stem followed by a scrollable
+  /// list of tappable choice cards. Used only for MCQ_SINGLE / legacy
+  /// items — all other types render via [PolymorphicRenderer].
+  Widget _buildMcqChoices(QuizItem q, Color ink, Color muted, Color accent) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          q.stem,
+          style: TextStyle(
+            fontFamily: VidyaFonts.display,
+            fontSize: 22,
+            fontWeight: FontWeight.w500,
+            color: ink,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Expanded(
+          child: ListView.separated(
+            itemCount: q.choices.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (ctx, i) {
+              final selected = _selectedIdx == i;
+              return VidyaCard(
+                onTap:
+                    _submitting ? null : () => setState(() => _selectedIdx = i),
+                tone:
+                    selected ? VidyaCardTone.accent : VidyaCardTone.defaultTone,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color:
+                              selected ? accent : muted.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          String.fromCharCode(65 + i),
+                          style: TextStyle(
+                            fontFamily: VidyaFonts.ui,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: selected ? Colors.white : ink,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          q.choices[i],
+                          style: TextStyle(
+                            fontFamily: VidyaFonts.ui,
+                            fontSize: 15,
+                            color: ink,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

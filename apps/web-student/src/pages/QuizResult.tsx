@@ -27,6 +27,7 @@ import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
 import { VidyaShell } from "../components/vidya/VidyaShell";
 import { TimeDistributionBars } from "../components/vidya/dashboardParts";
+import { ExplainCard } from "../components/ExplainCard";
 
 interface ItemSummary {
   itemIdx: number;
@@ -394,6 +395,7 @@ export function QuizResult() {
             sessionTopic={topic}
             sessionTopicMastery={mastery}
             topicTitles={topicTitles}
+            sessionId={sessionId}
           />
         ) : null}
 
@@ -486,6 +488,7 @@ interface QuestionDrawerProps {
   sessionTopic: Topic | null;
   sessionTopicMastery: { ewa: number; n: number } | null;
   topicTitles: Record<string, TopicSummary>;
+  sessionId: string;
 }
 
 function QuestionDrawer({
@@ -495,6 +498,7 @@ function QuestionDrawer({
   sessionTopic,
   sessionTopicMastery,
   topicTitles,
+  sessionId,
 }: QuestionDrawerProps) {
   const answerIdx = perQ?.answerIdx ?? item.answerIdx;
   const correctIdx = perQ?.correctIdx ?? item.correctIdx;
@@ -511,7 +515,7 @@ function QuestionDrawer({
     <>
       <div className="vidya-drawer__scrim" onClick={onClose} aria-hidden />
       <aside
-        className="vidya-drawer"
+        className="vidya-drawer vidya-drawer--wide"
         role="dialog"
         aria-modal="true"
         aria-label={`Question ${item.itemIdx + 1} detail`}
@@ -629,13 +633,32 @@ function QuestionDrawer({
           </section>
         ) : null}
 
-        {/* AI feedback — synthesized from the data we have */}
+        {/* Rich teaching note — per-option breakdown, theory, worked
+            example, and curated videos. Auto-loads for every reviewed
+            question (correct or wrong); the note is cached per-question on
+            the server so only the first viewer pays the LLM round-trip. */}
+        <ExplainCard
+          itemIdx={item.itemIdx}
+          questionId={item.questionId}
+          topicId={topicId ?? undefined}
+          stem={item.stem}
+          choices={item.choices}
+          correctIdx={correctIdx ?? undefined}
+          pickedIdx={answerIdx ?? undefined}
+          answered={item.answered}
+          isCorrect={item.isCorrect}
+          storedExplanation={item.explanation}
+          topicTitle={topicTitle}
+          sessionId={sessionId}
+          autoFetchOnCorrect
+        />
+
+        {/* Strategic note grounded in the student's own ability estimate —
+            complements the question-level teaching note above. */}
         <section className="vidya-drawer__feedback">
-          <div className="vidya-drawer__feedback-eyebrow">◆ Vidya AI feedback</div>
-          {item.explanation ? (
-            <p style={{ marginTop: 0 }}>{item.explanation}</p>
-          ) : null}
-          <p>{buildFeedback({ verdict, b, time, topicTitle, topicMastery: sessionTopicMastery })}</p>
+          <p style={{ marginTop: 0 }}>
+            {buildFeedback({ verdict, b, time, topicTitle, topicMastery: sessionTopicMastery })}
+          </p>
           <p className="vidya-drawer__feedback-meta">
             Backed by your θ on {topicTitle}{" "}
             {sessionTopicMastery

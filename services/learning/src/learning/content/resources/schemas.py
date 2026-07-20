@@ -8,7 +8,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
-ResourceType = Literal["youtube_video", "youtube_playlist", "url", "note"]
+ResourceType = Literal[
+    "youtube_video", "youtube_playlist", "url", "note", "document"
+]
 ResourceStatus = Literal["DRAFT", "IN_REVIEW", "PUBLISHED", "REJECTED", "REMOVED"]
 Difficulty = Literal["EASY", "MEDIUM", "HARD"]
 
@@ -42,7 +44,10 @@ class ResourceCreate(BaseModel):
     question_id: UUID | None = None
     resource_type: ResourceType = "youtube_video"
     external_id: str | None = Field(default=None, max_length=120)
-    url: str = Field(min_length=4, max_length=600)
+    # Optional at the schema layer: a 'document' row carries its location in
+    # doc_object_key and the server fills `url` from it. The validator below
+    # requires url for every non-document type.
+    url: str | None = Field(default=None, max_length=600)
     title: str = Field(min_length=1, max_length=300)
     description: str | None = Field(default=None, max_length=4000)
     channel_name: str | None = Field(default=None, max_length=200)
@@ -51,6 +56,14 @@ class ResourceCreate(BaseModel):
     language: str = Field(default="en", pattern="^(en|hi|ta|te|bn|mr)$")
     difficulty: Difficulty | None = None
     position: int = Field(default=0, ge=0)
+    # Document (PDF/file) fields — required only when resource_type='document'.
+    doc_object_key: str | None = Field(default=None, max_length=600)
+    doc_mime_type: str | None = Field(default=None, max_length=120)
+    doc_size_bytes: int | None = Field(default=None, ge=0)
+    doc_page_count: int | None = Field(default=None, ge=0)
+    # HMAC claim from /uploads/presign proving the caller uploaded
+    # doc_object_key. Required for resource_type='document'.
+    upload_claim: str | None = Field(default=None, max_length=300)
 
     @model_validator(mode="after")
     def _at_least_one_scope(self) -> "ResourceCreate":
@@ -58,6 +71,15 @@ class ResourceCreate(BaseModel):
             raise ValueError(
                 "Pass at least one of topic_id / concept_id / question_id."
             )
+        return self
+
+    @model_validator(mode="after")
+    def _document_or_url(self) -> "ResourceCreate":
+        if self.resource_type == "document":
+            if not self.doc_object_key:
+                raise ValueError("A 'document' resource requires doc_object_key.")
+        elif not self.url or len(self.url) < 4:
+            raise ValueError("url is required (min 4 chars) for non-document types.")
         return self
 
 
@@ -84,11 +106,59 @@ class ResourceDetail(BaseModel):
     approved_at: datetime | None
     review_notes: str | None
     is_available: bool
+    doc_object_key: str | None = None
+    doc_mime_type: str | None = None
+    doc_size_bytes: int | None = None
+    doc_page_count: int | None = None
 
 
 class ResourceList(BaseModel):
     items: list[ResourceDetail]
     total: int = 0
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Study Materials hub — exam-wide content tree + watch summary
+# ─────────────────────────────────────────────────────────────────────
+
+
+class TopicContent(BaseModel):
+    topic_id: UUID
+    topic_title: str
+    resources: list[ResourceDetail]
+    counts: dict[str, int] = Field(default_factory=dict)
+
+
+class SubjectContent(BaseModel):
+    subject_id: UUID
+    subject_name: str
+    topics: list[TopicContent]
+
+
+class ExamContentTree(BaseModel):
+    exam_id: UUID
+    subjects: list[SubjectContent]
+
+
+class ResourceWatchProgress(BaseModel):
+    furthestPositionSeconds: int = 0
+    resumePositionSeconds: int = 0
+    furthestPercent: int = 0
+    watched: bool = False
+
+
+class TopicWatchProgress(BaseModel):
+    minutesWatched: int = 0
+    resourcesWatched: int = 0
+    resourcesCompleted: int = 0
+    documentsCompleted: int = 0
+
+
+class WatchSummary(BaseModel):
+    user_id: UUID
+    exam_id: UUID
+    perResource: dict[str, ResourceWatchProgress] = Field(default_factory=dict)
+    perTopic: dict[str, TopicWatchProgress] = Field(default_factory=dict)
 
 
 class ReviewDecision(BaseModel):

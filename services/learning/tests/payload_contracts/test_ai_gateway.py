@@ -299,41 +299,69 @@ def test_gateway_template_touchpoint_must_match() -> None:
         )
 
 
-def test_gateway_scrubs_pii_before_call() -> None:
-    """PII in prompt_inputs must be scrubbed before reaching the provider."""
+class _CapturingStub(StubProvider):
+    """Stub that records the `user` payload the gateway forwards."""
 
-    class _CapturingStub(StubProvider):
-        def __init__(self):
-            super().__init__()
-            self.last_user: object = None
-            self.register_stub_response("_StubReport", {"is_ambiguous": False, "reason": ""})
+    def __init__(self):
+        super().__init__()
+        self.last_user: object = None
+        self.register_stub_response("_StubReport", {"is_ambiguous": False, "reason": ""})
 
-        async def complete(self, *, model, system, user, schema, max_tokens, timeout_ms):
-            self.last_user = user
-            return await super().complete(
-                model=model, system=system, user=user, schema=schema,
-                max_tokens=max_tokens, timeout_ms=timeout_ms,
-            )
+    async def complete(self, *, model, system, user, schema, max_tokens, timeout_ms):
+        self.last_user = user
+        return await super().complete(
+            model=model, system=system, user=user, schema=schema,
+            max_tokens=max_tokens, timeout_ms=timeout_ms,
+        )
 
-    cap = _CapturingStub()
+
+def _capturing_gateway(cap: _CapturingStub, touchpoint: str) -> AIGateway:
     reg = PromptRegistry()
-    reg._templates[("test_ambiguity", "1.0.0")] = PromptTemplate(
-        id="test_ambiguity",
+    reg._templates[("test_tpl", "1.0.0")] = PromptTemplate(
+        id="test_tpl",
         version="1.0.0",
-        touchpoint="quality_check",
-        system="check {stem}",
+        touchpoint=touchpoint,
+        system="ctx {stem}{topic}",
         output_schema="_StubReport",
     )
-    gw = AIGateway(routing=default_stub_config(), prompts=reg, providers={"stub": cap})
+    return AIGateway(routing=default_stub_config(), prompts=reg, providers={"stub": cap})
+
+
+def test_gateway_scrubs_pii_for_student_facing_touchpoint() -> None:
+    """PII in evaluation inputs (student answers) must be scrubbed pre-call."""
+    cap = _CapturingStub()
+    gw = _capturing_gateway(cap, touchpoint="evaluation")
     _run(
         gw.call(
-            touchpoint="quality_check",
-            prompt_template_id="test_ambiguity",
+            touchpoint="evaluation",
+            prompt_template_id="test_tpl",
             prompt_template_version="1.0.0",
-            prompt_inputs={"stem": "Email alice@example.com for help"},
+            prompt_inputs={"stem": "Email alice@example.com for help", "topic": ""},
             schema=_StubReport,
         )
     )
     user_str = str(cap.last_user)
     assert "alice@example.com" not in user_str
     assert "[EMAIL" in user_str
+
+
+def test_gateway_does_not_scrub_authoring_topic_titles() -> None:
+    """Regression: authoring inputs are curriculum taxonomy, not student PII.
+    Multi-word topic titles ("Chemical Bonding and Molecular Structure") must
+    reach the model INTACT — scrubbing them to "[NAME_1] and [NAME_2]" produced
+    non-contextual, placeholder-ridden questions."""
+    cap = _CapturingStub()
+    gw = _capturing_gateway(cap, touchpoint="authoring")
+    _run(
+        gw.call(
+            touchpoint="authoring",
+            prompt_template_id="test_tpl",
+            prompt_template_version="1.0.0",
+            prompt_inputs={"stem": "", "topic": "Chemical Bonding and Molecular Structure"},
+            schema=_StubReport,
+        )
+    )
+    user = cap.last_user
+    assert isinstance(user, dict)
+    assert user["topic"] == "Chemical Bonding and Molecular Structure"
+    assert "[NAME_" not in str(user)

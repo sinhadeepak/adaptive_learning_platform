@@ -78,6 +78,14 @@ type SessionItemEvent struct {
 	// ignore these fields.
 	StudentResponsePayload map[string]any `json:"student_response_payload,omitempty"`
 	Confidence             *float32       `json:"confidence,omitempty"`
+	// Phase 3.1 — answer context so engagement's Mistake Notebook can snapshot
+	// a self-contained card (what the student picked vs the right answer, the
+	// stem, and the explanation) without a cross-service fetch. omitempty keeps
+	// the historical payload for non-MCQ / pre-3.1 rows.
+	ChosenChoiceText  string `json:"chosen_choice_text,omitempty"`
+	CorrectChoiceText string `json:"correct_choice_text,omitempty"`
+	Stem              string `json:"stem,omitempty"`
+	Explanation       string `json:"explanation,omitempty"`
 }
 
 // JetStreamPublisher publishes to the QUIZ_EVENTS JetStream stream.

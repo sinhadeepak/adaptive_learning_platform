@@ -34,6 +34,13 @@ except Exception:  # pragma: no cover
 
 log = logging.getLogger(__name__)
 
+# Touchpoints whose prompt inputs can contain *student* PII and must therefore
+# be scrubbed before leaving the platform (per ADR-0019). Authoring,
+# quality_check, translation and embedding operate on curriculum / authored
+# content only — scrubbing them corrupts legitimate proper nouns, so they are
+# deliberately excluded.
+PII_SCRUB_TOUCHPOINTS = frozenset({"evaluation", "vision"})
+
 
 class AIGatewayError(Exception):
     """Raised when both primary + fallback fail. Calling handler
@@ -110,12 +117,23 @@ class AIGateway:
                 f"is for touchpoint {template.touchpoint!r}, not {touchpoint!r}"
             )
 
-        # Pre-call PII scrub.
-        scrub = scrub_payload(prompt_inputs)
-        system = template.render_system(scrub.payload)
+        # Pre-call PII scrub — ONLY for touchpoints whose inputs can carry
+        # student PII (grading a student's free-text answer, OCR of an
+        # uploaded doubt photo). Authoring / quality_check / translation /
+        # embedding operate on curriculum + authored content, whose multi-word
+        # proper nouns (topic titles like "Chemical Bonding and Molecular
+        # Structure", historical figures, scientific terms) MUST reach the
+        # model intact. The v1 name heuristic ("two Title-cased words") would
+        # otherwise corrupt them into "[NAME_1] and [NAME_2]", producing
+        # non-contextual, placeholder-ridden generations. See ADR-0019.
+        if touchpoint in PII_SCRUB_TOUCHPOINTS:
+            scrubbed_inputs = scrub_payload(prompt_inputs).payload
+        else:
+            scrubbed_inputs = prompt_inputs
+        system = template.render_system(scrubbed_inputs)
 
         # Hash the (template, scrubbed inputs) for audit + cache key.
-        input_hash = _hash_inputs(prompt_template_id, prompt_template_version, scrub.payload)
+        input_hash = _hash_inputs(prompt_template_id, prompt_template_version, scrubbed_inputs)
         call_id = str(uuid.uuid4())
         started = time.monotonic()
 
@@ -139,7 +157,7 @@ class AIGateway:
                 result = await provider.complete(
                     model=provider_cfg.model,
                     system=system,
-                    user=scrub.payload,
+                    user=scrubbed_inputs,
                     schema=schema,
                     max_tokens=provider_cfg.max_tokens,
                     timeout_ms=tp_routing.timeout_ms,

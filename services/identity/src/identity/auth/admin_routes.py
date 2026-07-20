@@ -10,11 +10,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-import jwt
+from alp_auth import AuthError
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from identity.auth.config import settings
 from identity.auth.db import get_session
 from identity.auth.repositories import UserRepo
 from identity.auth.schemas import Problem
@@ -48,9 +47,9 @@ async def require_platform_admin(
     token = authorization.split(" ", 1)[1].strip()
     try:
         claims = decode_token(token)
-    except jwt.PyJWTError as err:
+    except AuthError as err:
         raise _problem(
-            "invalid_token", str(err), http_status=status.HTTP_401_UNAUTHORIZED
+            err.code, err.message, http_status=status.HTTP_401_UNAUTHORIZED
         ) from err
     if claims.get("role") != "PLATFORM_ADMIN":
         raise _problem(

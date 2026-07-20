@@ -94,6 +94,9 @@ function buildNav(enrolledExams: ExamMeta[]): NavGroup[] {
         { href: "/experts", label: "AI Tutor", icon: <IconChat /> },
         { href: "/pyq", label: "PYQ Hub", icon: <IconArchive /> },
         { href: "/library", label: "Library", icon: <IconLibrary /> },
+        // "Study materials" intentionally NOT in the left nav — it is
+        // exam-scoped and reached from the exam dashboard's QuickActions
+        // ("Study materials" card → /exams/:examId/content).
         { href: "/doubts", label: "Doubts", icon: <IconQuestion /> },
         {
           href: "/exams/add",
@@ -109,6 +112,7 @@ function buildNav(enrolledExams: ExamMeta[]): NavGroup[] {
         { href: "/practice", label: "AI practice", icon: <IconBolt /> },
         { href: "/mocks", label: "Mock tests", icon: <IconTarget />, badge: 3 },
         { href: "/revision", label: "Quick revision", icon: <IconRefresh /> },
+        { href: "/mistakes", label: "Mistake Notebook", icon: <IconRefresh /> },
         { href: "/flashcards", label: "Flashcards", icon: <IconCards /> },
         { href: "/plan", label: "Plan", icon: <IconCalendar /> },
       ],
@@ -116,6 +120,7 @@ function buildNav(enrolledExams: ExamMeta[]): NavGroup[] {
     {
       heading: "Progress",
       items: [
+        { href: "/history", label: "History", icon: <IconClock /> },
         { href: "/analysis", label: "My analysis", icon: <IconChart /> },
         { href: "/insights", label: "Insights", icon: <IconSparkles /> },
         { href: "/syllabus", label: "Syllabus", icon: <IconLibrary /> },
@@ -303,7 +308,6 @@ export function VidyaShell({
                 [
                   { href: "/search",    label: "Search",   icon: <IconSearch /> },
                   { href: "/bookmarks", label: "Saved",    icon: <IconStar /> },
-                  { href: "/history",   label: "History",  icon: <IconClock /> },
                   { href: "/profile",   label: "Profile",  icon: <IconUser /> },
                   { href: "/settings",  label: "Settings", icon: <IconCog /> },
                 ] as const

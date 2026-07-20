@@ -8,12 +8,24 @@ from learning.adaptive.pacing import (
     days_to_exam,
     mocks_per_week_target,
     readiness_target_for_rank,
+    study_phase,
     trajectory_status,
     weekly_volume_minutes,
     weeks_to_exam,
 )
 
 TODAY = date(2026, 5, 1)
+
+
+def test_study_phase_bands() -> None:
+    assert study_phase(None) == "foundation"   # no target
+    assert study_phase(200) == "foundation"
+    assert study_phase(140) == "build"
+    assert study_phase(36) == "build"
+    assert study_phase(35) == "consolidate"
+    assert study_phase(8) == "consolidate"
+    assert study_phase(7) == "peak"
+    assert study_phase(0) == "peak"            # exam today/past
 
 
 def test_days_to_exam_handles_none() -> None:

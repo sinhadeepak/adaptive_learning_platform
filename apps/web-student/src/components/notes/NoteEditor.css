@@ -1,0 +1,10 @@
+.note-editor__canvas .ProseMirror {
+  font-family: var(--font-display);
+  font-size: 17px;
+  line-height: 1.7;
+  min-height: 320px;
+  outline: none;
+}
+.note-editor__canvas .ProseMirror img { max-width: 100%; border-radius: 8px; }
+.note-editor__toolbar { display: flex; gap: 6px; margin-bottom: 8px; }
+.note-editor__toolbar button { font-size: 13px; padding: 2px 8px; cursor: pointer; }

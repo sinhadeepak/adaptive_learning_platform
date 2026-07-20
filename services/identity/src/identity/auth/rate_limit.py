@@ -15,6 +15,7 @@ from fastapi import HTTPException, Request
 from redis.exceptions import RedisError
 
 from identity.auth import lockout
+from identity.auth.config import settings
 
 log = logging.getLogger(__name__)
 
@@ -33,12 +34,31 @@ OTP_RESEND = Limit("otp_resend", max_requests=3, window_seconds=5 * 60)
 PASSWORD_FORGOT = Limit("pw_forgot", max_requests=3, window_seconds=5 * 60)
 
 
-def _client_ip(request: Request) -> str:
-    # Behind nginx/CloudFront the upstream sets X-Forwarded-For; trust the leftmost (client).
-    fwd = request.headers.get("x-forwarded-for")
-    if fwd:
-        return fwd.split(",", 1)[0].strip()
+def _socket_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
+
+
+def _client_ip(request: Request) -> str:
+    """Derive the caller IP without trusting client-controlled header data.
+
+    ``X-Forwarded-For`` is ``client, proxy1, ..., proxyN`` where our own
+    reverse proxies append the peer they observed on the RIGHT. A client can
+    forge any number of left-hand entries, so we count `hops` entries in from
+    the right (each added by a trusted proxy) to reach the real client. If the
+    header is missing, shorter than expected, or trust is disabled, fall back
+    to the socket peer — which an attacker cannot spoof.
+    """
+    hops = settings.rate_limit_trusted_proxy_hops
+    if hops <= 0:
+        return _socket_ip(request)
+    fwd = request.headers.get("x-forwarded-for")
+    if not fwd:
+        return _socket_ip(request)
+    parts = [p.strip() for p in fwd.split(",") if p.strip()]
+    idx = len(parts) - hops
+    if 0 <= idx < len(parts):
+        return parts[idx]
+    return _socket_ip(request)
 
 
 async def enforce(limit: Limit, request: Request) -> None:

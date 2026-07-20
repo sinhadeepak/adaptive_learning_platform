@@ -9,11 +9,13 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
+from alp_auth import assert_secret_configured
 from alp_telemetry import TraceContextMiddleware
 from fastapi import FastAPI
 
 from marketplace import __version__
 from marketplace.booking_routes import admin_router, booking_router
+from marketplace.config import settings
 from marketplace.creator_routes import (
     course_router,
     creator_router,
@@ -26,10 +28,12 @@ from marketplace.lesson_routes import (
     mod_router,
 )
 from marketplace.routes import router as tutor_router
+from marketplace.security import JWT_SECRET
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    assert_secret_configured(JWT_SECRET, settings.environment)
     try:
         yield
     finally:

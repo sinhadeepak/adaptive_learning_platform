@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-import jwt
+from alp_auth import AuthError, decode_access_token
 from fastapi import Header, HTTPException, status
 
 from payment.config import settings
@@ -27,11 +27,11 @@ def current_principal(authorization: str | None = Header(default=None)) -> JwtPr
         )
     token = authorization[len("bearer "):].strip()
     try:
-        claims = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
-    except jwt.PyJWTError as e:
+        claims = decode_access_token(token, settings.jwt_secret)
+    except AuthError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "invalid_token", "message": str(e)},
+            detail={"code": e.code, "message": e.message},
         ) from e
     return JwtPrincipal(
         user_id=str(claims.get("sub", "")),

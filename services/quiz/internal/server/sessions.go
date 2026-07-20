@@ -1555,6 +1555,11 @@ func (svc *SessionService) Submit(logger *slog.Logger) http.HandlerFunc {
 						TopicID:     it.TopicID.String(),
 						IsCorrect:   it.IsCorrect,
 						TimeSpentMs: it.TimeSpentMs,
+						// Phase 3.1 — answer context for the Mistake Notebook.
+						ChosenChoiceText:  it.ChosenChoiceText,
+						CorrectChoiceText: it.CorrectChoiceText,
+						Stem:              it.Stem,
+						Explanation:       it.Explanation,
 					}
 					if it.SectionID != nil {
 						itemEv.SectionID = *it.SectionID

@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 import bcrypt
 import jwt
+from alp_auth import decode_access_token
 
 from identity.auth.config import settings
 
@@ -60,7 +61,11 @@ def issue_access_token(*, user_id: str, role: str, tenant_id: str | None, onboar
 
 
 def decode_token(token: str) -> dict[str, Any]:
-    return jwt.decode(token, settings.jwt_secret, algorithms=[ALGORITHM])
+    """Verify an access token via the shared verifier.
+
+    Raises :class:`alp_auth.AuthError` (not a raw ``PyJWTError``) and enforces
+    ``token_type == "access"`` like every other service now does."""
+    return decode_access_token(token, settings.jwt_secret)
 
 
 def generate_refresh_token() -> str:

@@ -16,6 +16,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import secrets
 from dataclasses import dataclass
 from typing import Annotated, Literal
 
@@ -98,6 +99,39 @@ async def get_principal(
         tenant_id=claims.get("tenant_id"),
         raw_claims=claims,
     )
+
+
+async def require_owner(
+    user_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+    x_internal_token: Annotated[str | None, Header()] = None,
+) -> Principal | None:
+    """Ownership gate for personal `/analytics/{user_id}` endpoints.
+
+    Two legitimate caller classes reach these endpoints:
+
+      * trusted peer services (learning's study-plan / personal-yield /
+        mission fan-outs) which call engagement directly and carry NO user
+        bearer — they present the shared `x-internal-token` instead;
+      * an authenticated end user reading their OWN data (or a platform admin).
+
+    Everything else is rejected: 401 when no usable credential is present,
+    403 when an authenticated user asks for a different `user_id`. This closes
+    the IDOR where any caller could read another student's analytics by
+    swapping the path id. Returns the resolved Principal for user calls, or
+    None for a trusted internal call.
+    """
+    expected = settings.internal_service_token
+    if x_internal_token and expected and secrets.compare_digest(x_internal_token, expected):
+        return None  # trusted service-to-service call
+    principal = await get_principal(authorization)  # raises 401 on missing/invalid bearer
+    if principal.user_id != user_id and principal.role.upper() != "PLATFORM_ADMIN":
+        raise _problem(
+            "forbidden",
+            "You can only access your own data.",
+            http_status=status.HTTP_403_FORBIDDEN,
+        )
+    return principal
 
 
 async def resolve_scope(

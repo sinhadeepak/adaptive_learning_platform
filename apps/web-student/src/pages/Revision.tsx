@@ -180,6 +180,23 @@ export function Revision() {
                         >
                           {bucket}
                         </span>
+                        {item.priorityReason && (
+                          <span
+                            title="Why this is near the top of your queue"
+                            style={{
+                              padding: "2px 8px",
+                              borderRadius: 9999,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              textTransform: "uppercase",
+                              letterSpacing: 0.4,
+                              color: "var(--accent, #A78BFA)",
+                              border: "1px solid var(--accent, #A78BFA)",
+                            }}
+                          >
+                            {item.priorityReason}
+                          </span>
+                        )}
                         <span>Interval {intervalLabel}</span>
                         <span style={{ color: "var(--ink-4)" }}>·</span>
                         <span>attempt {item.attempts}</span>
@@ -193,14 +210,36 @@ export function Revision() {
                         )}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      className="vidya-shell__primary"
-                      disabled={starting === item.topicId}
-                      onClick={() => startTopic(item.topicId)}
-                    >
-                      {starting === item.topicId ? "Starting…" : "Practice now →"}
-                    </button>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+                      <button
+                        type="button"
+                        className="vidya-shell__primary"
+                        disabled={starting === item.topicId}
+                        onClick={() => startTopic(item.topicId)}
+                      >
+                        {starting === item.topicId ? "Starting…" : "Practice now →"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/capsule/${item.topicId}?title=${encodeURIComponent(item.topicTitle || "")}`,
+                          )
+                        }
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "var(--accent, #A78BFA)",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                        title="Open a one-page AI summary of this topic"
+                      >
+                        📄 Revision capsule
+                      </button>
+                    </div>
                   </div>
                 );
               })}

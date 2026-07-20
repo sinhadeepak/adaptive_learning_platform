@@ -10,6 +10,7 @@
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, canAuthor, canReview } from "../lib/auth-provider";
+import { DraftJobsToaster } from "./DraftJobsToaster";
 import { ThemeToggle } from "./ThemeToggle";
 import type { TopbarChip } from "./Topbar";
 
@@ -51,6 +52,7 @@ export function AppShell({
 
   return (
     <div className="vidya-shell">
+      <DraftJobsToaster />
       <aside className="vidya-shell__sidebar" aria-label="Educator navigation">
         <Link to="/dashboard" className="vidya-shell__brand" aria-label="Vidya educator home">
           <span className="vidya-shell__brand-mark">V</span>

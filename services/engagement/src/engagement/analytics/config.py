@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     # Phase 1D-5 — Quiz service HTTP base for the mock-history fetch in
     # rank_trajectory.
     quiz_base_url: str = Field(default="http://quiz:8000")
+    # Shared secret sent on service-to-service calls into learning that
+    # don't carry a user bearer (watch-summary). Must match learning's
+    # INTERNAL_SERVICE_TOKEN.
+    internal_service_token: str = Field(
+        default="dev-internal-svc-token-change-me-32-bytes-minimum"
+    )
 
 
 settings = Settings()

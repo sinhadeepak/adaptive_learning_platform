@@ -10,6 +10,13 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
 import '../theme_mode_notifier.dart';
+import 'vidya_assignments_screen.dart';
+import 'vidya_bookmarks_screen.dart';
+import 'vidya_edit_profile_screen.dart';
+import 'vidya_history_screen.dart';
+import 'vidya_inbox_screen.dart';
+import 'vidya_notification_prefs_screen.dart';
+import 'vidya_tutor_chat_screen.dart';
 
 class VidyaMoreScreen extends StatefulWidget {
   final AuthClient auth;
@@ -82,7 +89,9 @@ class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
     } catch (_) {
       if (mounted) {
         // Roll back on failure.
-        setState(() => _lang = next == VidyaLang.hi ? VidyaLang.en : VidyaLang.hi);
+        setState(
+          () => _lang = next == VidyaLang.hi ? VidyaLang.en : VidyaLang.hi,
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Couldn't save. Try again.")),
         );
@@ -100,6 +109,11 @@ class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
 
   void _onThemeChanged() {
     if (mounted) setState(() {});
+  }
+
+  /// Pushes a native Vidya screen.
+  void _push(Widget Function(BuildContext) builder) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: builder));
   }
 
   Future<void> _loadFlag() async {
@@ -129,130 +143,242 @@ class _VidyaMoreScreenState extends State<VidyaMoreScreen> {
     final initial =
         firstName.isNotEmpty ? firstName.substring(0, 1).toUpperCase() : '?';
 
-    return ListView(
+    // SingleChildScrollView (not ListView) so every section builds
+    // eagerly — the hub is short and this keeps off-screen settings
+    // controls reachable (theme/language/sign-out) without lazy-build
+    // gaps. Section list grew with the engagement hub (Phase 3).
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-      children: [
-        Text(
-          'MORE',
-          style: TextStyle(
-            fontFamily: VidyaFonts.mono,
-            fontSize: 11,
-            color: v.ink3,
-            letterSpacing: 1.5,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _ProfileHeaderCard(
-          initial: initial,
-          firstName: firstName,
-          email: email,
-        ),
-        const SizedBox(height: 24),
-        if (widget.themeMode != null) ...[
-          _Section(
-            eyebrow: 'THEME',
-            child: _ThemePickerCard(
-              notifier: widget.themeMode!,
-              accent: v.accent,
-              ink: v.ink,
-              ink3: v.ink3,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'MORE',
+            style: TextStyle(
+              fontFamily: VidyaFonts.mono,
+              fontSize: 11,
+              color: v.ink3,
+              letterSpacing: 1.5,
             ),
           ),
           const SizedBox(height: 16),
-        ],
-        _Section(
-          eyebrow: 'LANGUAGE',
-          child: VidyaCard(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: VidyaLangToggle(
-                value: _lang,
-                onChanged: _setLanguage,
+          _ProfileHeaderCard(
+            initial: initial,
+            firstName: firstName,
+            email: email,
+          ),
+          const SizedBox(height: 24),
+          _Section(
+            eyebrow: 'ACTIVITY',
+            child: _NavGroup(
+              rows: [
+                _NavRow(
+                  icon: Icons.bookmark_outline,
+                  label: 'Bookmarks',
+                  onTap: () => _push(
+                    (_) => VidyaBookmarksScreen(auth: widget.auth),
+                  ),
+                ),
+                _NavRow(
+                  icon: Icons.history,
+                  label: 'History',
+                  onTap: () => _push(
+                    (_) => VidyaHistoryScreen(auth: widget.auth),
+                  ),
+                ),
+                _NavRow(
+                  icon: Icons.notifications_none,
+                  label: 'Notifications',
+                  onTap: () => _push(
+                    (_) => VidyaInboxScreen(auth: widget.auth),
+                  ),
+                ),
+                _NavRow(
+                  icon: Icons.help_outline,
+                  label: 'AI tutor',
+                  onTap: () => _push(
+                    (_) => VidyaTutorChatScreen(auth: widget.auth),
+                  ),
+                ),
+                _NavRow(
+                  icon: Icons.assignment_outlined,
+                  label: 'Assignments',
+                  onTap: () => _push(
+                    (_) => VidyaAssignmentsScreen(auth: widget.auth),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (widget.themeMode != null) ...[
+            _Section(
+              eyebrow: 'THEME',
+              child: _ThemePickerCard(
+                notifier: widget.themeMode!,
+                accent: v.accent,
+                ink: v.ink,
+                ink3: v.ink3,
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          _Section(
+            eyebrow: 'LANGUAGE',
+            child: VidyaCard(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: VidyaLangToggle(
+                  value: _lang,
+                  onChanged: _setLanguage,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        _Section(
-          eyebrow: 'DEVELOPER',
-          child: VidyaCard(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Use Aurora shell',
-                          style: TextStyle(
-                            fontFamily: VidyaFonts.ui,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: v.ink,
+          const SizedBox(height: 16),
+          _Section(
+            eyebrow: 'DEVELOPER',
+            child: VidyaCard(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Use Aurora shell',
+                            style: TextStyle(
+                              fontFamily: VidyaFonts.ui,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: v.ink,
+                            ),
                           ),
                         ),
-                      ),
-                      Switch(
-                        value: _useAuroraShell,
-                        onChanged: _toggleAuroraShell,
-                        activeColor: v.accent,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Switches the post-auth shell back to the legacy '
-                    'Aurora bottom-nav. Restart app to apply.',
-                    style: TextStyle(
-                      fontFamily: VidyaFonts.ui,
-                      fontSize: 12,
-                      color: v.ink3,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _Section(
-          eyebrow: 'ACCOUNT',
-          child: VidyaCard(
-            child: InkWell(
-              onTap: widget.onSignOut,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Sign out',
-                        style: TextStyle(
-                          fontFamily: VidyaFonts.ui,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: v.ink,
+                        Switch(
+                          value: _useAuroraShell,
+                          onChanged: _toggleAuroraShell,
+                          activeThumbColor: v.accent,
                         ),
-                      ),
+                      ],
                     ),
-                    Icon(
-                      Icons.chevron_right,
-                      color: v.ink3,
-                      size: 22,
+                    const SizedBox(height: 4),
+                    Text(
+                      'Switches the post-auth shell back to the legacy '
+                      'Aurora bottom-nav. Restart app to apply.',
+                      style: TextStyle(
+                        fontFamily: VidyaFonts.ui,
+                        fontSize: 12,
+                        color: v.ink3,
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          _Section(
+            eyebrow: 'ACCOUNT',
+            child: _NavGroup(
+              rows: [
+                _NavRow(
+                  icon: Icons.person_outline,
+                  label: 'Edit profile',
+                  onTap: () => _push(
+                    (_) => VidyaEditProfileScreen(auth: widget.auth),
+                  ),
+                ),
+                _NavRow(
+                  icon: Icons.tune,
+                  label: 'Notification preferences',
+                  onTap: () => _push(
+                    (_) => VidyaNotificationPrefsScreen(auth: widget.auth),
+                  ),
+                ),
+                _NavRow(
+                  icon: Icons.logout,
+                  label: 'Sign out',
+                  onTap: widget.onSignOut,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A card grouping several [_NavRow]s with hairline separators between
+/// them — the standard Vidya list-section visual.
+class _NavGroup extends StatelessWidget {
+  final List<_NavRow> rows;
+  const _NavGroup({required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return VidyaCard(
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            rows[i],
+            if (i != rows.length - 1)
+              Divider(
+                height: 1,
+                thickness: 1,
+                indent: 52,
+                color: v.ink3.withValues(alpha: 0.12),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A single tappable navigation row: leading icon, label, trailing
+/// chevron. Used by the More hub to reach the engagement/account screens.
+class _NavRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _NavRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: v.ink2),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: VidyaFonts.ui,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: v.ink,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right, color: v.ink3, size: 22),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

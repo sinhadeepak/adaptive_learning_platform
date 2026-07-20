@@ -19,6 +19,12 @@ from engagement.main import app
 from engagement.analytics.processing import process_session
 from engagement.analytics.streaks import compute_next_streak
 
+from engagement.analytics.config import settings as _settings
+# Internal-service token: these tests exercise endpoint LOGIC, so they
+# authenticate as a trusted peer service (post-IDOR-sweep the personal
+# /analytics/{user_id} endpoints require a bearer or this token).
+_ITOK = {"x-internal-token": _settings.internal_service_token}
+
 # ---- pure-function tests ---------------------------------------------------
 
 
@@ -211,7 +217,7 @@ async def test_same_day_two_sessions_dont_double_count() -> None:
 @pytest.mark.asyncio
 async def test_streak_endpoint_returns_zero_for_unknown_user() -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get(f"/analytics/streak/{uuid4()}")
+        resp = await client.get(f"/analytics/streak/{uuid4()}", headers=_ITOK)
     assert resp.status_code == 200
     body = resp.json()
     assert body["currentStreak"] == 0
@@ -234,7 +240,7 @@ async def test_streak_endpoint_returns_persisted_row() -> None:
         await session.commit()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get(f"/analytics/streak/{user}")
+        resp = await client.get(f"/analytics/streak/{user}", headers=_ITOK)
     body = resp.json()
     assert body["currentStreak"] == 1
     assert body["longestStreak"] == 1

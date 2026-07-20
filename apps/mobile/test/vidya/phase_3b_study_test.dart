@@ -11,14 +11,23 @@ import 'package:http/testing.dart';
 
 import 'package:adaptive_learning_mobile/auth/auth_client.dart';
 import 'package:adaptive_learning_mobile/vidya/screens/vidya_study_screen.dart';
+import 'package:adaptive_learning_mobile/vidya/state/active_exam_notifier.dart';
 
-Widget _harness(Widget child) => MaterialApp(
+// Study reads the active exam from the app-wide spine. Drive a real notifier
+// off the same mock so the enrolled exam under test resolves as the shell
+// would (empty userExams → no active exam → Study's empty state).
+Widget _harness(AuthClient auth, Widget child) => MaterialApp(
       theme: VidyaTheme.material(
         brightness: Brightness.light,
         persona: VidyaPersona.aspirant,
         density: VidyaDensity.regular,
       ),
-      home: Scaffold(body: child),
+      home: Scaffold(
+        body: VidyaActiveExam(
+          notifier: VidyaActiveExamNotifier(auth)..load(),
+          child: child,
+        ),
+      ),
     );
 
 String _sessionJson() => jsonEncode({
@@ -60,7 +69,10 @@ MockClient _studyMocks({
             'email': 'a@b.com',
           },
           'preferences': {'language': 'en'},
-          'exams': userExams ?? [{'examId': 'e1'}],
+          'exams': userExams ??
+              [
+                {'examId': 'e1'}
+              ],
         }),
         200,
         headers: {'content-type': 'application/json'},
@@ -116,7 +128,7 @@ void main() {
   group('VidyaStudyScreen — Phase 3b v1', () {
     testWidgets('renders STUDY eyebrow + active exam name', (tester) async {
       final auth = await _loggedInAuth(_studyMocks());
-      await tester.pumpWidget(_harness(VidyaStudyScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaStudyScreen(auth: auth)));
       await tester.pumpAndSettle();
       expect(find.text('STUDY'), findsOneWidget);
       expect(find.text('NEET UG'), findsOneWidget);
@@ -125,7 +137,7 @@ void main() {
     testWidgets('renders each subject as a card with name + topic count',
         (tester) async {
       final auth = await _loggedInAuth(_studyMocks());
-      await tester.pumpWidget(_harness(VidyaStudyScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaStudyScreen(auth: auth)));
       await tester.pumpAndSettle();
       expect(find.text('Physics'), findsOneWidget);
       expect(find.text('Chemistry'), findsOneWidget);
@@ -136,7 +148,7 @@ void main() {
     testWidgets('tapping a subject pushes VidyaSubjectDetailScreen',
         (tester) async {
       final auth = await _loggedInAuth(_studyMocks());
-      await tester.pumpWidget(_harness(VidyaStudyScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaStudyScreen(auth: auth)));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Physics'));
       await tester.pumpAndSettle();
@@ -151,14 +163,14 @@ void main() {
 
     testWidgets('empty state when user has no exams', (tester) async {
       final auth = await _loggedInAuth(_studyMocks(userExams: const []));
-      await tester.pumpWidget(_harness(VidyaStudyScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaStudyScreen(auth: auth)));
       await tester.pumpAndSettle();
       expect(find.textContaining('No exam selected'), findsOneWidget);
     });
 
     testWidgets('error state when subjects fetch fails', (tester) async {
       final auth = await _loggedInAuth(_studyMocks(failSubjects: true));
-      await tester.pumpWidget(_harness(VidyaStudyScreen(auth: auth)));
+      await tester.pumpWidget(_harness(auth, VidyaStudyScreen(auth: auth)));
       await tester.pumpAndSettle();
       expect(find.textContaining("couldn't load"), findsOneWidget);
       expect(find.text('Retry'), findsOneWidget);

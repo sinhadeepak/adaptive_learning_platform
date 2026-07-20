@@ -37,6 +37,8 @@ async def _clean_state() -> AsyncIterator[None]:
         await session.execute(text("TRUNCATE analytics_schema.processed_sessions"))
         await session.execute(text("TRUNCATE analytics_schema.streaks"))
         await session.execute(text("TRUNCATE analytics_schema.revision_queue"))
+        await session.execute(text("TRUNCATE analytics_schema.mistake_review_state"))
+        await session.execute(text("TRUNCATE analytics_schema.mistakes CASCADE"))
         await session.commit()
     yield
     await db.dispose()

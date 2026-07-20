@@ -28,19 +28,11 @@ from learning.adaptive import llm
 from learning.adaptive.config import settings
 
 log = logging.getLogger(__name__)
+from learning.adaptive import tutor_chat as _tutor_chat
 from learning.adaptive.authoring import generate_questions
 from learning.adaptive.doubt import solve_doubt
 from learning.adaptive.explain import explain_question
-from learning.adaptive.session_insights import generate_session_insights
-from learning.adaptive.weekly_narrative import (
-    generate_weekly_narrative,
-    get_current_week,
-)
-from learning.adaptive.mock import get_active_mock, plan_mock, score_mock
-from learning.adaptive.rank import project_rank
-from learning.adaptive.weakness import diagnose_weakness
-from learning.adaptive.lesson_recommender import recommend as _recommend_lesson
-from learning.adaptive import tutor_chat as _tutor_chat
+from learning.adaptive.flags import use_irt
 from learning.adaptive.irt import (
     CandidateItem,
     Item,
@@ -49,9 +41,17 @@ from learning.adaptive.irt import (
     fisher_information,
     select_mfi,
 )
-from learning.adaptive.flags import use_irt
-from learning.adaptive.tutor import stream_tutor_response
+from learning.adaptive.lesson_recommender import recommend as _recommend_lesson
+from learning.adaptive.mock import get_active_mock, plan_mock, score_mock
+from learning.adaptive.rank import project_rank
+from learning.adaptive.session_insights import generate_session_insights
 from learning.adaptive.study_plan import build_guided_next_steps, build_study_plan
+from learning.adaptive.tutor import stream_tutor_response
+from learning.adaptive.weakness import diagnose_weakness
+from learning.adaptive.weekly_narrative import (
+    generate_weekly_narrative,
+    get_current_week,
+)
 
 router = APIRouter()
 
@@ -230,8 +230,15 @@ async def ai_status() -> dict[str, bool | str]:
 async def get_study_plan(
     user_id: str,
     exam: str | None = Query(default=None, description="Exam code (e.g. NEET, JEE) to scope to."),
+    days_to_exam: int | None = Query(
+        default=None,
+        ge=0,
+        alias="daysToExam",
+        description="Days until the learner's target exam; tapers the plan "
+        "(broad coverage far out → PYQ + mistake replay + mocks near the exam).",
+    ),
 ) -> dict:
-    return await build_study_plan(user_id=user_id, exam_code=exam)
+    return await build_study_plan(user_id=user_id, exam_code=exam, days_to_exam=days_to_exam)
 
 
 async def _exam_code_for_id(exam_id: str) -> str | None:
@@ -261,13 +268,22 @@ async def get_guided_next_steps(
     user_id: str,
     exam: str | None = Query(default=None),
     exam_id: str | None = Query(default=None),
+    days_to_exam: int | None = Query(
+        default=None,
+        ge=0,
+        alias="daysToExam",
+        description="Days until the learner's target exam; tapers the suggested "
+        "next actions toward PYQ + mistake replay + mocks as the exam nears.",
+    ),
 ) -> dict:
     code = exam
     if exam_id:
         resolved = await _exam_code_for_id(exam_id)
         if resolved:
             code = resolved
-    return await build_guided_next_steps(user_id=user_id, exam_code=code)
+    return await build_guided_next_steps(
+        user_id=user_id, exam_code=code, days_to_exam=days_to_exam
+    )
 
 
 # ── Phase 1D-3 — Tutor chat history ────────────────────────────────────
@@ -743,14 +759,13 @@ def _decode_role_and_user(authorization: str | None) -> tuple[str | None, str | 
     if not authorization or not authorization.lower().startswith("bearer "):
         return None, None
     try:
-        import jwt as _jwt
+        from alp_auth import AuthError, decode_access_token
 
-        claims = _jwt.decode(
+        claims = decode_access_token(
             authorization[len("bearer "):].strip(),
             settings.jwt_secret,
-            algorithms=["HS256"],
         )
-    except Exception:  # noqa: BLE001
+    except AuthError:
         return None, None
     return claims.get("role"), claims.get("sub")
 
@@ -1049,7 +1064,8 @@ class WeeklyNarrativeRequest(BaseModel):
 @router.post("/adaptive/weekly-narrative/generate")
 async def post_weekly_narrative_generate(req: WeeklyNarrativeRequest) -> dict:
     """Generate (or read-through-cache) a weekly narrative."""
-    from datetime import date as _date, timedelta as _td
+    from datetime import date as _date
+    from datetime import timedelta as _td
 
     from learning.content.db import sessionmaker as _sm
 

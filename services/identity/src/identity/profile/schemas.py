@@ -72,6 +72,11 @@ class Profile(BaseModel):
     # (e.g., "streak.milestone"), value = enabled? Missing keys mean
     # enabled by default so new notification types ship unmuted.
     notificationPrefs: dict[str, bool] = {}
+    # Exam-prep goal (Sprint 30, set via PATCH /me/goals). Surfaced here so the
+    # exam dashboard's Goal Targets card renders the user's real target instead
+    # of a stub; null until the user sets one.
+    targetRank: int | None = None
+    targetExamDate: date | None = None
 
 
 class NotificationPrefsPatch(BaseModel):

@@ -24,110 +24,17 @@ contract change.
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
+# Shared logging — every absorbed module had its own configure_logging
+# function but the implementation is identical (structlog setup);
+# call one of them once.
+from alp_auth import assert_secret_configured
 from alp_telemetry import TraceContextMiddleware
 from fastapi import FastAPI
 
 from learning import __version__
-
-# catalog
-from learning.catalog.flags import close_flags as close_catalog_flags
-from learning.catalog.flags import connect_flags as connect_catalog_flags
-from learning.catalog.routes import router as catalog_router
-
-# Phase 5 (P5-S38) — Type Handler registry + grading endpoint
-from learning.grading.routes import router as grading_router
-from learning.types.bootstrap import register_all_v1_handlers
-
-# Phase 5 (P5-S40) — AI Authoring (depends on AI Gateway)
-from learning.ai_authoring.routes import router as ai_authoring_router
-from learning.ai_gateway import AIGateway, PromptRegistry, load_routing
-from learning.ai_gateway.routing import default_stub_config
-
-# Phase 5 (P5-S43) — Localisation (depends on AI Gateway)
-from learning.localisation.routes import router as localisation_router
-# Translation workbench — language registry CRUD
-from learning.localisation.language_routes import router as language_router
-# Translation workbench — batch engine HTTP routes
-from learning.localisation.batch_routes import router as batch_router
-
-# Phase 5 (P5-S51) — Type registry HTTP surface (CE-104)
-from learning.types.routes import router as types_router
-
-# Phase 5 (P5-S51) — Per-artifact translation routes (Cat §8.1, CE-401/402)
-from learning.content.translation_routes import router as content_translations_router
-
-# Phase 5 (P5-S57) — Human grader queue + cultural review queue
-from learning.grading.queue_routes import router as grader_queue_router
-from learning.localisation.cultural_routes import router as cultural_router
-
-# Phase 5 (P5-S62) — Whisper transcription pipeline
-from learning.transcription.routes import router as transcription_router
-
-# Phase 5 (P5-S63) — Reviewer staffing tracker
-from learning.localisation.staffing_routes import router as staffing_router
-
-# Phase 5 (P5-S45) — Admin cost dashboard
-from learning.ai_gateway.routes import router as ai_admin_router
-
-# Phase 5 (P5-S47) — Re-evaluation + calibration dashboard
-from learning.evaluation.routes import router as evaluation_router
-
-# exam blueprints (P4-S23)
-from learning.exam_blueprints.routes import router as exam_blueprints_router
-# Pillar A — Exam Intelligence System (Stream B Phase B1).
-from learning.exam_intel.routes import (
-    admin_router as exam_intel_admin_router,
-    router as exam_intel_router,
-)
-# Pillar B — Probabilistic Curriculum Engine (Stream B Phase B2).
-from learning.pce.routes import router as pce_router
-# Pillar D — Internal Guidance System (Stream B Phase B3).
-from learning.igs.routes import router as igs_router
-from learning.igs.stream import gateway as igs_gateway, ws_router as igs_ws_router
-from learning.igs import nats_subscriber as igs_nats_sub
-
-# PYQ catalog (P4-S24)
-from learning.pyq.routes import router as pyq_router
-
-# Concept prereq graph (P4-S26)
-from learning.prereqs.routes import router as prereqs_router
-
-# Syllabus tree (P4-S28) + topic references (P4-S34)
-from learning.syllabus.routes import (
-    references_router as syllabus_references_router,
-    router as syllabus_router,
-)
-
-# content
-from learning.content import events as content_events
-from learning.content import quiz_session_subscriber as content_quiz_sub
-from learning.content.assignments_routes import router as assignments_router
-from learning.content.db import dispose as dispose_content_db
-from learning.content.routes import router as content_router
-from learning.content.notes_routes import router as content_notes_router
-from learning.content.resources.routes import router as content_resources_router
-from learning.storage.routes import router as uploads_router  # P7 — uploads
-from learning.exam_builder.routes import router as exam_builder_router  # P7 — admin AI-assisted exam builder
-from learning.ai_providers.routes import router as ai_providers_router  # P7 — admin-managed multi-provider AI chain
-from learning.screening.routes import router as screening_router  # P6-S49
-from learning.mission.routes import router as mission_router        # P6-S50
-from learning.plans.routes import router as plans_router            # P6-S55
-from learning.recovery import router as recovery_router            # P6-S57
-
-# doubts
-from learning.doubts.db import dispose as dispose_doubts_db
-from learning.doubts.routes import router as doubts_router
-
-# search
-from learning.search.index import close as close_os_client
-from learning.search.index import client as os_client
-from learning.search.index import ensure_index
-from learning.search.reindex import reindex_all
-from learning.search.routes import router as search_router
-from learning.search.config import settings as search_settings
 
 # adaptive
 from learning.adaptive.flags import close_flags as close_adaptive_flags
@@ -135,11 +42,120 @@ from learning.adaptive.flags import connect_flags as connect_adaptive_flags
 from learning.adaptive.rate_limit import PhotoDoubtRateLimiter
 from learning.adaptive.routes import router as adaptive_router
 
-# Shared logging — every absorbed module had its own configure_logging
-# function but the implementation is identical (structlog setup);
-# call one of them once.
-from learning.catalog.logging import configure_logging
+# Phase 5 (P5-S40) — AI Authoring (depends on AI Gateway)
+from learning.ai_authoring.routes import router as ai_authoring_router
+from learning.ai_gateway import AIGateway, PromptRegistry, load_routing
 
+# Phase 5 (P5-S45) — Admin cost dashboard
+from learning.ai_gateway.routes import router as ai_admin_router
+from learning.ai_gateway.routing import default_stub_config
+from learning.ai_providers.routes import (
+    router as ai_providers_router,  # P7 — admin-managed multi-provider AI chain
+)
+from learning.catalog.config import settings as _catalog_settings
+
+# catalog
+from learning.catalog.flags import close_flags as close_catalog_flags
+from learning.catalog.flags import connect_flags as connect_catalog_flags
+from learning.catalog.logging import configure_logging
+from learning.catalog.routes import router as catalog_router
+
+# content
+from learning.content import events as content_events
+from learning.content import quiz_session_subscriber as content_quiz_sub
+from learning.content.assignments_routes import router as assignments_router
+from learning.content.db import dispose as dispose_content_db
+from learning.content.notes_routes import router as content_notes_router
+from learning.content.resources.routes import router as content_resources_router
+from learning.content.routes import router as content_router
+
+# Phase 5 (P5-S51) — Per-artifact translation routes (Cat §8.1, CE-401/402)
+from learning.content.translation_routes import router as content_translations_router
+from learning.content.revision_capsule_routes import router as revision_capsule_router
+from learning.content.user_notes_routes import router as user_notes_router
+
+# doubts
+from learning.doubts.db import dispose as dispose_doubts_db
+from learning.doubts.routes import router as doubts_router
+
+# Phase 5 (P5-S47) — Re-evaluation + calibration dashboard
+from learning.evaluation.routes import router as evaluation_router
+
+# exam blueprints (P4-S23)
+from learning.exam_blueprints.routes import router as exam_blueprints_router
+from learning.exam_builder.routes import (
+    router as exam_builder_router,  # P7 — admin AI-assisted exam builder
+)
+
+# Pillar A — Exam Intelligence System (Stream B Phase B1).
+from learning.exam_intel.routes import (
+    admin_router as exam_intel_admin_router,
+)
+from learning.exam_intel.routes import (
+    router as exam_intel_router,
+)
+
+# Phase 5 (P5-S57) — Human grader queue + cultural review queue
+from learning.grading.queue_routes import router as grader_queue_router
+
+# Phase 5 (P5-S38) — Type Handler registry + grading endpoint
+from learning.grading.routes import router as grading_router
+from learning.igs import nats_subscriber as igs_nats_sub
+
+# Pillar D — Internal Guidance System (Stream B Phase B3).
+from learning.igs.routes import router as igs_router
+from learning.igs.stream import gateway as igs_gateway
+from learning.igs.stream import ws_router as igs_ws_router
+
+# Translation workbench — batch engine HTTP routes
+from learning.localisation.batch_routes import router as batch_router
+from learning.localisation.cultural_routes import router as cultural_router
+
+# Translation workbench — language registry CRUD
+from learning.localisation.language_routes import router as language_router
+
+# Phase 5 (P5-S43) — Localisation (depends on AI Gateway)
+from learning.localisation.routes import router as localisation_router
+
+# Phase 5 (P5-S63) — Reviewer staffing tracker
+from learning.localisation.staffing_routes import router as staffing_router
+from learning.mission.routes import router as mission_router  # P6-S50
+
+# Pillar B — Probabilistic Curriculum Engine (Stream B Phase B2).
+from learning.pce.routes import router as pce_router
+from learning.plans.routes import router as plans_router  # P6-S55
+
+# Concept prereq graph (P4-S26)
+from learning.prereqs.routes import router as prereqs_router
+
+# PYQ catalog (P4-S24)
+from learning.pyq.routes import router as pyq_router
+from learning.recovery import router as recovery_router  # P6-S57
+from learning.screening.routes import router as screening_router  # P6-S49
+from learning.search.config import settings as search_settings
+from learning.search.index import client as os_client
+
+# search
+from learning.search.index import close as close_os_client
+from learning.search.index import ensure_index
+from learning.search.reindex import reindex_all
+from learning.search.routes import router as search_router
+from learning.storage.routes import router as uploads_router  # P7 — uploads
+
+# Syllabus tree (P4-S28) + topic references (P4-S34)
+from learning.syllabus.routes import (
+    references_router as syllabus_references_router,
+)
+from learning.syllabus.routes import (
+    router as syllabus_router,
+)
+
+# Phase 5 (P5-S62) — Whisper transcription pipeline
+from learning.transcription.routes import router as transcription_router
+from learning.types.bootstrap import register_all_v1_handlers
+
+# Phase 5 (P5-S51) — Type registry HTTP surface (CE-104)
+from learning.types.routes import router as types_router
 
 log = logging.getLogger(__name__)
 
@@ -150,13 +166,22 @@ async def _try(name: str, coro_factory) -> None:
     a flap in one shouldn't take down the whole service."""
     try:
         await coro_factory()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.warning("learning startup: %s skipped: %s", name, exc)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
+
+    # Fail closed if a non-local environment is still on the shared dev JWT
+    # secret. All learning sub-modules (catalog/content/doubts/search/adaptive)
+    # default to the same secret, so guarding the catalog config is
+    # representative; igs reads CONTENT_JWT_SECRET separately (also guarded).
+    assert_secret_configured(_catalog_settings.jwt_secret, _catalog_settings.environment)
+    from learning.igs.stream import _JWT_SECRET as _igs_secret
+
+    assert_secret_configured(_igs_secret, _catalog_settings.environment)
 
     # Phase 5 (P5-S38): register all Type Handlers + freeze registry.
     # Done before any traffic-serving connect. Sync call (not via
@@ -188,7 +213,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         from learning.types.subjective.handlers import set_singleton_gateway
 
         set_singleton_gateway(app.state.ai_gateway)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.warning("learning startup: ai_gateway not available: %s", exc)
         app.state.ai_gateway = None
 
@@ -197,6 +222,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # a fresh process boot. Best-effort — absorbed errors don't block.
     async def _hydrate_cost_tracker() -> None:
         import os
+
         from learning.ai_gateway.cost_dashboard import load_from_db
 
         db_url = os.environ.get("LEARNING_DATABASE_URL") or os.environ.get("DATABASE_URL") or ""
@@ -207,6 +233,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     await _try("ai_gateway.cost_hydrate", _hydrate_cost_tracker)
 
+    # Resume any bulk question-generation jobs left 'pending' by a previous
+    # process (restart / crash) — they continue from persisted progress so a
+    # large batch is never lost or falsely timed out across a deploy.
+    async def _resume_bulk_jobs() -> None:
+        gw = app.state.ai_gateway
+        if gw is None:
+            return
+        from learning.ai_authoring.routes import (
+            build_guardrail_engine,
+            resume_pending_bulk_jobs,
+        )
+
+        await resume_pending_bulk_jobs(gw, build_guardrail_engine(gw))
+
+    await _try("ai_authoring.resume_bulk_jobs", _resume_bulk_jobs)
+
     # P5-S62: register the Whisper transcription provider when an
     # OpenAI API key is set; fall back to the stub otherwise so the
     # /content/ai/transcribe route stays exercisable in dev. Failure
@@ -214,6 +256,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # route returns 503.
     try:
         import os
+
         from learning.transcription.provider import (
             OpenAIWhisperProvider,
             StubTranscriptionProvider,
@@ -226,7 +269,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         else:
             set_provider(StubTranscriptionProvider())
             log.info("transcription provider: stub (no OPENAI_API_KEY)")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.warning("learning startup: transcription not available: %s", exc)
 
     # P5-S63: register the AWS Rekognition image moderator when AWS
@@ -235,6 +278,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # pre-moderation rather than blocking.
     try:
         import os
+
         from learning.content.image_moderation import (
             StubImageModerator,
             set_moderator,
@@ -250,7 +294,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         else:
             set_moderator(StubImageModerator())
             log.info("image moderator: stub (no AWS creds)")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.warning("learning startup: image moderator not available: %s", exc)
 
     # P5-S63: spawn the audit-log retention task. Weekly purge of
@@ -309,7 +353,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 # raises asyncio.CancelledError (a BaseException). Without
                 # this, lifespan teardown under TestClient leaks the
                 # CancelledError and fails the test at teardown.
-                except BaseException:  # noqa: BLE001
+                except BaseException:
                     pass
         await _try("photo_doubt_limiter.close", app.state.photo_doubt_limiter.close)
         await _try("adaptive.flags.close", close_adaptive_flags)
@@ -359,9 +403,12 @@ app.include_router(syllabus_router)
 app.include_router(syllabus_references_router)
 app.include_router(content_router)
 app.include_router(content_notes_router)  # Phase 7 (P7-A1) — per-topic notes
+app.include_router(user_notes_router)     # Task 2 — per-exam student notebook
+app.include_router(revision_capsule_router)  # Phase 3.5 — AI revision capsules
 app.include_router(content_resources_router)  # R-S1 — YouTube curation
 # Phase 1D-8 — flashcard SRS
 from learning.flashcards.routes import router as flashcards_router  # noqa: E402
+
 app.include_router(flashcards_router)
 app.include_router(uploads_router)              # P7 — MinIO presigned uploads
 app.include_router(exam_builder_router)          # P7 — admin AI-assisted exam builder

@@ -13,11 +13,12 @@
  * another for the optional subject (pick 1 of 26).
  */
 
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { AdminShell } from "../components/AdminShell";
 import { auth } from "../lib/api";
+import { diffExam, mergeRegeneratedTopics, type DiffStatus } from "../lib/examDiff";
 
 type Step = "basics" | "review" | "saved";
 
@@ -34,6 +35,10 @@ interface TopicDraft {
   code: string;
   title: string;
   description: string | null;
+  // Set after a re-analyze: diff status vs the previously-saved exam, and
+  // whether the admin chose to Keep a row the AI dropped.
+  _status?: DiffStatus;
+  _kept?: boolean;
 }
 
 interface SubjectDraft {
@@ -43,6 +48,8 @@ interface SubjectDraft {
   is_mandatory: boolean;
   pool_code: string | null;
   topics: TopicDraft[];
+  _status?: DiffStatus;
+  _kept?: boolean;
 }
 
 interface PoolDraft {
@@ -62,10 +69,63 @@ interface ExamProposal {
   notes: string | null;
 }
 
+// A row the AI dropped (removed) is excluded from the save payload unless the
+// admin chose to Keep it. Diff-only fields (_status/_kept) are stripped so the
+// backend sees a clean proposal.
+function isDropped(row: { _status?: DiffStatus; _kept?: boolean }): boolean {
+  return row._status === "removed" && !row._kept;
+}
+
+function cleanForSave(proposal: ExamProposal): ExamProposal {
+  return {
+    ...proposal,
+    subjects: proposal.subjects
+      .filter((s) => !isDropped(s))
+      .map(({ _status, _kept, ...s }) => ({
+        ...s,
+        topics: s.topics
+          .filter((t) => !isDropped(t))
+          .map(({ _status: _ts, _kept: _tk, ...t }) => t),
+      })),
+  };
+}
+
+const DIFF_META: Record<DiffStatus, { label: string; color: string } | null> = {
+  added: { label: "ADDED", color: "var(--good)" },
+  removed: { label: "REMOVED", color: "var(--bad)" },
+  modified: { label: "CHANGED", color: "var(--gold)" },
+  unchanged: null,
+};
+
+function DiffBadge({ status }: { status?: DiffStatus }) {
+  const meta = status ? DIFF_META[status] : null;
+  if (!meta) return null;
+  return (
+    <span
+      style={{
+        fontSize: 9,
+        fontWeight: 700,
+        letterSpacing: 0.4,
+        padding: "1px 6px",
+        borderRadius: 999,
+        color: meta.color,
+        border: `1px solid ${meta.color}`,
+      }}
+    >
+      {meta.label}
+    </span>
+  );
+}
+
 export function ExamBuilder() {
   const navigate = useNavigate();
   const { examId: editExamId } = useParams<{ examId?: string }>();
+  const [searchParams] = useSearchParams();
+  const jobParam = searchParams.get("job");
   const isEditMode = Boolean(editExamId);
+
+  // True while a background research job for `jobParam` is still generating.
+  const [pending, setPending] = useState(false);
 
   // Edit mode skips basics/research and lands on review with existing
   // data pre-populated. The /exams/edit/:examId route hits this branch.
@@ -102,6 +162,10 @@ export function ExamBuilder() {
     failures: number;
   } | null>(null);
 
+  // The exam as last saved — used as the baseline to diff a re-analyze
+  // against, so we can highlight what the AI added / removed / changed.
+  const baselineRef = useRef<ExamProposal | null>(null);
+
   // Edit mode: load existing exam structure on mount.
   useEffect(() => {
     if (!editExamId) return;
@@ -117,6 +181,7 @@ export function ExamBuilder() {
           throw new Error(detail || `Load failed (HTTP ${res.status})`);
         }
         const body = (await res.json()) as ExamProposal;
+        baselineRef.current = body;
         setProposal(body);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Load failed");
@@ -126,6 +191,152 @@ export function ExamBuilder() {
     })();
   }, [editExamId]);
 
+  // Re-analyze an existing exam: enqueue a structure-aware research job
+  // (delta mode) and hand off to ?job=<id>. The current structure becomes
+  // both the AI's seed and the diff baseline.
+  async function reanalyze(remark: string) {
+    if (!proposal || !editExamId) return;
+    baselineRef.current = proposal;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await auth.fetch("/api/v1/admin/exam-builder/research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: proposal.code,
+          name: proposal.name,
+          level,
+          notes: remark.trim() || undefined,
+          existing: {
+            subjects: proposal.subjects.map((s) => ({
+              code: s.code,
+              name: s.name,
+              topics: s.topics.map((t) => ({ code: t.code, title: t.title })),
+            })),
+          },
+        }),
+      });
+      if (!res.ok) {
+        const detail = await safeDetail(res);
+        throw new Error(detail || `Re-analyze failed (HTTP ${res.status})`);
+      }
+      const body = (await res.json()) as { jobId: string };
+      navigate(`/exams/edit/${editExamId}?job=${body.jobId}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Re-analyze failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const [regenSubject, setRegenSubject] = useState<string | null>(null);
+  const [fillingEmpty, setFillingEmpty] = useState(false);
+
+  async function fillEmptySubjects() {
+    if (!proposal) return;
+    const empties = proposal.subjects.filter((s) => s.topics.length === 0);
+    if (empties.length === 0) {
+      setError("No empty subjects — every subject already has topics.");
+      return;
+    }
+    setFillingEmpty(true);
+    setError(null);
+    try {
+      const res = await auth.fetch("/api/v1/admin/exam-builder/topics/fill-empty", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: proposal.code,
+          name: proposal.name,
+          level,
+          subjects: empties.map((s) => ({ code: s.code, name: s.name, existing: [] })),
+        }),
+      });
+      if (!res.ok) {
+        const detail = await safeDetail(res);
+        throw new Error(detail || `Fill failed (HTTP ${res.status})`);
+      }
+      const { jobId } = (await res.json()) as { jobId: string };
+
+      // Poll the job until it finishes (~once/2s), then merge per-subject.
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const pr = await auth.fetch(
+          `/api/v1/admin/exam-builder/topics/fill-empty/${encodeURIComponent(jobId)}`,
+        );
+        if (!pr.ok) throw new Error(`Poll failed (HTTP ${pr.status})`);
+        const body = (await pr.json()) as {
+          status: string;
+          result: { subjects: { code: string; topics: { code: string; title: string; description: string | null }[]; error?: string }[] } | null;
+          error: string | null;
+        };
+        if (body.status === "failed") throw new Error(body.error || "Fill job failed.");
+        if (body.status === "succeeded" && body.result) {
+          const byCode = new Map(body.result.subjects.map((s) => [s.code, s]));
+          const failed = body.result.subjects.filter((s) => s.error).length;
+          setProposal((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              subjects: prev.subjects.map((s) => {
+                const r = byCode.get(s.code);
+                if (!r || r.error) return s;
+                return { ...s, topics: mergeRegeneratedTopics(s.topics, r.topics) };
+              }),
+            };
+          });
+          const ok = body.result.subjects.length - failed;
+          if (failed > 0) setError(`${ok}/${body.result.subjects.length} subjects filled — ${failed} failed, retry those individually.`);
+          break;
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Fill failed");
+    } finally {
+      setFillingEmpty(false);
+    }
+  }
+
+  async function regenerateSubjectTopics(index: number) {
+    if (!proposal) return;
+    const subject = proposal.subjects[index];
+    setRegenSubject(subject.code);
+    setError(null);
+    try {
+      const res = await auth.fetch("/api/v1/admin/exam-builder/subjects/topics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: proposal.code,
+          name: proposal.name,
+          level,
+          subject: { code: subject.code, name: subject.name },
+          existing: subject.topics.map((t) => ({ code: t.code, title: t.title })),
+        }),
+      });
+      if (!res.ok) {
+        const detail = await safeDetail(res);
+        throw new Error(detail || `Generate failed (HTTP ${res.status})`);
+      }
+      const body = (await res.json()) as { topics: { code: string; title: string; description: string | null }[] };
+      const merged = mergeRegeneratedTopics(subject.topics, body.topics);
+      setProposal((prev) => {
+        if (!prev) return prev;
+        const subjects = prev.subjects.slice();
+        subjects[index] = { ...subjects[index], topics: merged };
+        return { ...prev, subjects };
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Generate failed");
+    } finally {
+      setRegenSubject(null);
+    }
+  }
+
+  // Enqueue a background research job and hand off to ?job=<id>, where the
+  // effect below watches it. The admin is free to navigate away; the global
+  // toaster (AdminShell) notifies when the draft is ready.
   async function runResearch() {
     setError(null);
     setBusy(true);
@@ -145,15 +356,74 @@ export function ExamBuilder() {
         const detail = await safeDetail(res);
         throw new Error(detail || `Research failed (HTTP ${res.status})`);
       }
-      const body = (await res.json()) as ExamProposal;
-      setProposal(body);
-      setStep("review");
+      const body = (await res.json()) as { jobId: string };
+      navigate(`/exams/new?job=${body.jobId}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Research failed");
     } finally {
       setBusy(false);
     }
   }
+
+  // Watch a background research job (?job=<id>): poll until it finishes, then
+  // load the proposal into the Review step. Survives refresh / arriving via
+  // the completion toast.
+  useEffect(() => {
+    if (!jobParam) {
+      setPending(false);
+      return;
+    }
+    let cancelled = false;
+    let timer: number | undefined;
+    setPending(true);
+    setError(null);
+
+    const poll = async () => {
+      try {
+        const res = await auth.fetch(
+          `/api/v1/admin/exam-builder/research/${encodeURIComponent(jobParam)}`,
+        );
+        if (!res.ok) {
+          const detail = await safeDetail(res);
+          throw new Error(detail || `Load failed (HTTP ${res.status})`);
+        }
+        const body = (await res.json()) as {
+          status: string;
+          result: ExamProposal | null;
+          error: string | null;
+        };
+        if (cancelled) return;
+        if (body.status === "succeeded" && body.result) {
+          // Re-analyze: tag each row added/removed/modified vs the baseline
+          // and re-inject dropped rows so the admin sees the full diff.
+          const base = baselineRef.current;
+          if (base) {
+            const { subjects } = diffExam(base, body.result);
+            setProposal({ ...body.result, subjects });
+          } else {
+            setProposal(body.result);
+          }
+          setStep("review");
+          setPending(false);
+        } else if (body.status === "failed") {
+          setError(body.error || "Research failed. Please try again.");
+          setPending(false);
+        } else {
+          timer = window.setTimeout(poll, 5000);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Load failed");
+          setPending(false);
+        }
+      }
+    };
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [jobParam]);
 
   async function seedQuestions(examId: string, perTopic: number) {
     setError(null);
@@ -199,7 +469,7 @@ export function ExamBuilder() {
       const res = await auth.fetch("/api/v1/admin/exam-builder/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(proposal),
+        body: JSON.stringify(cleanForSave(proposal)),
       });
       if (!res.ok) {
         const detail = await safeDetail(res);
@@ -258,7 +528,9 @@ export function ExamBuilder() {
           </div>
         )}
 
-        {step === "basics" && (
+        {pending && <GeneratingPanel onLeave={() => navigate("/exams")} />}
+
+        {!pending && step === "basics" && (
           <BasicsStep
             examCode={examCode}
             setExamCode={setExamCode}
@@ -282,6 +554,11 @@ export function ExamBuilder() {
             busy={busy}
             onBack={() => setStep("basics")}
             onSave={save}
+            onReanalyze={isEditMode ? reanalyze : undefined}
+            onRegenerateSubject={regenerateSubjectTopics}
+            regenSubjectCode={regenSubject}
+            onFillEmpty={fillEmptySubjects}
+            fillingEmpty={fillingEmpty}
           />
         )}
 
@@ -344,6 +621,46 @@ function Stepper({ step }: { step: Step }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Generating — shown while a background research job is in flight
+// ─────────────────────────────────────────────────────────────────
+
+function GeneratingPanel({ onLeave }: { onLeave: () => void }) {
+  return (
+    <div className="card" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span
+          className="vidya-pulse"
+          style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--info)" }}
+        />
+        <strong style={{ fontSize: 15 }}>Generating your exam draft…</strong>
+      </div>
+      <p style={{ fontSize: 13, color: "var(--ink-2)", margin: 0, lineHeight: 1.5 }}>
+        The AI is drafting the full subject + topic structure. This can take a
+        couple of minutes for a large exam. <strong>You can leave this page</strong> —
+        we&rsquo;ll pop a notification in the corner when the draft is ready to review,
+        and this page will open it automatically if you stay.
+      </p>
+      <div>
+        <button
+          onClick={onLeave}
+          style={{
+            padding: "7px 14px",
+            fontSize: 13,
+            borderRadius: 6,
+            border: "1px solid var(--line)",
+            background: "transparent",
+            color: "var(--ink-2)",
+            cursor: "pointer",
+          }}
+        >
+          ← Do other work meanwhile
+        </button>
+      </div>
     </div>
   );
 }
@@ -431,12 +748,29 @@ function BasicsStep(p: BasicsProps) {
           style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }}
         />
       </Field>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          alignItems: "center",
+          gap: 12,
+          marginTop: 18,
+        }}
+      >
+        {!valid && !p.busy && (
+          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>
+            Enter an exam code and name to continue.
+          </span>
+        )}
         <button
           onClick={p.onContinue}
           disabled={!valid || p.busy}
           className="btn btn-primary"
-          style={{ padding: "8px 18px" }}
+          style={{
+            padding: "8px 18px",
+            opacity: !valid || p.busy ? 0.45 : 1,
+            cursor: !valid || p.busy ? "not-allowed" : "pointer",
+          }}
         >
           {p.busy ? "Researching…" : "◈ Research with AI →"}
         </button>
@@ -455,9 +789,21 @@ interface ReviewProps {
   busy: boolean;
   onBack: () => void;
   onSave: () => void;
+  onReanalyze?: (remark: string) => void;
+  onRegenerateSubject: (index: number) => void;
+  regenSubjectCode: string | null;
+  onFillEmpty: () => void;
+  fillingEmpty: boolean;
 }
 
-function ReviewStep({ proposal, setProposal, busy, onBack, onSave }: ReviewProps) {
+function ReviewStep({ proposal, setProposal, busy, onBack, onSave, onReanalyze, onRegenerateSubject, regenSubjectCode, onFillEmpty, fillingEmpty }: ReviewProps) {
+  // True once a re-analyze has tagged rows with diff status.
+  const hasDiff = proposal.subjects.some(
+    (s) => s._status || s.topics.some((t) => t._status),
+  );
+  // Inline remark panel for re-analyze — an optional hint fed into the prompt.
+  const [remarkOpen, setRemarkOpen] = useState(false);
+  const [remark, setRemark] = useState("");
   const subjectCount = proposal.subjects.length;
   const topicCount = proposal.subjects.reduce(
     (acc, s) => acc + s.topics.length,
@@ -526,11 +872,115 @@ function ReviewStep({ proposal, setProposal, busy, onBack, onSave }: ReviewProps
               </div>
             )}
           </div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
-            {subjectCount} subjects · {mandatoryCount} mandatory ·{" "}
-            {proposal.pools.length} pools · {topicCount} topics
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+            <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+              {subjectCount} subjects · {mandatoryCount} mandatory ·{" "}
+              {proposal.pools.length} pools · {topicCount} topics
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {onReanalyze && (
+                <button
+                  onClick={() => setRemarkOpen((o) => !o)}
+                  disabled={busy}
+                  className="btn btn-ghost"
+                  style={{ padding: "6px 12px", fontSize: 12 }}
+                >
+                  ⟳ Re-analyze with AI
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onFillEmpty}
+                disabled={fillingEmpty}
+                style={{
+                  background: "transparent",
+                  border: "1px solid var(--accent)",
+                  borderRadius: 6,
+                  padding: "8px 14px",
+                  color: "var(--accent)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: fillingEmpty ? "default" : "pointer",
+                  opacity: fillingEmpty ? 0.6 : 1,
+                }}
+              >
+                {fillingEmpty ? "Filling empty subjects…" : "✦ Fill topics for empty subjects"}
+              </button>
+            </div>
           </div>
         </div>
+        {onReanalyze && remarkOpen && (
+          <div
+            style={{
+              marginTop: 12,
+              padding: 12,
+              background: "var(--paper-2)",
+              borderRadius: 8,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <label style={{ fontSize: 12, fontWeight: 600 }}>
+              Remark for the AI <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>(optional)</span>
+            </label>
+            <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+              Tell the AI what to focus on, add, drop, or fix — e.g. &ldquo;align Polity
+              to the 2027 syllabus and add a Disaster Management topic.&rdquo; This is
+              added to the prompt for every subject.
+            </div>
+            <textarea
+              value={remark}
+              onChange={(e) => setRemark(e.target.value)}
+              rows={2}
+              placeholder="e.g. emphasise current affairs; drop pre-2015 topics"
+              style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }}
+            />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                onClick={() => {
+                  setRemarkOpen(false);
+                  setRemark("");
+                }}
+                disabled={busy}
+                className="btn btn-ghost"
+                style={{ padding: "6px 12px", fontSize: 12 }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => onReanalyze(remark)}
+                disabled={busy}
+                className="btn btn-primary"
+                style={{
+                  padding: "6px 14px",
+                  fontSize: 12,
+                  opacity: busy ? 0.45 : 1,
+                  cursor: busy ? "not-allowed" : "pointer",
+                }}
+              >
+                ⟳ Start re-analyze
+              </button>
+            </div>
+          </div>
+        )}
+        {hasDiff && (
+          <div
+            style={{
+              marginTop: 10,
+              display: "flex",
+              gap: 14,
+              fontSize: 11,
+              color: "var(--ink-2)",
+              alignItems: "center",
+            }}
+          >
+            <strong>AI changes:</strong>
+            <DiffBadge status="added" /> new
+            <DiffBadge status="modified" /> changed
+            <DiffBadge status="removed" /> will retire (Keep to preserve)
+          </div>
+        )}
         {proposal.notes && (
           <div
             style={{
@@ -629,6 +1079,8 @@ function ReviewStep({ proposal, setProposal, busy, onBack, onSave }: ReviewProps
               poolOptions={proposal.pools.map((p) => p.code)}
               onPatch={(p) => patchSubject(i, p)}
               onRemove={() => removeSubject(i)}
+              onRegenerate={() => onRegenerateSubject(i)}
+              regenerating={regenSubjectCode === s.code}
             />
           ))}
           <button
@@ -672,11 +1124,15 @@ function SubjectRow({
   poolOptions,
   onPatch,
   onRemove,
+  onRegenerate,
+  regenerating,
 }: {
   subject: SubjectDraft;
   poolOptions: string[];
   onPatch: (p: Partial<SubjectDraft>) => void;
   onRemove: () => void;
+  onRegenerate: () => void;
+  regenerating: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -710,6 +1166,26 @@ function SubjectRow({
           style={{ ...inlineInput, fontWeight: 600, flex: 1 }}
         />
         <code style={{ fontSize: 11, color: "var(--gold)" }}>{subject.code}</code>
+        <DiffBadge status={subject._status} />
+        {subject._status === "removed" &&
+          (subject._kept ? (
+            <span style={{ fontSize: 10, color: "var(--good)" }}>kept ✓</span>
+          ) : (
+            <button
+              onClick={() => onPatch({ _kept: true })}
+              style={{
+                fontSize: 10,
+                padding: "2px 8px",
+                borderRadius: 999,
+                border: "1px solid var(--good)",
+                background: "transparent",
+                color: "var(--good)",
+                cursor: "pointer",
+              }}
+            >
+              Keep
+            </button>
+          ))}
         <label style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
           <input
             type="checkbox"
@@ -818,6 +1294,31 @@ function SubjectRow({
                       fontFamily: "monospace",
                     }}
                   />
+                  <DiffBadge status={t._status} />
+                  {t._status === "removed" &&
+                    (t._kept ? (
+                      <span style={{ fontSize: 10, color: "var(--good)" }}>kept ✓</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const topics = subject.topics.slice();
+                          topics[i] = { ...topics[i], _kept: true };
+                          onPatch({ topics });
+                        }}
+                        style={{
+                          fontSize: 10,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          border: "1px solid var(--good)",
+                          background: "transparent",
+                          color: "var(--good)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Keep
+                      </button>
+                    ))}
                   <button
                     type="button"
                     onClick={() => {
@@ -871,6 +1372,30 @@ function SubjectRow({
             }}
           >
             + Add topic
+          </button>
+          <button
+            type="button"
+            onClick={onRegenerate}
+            disabled={regenerating}
+            style={{
+              marginTop: 10,
+              marginLeft: 8,
+              background: "transparent",
+              border: "1px dashed var(--accent)",
+              borderRadius: 6,
+              padding: "6px 10px",
+              color: "var(--accent)",
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: regenerating ? "default" : "pointer",
+              opacity: regenerating ? 0.6 : 1,
+            }}
+          >
+            {regenerating
+              ? "Generating…"
+              : subject.topics.length === 0
+                ? "↻ Generate topics (AI)"
+                : "↻ Regenerate topics (AI)"}
           </button>
         </div>
       )}

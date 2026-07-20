@@ -13,6 +13,32 @@ from typing import Literal
 
 TrajectoryStatus = Literal["on_track", "behind", "ahead", "no_target"]
 
+# Sprint P3-S3.3 — study-plan tapering phases. The daily action mix shifts from
+# broad concept-building far out to PYQ + mistake-replay + mocks near the exam.
+StudyPhase = Literal["foundation", "build", "consolidate", "peak"]
+
+
+def study_phase(days_to_exam_value: int | None) -> StudyPhase:
+    """Classify the countdown phase driving the study-plan action mix.
+
+    `None` (no exam target set) → ``foundation`` (no time pressure). A concrete
+    count of 0 means the exam is today/past → ``peak``.
+
+      > 140 days (>~20 weeks) → foundation  (build fundamentals broadly)
+      36–140 days             → build        (practice + targeted revision)
+      8–35 days               → consolidate  (PYQ drills + mistake replay + mocks)
+      <= 7 days               → peak         (mocks + mistake replay, no new topics)
+    """
+    if days_to_exam_value is None:
+        return "foundation"
+    if days_to_exam_value <= 7:
+        return "peak"
+    if days_to_exam_value <= 35:
+        return "consolidate"
+    if days_to_exam_value <= 140:
+        return "build"
+    return "foundation"
+
 
 def days_to_exam(exam_date: date | None, today: date) -> int:
     """Days until the exam. 0 when exam_date is today or in the past;

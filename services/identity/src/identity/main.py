@@ -23,6 +23,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
+from alp_auth import assert_secret_configured
 from alp_telemetry import TraceContextMiddleware
 from fastapi import FastAPI
 
@@ -30,6 +31,7 @@ from identity import __version__
 
 # auth
 from identity.auth.admin_routes import router as auth_admin_router
+from identity.auth.config import settings as auth_settings
 from identity.auth.events import close as close_auth_events
 from identity.auth.events import connect as connect_auth_events
 from identity.auth.flags import close_flags as close_auth_flags
@@ -42,18 +44,17 @@ from identity.auth.payment_subscriber import close as close_payment_subscriber
 from identity.auth.payment_subscriber import connect as connect_payment_subscriber
 from identity.auth.routes import router as auth_router
 
-# profile
-from identity.profile.events import close as close_profile_events
-from identity.profile.events import connect as connect_profile_events
-from identity.profile.routes import internal_router as profile_internal_router
-from identity.profile.routes import router as profile_router
-
 # institution
 from identity.institution.core_routes import router as institution_core_router
 from identity.institution.events import close as close_institution_nats
 from identity.institution.events import connect as connect_institution_nats
 from identity.institution.routes import router as flags_router
 
+# profile
+from identity.profile.events import close as close_profile_events
+from identity.profile.events import connect as connect_profile_events
+from identity.profile.routes import internal_router as profile_internal_router
+from identity.profile.routes import router as profile_router
 
 log = logging.getLogger(__name__)
 
@@ -69,6 +70,10 @@ async def _try(name: str, coro_factory) -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
+
+    # Fail closed if a non-local environment is still on the shared dev JWT
+    # secret — anyone could otherwise forge tokens for the whole platform.
+    assert_secret_configured(auth_settings.jwt_secret, auth_settings.environment)
 
     # auth
     await _try("auth.flags", connect_auth_flags)

@@ -6,17 +6,17 @@ import asyncio
 import hashlib
 import json
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
+from engagement.analytics import realtime
 from engagement.analytics.cohort_leaderboard import (
     batch_readiness,
     fetch_cohort_members,
     rank_leaderboard,
 )
-from engagement.analytics import realtime
 from engagement.analytics.db import sessionmaker
-from engagement.analytics.student_drill_down import build_drilldown
+from engagement.analytics.exam_scope import resolve_exam_topic_ids
 from engagement.analytics.repositories import (
     get_mastery,
     get_readiness,
@@ -24,12 +24,13 @@ from engagement.analytics.repositories import (
     list_daily_activity,
     list_user_mastery,
 )
-from engagement.analytics.exam_scope import resolve_exam_topic_ids
+from engagement.analytics.scope import require_owner
+from engagement.analytics.student_drill_down import build_drilldown
 
 router = APIRouter()
 
 
-@router.get("/analytics/mastery/{user_id}")
+@router.get("/analytics/mastery/{user_id}", dependencies=[Depends(require_owner)])
 async def list_mastery(user_id: str, exam_id: str | None = None) -> dict:
     topic_ids = await resolve_exam_topic_ids(exam_id) if exam_id else None
     async with sessionmaker()() as session:
@@ -40,7 +41,7 @@ async def list_mastery(user_id: str, exam_id: str | None = None) -> dict:
     }
 
 
-@router.get("/analytics/mastery/{user_id}/{topic_id}")
+@router.get("/analytics/mastery/{user_id}/{topic_id}", dependencies=[Depends(require_owner)])
 async def get_mastery_for_topic(user_id: str, topic_id: str) -> dict:
     async with sessionmaker()() as session:
         row = await get_mastery(session, user_id, topic_id)
@@ -49,7 +50,7 @@ async def get_mastery_for_topic(user_id: str, topic_id: str) -> dict:
     return {"userId": row.user_id, "topicId": row.topic_id, "ewa": row.ewa, "n": row.n}
 
 
-@router.get("/analytics/readiness/{user_id}")
+@router.get("/analytics/readiness/{user_id}", dependencies=[Depends(require_owner)])
 async def readiness(user_id: str, scope: str = "GLOBAL") -> dict:
     async with sessionmaker()() as session:
         row = await get_readiness(session, user_id, scope)
@@ -66,7 +67,57 @@ async def readiness(user_id: str, scope: str = "GLOBAL") -> dict:
     }
 
 
-@router.get("/analytics/daily-activity/{user_id}")
+@router.get(
+    "/analytics/multi-exam-summary/{user_id}",
+    dependencies=[Depends(require_owner)],
+)
+async def multi_exam_summary(user_id: str, examIds: str = Query(default="")) -> dict:
+    """Per-exam dashboard roll-up: readiness, weakest topic, and mistakes/
+    revision due-counts for each of the student's enrolled exams.
+
+    `examIds` is a comma-separated list (capped at 12). Unknown/empty exams
+    return a zeroed entry so the UI renders an empty state rather than 404.
+    """
+    from engagement.analytics.multi_exam_summary import build_exam_summary
+
+    ids = [e.strip() for e in examIds.split(",") if e.strip()][:12]
+    now = datetime.now(tz=UTC)
+    exams: list[dict] = []
+    async with sessionmaker()() as session:
+        for exam_id in ids:
+            topic_ids = await resolve_exam_topic_ids(exam_id)
+            # Resolver failure (None) → treat as no-scope: zeroed entry, don't crash.
+            scoped = topic_ids if topic_ids is not None else set()
+            mastery_rows = await list_user_mastery(
+                session, user_id, topic_ids=scoped
+            )
+            mistakes_due = await _mistakes_repo.count_due(
+                session, user_id, now=now, topic_ids=scoped
+            )
+            revision_due = await _revision_repo.count_due(
+                session, user_id, now=now, topic_ids=scoped
+            )
+            s = build_exam_summary(
+                exam_id=exam_id,
+                mastery_rows=mastery_rows,
+                mistakes_due=mistakes_due,
+                revision_due=revision_due,
+            )
+            exams.append(
+                {
+                    "examId": s.exam_id,
+                    "readinessScore": s.readiness_score,
+                    "nTopics": s.n_topics,
+                    "weakestTopicId": s.weakest_topic_id,
+                    "weakestEwa": s.weakest_ewa,
+                    "mistakesDue": s.mistakes_due,
+                    "revisionDue": s.revision_due,
+                }
+            )
+    return {"userId": user_id, "exams": exams}
+
+
+@router.get("/analytics/daily-activity/{user_id}", dependencies=[Depends(require_owner)])
 async def daily_activity(
     user_id: str,
     days: int = Query(default=30, ge=1, le=180),
@@ -91,7 +142,7 @@ async def daily_activity(
     }
 
 
-@router.get("/analytics/streak/{user_id}")
+@router.get("/analytics/streak/{user_id}", dependencies=[Depends(require_owner)])
 async def streak(user_id: str) -> dict:
     """Current + longest streak in consecutive UTC days. Returns zeros for a
     user that's never submitted — UI renders the empty 'start your streak'
@@ -185,7 +236,7 @@ async def cohort_leaderboard_stream(
     safety net).
     """
 
-    async def stream() -> "asyncio.AsyncIterator[bytes]":  # type: ignore[name-defined]
+    async def stream() -> asyncio.AsyncIterator[bytes]:  # type: ignore[name-defined]
         # Initial cohort fetch + snapshot.
         members = await fetch_cohort_members(cohort_id)
         member_ids = {m["userId"] for m in members}
@@ -208,7 +259,7 @@ async def cohort_leaderboard_stream(
                         sub.queue.get(), timeout=SSE_HEARTBEAT_SECONDS
                     )
                     woke_for_event = True
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     woke_for_event = False
 
                 # Refresh the member set occasionally — handles
@@ -283,7 +334,7 @@ from engagement.analytics import predictive as _predictive
 from engagement.analytics import predictive_repo as _predictive_repo
 
 
-@router.get("/analytics/predictive/dropout/{user_id}")
+@router.get("/analytics/predictive/dropout/{user_id}", dependencies=[Depends(require_owner)])
 async def predictive_dropout_get(user_id: str) -> dict:
     """Drop-out risk score per ADR-0010. Auth check (caller is user OR
     admin OR cohort educator) deferred to gateway level — this endpoint
@@ -292,7 +343,7 @@ async def predictive_dropout_get(user_id: str) -> dict:
         return await _predictive.compute_or_get_dropout(session, user_id)
 
 
-@router.get("/analytics/recommendations/{user_id}")
+@router.get("/analytics/recommendations/{user_id}", dependencies=[Depends(require_owner)])
 async def predictive_recommendations_get(user_id: str) -> dict:
     """Topic recommendations per ADR-0011."""
     async with sessionmaker()() as session:
@@ -310,7 +361,7 @@ async def predictive_recommendations_get(user_id: str) -> dict:
         }
 
 
-@router.post("/analytics/predictive/recompute/{user_id}")
+@router.post("/analytics/predictive/recompute/{user_id}", dependencies=[Depends(require_owner)])
 async def predictive_recompute(user_id: str) -> dict:
     """Force-recompute both score + recommendations (skip cache).
     Admin-only in production; gateway enforces. Returns the fresh score."""
@@ -356,7 +407,7 @@ async def predictive_cohort_at_risk(cohort_id: str) -> dict:
 from engagement.analytics import section_stats as _section_stats  # noqa: E402
 
 
-@router.get("/analytics/student/{user_id}/time-stats")
+@router.get("/analytics/student/{user_id}/time-stats", dependencies=[Depends(require_owner)])
 async def student_time_stats(user_id: str) -> dict:
     """Per-section time + accuracy aggregates for a user across all submitted
     sessions. Sections fall back to topic_id when the session was not bound
@@ -377,16 +428,16 @@ async def session_breakdown(session_id: str) -> dict:
 # Sprint 27 (P4-S27) — daily revision queue.
 from datetime import UTC, datetime  # noqa: E402
 
+# Sprint 28 (P4-S28) — syllabus coverage.
+from engagement.analytics import error_classifier_repo as _err_repo  # noqa: E402
+from engagement.analytics import learning_client as _learning_client  # noqa: E402
+from engagement.analytics import revision_priority as _rp  # noqa: E402
 from engagement.analytics import revision_queue_repo as _revision_repo  # noqa: E402
 from engagement.analytics.srs import overdue_days  # noqa: E402
-
-# Sprint 28 (P4-S28) — syllabus coverage.
-from engagement.analytics import learning_client as _learning_client  # noqa: E402
-from engagement.analytics.repositories import list_user_mastery  # noqa: E402
 from engagement.analytics.syllabus_coverage import compute_coverage  # noqa: E402
 
 
-@router.get("/analytics/syllabus-coverage/{user_id}")
+@router.get("/analytics/syllabus-coverage/{user_id}", dependencies=[Depends(require_owner)])
 async def syllabus_coverage_route(user_id: str, examId: str) -> dict:
     """Per-chapter coverage stats for a user against an exam syllabus.
 
@@ -402,17 +453,16 @@ async def syllabus_coverage_route(user_id: str, examId: str) -> dict:
 
 
 # Sprint 29 (P4-S29) — error-pattern rollup.
-from engagement.analytics import error_classifier_repo as _error_repo  # noqa: E402
-
 # Sprint 31 (P4-S31) — cohort percentile distribution.
 from engagement.analytics import cohort_percentile as _cohort  # noqa: E402
+from engagement.analytics import error_classifier_repo as _error_repo  # noqa: E402
 
 # Sprint 32 (P4-S32) — peer percentile per topic.
 from engagement.analytics import peer_percentile as _peer_pct  # noqa: E402
 from engagement.analytics import peer_percentile_repo as _peer_repo  # noqa: E402
 
 
-@router.get("/analytics/peer-percentile/{user_id}")
+@router.get("/analytics/peer-percentile/{user_id}", dependencies=[Depends(require_owner)])
 async def peer_percentile_route(
     user_id: str, examId: str, topicId: str
 ) -> dict:
@@ -478,7 +528,7 @@ async def cohort_distribution_refresh(examId: str, topicId: str | None = None) -
     return {"examId": examId, "topicId": topicId, "bucketsWritten": written}
 
 
-@router.get("/analytics/student/{user_id}/error-patterns")
+@router.get("/analytics/student/{user_id}/error-patterns", dependencies=[Depends(require_owner)])
 async def error_patterns_route(user_id: str, since: str | None = None) -> dict:
     """Per-classification rollup for a user. `since` is an ISO timestamp;
     when omitted, returns the full history capped at 1000 rows.
@@ -501,7 +551,7 @@ async def error_patterns_route(user_id: str, since: str | None = None) -> dict:
     return {"userId": user_id, "since": since, **rollup}
 
 
-@router.get("/analytics/revision/{user_id}")
+@router.get("/analytics/revision/{user_id}", dependencies=[Depends(require_owner)])
 async def revision_due(user_id: str, limit: int = 10, exam_id: str | None = None) -> dict:
     """Top-N topics due today for the user, ordered most-overdue-first.
 
@@ -514,18 +564,25 @@ async def revision_due(user_id: str, limit: int = 10, exam_id: str | None = None
     now = datetime.now(tz=UTC)
     limit = max(1, min(limit, 50))
     topic_ids = await resolve_exam_topic_ids(exam_id) if exam_id else None
+    # Phase 3.2 — pull a wider pool of DUE topics than we'll return, then
+    # re-rank by (overdue + weakness + error-concentration) so "due AND weak
+    # AND error-prone" surfaces above "due but comfortable", and trim to limit.
+    pool = max(limit, 50)
     async with sessionmaker()() as session:
         rows = await _revision_repo.list_due(
-            session, user_id, now=now, limit=limit, topic_ids=topic_ids
+            session, user_id, now=now, limit=pool, topic_ids=topic_ids
         )
-    # HTTP-merge topic titles in bulk
-    topic_ids = list({r["topicId"] for r in rows})
-    titles = await _learning_client.fetch_topics_bulk(topic_ids)
-    for r in rows:
-        info = titles.get(r["topicId"])
-        if info:
-            r["topicTitle"] = info.get("title", "")
-    items = [
+        mastery_rows = await list_user_mastery(session, user_id, topic_ids=topic_ids)
+        err_rows = await _err_repo.list_classifications_for_user(session, user_id)
+
+    ewa_by_topic = {r.topic_id: r.ewa for r in mastery_rows}
+    err_by_topic: dict[str, int] = {}
+    for e in err_rows:
+        tid = e.get("topicId")
+        if tid:
+            err_by_topic[tid] = err_by_topic.get(tid, 0) + 1
+
+    base = [
         {
             **r,
             "lastAttemptAt": r["lastAttemptAt"].isoformat() if r["lastAttemptAt"] else None,
@@ -534,6 +591,24 @@ async def revision_due(user_id: str, limit: int = 10, exam_id: str | None = None
         }
         for r in rows
     ]
+    signals = {
+        r["topicId"]: _rp.TopicSignals(
+            topic_id=r["topicId"],
+            overdue_days=r["overdueDays"],
+            ewa=ewa_by_topic.get(r["topicId"]),
+            error_count=err_by_topic.get(r["topicId"], 0),
+        )
+        for r in base
+    }
+    items = _rp.rank(base, signals)[:limit]
+
+    # HTTP-merge topic titles only for the trimmed, returned set.
+    tids = list({r["topicId"] for r in items})
+    titles = await _learning_client.fetch_topics_bulk(tids)
+    for r in items:
+        info = titles.get(r["topicId"])
+        r["topicTitle"] = info.get("title", "") if info else r.get("topicTitle", "")
+
     return {
         "userId": user_id,
         "now": now.isoformat(),
@@ -541,11 +616,93 @@ async def revision_due(user_id: str, limit: int = 10, exam_id: str | None = None
     }
 
 
+# ── Study Materials hub — fused per-topic revision readiness ──────────────────
+
+
+def _revision_need(overdue_days_: int, has_due: bool, ewa: float | None, minutes: int) -> str:
+    """Heuristic label fusing the three signals (no SM-2 change).
+
+    HIGH   — overdue AND weak, or very overdue (≥7d).
+    MEDIUM — due now, or mastery still weak (<0.5).
+    LOW    — otherwise.
+    """
+    weak = ewa is not None and ewa < 0.4
+    if (overdue_days_ > 0 and weak) or overdue_days_ >= 7:
+        return "HIGH"
+    if has_due or (ewa is not None and ewa < 0.5):
+        return "MEDIUM"
+    return "LOW"
+
+
+@router.get("/analytics/study-readiness/{user_id}", dependencies=[Depends(require_owner)])
+async def study_readiness(user_id: str, exam_id: str) -> dict:
+    """Per-topic revision need for the Study Materials hub.
+
+    Fuses three EXISTING signals — no SM-2 math change:
+      1. revision_queue due/overdue  (list_due)
+      2. mastery EWA                 (list_user_mastery)
+      3. watch progress per topic    (learning_client.fetch_watch_summary)
+
+    Returns one row per topic that carries any signal, with a derived
+    `revisionNeed` label. Degrades to revision + mastery when the watch
+    fetch fails (empty watch map).
+    """
+    now = datetime.now(tz=UTC)
+    topic_ids = await resolve_exam_topic_ids(exam_id)
+    async with sessionmaker()() as session:
+        due_rows = await _revision_repo.list_due(
+            session, user_id, now=now, limit=50, topic_ids=topic_ids
+        )
+        mastery_rows = await list_user_mastery(session, user_id, topic_ids=topic_ids)
+    watch = await _learning_client.fetch_watch_summary(user_id, exam_id)
+
+    due_by_topic = {r["topicId"]: r for r in due_rows}
+    mastery_by_topic = {str(m.topic_id): m for m in mastery_rows}
+
+    all_ids = set(due_by_topic) | set(mastery_by_topic) | set(watch.keys())
+    titles = await _learning_client.fetch_topics_bulk(list(all_ids))
+
+    topics = []
+    for tid in all_ids:
+        due = due_by_topic.get(tid)
+        m = mastery_by_topic.get(tid)
+        w = watch.get(tid, {})
+        ewa = float(m.ewa) if m else None
+        od = overdue_days(due["dueAt"], now=now) if due else 0
+        minutes = int(w.get("minutesWatched", 0))
+        topics.append(
+            {
+                "topicId": tid,
+                "topicTitle": (titles.get(tid) or {}).get("title", ""),
+                "dueAt": due["dueAt"].isoformat() if due and due["dueAt"] else None,
+                "overdueDays": od,
+                "intervalDays": due["intervalDays"] if due else None,
+                "easeFactor": due["easeFactor"] if due else None,
+                "attempts": due["attempts"] if due else None,
+                "ewa": ewa,
+                "n": m.n if m else 0,
+                "minutesWatched": minutes,
+                "resourcesCompleted": int(w.get("resourcesCompleted", 0)),
+                "revisionNeed": _revision_need(od, due is not None, ewa, minutes),
+            }
+        )
+    # Most-urgent first: overdue desc, then weakest mastery first.
+    topics.sort(key=lambda t: (-t["overdueDays"], t["ewa"] if t["ewa"] is not None else 1.0))
+    return {"userId": user_id, "examId": exam_id, "now": now.isoformat(), "topics": topics}
+
+
 # ── Phase 5 (P5-S39) — multi-parameter mastery surface ────────────────────────
 
 @router.get("/analytics/concept-mastery/{user_id}")
 async def concept_mastery_route(user_id: str) -> dict:
     """Per-concept EWA mastery list. Per ADR-0017 dim 1.
+
+    NOTE (IDOR follow-up): unlike the other personal `/{user_id}` endpoints,
+    this one is NOT gated by `require_owner` because it has a legitimate
+    teacher caller (web-portal StudentDeepDive) *and* an internal caller
+    (mission selector). Guarding it correctly needs the cohort-aware
+    `resolve_scope` treatment (teacher may read their own cohort's students)
+    plus the internal-token bypass — tracked as a dedicated teacher-authz pass.
 
     Returns rows ordered by EWA ascending (weakest concepts first), so
     the UI can highlight where the student needs work without sorting
@@ -559,7 +716,7 @@ async def concept_mastery_route(user_id: str) -> dict:
     return {"userId": user_id, "concepts": rows}
 
 
-@router.get("/analytics/student/{user_id}/multi-profile")
+@router.get("/analytics/student/{user_id}/multi-profile", dependencies=[Depends(require_owner)])
 async def multi_profile_route(user_id: str, since: str | None = None) -> dict:
     """The 9-dimension assessment substrate per ADR-0017.
 
@@ -593,7 +750,7 @@ async def multi_profile_route(user_id: str, since: str | None = None) -> dict:
 # ── Phase 5 (P5-S41) — transfer-ability metric ────────────────────────────────
 
 
-@router.get("/analytics/transfer/{user_id}")
+@router.get("/analytics/transfer/{user_id}", dependencies=[Depends(require_owner)])
 async def transfer_route(
     user_id: str, min_n_per_bucket: int = 3,
 ) -> dict:
@@ -617,9 +774,11 @@ async def transfer_route(
 # Phase 6 (S49) — UX-34 instrumentation
 # ─────────────────────────────────────────────────────────────────────────
 
-from datetime import datetime, timedelta, date as _date
+from datetime import timedelta
+
 from fastapi import Header
 from pydantic import BaseModel, Field
+
 from engagement.analytics import ux_events as _ux_events
 
 
@@ -682,11 +841,11 @@ async def post_ux_kpis_rollup(target_date: str | None = None):
 # Phase 6 (S56) — Topic decay + readiness bands
 # ─────────────────────────────────────────────────────────────────────
 
-from engagement.analytics import topic_decay as _topic_decay
 from engagement.analytics import readiness_bands as _bands
+from engagement.analytics import topic_decay as _topic_decay
 
 
-@router.get("/analytics/topic-decay/{user_id}")
+@router.get("/analytics/topic-decay/{user_id}", dependencies=[Depends(require_owner)])
 async def get_topic_decay(user_id: str):
     """Compute decay severity per concept for the user."""
     async with sessionmaker()() as s:
@@ -717,7 +876,7 @@ async def get_topic_decay(user_id: str):
     return {"user_id": user_id, "items": items}
 
 
-@router.get("/analytics/insights/{user_id}/snapshot")
+@router.get("/analytics/insights/{user_id}/snapshot", dependencies=[Depends(require_owner)])
 async def get_insights_snapshot(user_id: str):
     """Phase 6 S52 — single batched call backing the Insights hub.
 
@@ -773,7 +932,7 @@ async def get_insights_snapshot(user_id: str):
                     out["what_this_means"]["decay_alerts"].append(entry)
                 if float(row["ewa"]) < 0.4 and int(row["n"]) >= 2:
                     out["what_this_means"]["weak_concepts"].append(entry)
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
 
         # Readiness mean
@@ -793,13 +952,13 @@ async def get_insights_snapshot(user_id: str):
                     readiness_score=readiness, days_to_exam=90, target_score=0.7,
                 ),
             }
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
 
     return out
 
 
-@router.get("/analytics/readiness-band/{user_id}")
+@router.get("/analytics/readiness-band/{user_id}", dependencies=[Depends(require_owner)])
 async def get_readiness_band(
     user_id: str,
     target_score: float = 0.7,
@@ -853,7 +1012,7 @@ class RealExamOutcomeIn(BaseModel):
     admitted_to: str | None = Field(default=None, max_length=200)
 
 
-@router.post("/analytics/real-exam-outcomes/{user_id}", status_code=200)
+@router.post("/analytics/real-exam-outcomes/{user_id}", status_code=200, dependencies=[Depends(require_owner)])
 async def post_real_exam_outcome(user_id: str, body: RealExamOutcomeIn):
     """Upsert a student's self-reported real-exam outcome. Idempotent
     on (user_id, exam_code) — re-submitting overwrites the previous
@@ -1926,7 +2085,11 @@ from fastapi import Depends as _Depends
 from engagement.analytics import drill as _drill
 from engagement.analytics.scope import (
     Principal as _Principal,
+)
+from engagement.analytics.scope import (
     get_principal as _get_principal,
+)
+from engagement.analytics.scope import (
     resolve_scope as _resolve_scope,
 )
 
@@ -1935,6 +2098,7 @@ async def _importance_map(exam_id: str) -> dict:
     """HTTP-fetch the importance map from learning service. Cached at
     learning side; round-trip is one shot per request."""
     import httpx
+
     from engagement.analytics.config import settings as _s
 
     base = _s.learning_base_url.rstrip("/")
@@ -2064,6 +2228,7 @@ async def drill_students_route(
 
 
 from dataclasses import asdict as _asdict
+
 from pydantic import BaseModel as _BaseModel
 
 
@@ -2113,14 +2278,22 @@ async def topic_mastery_aggregate_route(body: _UserIdsBody):
 
 from engagement.analytics import (
     common_mistakes as _cm,
+)
+from engagement.analytics import (
     compare as _cmp,
+)
+from engagement.analytics import (
     confidence_gap as _cg,
+)
+from engagement.analytics import (
     intervention_efficacy as _ie,
+)
+from engagement.analytics import (
     time_to_mastery as _ttm,
 )
 
 
-@router.get("/analytics/time-to-mastery/{user_id}/{topic_id}")
+@router.get("/analytics/time-to-mastery/{user_id}/{topic_id}", dependencies=[Depends(require_owner)])
 async def time_to_mastery_route(
     user_id: str,
     topic_id: str,
@@ -2141,7 +2314,7 @@ async def time_to_mastery_route(
     return _asdict(result)
 
 
-@router.get("/analytics/confidence-gap/{user_id}")
+@router.get("/analytics/confidence-gap/{user_id}", dependencies=[Depends(require_owner)])
 async def confidence_gap_route(user_id: str):
     async with sessionmaker()() as session:
         report = await _cg.compute(session, user_id=user_id)
@@ -2194,12 +2367,13 @@ async def compare_students_route(
 
 from fastapi.responses import Response as _FastResponse
 
-from engagement.analytics import outcomes_pdf as _outcomes_pdf
 from engagement.analytics import (
     career_outcomes as _career,
+)
+from engagement.analytics import outcomes_pdf as _outcomes_pdf
+from engagement.analytics import (
     rank_trajectory as _trajectory,
 )
-
 
 # ── Phase 1D-4 — Career outcome correlation ──────────────────────────
 
@@ -2220,7 +2394,8 @@ async def career_outcomes_route(
 # ── Phase 1D-4 — Real-exam self-report ingestion ─────────────────────
 
 
-from pydantic import BaseModel as _PdBaseModel, Field as _PdField
+from pydantic import BaseModel as _PdBaseModel
+from pydantic import Field as _PdField
 
 
 class _RealExamOutcomeIn(_PdBaseModel):
@@ -2230,7 +2405,7 @@ class _RealExamOutcomeIn(_PdBaseModel):
     admittedTo: str | None = _PdField(default=None, max_length=200)
 
 
-@router.put("/analytics/real-exam-outcomes/{user_id}")
+@router.put("/analytics/real-exam-outcomes/{user_id}", dependencies=[Depends(require_owner)])
 async def upsert_real_exam_outcome(user_id: str, body: _RealExamOutcomeIn):
     """Self-report a real-exam outcome. Upsert on (user_id, exam_code)."""
     from sqlalchemy import text as _t
@@ -2262,7 +2437,7 @@ async def upsert_real_exam_outcome(user_id: str, body: _RealExamOutcomeIn):
     return {"userId": user_id, "examCode": body.examCode, "saved": True}
 
 
-@router.get("/analytics/real-exam-outcomes/{user_id}")
+@router.get("/analytics/real-exam-outcomes/{user_id}", dependencies=[Depends(require_owner)])
 async def list_real_exam_outcomes(user_id: str):
     from sqlalchemy import text as _t
 
@@ -2296,7 +2471,7 @@ async def list_real_exam_outcomes(user_id: str):
     }
 
 
-@router.delete("/analytics/real-exam-outcomes/{user_id}/{exam_code}", status_code=204)
+@router.delete("/analytics/real-exam-outcomes/{user_id}/{exam_code}", status_code=204, dependencies=[Depends(require_owner)])
 async def delete_real_exam_outcome(user_id: str, exam_code: str):
     from sqlalchemy import text as _t
 
@@ -2317,7 +2492,7 @@ async def delete_real_exam_outcome(user_id: str, exam_code: str):
 # ── Phase 1D-5 — Rank trajectory ────────────────────────────────────
 
 
-@router.get("/analytics/mock/{exam_code}/trajectory/{user_id}")
+@router.get("/analytics/mock/{exam_code}/trajectory/{user_id}", dependencies=[Depends(require_owner)])
 async def rank_trajectory_route(exam_code: str, user_id: str):
     report = await _trajectory.compute(user_id=user_id, exam_code=exam_code)
     return _asdict(report)
@@ -2338,7 +2513,7 @@ async def national_leaderboard_route(
     return _asdict(res)
 
 
-@router.get("/analytics/mock/{exam_code}/national-rank/{user_id}")
+@router.get("/analytics/mock/{exam_code}/national-rank/{user_id}", dependencies=[Depends(require_owner)])
 async def national_rank_route(exam_code: str, user_id: str):
     res = await _natrank.user_rank(user_id=user_id, exam_code=exam_code)
     return _asdict(res)
@@ -2378,3 +2553,115 @@ async def outcomes_report_route(
             headers={"Content-Disposition": f'inline; filename="{fname}"'},
         )
 
+
+
+# ── Mistake Notebook (Phase 3.1) ──────────────────────────────────────────────
+from typing import Annotated  # noqa: E402
+
+from fastapi import Depends  # noqa: E402
+
+from engagement.analytics import mistakes_repo as _mistakes_repo  # noqa: E402
+from engagement.analytics.scope import Principal, get_principal  # noqa: E402
+
+
+class MistakeReviewRequest(BaseModel):
+    quality: int = Field(ge=0, le=5, description="Anki-style grade 0..5")
+
+
+def _require_self(user_id: str, principal: Principal) -> None:
+    """Mistakes are personal — only the owner (or a platform admin) may read or
+    review them. Blocks the IDOR of passing another student's user_id."""
+    if principal.user_id != user_id and principal.role.upper() != "PLATFORM_ADMIN":
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "forbidden", "message": "You can only access your own mistakes."},
+        )
+
+
+async def _merge_topic_titles(rows: list[dict]) -> None:
+    """Fill each row's `topicTitle` from the learning service (bulk)."""
+    topic_ids = list({r["topicId"] for r in rows if r.get("topicId")})
+    if not topic_ids:
+        return
+    titles = await _learning_client.fetch_topics_bulk(topic_ids)
+    for r in rows:
+        info = titles.get(r["topicId"])
+        r["topicTitle"] = info.get("title", "") if info else ""
+
+
+def _iso_row(r: dict, now: datetime) -> dict:
+    return {
+        **r,
+        "createdAt": r["createdAt"].isoformat() if r.get("createdAt") else None,
+        "dueAt": r["dueAt"].isoformat() if r.get("dueAt") else None,
+        "overdueDays": overdue_days(r["dueAt"], now=now) if r.get("dueAt") else 0,
+    }
+
+
+@router.get("/analytics/mistakes/{user_id}")
+async def list_mistakes(
+    user_id: str,
+    principal: Annotated[Principal, Depends(get_principal)],
+    topic_id: str | None = None,
+    error_tag: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    """The student's mistake notebook — captured wrong answers, newest first,
+    optionally filtered by topic or error tag."""
+    _require_self(user_id, principal)
+    now = datetime.now(tz=UTC)
+    limit = max(1, min(limit, 100))
+    async with sessionmaker()() as session:
+        rows = await _mistakes_repo.list_mistakes(
+            session, user_id, topic_id=topic_id, error_tag=error_tag,
+            limit=limit, offset=max(0, offset),
+        )
+    await _merge_topic_titles(rows)
+    return {"userId": user_id, "items": [_iso_row(r, now) for r in rows]}
+
+
+@router.get("/analytics/mistakes/{user_id}/due")
+async def mistakes_due(
+    user_id: str,
+    principal: Annotated[Principal, Depends(get_principal)],
+    limit: int = 20,
+) -> dict:
+    """Mistakes whose spaced-repetition replay is due now (most overdue first)."""
+    _require_self(user_id, principal)
+    now = datetime.now(tz=UTC)
+    limit = max(1, min(limit, 50))
+    async with sessionmaker()() as session:
+        rows = await _mistakes_repo.list_due(session, user_id, now=now, limit=limit)
+        total_due = await _mistakes_repo.count_due(session, user_id, now=now)
+    await _merge_topic_titles(rows)
+    return {
+        "userId": user_id,
+        "now": now.isoformat(),
+        "dueCount": total_due,
+        "items": [_iso_row(r, now) for r in rows],
+    }
+
+
+@router.post("/analytics/mistakes/{user_id}/review/{mistake_id}")
+async def review_mistake(
+    user_id: str,
+    mistake_id: str,
+    req: MistakeReviewRequest,
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> dict:
+    """Grade one mistake review (quality 0..5); advances its SM-2 schedule."""
+    _require_self(user_id, principal)
+    now = datetime.now(tz=UTC)
+    async with sessionmaker()() as session:
+        result = await _mistakes_repo.apply_review(
+            session, mistake_id=mistake_id, user_id=user_id, quality=req.quality, now=now,
+        )
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "not_found", "message": "mistake not found"},
+            )
+        await session.commit()
+    result["dueAt"] = result["dueAt"].isoformat()
+    return result

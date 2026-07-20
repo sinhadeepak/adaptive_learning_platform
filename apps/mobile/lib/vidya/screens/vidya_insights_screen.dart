@@ -8,6 +8,17 @@ import 'package:flutter/material.dart';
 
 import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
+import '../../insights/insights_client.dart';
+import '../state/active_exam_notifier.dart';
+import '../widgets/vidya_exam_switcher.dart';
+import 'vidya_analysis_screen.dart';
+import 'vidya_catalog_screen.dart';
+import 'vidya_concept_profile_screen.dart';
+import 'vidya_diagnostic_deep_dive_screen.dart';
+import 'vidya_portfolio_screen.dart';
+import 'vidya_revision_screen.dart';
+import 'vidya_study_plan_screen.dart';
+import 'vidya_syllabus_coverage_screen.dart';
 import 'vidya_topic_detail_screen.dart';
 
 class VidyaInsightsScreen extends StatefulWidget {
@@ -82,15 +93,47 @@ class _FocusTopic {
 class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
   _InsightsState _state = _InsightsState.loading;
   _InsightsData? _data;
+  // Phase 4 — structured 3-zone snapshot (state / meaning / action).
+  // Best-effort: null when the aggregator is unavailable; the bucket
+  // grid + Dig-deeper still render without it.
+  InsightsSnapshot? _snapshot;
+
+  // Active-exam spine: the FOCUS-ON topic catalog and the Syllabus link are
+  // exam-scoped, so reload when the student switches exam.
+  VidyaActiveExamNotifier? _examNotifier;
+  String? _loadedExamId;
+  bool _didInitialLoad = false;
 
   @override
-  void initState() {
-    super.initState();
-    _load();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final n = VidyaActiveExam.of(context);
+    if (!identical(n, _examNotifier)) {
+      _examNotifier?.removeListener(_onActiveExamChanged);
+      _examNotifier = n;
+      _examNotifier?.addListener(_onActiveExamChanged);
+    }
+    if (!_didInitialLoad) {
+      _didInitialLoad = true;
+      _load();
+    }
+  }
+
+  @override
+  void dispose() {
+    _examNotifier?.removeListener(_onActiveExamChanged);
+    super.dispose();
+  }
+
+  void _onActiveExamChanged() {
+    final n = _examNotifier;
+    if (n == null || n.loading) return;
+    if (n.active?.examId != _loadedExamId) _load();
   }
 
   Future<void> _load() async {
     if (!mounted) return;
+    _loadedExamId = _examNotifier?.active?.examId;
     setState(() => _state = _InsightsState.loading);
     final user = widget.auth.user;
     if (user == null) {
@@ -114,6 +157,15 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
         _data = _InsightsData.fromMastery(rows, topicsById: topicsById);
         _state = _InsightsState.loaded;
       });
+      // Zones 2/3 — fetch the structured snapshot after the bucket grid
+      // is already on screen. Failure degrades silently (zones omitted).
+      try {
+        final snap =
+            await InsightsClient(auth: widget.auth).fetchSnapshot(user.id);
+        if (mounted) setState(() => _snapshot = snap);
+      } catch (_) {
+        // aggregator unavailable — leave zones 2/3 hidden
+      }
     } catch (_) {
       if (mounted) setState(() => _state = _InsightsState.error);
     }
@@ -121,10 +173,9 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
 
   Future<Map<String, Topic>> _resolveTopicsCatalog(ApiClient api) async {
     try {
-      final profile = await api.getProfile();
-      final examId = (profile?.exams.isNotEmpty ?? false)
-          ? profile!.exams.first.examId
-          : null;
+      // Scope to the app-wide active exam so FOCUS-ON shows that exam's
+      // topics (not always the primary exam's).
+      final examId = _examNotifier?.active?.examId;
       if (examId == null) return const {};
       final subjects = await api.subjectsForExam(examId);
       if (subjects.isEmpty) return const {};
@@ -146,8 +197,86 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
 
   void _onFocusTopicTap(_FocusTopic t) {
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => VidyaTopicDetailScreen(topic: t.topic, ewa: t.ewa),
+      builder: (_) =>
+          VidyaTopicDetailScreen(auth: widget.auth, topic: t.topic, ewa: t.ewa),
     ));
+  }
+
+  void _openRevision() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VidyaRevisionScreen(auth: widget.auth),
+      ),
+    );
+  }
+
+  /// Zones 2 (What this means) and 3 (What to do), rendered from the
+  /// structured insights snapshot. Mirrors web Insights.tsx zones.
+  List<Widget> _buildZones(InsightsSnapshot s, VidyaThemeData v) {
+    final weak = s.weakConcepts.length;
+    final decay = s.decayAlerts.length;
+    final critical = s.decayAlerts
+        .where((c) => c.decaySeverity == DecaySeverity.critical)
+        .length;
+    return [
+      const SizedBox(height: 24),
+      _ZoneHeader(label: 'WHAT THIS MEANS'),
+      const SizedBox(height: 12),
+      _ZoneCard(
+        rows: [
+          if (weak > 0)
+            _ZoneRow(
+              icon: Icons.trending_down,
+              tone: v.bad,
+              title: '$weak weak concept${weak == 1 ? '' : 's'}',
+              detail: 'Mastery is below 40% — prioritise these.',
+            ),
+          if (decay > 0)
+            _ZoneRow(
+              icon: Icons.schedule,
+              tone: v.warn,
+              title: '$decay topic${decay == 1 ? '' : 's'} fading'
+                  '${critical > 0 ? '  ·  $critical critical' : ''}',
+              detail: 'Knowledge is decaying since your last review.',
+            ),
+          if (weak == 0 && decay == 0)
+            _ZoneRow(
+              icon: Icons.check_circle_outline,
+              tone: v.good,
+              title: 'Nothing flagged',
+              detail: 'No weak or decaying concepts right now.',
+            ),
+        ],
+      ),
+      const SizedBox(height: 24),
+      _ZoneHeader(label: 'WHAT TO DO'),
+      const SizedBox(height: 12),
+      _ZoneCard(
+        rows: [
+          _ZoneRow(
+            icon: s.missionsTodayPending ? Icons.flag : Icons.flag_outlined,
+            tone: s.missionsTodayPending ? v.accent : v.ink3,
+            title: s.missionsTodayPending
+                ? "Today's mission is pending"
+                : "Today's mission is done",
+            detail: s.missionsTodayPending
+                ? 'Finish your daily plan to keep your streak.'
+                : "Nice — you've completed today's plan.",
+          ),
+          _ZoneRow(
+            icon: Icons.event_repeat,
+            tone: s.revisionDueToday > 0 ? v.accent : v.ink3,
+            title: s.revisionDueToday > 0
+                ? '${s.revisionDueToday} topic${s.revisionDueToday == 1 ? '' : 's'} due for revision'
+                : 'No revision due today',
+            detail: s.revisionDueToday > 0
+                ? 'Start your spaced-repetition queue.'
+                : 'Your spaced-repetition queue is clear.',
+            onTap: s.revisionDueToday > 0 ? _openRevision : null,
+          ),
+        ],
+      ),
+    ];
   }
 
   @override
@@ -165,14 +294,30 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
           children: [
-            Text(
-              'INSIGHTS',
-              style: TextStyle(
-                fontFamily: VidyaFonts.mono,
-                fontSize: 11,
-                color: v.ink3,
-                letterSpacing: 1.5,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'INSIGHTS',
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.mono,
+                      fontSize: 11,
+                      color: v.ink3,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+                VidyaExamPill(
+                  onAddExam: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => VidyaCatalogScreen(
+                        auth: widget.auth,
+                        onExamAdded: () => _examNotifier?.refresh(),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
@@ -264,40 +409,273 @@ class _VidyaInsightsScreenState extends State<VidyaInsightsScreen> {
                 const SizedBox(height: 10),
               ],
             ],
-            const SizedBox(height: 16),
-            VidyaCard(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'COMING IN PHASE 3d.full',
-                      style: TextStyle(
-                        fontFamily: VidyaFonts.mono,
-                        fontSize: 10,
-                        color: v.ink3,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Named per-topic breakdowns, weekly story, and '
-                      'time-spent trends.',
-                      style: TextStyle(
-                        fontFamily: VidyaFonts.ui,
-                        fontSize: 14,
-                        color: v.ink2,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
+            if (_snapshot != null) ..._buildZones(_snapshot!, v),
+            const SizedBox(height: 24),
+            Text(
+              'DIG DEEPER',
+              style: TextStyle(
+                fontFamily: VidyaFonts.mono,
+                fontSize: 11,
+                color: v.ink3,
+                letterSpacing: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _DeepDiveRow(
+              icon: Icons.event_repeat,
+              label: 'Revision',
+              sublabel: 'Spaced-repetition topics due for review',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaRevisionScreen(auth: widget.auth),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _DeepDiveRow(
+              icon: Icons.insights_outlined,
+              label: 'My Analysis',
+              sublabel: 'Dimension fluency, weakest concepts & calibration',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaAnalysisScreen(auth: widget.auth),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _DeepDiveRow(
+              icon: Icons.radar,
+              label: 'Concept Profile',
+              sublabel: 'Per-concept mastery, weakest first',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaConceptProfileScreen(auth: widget.auth),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _DeepDiveRow(
+              icon: Icons.account_tree_outlined,
+              label: 'Diagnostic Deep-Dive',
+              sublabel: 'Readiness band + focus zones',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      VidyaDiagnosticDeepDiveScreen(auth: widget.auth),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _DeepDiveRow(
+              icon: Icons.fact_check_outlined,
+              label: 'Syllabus Coverage',
+              sublabel: 'Chapter-by-chapter coverage across the syllabus',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaSyllabusCoverageScreen(
+                    auth: widget.auth,
+                    examId: _examNotifier?.active?.examId ?? '',
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _DeepDiveRow(
+              icon: Icons.event_note_outlined,
+              label: 'Study Plan',
+              sublabel: 'Your AI weekly plan — view & regenerate',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaStudyPlanScreen(auth: widget.auth),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _DeepDiveRow(
+              icon: Icons.pie_chart_outline,
+              label: 'Study Portfolio',
+              sublabel: 'Current vs optimal effort allocation',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => VidyaPortfolioScreen(
+                    auth: widget.auth,
+                    examId: _examNotifier?.active?.examId ?? '',
+                  ),
                 ),
               ),
             ),
           ],
         );
     }
+  }
+}
+
+/// A tappable "dig deeper" row linking to a richer analytics surface:
+/// leading icon, label + sublabel, trailing chevron. Mirrors web's
+/// Insights → Phase-5 deep-link pattern (ADR-0020).
+class _DeepDiveRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String sublabel;
+  final VoidCallback onTap;
+  const _DeepDiveRow({
+    required this.icon,
+    required this.label,
+    required this.sublabel,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return VidyaCard(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: v.accent),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.ui,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: v.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sublabel,
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.ui,
+                      fontSize: 12,
+                      color: v.ink3,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: v.ink3, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small mono eyebrow above an insights zone.
+class _ZoneHeader extends StatelessWidget {
+  final String label;
+  const _ZoneHeader({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return Text(
+      label,
+      style: TextStyle(
+        fontFamily: VidyaFonts.mono,
+        fontSize: 11,
+        color: v.ink3,
+        letterSpacing: 1.4,
+      ),
+    );
+  }
+}
+
+/// A card stacking zone rows with hairline separators.
+class _ZoneCard extends StatelessWidget {
+  final List<_ZoneRow> rows;
+  const _ZoneCard({required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return VidyaCard(
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            rows[i],
+            if (i != rows.length - 1)
+              Divider(
+                height: 1,
+                thickness: 1,
+                indent: 48,
+                color: v.ink3.withValues(alpha: 0.12),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A single insights-zone row: toned icon + title + one-line detail,
+/// optionally tappable (e.g. revision → revision queue).
+class _ZoneRow extends StatelessWidget {
+  final IconData icon;
+  final Color tone;
+  final String title;
+  final String detail;
+  final VoidCallback? onTap;
+  const _ZoneRow({
+    required this.icon,
+    required this.tone,
+    required this.title,
+    required this.detail,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VidyaThemeData.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: tone),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.ui,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: v.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    detail,
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.ui,
+                      fontSize: 12,
+                      color: v.ink3,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onTap != null)
+              Icon(Icons.chevron_right, color: v.ink3, size: 22),
+          ],
+        ),
+      ),
+    );
   }
 }
 

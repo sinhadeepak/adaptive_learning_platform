@@ -19,6 +19,7 @@ const browserGlobals = {
   URL: "readonly",
   URLSearchParams: "readonly",
   Blob: "readonly",
+  File: "readonly",
   FormData: "readonly",
   AbortController: "readonly",
   AbortSignal: "readonly",

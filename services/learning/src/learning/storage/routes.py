@@ -24,6 +24,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from learning.content.config import settings as content_settings
 from learning.content.security import JwtPrincipal, current_principal
 from learning.storage import (
     ALLOWED_MIME,
@@ -32,6 +33,7 @@ from learning.storage import (
     object_key,
     presign_get,
     presign_put,
+    sign_upload_claim,
 )
 
 log = logging.getLogger(__name__)
@@ -46,9 +48,11 @@ class PresignRequest(BaseModel):
         "quiz-response",
         "doubt",
         "content-media",
+        "study-material",
         "profile-avatar",
         "profile-id-proof",
         "tmp",
+        "note-image",
     ]
     content_type: str = Field(..., min_length=3, max_length=80)
     original_name: str | None = Field(default=None, max_length=200)
@@ -58,6 +62,7 @@ class PresignRequest(BaseModel):
     question_id: str | None = None
     sub_question_id: str | None = None
     doubt_id: str | None = None
+    topic_id: str | None = None
 
 
 class PresignResponse(BaseModel):
@@ -67,6 +72,9 @@ class PresignResponse(BaseModel):
     max_bytes: int
     method: str
     content_type: str
+    # HMAC claim binding this key to the uploader; passed back on resource
+    # create to prove ownership of the object (anti-IDOR).
+    upload_claim: str
 
 
 @router.post("/presign", response_model=PresignResponse)
@@ -86,6 +94,13 @@ def presign(
         )
     extension = ALLOWED_MIME[body.content_type]
 
+    if body.kind == "note-image" and not body.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=415,
+            detail={"code": "unsupported_media_type",
+                    "message": "note-image accepts image/* only."},
+        )
+
     # Tenancy: principal carries it on hosted; default in dev.
     tenant_id = getattr(principal, "tenant_id", None) or "default"
 
@@ -99,6 +114,7 @@ def presign(
             question_id=body.question_id,
             sub_question_id=body.sub_question_id,
             doubt_id=body.doubt_id,
+            topic_id=body.topic_id,
         )
     except ValueError as e:
         raise HTTPException(
@@ -111,6 +127,9 @@ def presign(
         content_type=body.content_type,
         original_name=body.original_name,
     )
+    claim = sign_upload_claim(
+        signed.object_key, principal.user_id, content_settings.jwt_secret
+    )
     return PresignResponse(
         url=signed.url,
         object_key=signed.object_key,
@@ -118,6 +137,7 @@ def presign(
         max_bytes=signed.max_bytes,
         method=signed.method,
         content_type=body.content_type,
+        upload_claim=claim,
     )
 
 
@@ -154,6 +174,8 @@ def finalize(body: FinalizeRequest, principal: PrincipalDep) -> FinalizeResponse
         owner_segment = parts[2]
     elif parts[:1] == ["profile-uploads"] and len(parts) >= 2:
         owner_segment = parts[1]
+    elif parts[:1] == ["note-images"] and len(parts) >= 2:
+        owner_segment = parts[1]
     elif parts[:1] == ["tmp"] and len(parts) >= 3:
         owner_segment = parts[2]
     elif parts[:1] == ["content-media"]:
@@ -165,6 +187,12 @@ def finalize(body: FinalizeRequest, principal: PrincipalDep) -> FinalizeResponse
             "EXPERT",
         ):
             raise HTTPException(status_code=403, detail="content-media requires authoring role")
+    elif parts[:1] == ["study-materials"]:
+        # Topic-scoped (not user-scoped) — students may upload docs too, so
+        # the key embeds tenant/topic, not user. Any authenticated principal
+        # may finalise; author ownership for submit/delete is enforced by the
+        # concept_resources row, not the key path.
+        owner_segment = None
     else:
         raise HTTPException(status_code=400, detail="unknown object key prefix")
 
@@ -223,19 +251,24 @@ def sign_get(
         owner_segment = parts[2]
     elif parts[:1] == ["profile-uploads"] and len(parts) >= 2:
         owner_segment = parts[1]
+    elif parts[:1] == ["note-images"] and len(parts) >= 2:
+        owner_segment = parts[1]
     elif parts[:1] == ["tmp"] and len(parts) >= 3:
         owner_segment = parts[2]
     elif parts[:1] == ["content-media"]:
         # Public-ish: any authenticated user can fetch question media.
         owner_segment = None
+    elif parts[:1] == ["study-materials"]:
+        # Published study documents are meant to be downloaded by students.
+        owner_segment = None
     else:
         raise HTTPException(status_code=400, detail="unknown object key prefix")
 
-    if owner_segment is not None and owner_segment != principal.user_id and principal.role not in (
-        "MODERATOR",
-        "INSTITUTION_ADMIN",
-        "PLATFORM_ADMIN",
-    ):
+    # note-images are private to their owner — no admin role bypass.
+    # All other owner-scoped kinds allow MODERATOR+ to act on behalf of any user.
+    is_note_image = parts[:1] == ["note-images"]
+    privileged = principal.role in ("MODERATOR", "INSTITUTION_ADMIN", "PLATFORM_ADMIN")
+    if owner_segment is not None and owner_segment != principal.user_id and (is_note_image or not privileged):
         raise HTTPException(status_code=403, detail="not your upload")
 
     signed = presign_get(key)

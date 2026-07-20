@@ -389,4 +389,113 @@ class AnalyticsClient {
     );
     return r.statusCode >= 200 && r.statusCode < 300;
   }
+
+  /// Syllabus coverage matrix for an exam — per-subject / per-chapter
+  /// attempted + mastered counts and a coverage status. Mirrors web's
+  /// `/api/v1/analytics/syllabus-coverage/{userId}?examId=`.
+  Future<SyllabusCoverage?> syllabusCoverage(
+    String userId, {
+    required String examId,
+  }) async {
+    final r = await auth.apiGet(
+      '/analytics/syllabus-coverage/$userId?examId=$examId',
+    );
+    if (r.statusCode != 200) return null;
+    return SyllabusCoverage.fromJson(
+      jsonDecode(r.body) as Map<String, dynamic>,
+    );
+  }
+}
+
+// ─── Syllabus coverage ──────────────────────────────────────────────
+
+class SyllabusCoverage {
+  SyllabusCoverage({
+    required this.examId,
+    required this.overallPct,
+    required this.totalTopics,
+    required this.masteredTopics,
+    required this.subjects,
+  });
+  final String examId;
+  final int overallPct;
+  final int totalTopics;
+  final int masteredTopics;
+  final List<CoverageSubject> subjects;
+
+  factory SyllabusCoverage.fromJson(Map<String, dynamic> j) => SyllabusCoverage(
+        examId: (j['examId'] ?? '') as String,
+        overallPct: ((j['overallPct'] ?? 0) as num).toInt(),
+        totalTopics: ((j['totalTopics'] ?? 0) as num).toInt(),
+        masteredTopics: ((j['masteredTopics'] ?? 0) as num).toInt(),
+        subjects: ((j['subjects'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(CoverageSubject.fromJson)
+            .toList(),
+      );
+}
+
+class CoverageSubject {
+  CoverageSubject({
+    required this.subjectId,
+    required this.name,
+    required this.totalChapters,
+    required this.coveredChapters,
+    required this.totalTopics,
+    required this.attemptedTopics,
+    required this.masteredTopics,
+    required this.chapters,
+  });
+  final String subjectId;
+  final String name;
+  final int totalChapters;
+  final int coveredChapters;
+  final int totalTopics;
+  final int attemptedTopics;
+  final int masteredTopics;
+  final List<CoverageChapter> chapters;
+
+  factory CoverageSubject.fromJson(Map<String, dynamic> j) => CoverageSubject(
+        subjectId: (j['subjectId'] ?? '') as String,
+        name: (j['name'] ?? '') as String,
+        totalChapters: ((j['totalChapters'] ?? 0) as num).toInt(),
+        coveredChapters: ((j['coveredChapters'] ?? 0) as num).toInt(),
+        totalTopics: ((j['totalTopics'] ?? 0) as num).toInt(),
+        attemptedTopics: ((j['attemptedTopics'] ?? 0) as num).toInt(),
+        masteredTopics: ((j['masteredTopics'] ?? 0) as num).toInt(),
+        chapters: ((j['chapters'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(CoverageChapter.fromJson)
+            .toList(),
+      );
+}
+
+class CoverageChapter {
+  CoverageChapter({
+    required this.chapterId,
+    required this.name,
+    required this.totalTopics,
+    required this.attemptedTopics,
+    required this.masteredTopics,
+    required this.avgEwa,
+    required this.status,
+  });
+  final String chapterId;
+  final String name;
+  final int totalTopics;
+  final int attemptedTopics;
+  final int masteredTopics;
+  final double avgEwa;
+  // 'mastered' | 'developing' | 'not_started' | 'missing'
+  final String status;
+
+  factory CoverageChapter.fromJson(Map<String, dynamic> j) => CoverageChapter(
+        chapterId: (j['chapterId'] ?? '') as String,
+        name: (j['name'] ?? '') as String,
+        totalTopics: ((j['totalTopics'] ?? 0) as num).toInt(),
+        attemptedTopics: ((j['attemptedTopics'] ?? 0) as num).toInt(),
+        masteredTopics: ((j['masteredTopics'] ?? 0) as num).toInt(),
+        avgEwa: ((j['avgEwa'] ?? 0) as num).toDouble(),
+        status: (j['status'] ?? 'not_started') as String,
+      );
 }

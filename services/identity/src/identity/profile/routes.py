@@ -109,6 +109,8 @@ async def _build_profile(
             for e in exams
         ],
         notificationPrefs=row.get("notification_prefs") or {},
+        targetRank=row.get("target_rank"),
+        targetExamDate=row.get("target_exam_date"),
     )
 
 

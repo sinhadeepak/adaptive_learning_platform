@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../auth/auth_client.dart';
+import '../quiz/explanation_models.dart';
 
 /// Typed wrapper around AuthClient for the data-plane endpoints the mobile
 /// surfaces hit. Mirrors the backend shapes; one method per endpoint so each
@@ -40,26 +41,31 @@ class ApiClient {
     final j = jsonDecode(r.body) as Map<String, dynamic>;
     final topics = (j['topics'] as List).cast<Map<String, dynamic>>();
     return topics
-        .map((t) => TopicMastery(
-              topicId: t['topicId'] as String,
-              ewa: (t['ewa'] as num).toDouble(),
-              n: (t['n'] as num).toInt(),
-            ),)
+        .map(
+          (t) => TopicMastery(
+            topicId: t['topicId'] as String,
+            ewa: (t['ewa'] as num).toDouble(),
+            n: (t['n'] as num).toInt(),
+          ),
+        )
         .toList();
   }
 
-  Future<List<DailyActivity>> dailyActivity(String userId, {int days = 30}) async {
+  Future<List<DailyActivity>> dailyActivity(String userId,
+      {int days = 30}) async {
     final r = await auth.apiGet('/analytics/daily-activity/$userId?days=$days');
     if (r.statusCode != 200) return [];
     final j = jsonDecode(r.body) as Map<String, dynamic>;
     final raw = (j['activity'] as List? ?? []).cast<Map<String, dynamic>>();
     return raw
-        .map((m) => DailyActivity(
-              date: DateTime.parse(m['date'] as String),
-              sessions: ((m['sessions'] ?? 0) as num).toInt(),
-              questions: ((m['questions'] ?? 0) as num).toInt(),
-              minutes: ((m['minutes'] ?? 0) as num).toInt(),
-            ),)
+        .map(
+          (m) => DailyActivity(
+            date: DateTime.parse(m['date'] as String),
+            sessions: ((m['sessions'] ?? 0) as num).toInt(),
+            questions: ((m['questions'] ?? 0) as num).toInt(),
+            minutes: ((m['minutes'] ?? 0) as num).toInt(),
+          ),
+        )
         .toList();
   }
 
@@ -73,7 +79,8 @@ class ApiClient {
     return UserProfile.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
   }
 
-  Future<UserProfile?> updateProfile({String? firstName, String? lastName}) async {
+  Future<UserProfile?> updateProfile(
+      {String? firstName, String? lastName}) async {
     final body = <String, dynamic>{};
     if (firstName != null) body['firstName'] = firstName;
     if (lastName != null) body['lastName'] = lastName;
@@ -95,7 +102,7 @@ class ApiClient {
     final url = '${auth.baseUrl}/profile/me/avatar';
     final res = await http.delete(
       Uri.parse(url),
-      headers: {'authorization': 'Bearer ${auth.tokens?.accessToken ?? ''}'},
+      headers: auth.baseHeaders(auth: true),
     );
     return res.statusCode == 204 || res.statusCode == 200;
   }
@@ -104,12 +111,14 @@ class ApiClient {
   /// {type: false} to mute, {type: true} to re-enable. Missing keys keep
   /// their existing value.
   Future<UserProfile?> updateNotificationPrefs(Map<String, bool> prefs) async {
-    final r = await auth.apiPatch('/profile/notification-prefs', {'prefs': prefs});
+    final r =
+        await auth.apiPatch('/profile/notification-prefs', {'prefs': prefs});
     if (r.statusCode != 200) return null;
     return UserProfile.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
   }
 
-  Future<UserProfile?> updatePreferences({String? language, int? dailyGoalMinutes}) async {
+  Future<UserProfile?> updatePreferences(
+      {String? language, int? dailyGoalMinutes}) async {
     final body = <String, dynamic>{};
     if (language != null) body['language'] = language;
     if (dailyGoalMinutes != null) body['dailyGoalMinutes'] = dailyGoalMinutes;
@@ -122,7 +131,8 @@ class ApiClient {
   /// [updatePreferences] so the Question-language control can save
   /// independently (mirrors the web-student pattern in session-start.ts).
   Future<UserProfile?> updateContentLanguage(String lang) async {
-    final r = await auth.apiPatch('/profile/preferences', {'contentLanguage': lang});
+    final r =
+        await auth.apiPatch('/profile/preferences', {'contentLanguage': lang});
     if (r.statusCode != 200) return null;
     return UserProfile.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
   }
@@ -158,11 +168,7 @@ class ApiClient {
   }
 
   Future<bool> removeBookmark(String questionId) async {
-    final url = '${auth.baseUrl}/profile/bookmarks/$questionId';
-    final res = await http.delete(
-      Uri.parse(url),
-      headers: {'authorization': 'Bearer ${auth.tokens?.accessToken ?? ''}'},
-    );
+    final res = await auth.apiDelete('/profile/bookmarks/$questionId');
     return res.statusCode == 204 || res.statusCode == 200;
   }
 
@@ -207,17 +213,18 @@ class ApiClient {
     }
   }
 
-  Future<bool> markNotificationRead(String userId, String notificationId) async {
-    final url = '${auth.baseUrl}/notifications/$notificationId/read?user_id=$userId';
-    final res = await http.post(
-      Uri.parse(url),
-      headers: {'authorization': 'Bearer ${auth.tokens?.accessToken ?? ''}'},
+  Future<bool> markNotificationRead(
+      String userId, String notificationId) async {
+    final res = await auth.apiPost(
+      '/notifications/$notificationId/read?user_id=$userId',
+      const {},
     );
     return res.statusCode == 200;
   }
 
   Future<int> markAllNotificationsRead(String userId) async {
-    final r = await auth.apiPost('/notifications/inbox/$userId/mark-all-read', const {});
+    final r = await auth
+        .apiPost('/notifications/inbox/$userId/mark-all-read', const {});
     if (r.statusCode != 200) return 0;
     final j = jsonDecode(r.body) as Map<String, dynamic>;
     return ((j['flipped'] ?? 0) as num).toInt();
@@ -227,7 +234,8 @@ class ApiClient {
   // Quiz session history
   // ────────────────────────────────────────────────────────────────────
 
-  Future<List<SessionHistoryRow>> sessionHistory(String userId, {int limit = 50}) async {
+  Future<List<SessionHistoryRow>> sessionHistory(String userId,
+      {int limit = 50}) async {
     final r = await auth.apiGet('/quiz/sessions?userId=$userId&limit=$limit');
     if (r.statusCode != 200) return [];
     final j = jsonDecode(r.body) as Map<String, dynamic>;
@@ -260,12 +268,14 @@ class ApiClient {
     final list = jsonDecode(r.body) as List;
     return list
         .cast<Map<String, dynamic>>()
-        .map((e) => Exam(
-              id: e['id'] as String,
-              code: e['code'] as String,
-              name: e['name'] as String,
-              subtitle: e['subtitle'] as String?,
-            ),)
+        .map(
+          (e) => Exam(
+            id: e['id'] as String,
+            code: e['code'] as String,
+            name: e['name'] as String,
+            subtitle: e['subtitle'] as String?,
+          ),
+        )
         .toList();
   }
 
@@ -273,12 +283,14 @@ class ApiClient {
     final r = await auth.apiGet('/catalog/exams/$examId/subjects');
     return (jsonDecode(r.body) as List)
         .cast<Map<String, dynamic>>()
-        .map((s) => Subject(
-              id: s['id'] as String,
-              examId: s['examId'] as String,
-              name: s['name'] as String,
-              topicCount: (s['topicCount'] as num).toInt(),
-            ),)
+        .map(
+          (s) => Subject(
+            id: s['id'] as String,
+            examId: s['examId'] as String,
+            name: s['name'] as String,
+            topicCount: (s['topicCount'] as num).toInt(),
+          ),
+        )
         .toList();
   }
 
@@ -286,13 +298,15 @@ class ApiClient {
     final r = await auth.apiGet('/catalog/subjects/$subjectId/topics');
     return (jsonDecode(r.body) as List)
         .cast<Map<String, dynamic>>()
-        .map((t) => Topic(
-              id: t['id'] as String,
-              subjectId: t['subjectId'] as String,
-              title: t['title'] as String,
-              questionCount: (t['questionCount'] as num).toInt(),
-              tier: (t['tier'] ?? 'FREE') as String,
-            ),)
+        .map(
+          (t) => Topic(
+            id: t['id'] as String,
+            subjectId: t['subjectId'] as String,
+            title: t['title'] as String,
+            questionCount: (t['questionCount'] as num).toInt(),
+            tier: (t['tier'] ?? 'FREE') as String,
+          ),
+        )
         .toList();
   }
 
@@ -304,8 +318,132 @@ class ApiClient {
     final r = await auth.apiGet('/catalog/exam-blueprints?examId=$examId');
     if (r.statusCode != 200) return const [];
     final j = jsonDecode(r.body) as Map<String, dynamic>;
-    final items = (j['items'] as List? ?? const []).cast<Map<String, dynamic>>();
+    final items =
+        (j['items'] as List? ?? const []).cast<Map<String, dynamic>>();
     return items.map(ExamBlueprint.fromJson).toList();
+  }
+
+  /// Author a student-built custom test (single section) and return the new
+  /// blueprint id. Wraps `POST /catalog/exam-blueprints/custom` (learning
+  /// service) — the Quiz from-blueprint flow consumes the id unchanged.
+  /// Throws [ApiException] with the 422 message on an invalid blueprint.
+  Future<String> createCustomBlueprint({
+    required String examId,
+    required String name,
+    required String sectionName,
+    String? subjectId,
+    required List<String> topicIds,
+    required int nQuestions,
+    required int nMinutes,
+    String difficultyBand = 'mixed',
+    int marksCorrect = 4,
+    double marksNegative = 1.0,
+  }) async {
+    final r = await auth.apiPost('/catalog/exam-blueprints/custom', {
+      'name': name,
+      'exam_id': examId,
+      'sections': [
+        {
+          'section_id': 's1',
+          'name': sectionName,
+          if (subjectId != null) 'subject_id': subjectId,
+          'topic_ids': topicIds,
+          'n_questions': nQuestions,
+          'n_minutes': nMinutes,
+          'difficulty_band': difficultyBand,
+        },
+      ],
+      'scoring': {'correct': marksCorrect, 'negative': marksNegative},
+      'inter_section_navigation': true,
+      'per_section_time_locked': false,
+    });
+    if (r.statusCode == 422) {
+      String msg = 'Invalid test.';
+      try {
+        final j = jsonDecode(r.body) as Map<String, dynamic>;
+        final detail = j['detail'];
+        if (detail is Map && detail['message'] is String) {
+          msg = detail['message'] as String;
+        }
+      } catch (_) {/* keep default */}
+      throw ApiException(msg, 422);
+    }
+    if (r.statusCode != 201) {
+      throw ApiException(
+          'Could not build test (${r.statusCode}).', r.statusCode);
+    }
+    final j = jsonDecode(r.body) as Map<String, dynamic>;
+    return j['id'] as String;
+  }
+
+  /// The current user's authored tests (CUSTOM / SHARED / AI_SUGGESTED).
+  /// Wraps `GET /catalog/exam-blueprints/mine`.
+  Future<List<ExamBlueprint>> myBlueprints() async {
+    final r = await auth.apiGet('/catalog/exam-blueprints/mine');
+    if (r.statusCode != 200) return const [];
+    final j = jsonDecode(r.body) as Map<String, dynamic>;
+    final items =
+        (j['items'] as List? ?? const []).cast<Map<String, dynamic>>();
+    return items.map(ExamBlueprint.fromJson).toList();
+  }
+
+  /// The user's unexpired AI-suggested tests (≤24h old). Wraps
+  /// `GET /catalog/exam-blueprints/ai-suggested/active`.
+  Future<List<ExamBlueprint>> aiSuggestedBlueprints() async {
+    final r = await auth.apiGet('/catalog/exam-blueprints/ai-suggested/active');
+    if (r.statusCode != 200) return const [];
+    final j = jsonDecode(r.body) as Map<String, dynamic>;
+    final items =
+        (j['items'] as List? ?? const []).cast<Map<String, dynamic>>();
+    return items.map(ExamBlueprint.fromJson).toList();
+  }
+
+  /// Soft-delete (retire) one of the user's authored tests. Wraps
+  /// `DELETE /catalog/exam-blueprints/mine/{id}`.
+  Future<bool> deleteBlueprint(String blueprintId) async {
+    final res =
+        await auth.apiDelete('/catalog/exam-blueprints/mine/$blueprintId');
+    return res.statusCode == 204 || res.statusCode == 200;
+  }
+
+  /// Current-vs-optimal study allocation (PCE). Wraps
+  /// `GET /pce/{userId}/portfolio?exam_id=`. Returns null on any error.
+  Future<Portfolio?> portfolio(String userId, String examId) async {
+    final r = await auth.apiGet('/pce/$userId/portfolio?exam_id=$examId');
+    if (r.statusCode != 200) return null;
+    return Portfolio.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
+  }
+
+  /// Recompute the PCE allocation before fetching the portfolio. Wraps
+  /// `POST /pce/{userId}/recompute?exam_id=`. Best-effort (returns bool).
+  Future<bool> recomputePortfolio(String userId, String examId) async {
+    final r = await auth.apiPost(
+      '/pce/$userId/recompute?exam_id=$examId',
+      const {},
+    );
+    return r.statusCode >= 200 && r.statusCode < 300;
+  }
+
+  /// Enroll the user in another exam. Wraps `PUT /profile/exams {examId}`
+  /// (identity profile service) — idempotent upsert. Returns the updated
+  /// profile, or null on failure.
+  Future<UserProfile?> addExam(String examId) async {
+    final r = await auth.apiPut('/profile/exams', {'examId': examId});
+    if (r.statusCode != 200) return null;
+    return UserProfile.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
+  }
+
+  /// Full-text search across topics/lessons/questions. Wraps
+  /// `GET /search?q=` (learning search service). Returns [] on any error.
+  Future<List<SearchHit>> search(String query, {String? type}) async {
+    final q = Uri.encodeQueryComponent(query);
+    final path = '/search?q=$q${type != null ? '&type=$type' : ''}';
+    final r = await auth.apiGet(path);
+    if (r.statusCode != 200) return const [];
+    final j = jsonDecode(r.body) as Map<String, dynamic>;
+    final results =
+        (j['results'] as List? ?? const []).cast<Map<String, dynamic>>();
+    return results.map(SearchHit.fromJson).toList();
   }
 
   Future<Topic?> topic(String topicId) async {
@@ -336,7 +474,8 @@ class ApiClient {
   }
 
   Future<RankProjection> rankProjection(String userId, String examCode) async {
-    final r = await auth.apiGet('/adaptive/rank-projection/$userId?exam=$examCode');
+    final r =
+        await auth.apiGet('/adaptive/rank-projection/$userId?exam=$examCode');
     final j = jsonDecode(r.body) as Map<String, dynamic>;
     final commentary = (j['commentary'] ?? const {}) as Map<String, dynamic>;
     return RankProjection(
@@ -357,7 +496,8 @@ class ApiClient {
     );
   }
 
-  Future<GuidedNextSteps> guidedNextSteps(String userId, {String? examCode}) async {
+  Future<GuidedNextSteps> guidedNextSteps(String userId,
+      {String? examCode}) async {
     final qs = examCode == null ? '' : '?exam=$examCode';
     final r = await auth.apiGet('/adaptive/guided-next-steps/$userId$qs');
     final j = jsonDecode(r.body) as Map<String, dynamic>;
@@ -366,35 +506,42 @@ class ApiClient {
       headline: (j['headline'] ?? '') as String,
       source: (j['source'] ?? 'heuristic') as String,
       steps: steps
-          .map((s) => GuidedStep(
-                action: (s['action'] ?? 'PRACTICE') as String,
-                topicId: (s['topicId'] ?? '') as String,
-                topicTitle: (s['topicTitle'] ?? '') as String,
-                why: (s['why'] ?? '') as String,
-                estMinutes: (s['estMinutes'] ?? 15) as int,
-              ),)
+          .map(
+            (s) => GuidedStep(
+              action: (s['action'] ?? 'PRACTICE') as String,
+              topicId: (s['topicId'] ?? '') as String,
+              topicTitle: (s['topicTitle'] ?? '') as String,
+              why: (s['why'] ?? '') as String,
+              estMinutes: (s['estMinutes'] ?? 15) as int,
+            ),
+          )
           .toList(),
     );
   }
 
-  Future<WeaknessDiagnosis> weaknessDiagnosis(String userId, {String? examCode}) async {
+  Future<WeaknessDiagnosis> weaknessDiagnosis(String userId,
+      {String? examCode}) async {
     // Sprint 4 — passes ?exam=<code> so the diagnosis is scoped to the
     // user's active exam instead of including cross-exam sessions.
     final qs = examCode == null ? '' : '?exam=$examCode';
     final r = await auth.apiGet('/adaptive/weakness-diagnosis/$userId$qs');
     final j = jsonDecode(r.body) as Map<String, dynamic>;
-    final patterns = (j['patterns'] as List? ?? []).cast<Map<String, dynamic>>();
+    final patterns =
+        (j['patterns'] as List? ?? []).cast<Map<String, dynamic>>();
     return WeaknessDiagnosis(
       overallAssessment: (j['overall_assessment'] ?? '') as String,
       patterns: patterns
-          .map((p) => WeaknessPattern(
-                name: (p['name'] ?? '') as String,
-                description: (p['description'] ?? '') as String,
-                subjectsAffected: ((p['subjects_affected'] ?? []) as List).cast<String>(),
-                severity: (p['severity'] ?? 'medium') as String,
-                evidenceCount: ((p['evidence_count'] ?? 0) as num).toInt(),
-                prescription: (p['prescription'] ?? '') as String,
-              ),)
+          .map(
+            (p) => WeaknessPattern(
+              name: (p['name'] ?? '') as String,
+              description: (p['description'] ?? '') as String,
+              subjectsAffected:
+                  ((p['subjects_affected'] ?? []) as List).cast<String>(),
+              severity: (p['severity'] ?? 'medium') as String,
+              evidenceCount: ((p['evidence_count'] ?? 0) as num).toInt(),
+              prescription: (p['prescription'] ?? '') as String,
+            ),
+          )
           .toList(),
       weakestTopics: ((j['weakest_topics'] ?? []) as List).cast<String>(),
       nAttemptsAnalyzed: ((j['n_attempts_analyzed'] ?? 0) as num).toInt(),
@@ -408,37 +555,45 @@ class ApiClient {
     final qs = examCode == null ? '' : '?exam=$examCode';
     final r = await auth.apiGet('/adaptive/study-plan/$userId$qs');
     final j = jsonDecode(r.body) as Map<String, dynamic>;
-    final priorities = (j['topicPriorities'] as List? ?? []).cast<Map<String, dynamic>>();
-    final schedule = (j['weeklySchedule'] as List? ?? []).cast<Map<String, dynamic>>();
+    final priorities =
+        (j['topicPriorities'] as List? ?? []).cast<Map<String, dynamic>>();
+    final schedule =
+        (j['weeklySchedule'] as List? ?? []).cast<Map<String, dynamic>>();
     return StudyPlan(
       headline: (j['headline'] ?? '') as String,
       diagnosis: (j['diagnosis'] ?? '') as String,
       encouragement: (j['encouragement'] ?? '') as String,
       source: (j['source'] ?? 'heuristic') as String,
       priorities: priorities
-          .map((p) => StudyPriority(
-                topicId: (p['topicId'] ?? '') as String,
-                title: (p['title'] ?? '') as String,
-                rank: ((p['rank'] ?? 0) as num).toInt(),
-                rationale: (p['rationale'] ?? '') as String,
-                targetMastery: ((p['targetMastery'] ?? 0) as num).toDouble(),
-              ),)
+          .map(
+            (p) => StudyPriority(
+              topicId: (p['topicId'] ?? '') as String,
+              title: (p['title'] ?? '') as String,
+              rank: ((p['rank'] ?? 0) as num).toInt(),
+              rationale: (p['rationale'] ?? '') as String,
+              targetMastery: ((p['targetMastery'] ?? 0) as num).toDouble(),
+            ),
+          )
           .toList(),
       schedule: schedule
-          .map((d) => StudyDay(
-                day: (d['day'] ?? '') as String,
-                focus: (d['focus'] ?? '') as String,
-                actions: ((d['actions'] ?? []) as List).cast<String>(),
-              ),)
+          .map(
+            (d) => StudyDay(
+              day: (d['day'] ?? '') as String,
+              focus: (d['focus'] ?? '') as String,
+              actions: ((d['actions'] ?? []) as List).cast<String>(),
+            ),
+          )
           .toList(),
     );
   }
 
   Future<DoubtPhotoResult> solvePhotoDoubt(Uint8List bytes, String mime) async {
     final dataUrl = 'data:$mime;base64,${base64Encode(bytes)}';
-    final r = await auth.apiPost('/adaptive/doubt/photo', {'imageDataUrl': dataUrl});
+    final r =
+        await auth.apiPost('/adaptive/doubt/photo', {'imageDataUrl': dataUrl});
     final j = jsonDecode(r.body) as Map<String, dynamic>;
-    final similar = (j['similar_problems'] as List? ?? []).cast<Map<String, dynamic>>();
+    final similar =
+        (j['similar_problems'] as List? ?? []).cast<Map<String, dynamic>>();
     return DoubtPhotoResult(
       extracted: (j['extracted_question'] ?? '') as String,
       subject: (j['subject'] ?? '') as String,
@@ -448,11 +603,13 @@ class ApiClient {
       finalAnswer: (j['final_answer'] ?? '') as String,
       confidence: (j['confidence'] ?? 'low') as String,
       similar: similar
-          .map((s) => SimilarProblem(
-                id: (s['id'] ?? '') as String,
-                stem: (s['stem'] ?? '') as String,
-                topicId: (s['topicId'] ?? '') as String,
-              ),)
+          .map(
+            (s) => SimilarProblem(
+              id: (s['id'] ?? '') as String,
+              stem: (s['stem'] ?? '') as String,
+              topicId: (s['topicId'] ?? '') as String,
+            ),
+          )
           .toList(),
       source: (j['source'] ?? 'stub') as String,
     );
@@ -495,7 +652,8 @@ class ApiClient {
     return DoubtDetail.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
   }
 
-  Future<DoubtAnswer?> postAnswer(String doubtId, String content, {String source = 'peer'}) async {
+  Future<DoubtAnswer?> postAnswer(String doubtId, String content,
+      {String source = 'peer'}) async {
     final r = await auth.apiPost('/doubts/$doubtId/answers', {
       'content': content,
       'source': source,
@@ -508,7 +666,8 @@ class ApiClient {
   // Mock tests
   // ────────────────────────────────────────────────────────────────────
 
-  Future<MockPlan> mockPlan({required String userId, required String examCode}) async {
+  Future<MockPlan> mockPlan(
+      {required String userId, required String examCode}) async {
     final r = await auth.apiPost('/adaptive/mock/plan', {
       'userId': userId,
       'examCode': examCode,
@@ -517,7 +676,8 @@ class ApiClient {
     try {
       j = jsonDecode(r.body) as Map<String, dynamic>;
     } catch (_) {
-      return MockPlan.error('parse_failed', 'Mock plan response was not valid JSON.');
+      return MockPlan.error(
+          'parse_failed', 'Mock plan response was not valid JSON.');
     }
     if (j['error'] != null) {
       return MockPlan.error(
@@ -534,7 +694,7 @@ class ApiClient {
       return MockPlan.error(
         'blueprint_missing',
         "Mock blueprint isn't available for $examCode yet. "
-        'Try Adaptive Practice or another exam.',
+            'Try Adaptive Practice or another exam.',
       );
     }
     final questions = rawQuestions.cast<Map<String, dynamic>>();
@@ -544,28 +704,33 @@ class ApiClient {
       examCode: (j['examCode'] ?? examCode) as String,
       examName: (j['examName'] ?? examCode) as String,
       durationMinutes: ((j['durationMinutes'] ?? 0) as num).toInt(),
-      totalQuestions: ((j['totalQuestions'] ?? questions.length) as num).toInt(),
+      totalQuestions:
+          ((j['totalQuestions'] ?? questions.length) as num).toInt(),
       maxMarks: ((j['maxMarks'] ?? 0) as num).toInt(),
       marksCorrect: ((j['marksCorrect'] ?? 0) as num).toInt(),
       marksWrong: ((j['marksWrong'] ?? 0) as num).toInt(),
       sections: sections
-          .map((s) => MockSection(
-                name: (s['name'] ?? 'Section') as String,
-                questionCount: ((s['questionCount'] ?? 0) as num).toInt(),
-                fromIdx: ((s['fromIdx'] ?? 0) as num).toInt(),
-                toIdx: ((s['toIdx'] ?? 0) as num).toInt(),
-              ),)
+          .map(
+            (s) => MockSection(
+              name: (s['name'] ?? 'Section') as String,
+              questionCount: ((s['questionCount'] ?? 0) as num).toInt(),
+              fromIdx: ((s['fromIdx'] ?? 0) as num).toInt(),
+              toIdx: ((s['toIdx'] ?? 0) as num).toInt(),
+            ),
+          )
           .toList(),
       questions: questions
-          .map((q) => MockQuestion(
-                id: (q['id'] ?? '') as String,
-                topicId: (q['topicId'] ?? '') as String,
-                stem: (q['stem'] ?? '') as String,
-                choices: ((q['choices'] as List?) ?? const [])
-                    .map((e) => e?.toString() ?? '')
-                    .toList(),
-                difficultyB: ((q['difficultyB'] ?? 0) as num).toDouble(),
-              ),)
+          .map(
+            (q) => MockQuestion(
+              id: (q['id'] ?? '') as String,
+              topicId: (q['topicId'] ?? '') as String,
+              stem: (q['stem'] ?? '') as String,
+              choices: ((q['choices'] as List?) ?? const [])
+                  .map((e) => e?.toString() ?? '')
+                  .toList(),
+              difficultyB: ((q['difficultyB'] ?? 0) as num).toDouble(),
+            ),
+          )
           .toList(),
     );
   }
@@ -580,7 +745,8 @@ class ApiClient {
     });
     final j = jsonDecode(r.body) as Map<String, dynamic>;
     if (j['error'] != null) {
-      return MockResult.error(j['error'] as String, (j['message'] ?? '') as String);
+      return MockResult.error(
+          j['error'] as String, (j['message'] ?? '') as String);
     }
     return MockResult(
       examCode: j['examCode'] as String,
@@ -599,13 +765,15 @@ class ApiClient {
       confidence: j['confidence'] as String,
       sections: ((j['sections'] ?? []) as List)
           .cast<Map<String, dynamic>>()
-          .map((s) => MockSectionResult(
-                name: s['name'] as String,
-                correct: (s['correct'] as num).toInt(),
-                wrong: (s['wrong'] as num).toInt(),
-                unanswered: (s['unanswered'] as num).toInt(),
-                total: (s['total'] as num).toInt(),
-              ),)
+          .map(
+            (s) => MockSectionResult(
+              name: s['name'] as String,
+              correct: (s['correct'] as num).toInt(),
+              wrong: (s['wrong'] as num).toInt(),
+              unanswered: (s['unanswered'] as num).toInt(),
+              total: (s['total'] as num).toInt(),
+            ),
+          )
           .toList(),
     );
   }
@@ -618,15 +786,14 @@ class ApiClient {
   }) async* {
     final body = jsonEncode({
       'topicId': topicId,
-      'messages': messages.map((m) => {'role': m.role, 'content': m.content}).toList(),
+      'messages':
+          messages.map((m) => {'role': m.role, 'content': m.content}).toList(),
       if (userId != null) 'userId': userId,
     });
-    final req = http.Request('POST', Uri.parse('${auth.baseUrl}/adaptive/tutor/chat'))
-      ..headers.addAll({
-        'content-type': 'application/json',
-        'authorization': 'Bearer ${auth.tokens?.accessToken ?? ''}',
-      })
-      ..body = body;
+    final req =
+        http.Request('POST', Uri.parse('${auth.baseUrl}/adaptive/tutor/chat'))
+          ..headers.addAll(auth.baseHeaders(json: true, auth: true))
+          ..body = body;
     final res = await req.send();
     if (res.statusCode != 200) {
       yield 'Tutor service error (${res.statusCode}).';
@@ -653,6 +820,86 @@ class ApiClient {
         }
       }
     }
+  }
+
+  // ── Quiz-results explanation + curated videos ─────────────────────────
+
+  /// Rich teaching note for one question (POST /adaptive/explain). The note
+  /// is cached per-question on the server, so only the first viewer pays the
+  /// LLM round-trip. Returns null on any error so the panel degrades quietly.
+  Future<ExplainResult?> explainQuestion({
+    required String questionId,
+    String? stem,
+    List<String>? choices,
+    int? correctIdx,
+    int? pickedIdx,
+    String? topicTitle,
+  }) async {
+    try {
+      final r = await auth.apiPost('/adaptive/explain', {
+        'questionId': questionId,
+        if (stem != null) 'stem': stem,
+        if (choices != null) 'choices': choices,
+        if (correctIdx != null) 'correctIdx': correctIdx,
+        if (pickedIdx != null) 'pickedIdx': pickedIdx,
+        if (topicTitle != null) 'topicTitle': topicTitle,
+      });
+      if (r.statusCode >= 300) return null;
+      return ExplainResult.fromJson(
+          jsonDecode(r.body) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Curated PUBLISHED videos for a question, falling back to its topic —
+  /// mirrors the web ResourceShelf's most-specific-first lookup. Returns an
+  /// empty list when nothing is curated (the shelf then hides itself).
+  Future<List<StudentResource>> listResources({
+    String? questionId,
+    String? topicId,
+    String? language,
+    int limit = 6,
+  }) async {
+    Future<List<StudentResource>> tryScope(String key, String value) async {
+      try {
+        final lang = language != null ? '&language=$language' : '';
+        final r = await auth
+            .apiGet('/content/resources?scope=student&$key=$value&limit=$limit$lang');
+        if (r.statusCode != 200) return [];
+        final j = jsonDecode(r.body) as Map<String, dynamic>;
+        final items = (j['items'] as List? ?? []).cast<Map<String, dynamic>>();
+        return items.map(StudentResource.fromJson).toList();
+      } catch (_) {
+        return [];
+      }
+    }
+
+    if (questionId != null) {
+      final byQuestion = await tryScope('question_id', questionId);
+      if (byQuestion.isNotEmpty) return byQuestion;
+    }
+    if (topicId != null) {
+      return tryScope('topic_id', topicId);
+    }
+    return [];
+  }
+
+  /// Best-effort video view telemetry (POST /content/resources/{id}/view).
+  /// Failures are swallowed so a flaky network never blocks the player.
+  Future<void> recordResourceView({
+    required String resourceId,
+    required String eventType,
+    int? positionSeconds,
+    String? sessionId,
+  }) async {
+    try {
+      await auth.apiPost('/content/resources/$resourceId/view', {
+        'event_type': eventType,
+        if (positionSeconds != null) 'position_seconds': positionSeconds,
+        if (sessionId != null) 'session_id': sessionId,
+      });
+    } catch (_) {/* best-effort */}
   }
 }
 
@@ -702,6 +949,7 @@ class UserProfile {
   final String lastName;
   final String email;
   final String language;
+
   /// Content/question delivery language. Defaults to 'en'. Accepted values:
   /// en, hi, ta, te, bn, mr — matches the backend's contentLanguage enum.
   final String contentLanguage;
@@ -733,7 +981,11 @@ class UserProfile {
 }
 
 class DailyActivity {
-  DailyActivity({required this.date, required this.sessions, required this.questions, required this.minutes});
+  DailyActivity(
+      {required this.date,
+      required this.sessions,
+      required this.questions,
+      required this.minutes});
   final DateTime date;
   final int sessions;
   final int questions;
@@ -748,7 +1000,11 @@ class TopicMastery {
 }
 
 class Exam {
-  Exam({required this.id, required this.code, required this.name, this.subtitle});
+  Exam(
+      {required this.id,
+      required this.code,
+      required this.name,
+      this.subtitle});
   final String id;
   final String code;
   final String name;
@@ -756,7 +1012,11 @@ class Exam {
 }
 
 class Subject {
-  Subject({required this.id, required this.examId, required this.name, required this.topicCount});
+  Subject(
+      {required this.id,
+      required this.examId,
+      required this.name,
+      required this.topicCount});
   final String id;
   final String examId;
   final String name;
@@ -764,7 +1024,12 @@ class Subject {
 }
 
 class Topic {
-  Topic({required this.id, required this.subjectId, required this.title, required this.questionCount, required this.tier});
+  Topic(
+      {required this.id,
+      required this.subjectId,
+      required this.title,
+      required this.questionCount,
+      required this.tier});
   final String id;
   final String subjectId;
   final String title;
@@ -807,6 +1072,7 @@ class ExamBlueprint {
   final int totalMinutes;
   final int marksCorrect;
   final double marksNegative;
+
   /// Raw JSONB section definitions from the blueprint row. Each item is
   /// shaped roughly `{section_id, name, subject_id?, topic_ids, n_questions,
   /// n_minutes, difficulty_distribution, difficulty_band}` — kept as
@@ -882,7 +1148,12 @@ class RankProjection {
 }
 
 class GuidedStep {
-  GuidedStep({required this.action, required this.topicId, required this.topicTitle, required this.why, required this.estMinutes});
+  GuidedStep(
+      {required this.action,
+      required this.topicId,
+      required this.topicTitle,
+      required this.why,
+      required this.estMinutes});
   final String action;
   final String topicId;
   final String topicTitle;
@@ -891,7 +1162,8 @@ class GuidedStep {
 }
 
 class GuidedNextSteps {
-  GuidedNextSteps({required this.headline, required this.source, required this.steps});
+  GuidedNextSteps(
+      {required this.headline, required this.source, required this.steps});
   final String headline;
   final String source;
   final List<GuidedStep> steps;
@@ -964,7 +1236,12 @@ class WeaknessDiagnosis {
 }
 
 class StudyPriority {
-  StudyPriority({required this.topicId, required this.title, required this.rank, required this.rationale, required this.targetMastery});
+  StudyPriority(
+      {required this.topicId,
+      required this.title,
+      required this.rank,
+      required this.rationale,
+      required this.targetMastery});
   final String topicId;
   final String title;
   final int rank;
@@ -1125,7 +1402,11 @@ class InboxPage {
 }
 
 class Achievement {
-  Achievement({required this.id, required this.kind, required this.payload, required this.awardedAt});
+  Achievement(
+      {required this.id,
+      required this.kind,
+      required this.payload,
+      required this.awardedAt});
   final String id;
   final String kind;
   final Map<String, dynamic> payload;
@@ -1193,13 +1474,15 @@ class MockAttemptRow {
         createdAt: (j['createdAt'] ?? '').toString(),
         sections: ((j['sections'] ?? []) as List)
             .cast<Map<String, dynamic>>()
-            .map((s) => MockSectionResult(
-                  name: (s['name'] ?? '') as String,
-                  correct: ((s['correct'] ?? 0) as num).toInt(),
-                  wrong: ((s['wrong'] ?? 0) as num).toInt(),
-                  unanswered: ((s['unanswered'] ?? 0) as num).toInt(),
-                  total: ((s['total'] ?? 0) as num).toInt(),
-                ),)
+            .map(
+              (s) => MockSectionResult(
+                name: (s['name'] ?? '') as String,
+                correct: ((s['correct'] ?? 0) as num).toInt(),
+                wrong: ((s['wrong'] ?? 0) as num).toInt(),
+                unanswered: ((s['unanswered'] ?? 0) as num).toInt(),
+                total: ((s['total'] ?? 0) as num).toInt(),
+              ),
+            )
             .toList(),
       );
 }
@@ -1226,7 +1509,8 @@ class SessionHistoryRow {
   final String startedAt;
   final String? submittedAt;
 
-  factory SessionHistoryRow.fromJson(Map<String, dynamic> j) => SessionHistoryRow(
+  factory SessionHistoryRow.fromJson(Map<String, dynamic> j) =>
+      SessionHistoryRow(
         sessionId: j['sessionId'] as String,
         topicId: j['topicId'] as String,
         mode: j['mode'] as String,
@@ -1269,7 +1553,11 @@ class Bookmark {
 }
 
 class MockSection {
-  MockSection({required this.name, required this.questionCount, required this.fromIdx, required this.toIdx});
+  MockSection(
+      {required this.name,
+      required this.questionCount,
+      required this.fromIdx,
+      required this.toIdx});
   final String name;
   final int questionCount;
   final int fromIdx;
@@ -1277,7 +1565,12 @@ class MockSection {
 }
 
 class MockQuestion {
-  MockQuestion({required this.id, required this.topicId, required this.stem, required this.choices, required this.difficultyB});
+  MockQuestion(
+      {required this.id,
+      required this.topicId,
+      required this.stem,
+      required this.choices,
+      required this.difficultyB});
   final String id;
   final String topicId;
   final String stem;
@@ -1327,7 +1620,12 @@ class MockPlan {
 }
 
 class MockSectionResult {
-  MockSectionResult({required this.name, required this.correct, required this.wrong, required this.unanswered, required this.total});
+  MockSectionResult(
+      {required this.name,
+      required this.correct,
+      required this.wrong,
+      required this.unanswered,
+      required this.total});
   final String name;
   final int correct;
   final int wrong;
@@ -1389,4 +1687,72 @@ class MockResult {
   final List<MockSectionResult> sections;
   final String? error;
   final String? message;
+}
+
+/// Current-vs-optimal allocation per yield bucket (PCE portfolio).
+class PortfolioBucket {
+  PortfolioBucket({
+    required this.bucket,
+    required this.currentShare,
+    required this.optimalShare,
+    required this.delta,
+  });
+  final String bucket; // High | Medium | Low
+  final double currentShare;
+  final double optimalShare;
+  final double delta; // optimal - current
+
+  factory PortfolioBucket.fromJson(Map<String, dynamic> j) => PortfolioBucket(
+        bucket: (j['bucket'] ?? '') as String,
+        currentShare: ((j['currentMasteryShare'] ?? 0) as num).toDouble(),
+        optimalShare: ((j['optimalShare'] ?? 0) as num).toDouble(),
+        delta: ((j['delta'] ?? 0) as num).toDouble(),
+      );
+}
+
+class Portfolio {
+  Portfolio({required this.buckets, required this.reallocationHint});
+  final List<PortfolioBucket> buckets;
+  final String reallocationHint;
+
+  factory Portfolio.fromJson(Map<String, dynamic> j) => Portfolio(
+        buckets: ((j['buckets'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(PortfolioBucket.fromJson)
+            .toList(),
+        reallocationHint: (j['reallocationHint'] ?? '') as String,
+      );
+}
+
+/// One hit from `GET /search`. Mirrors the learning search SearchHit.
+class SearchHit {
+  SearchHit({
+    required this.type,
+    required this.id,
+    required this.title,
+    this.subtitle,
+  });
+  final String type; // topic | lesson | question
+  final String id;
+  final String title;
+  final String? subtitle;
+
+  bool get isTopic => type == 'topic';
+
+  factory SearchHit.fromJson(Map<String, dynamic> j) => SearchHit(
+        type: (j['type'] ?? '') as String,
+        id: (j['id'] ?? '') as String,
+        title: (j['title'] ?? '') as String,
+        subtitle: j['subtitle'] as String?,
+      );
+}
+
+/// Thrown by ApiClient methods that surface a backend error message to the
+/// UI (e.g. the custom test-builder 422 validation message).
+class ApiException implements Exception {
+  ApiException(this.message, this.statusCode);
+  final String message;
+  final int statusCode;
+  @override
+  String toString() => 'ApiException($statusCode): $message';
 }

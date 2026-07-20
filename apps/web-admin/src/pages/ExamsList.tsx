@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AdminShell } from "../components/AdminShell";
 import { auth } from "../lib/api";
+import { isDeletable } from "../lib/examActions";
+import { ConfirmDeleteModal } from "../components/ConfirmDeleteModal";
 
 interface ExamListEntry {
   id: string;
@@ -17,6 +19,8 @@ interface ExamListEntry {
   subject_count: number;
   pool_count: number;
   topic_count: number;
+  question_count: number;
+  blueprint_count: number;
 }
 
 type Filter = "all" | "published" | "retired";
@@ -25,19 +29,73 @@ export function ExamsList() {
   const [exams, setExams] = useState<ExamListEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("published");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [toDelete, setToDelete] = useState<ExamListEntry | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const load = async () => {
+    try {
+      const res = await auth.fetch("/api/v1/admin/exam-builder/exams");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = await res.json();
+      setExams(Array.isArray(body) ? (body as ExamListEntry[]) : []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load exams");
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await auth.fetch("/api/v1/admin/exam-builder/exams");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = await res.json();
-        setExams(Array.isArray(body) ? (body as ExamListEntry[]) : []);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load exams");
-      }
-    })();
+    void load();
   }, []);
+
+  const retire = async (e: ExamListEntry) => {
+    if (!window.confirm(`Retire "${e.name}"? Students will no longer see it. You can restore it later.`)) return;
+    setBusyId(e.id);
+    try {
+      const res = await auth.fetch(`/api/v1/admin/exam-builder/exams/${e.id}/retire`, { method: "POST" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Retire failed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const restore = async (e: ExamListEntry) => {
+    if (!window.confirm(`Restore "${e.name}" to Published?`)) return;
+    setBusyId(e.id);
+    try {
+      const res = await auth.fetch(`/api/v1/admin/exam-builder/exams/${e.id}/restore`, { method: "POST" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Restore failed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    setBusyId(toDelete.id);
+    setDeleteError(null);
+    try {
+      const res = await auth.fetch(`/api/v1/admin/exam-builder/exams/${toDelete.id}`, { method: "DELETE" });
+      if (res.status === 409) {
+        const body = await res.json();
+        setDeleteError(body?.detail?.message ?? "Exam is in use — retire it instead.");
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setToDelete(null);
+      await load();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const total = exams?.length ?? 0;
   const visible = (exams ?? []).filter((e) => {
@@ -124,6 +182,29 @@ export function ExamsList() {
                     <Link to={`/exams/edit/${e.id}`} className="admin-btn admin-btn--link">
                       Edit →
                     </Link>
+                    {e.is_published ? (
+                      <button className="admin-btn admin-btn--link" disabled={busyId === e.id}
+                        onClick={() => retire(e)}>
+                        Retire
+                      </button>
+                    ) : (
+                      <button className="admin-btn admin-btn--link" disabled={busyId === e.id}
+                        onClick={() => restore(e)}>
+                        Restore
+                      </button>
+                    )}
+                    <button
+                      className="admin-btn admin-btn--link admin-btn--danger"
+                      disabled={!isDeletable(e) || busyId === e.id}
+                      title={
+                        isDeletable(e)
+                          ? "Permanently delete this exam"
+                          : `Has ${e.question_count} questions / ${e.blueprint_count} blueprints — retire instead`
+                      }
+                      onClick={() => { setDeleteError(null); setToDelete(e); }}
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))
@@ -131,6 +212,16 @@ export function ExamsList() {
           </tbody>
         </table>
       </section>
+      {toDelete ? (
+        <ConfirmDeleteModal
+          examName={toDelete.name}
+          examCode={toDelete.code}
+          busy={busyId === toDelete.id}
+          error={deleteError}
+          onConfirm={confirmDelete}
+          onCancel={() => { setToDelete(null); setDeleteError(null); }}
+        />
+      ) : null}
     </AdminShell>
   );
 }

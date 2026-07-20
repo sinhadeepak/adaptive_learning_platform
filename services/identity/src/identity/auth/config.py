@@ -47,6 +47,14 @@ class Settings(BaseSettings):
         default="http://localhost:35173/reset-password?token={token}"
     )
 
+    # Rate-limit client-IP derivation. `X-Forwarded-For` is client-controllable
+    # on the left, so we trust it only from the right: with N reverse proxies
+    # in front (each appending the peer it saw), the real client sits at
+    # position len(XFF) - N. Set to the number of trusted proxy hops between
+    # the public internet and this service (e.g. 1 = nginx only; 2 = CDN+nginx).
+    # 0 disables XFF trust entirely (use the socket peer).
+    rate_limit_trusted_proxy_hops: int = Field(default=1)
+
     # Account lockout (STU-REQ-10) — N failures within window triggers a lockout duration.
     lockout_threshold: int = Field(default=5)
     lockout_window_seconds: int = Field(default=15 * 60)

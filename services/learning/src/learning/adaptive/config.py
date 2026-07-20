@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     catalog_base_url: str = Field(default="http://localhost:38003")
     analytics_base_url: str = Field(default="http://localhost:38007")
     quiz_base_url: str = Field(default="http://localhost:38011")
+    # Shared secret for service-to-service calls into engagement's personal
+    # analytics endpoints (mastery/readiness/topic-decay) that carry no user
+    # bearer. Must match engagement's ANALYTICS_INTERNAL_SERVICE_TOKEN.
+    internal_service_token: str = Field(
+        default="dev-internal-svc-token-change-me-32-bytes-minimum"
+    )
     # User-profile is the durable scoreboard for mock attempts — adaptive-engine
     # POSTs to /internal/profile/mock-attempts after /adaptive/mock/score completes.
     user_profile_base_url: str = Field(default="http://user-profile:8000")

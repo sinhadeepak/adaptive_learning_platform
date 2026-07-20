@@ -144,6 +144,16 @@ export function Quiz() {
       const data = (await r.json()) as NextResponse;
       if (data.done) {
         setDone(true);
+        // Submit the session so it transitions to SUBMITTED and Quiz publishes
+        // quiz.session.completed — the event that drives mastery, the revision
+        // queue, and Mistake-Notebook capture. Best-effort: the results page
+        // renders from the item data regardless, but without this the whole
+        // analytics pipeline never fires (session stays IN_PROGRESS).
+        try {
+          await auth.fetch(`/api/v1/quiz/sessions/${sessionId}/submit`, { method: "POST" });
+        } catch {
+          /* results still render; analytics reconciles via backfill */
+        }
         navigate(`/quiz/${sessionId}/result`);
       } else if (data.item) {
         setItem(data.item);

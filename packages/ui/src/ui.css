@@ -4675,6 +4675,9 @@
   overflow-y: auto;
   animation: vidya-slide-in var(--m-slow) var(--m-ease);
 }
+/* Wider variant for content-heavy drawers (e.g. the quiz-results review
+   panel with its rich teaching note) — less vertical scrolling. */
+.vidya-drawer--wide { width: min(720px, 96vw); }
 @keyframes vidya-slide-in {
   from { transform: translateX(100%); }
   to   { transform: translateX(0); }
@@ -5166,6 +5169,8 @@ a.admin-kpi__delta:hover { color: var(--accent-2); }
 .admin-btn:disabled { color: var(--ink-4); cursor: not-allowed; }
 .admin-btn--link { background: transparent; border-color: transparent; color: var(--accent); }
 .admin-btn--link:hover:not(:disabled) { background: var(--accent-soft); }
+.admin-btn--danger { color: var(--danger-600); border-color: transparent; background: transparent; }
+.admin-btn--danger:hover:not(:disabled) { background: var(--danger-50); color: var(--danger-600); }
 
 /* Input */
 .admin-input {

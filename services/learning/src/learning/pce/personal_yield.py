@@ -25,7 +25,7 @@ import logging
 import math
 import os
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy import text
@@ -41,6 +41,16 @@ _HTTP_TIMEOUT = httpx.Timeout(connect=2.0, read=5.0, write=5.0, pool=5.0)
 def _engagement_base_url() -> str:
     """Engagement service URL — read at call time so tests can override."""
     return os.environ.get("ADAPTIVE_ENGINE_ANALYTICS_BASE_URL", "http://engagement:8000")
+
+
+def _internal_headers() -> dict[str, str]:
+    """Shared-secret header for engagement's personal analytics endpoints,
+    which now require either a user bearer or this internal token."""
+    token = os.environ.get(
+        "ADAPTIVE_ENGINE_INTERNAL_SERVICE_TOKEN",
+        "dev-internal-svc-token-change-me-32-bytes-minimum",
+    )
+    return {"x-internal-token": token}
 
 
 # ── Pure-function building blocks ───────────────────────────────────
@@ -140,7 +150,7 @@ async def fetch_user_mastery(user_id: str) -> dict[str, float]:
     url = f"{_engagement_base_url()}/analytics/mastery/{user_id}"
     try:
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
-            r = await client.get(url)
+            r = await client.get(url, headers=_internal_headers())
             if r.status_code != 200:
                 return {}
             body = r.json()
@@ -155,7 +165,7 @@ async def fetch_user_topic_decay(user_id: str) -> dict[str, int]:
     url = f"{_engagement_base_url()}/analytics/topic-decay/{user_id}"
     try:
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
-            r = await client.get(url)
+            r = await client.get(url, headers=_internal_headers())
             if r.status_code != 200:
                 return {}
             body = r.json()
@@ -260,7 +270,7 @@ async def compute_for_user(
         """),
         {"uid": user_id, "eid": exam_id, "y": forecast_year},
     )
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for it in items:
         await session.execute(
             text(f"""

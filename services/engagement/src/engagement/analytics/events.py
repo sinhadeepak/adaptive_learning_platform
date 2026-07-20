@@ -18,6 +18,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 import nats
@@ -225,6 +226,55 @@ async def _on_session_completed(msg: Msg) -> None:
                     log.exception(
                         "error_classification.failed session=%s", session_id
                     )
+
+                # Phase 3.1 — Mistake Notebook capture. Snapshot each wrong
+                # answer (chosen/correct text, stem, explanation) + seed its
+                # SM-2 replay state, due immediately. Best-effort: a capture
+                # failure must not roll back the load-bearing writes above.
+                try:
+                    from engagement.analytics import mistakes_repo
+                    from engagement.analytics.error_classifier import classify_error
+
+                    now_capture = datetime.now(tz=UTC)
+                    exam_id = payload.get("exam_id") or None
+                    for it in items:
+                        if bool(it.get("is_correct", False)):
+                            continue
+                        time_ms = it.get("time_spent_ms")
+                        time_int = int(time_ms) if time_ms else None
+                        answered = bool(time_int) and time_int > 0
+                        tag = classify_error(
+                            is_correct=False,
+                            answered=answered,
+                            time_spent_ms=time_int,
+                            mastery_ewa=float(score),
+                            chosen_choice_text=str(it.get("chosen_choice_text") or ""),
+                            correct_choice_text=str(it.get("correct_choice_text") or ""),
+                        )
+                        mistake_id = await mistakes_repo.upsert_mistake(
+                            session,
+                            user_id=user_id,
+                            session_id=session_id,
+                            item_idx=int(it.get("item_idx") or 0),
+                            topic_id=str(it.get("topic_id") or topic_id),
+                            question_id=str(it.get("question_id")) if it.get("question_id") else None,
+                            exam_id=str(exam_id) if exam_id else None,
+                            error_tag=tag,
+                            stem_snapshot=(it.get("stem") or None),
+                            chosen_text=(it.get("chosen_choice_text") or None),
+                            correct_text=(it.get("correct_choice_text") or None),
+                            explanation_snapshot=(it.get("explanation") or None),
+                        )
+                        # Freshly captured (not a redelivery) → seed replay state.
+                        if mistake_id is not None:
+                            await mistakes_repo.seed_review_state(
+                                session,
+                                mistake_id=mistake_id,
+                                user_id=user_id,
+                                now=now_capture,
+                            )
+                except Exception:
+                    log.exception("mistake_capture.failed session=%s", session_id)
 
                 # Phase 5 (P5-S39) — multi-parameter mastery fan-out.
                 # Per ADR-0017 dims 1, 2, 3, 6: concept_mastery,

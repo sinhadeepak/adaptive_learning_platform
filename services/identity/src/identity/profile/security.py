@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-import jwt
+from alp_auth import AuthError, decode_access_token
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -27,13 +27,9 @@ class JwtPrincipal:
 
 def verify_token(token: str) -> JwtPrincipal:
     try:
-        claims = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
-    except jwt.ExpiredSignatureError as err:
-        raise HTTPException(status_code=401, detail={"code": "token_expired", "message": "Token expired"}) from err
-    except jwt.InvalidTokenError as err:
-        raise HTTPException(status_code=401, detail={"code": "invalid_token", "message": "Invalid token"}) from err
-    if claims.get("token_type") != "access":
-        raise HTTPException(status_code=401, detail={"code": "invalid_token_type", "message": "Not an access token"})
+        claims = decode_access_token(token, settings.jwt_secret)
+    except AuthError as err:
+        raise HTTPException(status_code=401, detail={"code": err.code, "message": err.message}) from err
     return JwtPrincipal(claims)
 
 

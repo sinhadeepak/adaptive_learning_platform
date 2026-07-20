@@ -7,7 +7,9 @@ import '../api/api_client.dart';
 import '../aurora/widgets/widgets.dart';
 import '../screens/doubt_detail_screen.dart';
 import '../widgets/alp_card.dart';
+import 'explanation_panel.dart';
 import 'quiz_client.dart';
+import 'video_shelf.dart';
 
 /// Quiz result — Phase 6 S51 3-zone IA.
 ///
@@ -553,6 +555,9 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
       builder: (ctx) => _DetailDrawer(
         item: item,
         topicTitle: _topicTitle,
+        api: widget.api,
+        sessionId: widget.sessionId,
+        sessionTopicId: _detail?.topicId,
         bookmarked: _bookmarked.contains(item.questionId),
         reported: _reported.contains(item.questionId),
         askingAi: _askingAiQid == item.questionId,
@@ -764,6 +769,9 @@ class _DetailDrawer extends StatelessWidget {
     required this.bookmarked,
     required this.reported,
     required this.askingAi,
+    this.api,
+    this.sessionId,
+    this.sessionTopicId,
     this.onToggle,
     this.onReport,
     this.onAskAi,
@@ -771,6 +779,9 @@ class _DetailDrawer extends StatelessWidget {
 
   final QuizItemSummary item;
   final String? topicTitle;
+  final ApiClient? api;
+  final String? sessionId;
+  final String? sessionTopicId;
   final bool bookmarked;
   final bool reported;
   final bool askingAi;
@@ -884,6 +895,20 @@ class _DetailDrawer extends StatelessWidget {
                       style:
                           typography.bodySm.copyWith(color: colors.neutral500),
                     ),
+                  // Rich teaching note + curated videos (web parity).
+                  if (api != null) ...[
+                    ExplanationPanel(
+                      api: api!,
+                      item: item,
+                      topicTitle: topicTitle,
+                    ),
+                    VideoShelf(
+                      api: api!,
+                      questionId: item.questionId,
+                      topicId: item.topicId ?? sessionTopicId,
+                      sessionId: sessionId,
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   if (onAskAi != null)
                     AuroraButton(

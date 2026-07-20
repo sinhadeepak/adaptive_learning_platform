@@ -39,11 +39,14 @@ class LoginRequest(BaseModel):
 
 
 class RefreshRequest(BaseModel):
-    refreshToken: str
+    # Optional: the refresh token now travels in an HttpOnly cookie. The body
+    # field is kept for backward compatibility with older clients that still
+    # send it; the cookie is preferred when both are present.
+    refreshToken: str | None = None
 
 
 class LogoutRequest(BaseModel):
-    refreshToken: str
+    refreshToken: str | None = None
 
 
 class ForgotPasswordRequest(BaseModel):

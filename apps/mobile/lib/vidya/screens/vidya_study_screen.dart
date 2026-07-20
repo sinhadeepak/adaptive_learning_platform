@@ -8,6 +8,10 @@ import 'package:flutter/material.dart';
 
 import '../../api/api_client.dart';
 import '../../auth/auth_client.dart';
+import '../state/active_exam_notifier.dart';
+import '../widgets/vidya_exam_switcher.dart';
+import 'vidya_catalog_screen.dart';
+import 'vidya_search_screen.dart';
 import 'vidya_subject_detail_screen.dart';
 
 class VidyaStudyScreen extends StatefulWidget {
@@ -30,45 +34,74 @@ class _VidyaStudyScreenState extends State<VidyaStudyScreen> {
   _StudyState _state = _StudyState.loading;
   _StudyData? _data;
 
+  // Active-exam spine: reload subjects whenever the student switches exam.
+  VidyaActiveExamNotifier? _examNotifier;
+  String? _loadedExamId;
+
   @override
-  void initState() {
-    super.initState();
-    _load();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final n = VidyaActiveExam.of(context);
+    if (!identical(n, _examNotifier)) {
+      _examNotifier?.removeListener(_onActiveExamChanged);
+      _examNotifier = n;
+      _examNotifier?.addListener(_onActiveExamChanged);
+      _onActiveExamChanged();
+    }
+  }
+
+  @override
+  void dispose() {
+    _examNotifier?.removeListener(_onActiveExamChanged);
+    super.dispose();
+  }
+
+  void _onActiveExamChanged() {
+    final n = _examNotifier;
+    if (n == null) return;
+    if (n.loading) return;
+    final active = n.active;
+    if (active == null) {
+      _loadedExamId = null;
+      if (mounted) setState(() => _state = _StudyState.empty);
+      return;
+    }
+    if (active.examId != _loadedExamId) {
+      _loadedExamId = active.examId;
+      _load();
+    }
   }
 
   Future<void> _load() async {
+    final exam = _examNotifier?.active;
+    if (exam == null) {
+      if (mounted) setState(() => _state = _StudyState.empty);
+      return;
+    }
     if (!mounted) return;
     setState(() => _state = _StudyState.loading);
     try {
       final api = ApiClient(widget.auth);
-      final profile = await api.getProfile();
-      final examId = (profile?.exams.isNotEmpty ?? false)
-          ? profile!.exams.first.examId
-          : null;
-      if (examId == null) {
-        if (mounted) setState(() => _state = _StudyState.empty);
-        return;
-      }
-      final results = await Future.wait<Object>([
-        api.exams(),
-        api.subjectsForExam(examId),
-      ]);
-      final exams = results[0] as List<Exam>;
-      final subjects = results[1] as List<Subject>;
-      final examName = exams
-          .firstWhere(
-            (e) => e.id == examId,
-            orElse: () => Exam(id: examId, code: '', name: 'Exam'),
-          )
-          .name;
+      final subjects = await api.subjectsForExam(exam.examId);
       if (!mounted) return;
       setState(() {
-        _data = _StudyData(examName: examName, subjects: subjects);
+        _data = _StudyData(examName: exam.name, subjects: subjects);
         _state = _StudyState.loaded;
       });
     } catch (_) {
       if (mounted) setState(() => _state = _StudyState.error);
     }
+  }
+
+  void _openCatalog(BuildContext context) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => VidyaCatalogScreen(
+        auth: widget.auth,
+        // Repopulate the active-exam spine so a newly-added exam shows up in
+        // the switcher immediately.
+        onExamAdded: () => _examNotifier?.refresh(),
+      ),
+    ));
   }
 
   void _onSubjectTap(Subject s) {
@@ -95,14 +128,31 @@ class _VidyaStudyScreenState extends State<VidyaStudyScreen> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
           children: [
-            Text(
-              'STUDY',
-              style: TextStyle(
-                fontFamily: VidyaFonts.mono,
-                fontSize: 11,
-                color: v.ink3,
-                letterSpacing: 1.5,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'STUDY',
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.mono,
+                      fontSize: 11,
+                      color: v.ink3,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.search, color: v.ink2),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => VidyaSearchScreen(auth: widget.auth),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                VidyaExamPill(onAddExam: () => _openCatalog(context)),
+              ],
             ),
             const SizedBox(height: 8),
             Text(

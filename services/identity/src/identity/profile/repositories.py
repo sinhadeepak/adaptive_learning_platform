@@ -21,7 +21,8 @@ class ProfileRepo:
                     "SELECT user_id, first_name, last_name, email, avatar_url, locale, language_pref, "
                     "content_language, "
                     "daily_goal_minutes, onboarding_state, timezone, tenant_id, notification_prefs, "
-                    "diagnostic_waived "
+                    "diagnostic_waived, "
+                    "target_exam_id, target_exam_date, target_rank "
                     "FROM profile_schema.profiles WHERE user_id = :uid"
                 ),
                 {"uid": str(user_id)},

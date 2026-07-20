@@ -132,6 +132,88 @@ export const aiAuthoring = {
     }
     return res.json();
   },
+
+  // ── Async + chunked bulk generation (background job) ────────────────
+  async bulkDraftJob(input: {
+    typeId: string;
+    topic: string;
+    count: number;
+    difficulty: "EASY" | "MEDIUM" | "HARD";
+    exam: string;
+    syllabusChapter?: string;
+    sourceMaterial?: string;
+    topicId?: string;
+    topicTitle?: string;
+    language?: string;
+  }): Promise<{ jobId: string; status: string }> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/content/ai/bulk-draft-job`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type_id: input.typeId,
+        topic: input.topic,
+        count: input.count,
+        difficulty: input.difficulty,
+        exam: input.exam,
+        syllabus_chapter: input.syllabusChapter,
+        source_material: input.sourceMaterial,
+        topic_id: input.topicId,
+        topic_title: input.topicTitle,
+        language: input.language,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Bulk job failed: ${res.status} ${body}`);
+    }
+    return res.json();
+  },
+  async getBulkJob(jobId: string): Promise<{
+    jobId: string;
+    status: "pending" | "succeeded" | "failed";
+    result: {
+      items: {
+        index: number;
+        draft: Record<string, unknown> | null;
+        marker: AIDraftMarker | null;
+        error: string | null;
+      }[];
+      requested: number;
+      succeeded: number;
+    } | null;
+    progress: { done: number; total: number } | null;
+    context: {
+      topicId: string | null;
+      topicTitle: string | null;
+      typeId: string | null;
+      exam: string | null;
+      language: string | null;
+      difficulty: string | null;
+    } | null;
+    error: string | null;
+  }> {
+    const res = await auth.fetch(
+      `${env.apiBaseUrl}/content/ai/bulk-draft-job/${encodeURIComponent(jobId)}`,
+    );
+    if (!res.ok) throw new Error(`Load bulk job failed: ${res.status}`);
+    return res.json();
+  },
+  async listBulkJobs(): Promise<{
+    jobs: {
+      jobId: string;
+      status: "pending" | "succeeded" | "failed";
+      topic: string | null;
+      count: number | null;
+      progress: { done: number; total: number } | null;
+      createdAt: string | null;
+      completedAt: string | null;
+    }[];
+  }> {
+    const res = await auth.fetch(`${env.apiBaseUrl}/content/ai/bulk-draft-jobs`);
+    if (!res.ok) throw new Error(`List bulk jobs failed: ${res.status}`);
+    return res.json();
+  },
+
   async expandExplanation(stem: string, answer: string): Promise<{ explanation: string; steps: string[] }> {
     const res = await auth.fetch(`${env.apiBaseUrl}/content/ai/explanation`, {
       method: "POST",

@@ -5,6 +5,12 @@ from sqlalchemy import text
 
 from engagement.analytics import db, routes as analytics_routes
 
+from engagement.analytics.config import settings as _settings
+# Internal-service token: these tests exercise endpoint LOGIC, so they
+# authenticate as a trusted peer service (post-IDOR-sweep the personal
+# /analytics/{user_id} endpoints require a bearer or this token).
+_ITOK = {"x-internal-token": _settings.internal_service_token}
+
 UTC = timezone.utc
 
 
@@ -31,10 +37,10 @@ async def test_revision_scoped_to_exam(client, monkeypatch):
         return {a}
     monkeypatch.setattr(analytics_routes, "resolve_exam_topic_ids", fake_resolve)
 
-    r = await client.get(f"/analytics/revision/{user}?exam_id=11111111-1111-1111-1111-111111111111")
+    r = await client.get(f"/analytics/revision/{user}?exam_id=11111111-1111-1111-1111-111111111111", headers=_ITOK)
     ids = {it["topicId"] for it in r.json()["items"]}
     assert ids == {a}
 
-    r2 = await client.get(f"/analytics/revision/{user}")
+    r2 = await client.get(f"/analytics/revision/{user}", headers=_ITOK)
     ids2 = {it["topicId"] for it in r2.json()["items"]}
     assert ids2 == {a, b}

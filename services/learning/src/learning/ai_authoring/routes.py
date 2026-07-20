@@ -11,16 +11,17 @@ hook in main.py.
 
 from __future__ import annotations
 
-from typing import Any
+import asyncio
+import logging
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from learning.ai_authoring.draft import (
     AIDraftMarker,
-    DraftMCQ,
-    DraftQuestionRequest,
     DistractorsOutput,
+    DraftQuestionRequest,
     ExplanationOutput,
     compute_edit_distance,
     draft_question,
@@ -28,9 +29,24 @@ from learning.ai_authoring.draft import (
     suggest_distractors,
 )
 from learning.ai_authoring.guardrail import GuardrailEngine
+from learning.ai_authoring.job_repo import (
+    complete_bulk_job,
+    create_bulk_job,
+    fail_bulk_job,
+    get_bulk_job,
+    list_bulk_jobs,
+    list_resumable_bulk_jobs,
+    update_bulk_progress,
+)
 from learning.ai_authoring.quality_checks import QualityWarning, run_quality_checks
 from learning.ai_gateway import AIGateway, AIGatewayError
 from learning.ai_gateway.quotas import QuotaExceededError
+from learning.content.db import sessionmaker as content_sessionmaker
+from learning.content.security import JwtPrincipal, current_principal
+
+log = logging.getLogger(__name__)
+
+PrincipalDep = Annotated[JwtPrincipal, Depends(current_principal)]
 
 router = APIRouter(prefix="/content/ai", tags=["ai_authoring"])
 
@@ -73,7 +89,7 @@ def build_guardrail_engine(gateway: AIGateway) -> GuardrailEngine:
         import redis.asyncio as aioredis
 
         hash_store = RedisHashStore(aioredis.from_url(settings.redis_url))
-    except Exception:  # noqa: BLE001 — Redis is optional at draft time
+    except Exception:
         hash_store = None
 
     return GuardrailEngine(
@@ -167,6 +183,12 @@ class BulkDraftRequest(BaseModel):
     exam: str = Field(default="JEE-MAIN", min_length=1, max_length=64)
     syllabus_chapter: str | None = None
     source_material: str | None = Field(default=None, max_length=4000)
+    # Save-context — not used for generation, but persisted so a job opened
+    # later (via the completion toast, without the form's exam/topic selected)
+    # can still Save all: the canonical topic id, its title, and language.
+    topic_id: str | None = None
+    topic_title: str | None = None
+    language: str | None = None
 
 
 # Bound on parallel OpenAI calls per /bulk-draft request. Picked to
@@ -222,7 +244,10 @@ async def post_bulk_draft(
         async with sem:
             try:
                 draft, marker = await draft_question(
-                    gateway, request=base_req, creator_id=None, engine=engine,
+                    gateway,
+                    request=base_req,
+                    creator_id=None,
+                    engine=engine,
                 )
                 return BulkDraftItem(
                     index=idx,
@@ -235,14 +260,247 @@ async def post_bulk_draft(
                 return BulkDraftItem(index=idx, error=f"type_not_supported: {e}")
             except AIGatewayError as e:
                 return BulkDraftItem(index=idx, error=f"ai_gateway_error: {e}")
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 return BulkDraftItem(index=idx, error=f"unexpected: {type(e).__name__}: {e}")
 
     results = await asyncio.gather(*(_one(i) for i in range(req.count)))
     succeeded = sum(1 for r in results if r.draft is not None)
     return BulkDraftResponse(
-        items=results, requested=req.count, succeeded=succeeded,
+        items=results,
+        requested=req.count,
+        succeeded=succeeded,
     )
+
+
+# ── /bulk-draft-job — async + chunked bulk generation ──────────────────────────
+#
+# The synchronous /bulk-draft above can't scale past ~10 before the proxy
+# times out. This runs the same per-item generation as a background job,
+# chunked, so an author can request 100-300 questions and review them once
+# the whole batch is done. Bulk jobs pass creator_id=None, so they're exempt
+# from the per-creator daily quota (only the platform per-minute rate applies,
+# which the chunked bounded concurrency stays under).
+
+# Questions per chunk. Each chunk's items run in parallel (bounded by
+# MAX_PARALLEL_DRAFTS); chunks run in sequence so a 300-count job paces itself
+# and persists progress after every chunk.
+BULK_CHUNK_SIZE = 12
+# Per-item attempts before an item is recorded as a (retryable) error.
+BULK_ITEM_ATTEMPTS = 3
+
+
+def _now_iso() -> str:
+    import datetime as _dt
+
+    return _dt.datetime.now(tz=_dt.UTC).isoformat()
+
+
+class BulkDraftJobRequest(BulkDraftRequest):
+    # Async path lifts the cap from 100 to 300 — the job paces itself.
+    count: int = Field(default=30, ge=1, le=300)
+
+
+class BulkDraftJobRef(BaseModel):
+    jobId: str
+    status: str
+
+
+class BulkProgress(BaseModel):
+    done: int
+    total: int
+
+
+class BulkJobContext(BaseModel):
+    """Authoring context persisted with the job so it can be saved later even
+    when opened without the form's exam/topic selected (via the toast)."""
+
+    topicId: str | None = None
+    topicTitle: str | None = None
+    typeId: str | None = None
+    exam: str | None = None
+    language: str | None = None
+    difficulty: str | None = None
+
+
+class BulkDraftJobResult(BaseModel):
+    jobId: str
+    status: str
+    result: BulkDraftResponse | None = None
+    progress: BulkProgress | None = None
+    context: BulkJobContext | None = None
+    error: str | None = None
+
+
+class BulkDraftJobSummary(BaseModel):
+    jobId: str
+    status: str
+    topic: str | None = None
+    count: int | None = None
+    progress: BulkProgress | None = None
+    createdAt: str | None = None
+    completedAt: str | None = None
+
+
+class BulkDraftJobList(BaseModel):
+    jobs: list[BulkDraftJobSummary]
+
+
+async def run_bulk_draft_job(
+    job_id: str,
+    req: BulkDraftJobRequest,
+    gateway: AIGateway,
+    engine: GuardrailEngine | None,
+    done_items: list[dict[str, Any]] | None = None,
+) -> None:
+    """Background worker — generate `req.count` drafts in chunks, persisting
+    progress after every chunk so the job (a) shows live progress, (b) is
+    never falsely timed out while progressing, and (c) can resume after a
+    restart from `done_items`. Never raises; per-item failures are captured
+    after BULK_ITEM_ATTEMPTS retries.
+    """
+    base_req = DraftQuestionRequest(
+        type_id=req.type_id,  # type: ignore[arg-type]
+        topic=req.topic,
+        difficulty=req.difficulty,  # type: ignore[arg-type]
+        exam=req.exam,
+        syllabus_chapter=req.syllabus_chapter,
+        source_material=req.source_material,
+    )
+    sem = asyncio.Semaphore(MAX_PARALLEL_DRAFTS)
+
+    async def _one(idx: int) -> BulkDraftItem:
+        async with sem:
+            last_err = "unknown"
+            for attempt in range(BULK_ITEM_ATTEMPTS):
+                try:
+                    draft, marker = await draft_question(
+                        gateway,
+                        request=base_req,
+                        creator_id=None,
+                        engine=engine,
+                    )
+                    return BulkDraftItem(
+                        index=idx,
+                        draft=draft.model_dump() if hasattr(draft, "model_dump") else dict(draft),  # type: ignore[arg-type]
+                        marker=marker,
+                    )
+                except QuotaExceededError as e:
+                    return BulkDraftItem(index=idx, error=f"quota_exceeded: {e}")
+                except NotImplementedError as e:
+                    return BulkDraftItem(index=idx, error=f"type_not_supported: {e}")
+                except (AIGatewayError, Exception) as e:
+                    # Transient (provider blip, timeout) — back off and retry.
+                    last_err = f"{type(e).__name__}: {e}"
+                    if attempt < BULK_ITEM_ATTEMPTS - 1:
+                        await asyncio.sleep(1.5 * (attempt + 1))
+            return BulkDraftItem(index=idx, error=f"failed_after_retries: {last_err}")
+
+    # Resume: items already generated before a restart are kept; only the
+    # remaining indices are produced.
+    items: list[BulkDraftItem] = [BulkDraftItem(**it) for it in (done_items or [])]
+    start_at = len(items)
+
+    def _output(done: int) -> dict[str, Any]:
+        return {
+            # mode="json" so the marker's datetime serializes to a string.
+            "items": [it.model_dump(mode="json") for it in items],
+            "requested": req.count,
+            "succeeded": sum(1 for r in items if r.draft is not None),
+            "progress": {"done": done, "total": req.count},
+            "heartbeat": _now_iso(),
+        }
+
+    try:
+        for start in range(start_at, req.count, BULK_CHUNK_SIZE):
+            idxs = range(start, min(start + BULK_CHUNK_SIZE, req.count))
+            items.extend(await asyncio.gather(*(_one(i) for i in idxs)))
+            # Persist progress + heartbeat after each chunk (keeps status pending).
+            async with content_sessionmaker()() as s:
+                await update_bulk_progress(s, job_id=job_id, output=_output(len(items)))
+                await s.commit()
+        final = _output(len(items))
+        final.pop("heartbeat", None)
+        async with content_sessionmaker()() as s:
+            await complete_bulk_job(s, job_id=job_id, output=final)
+            await s.commit()
+    except Exception as e:
+        log.warning("bulk_draft.job_failed", extra={"job_id": job_id, "err": str(e)[:300]})
+        async with content_sessionmaker()() as s:
+            await fail_bulk_job(s, job_id=job_id, error=str(e) or e.__class__.__name__)
+            await s.commit()
+
+
+@router.post("/bulk-draft-job", status_code=202, response_model=BulkDraftJobRef)
+async def post_bulk_draft_job(
+    req: BulkDraftJobRequest,
+    background: BackgroundTasks,
+    principal: PrincipalDep,
+    gateway: AIGateway = Depends(get_gateway),
+    engine: GuardrailEngine | None = Depends(get_guardrail_engine),
+) -> BulkDraftJobRef:
+    """Enqueue a chunked bulk-generation job; returns its id immediately. The
+    author is free to navigate away; a poller surfaces completion."""
+    async with content_sessionmaker()() as s:
+        job_id = await create_bulk_job(
+            s, request_input=req.model_dump(), requested_by=principal.user_id
+        )
+        await s.commit()
+    background.add_task(run_bulk_draft_job, job_id, req, gateway, engine)
+    return BulkDraftJobRef(jobId=job_id, status="pending")
+
+
+@router.get("/bulk-draft-jobs", response_model=BulkDraftJobList)
+async def list_bulk_draft_jobs(principal: PrincipalDep) -> BulkDraftJobList:
+    """The requesting author's active + recently-completed bulk jobs."""
+    async with content_sessionmaker()() as s:
+        jobs = await list_bulk_jobs(s, requested_by=principal.user_id)
+    return BulkDraftJobList(jobs=[BulkDraftJobSummary(**j) for j in jobs])
+
+
+@router.get("/bulk-draft-job/{job_id}", response_model=BulkDraftJobResult)
+async def get_bulk_draft_job(job_id: str, principal: PrincipalDep) -> BulkDraftJobResult:
+    """Status + accumulated drafts for one bulk job, scoped to the requester."""
+    async with content_sessionmaker()() as s:
+        job = await get_bulk_job(s, job_id=job_id, requested_by=principal.user_id)
+    if job is None:
+        raise _problem("not_found", "No such bulk job.", http_status=404)
+    return BulkDraftJobResult(
+        jobId=job["jobId"],
+        status=job["status"],
+        result=BulkDraftResponse(**job["result"]) if job["result"] else None,
+        progress=BulkProgress(**job["progress"]) if job.get("progress") else None,
+        context=BulkJobContext(**job["context"]) if job.get("context") else None,
+        error=job["error"],
+    )
+
+
+async def resume_pending_bulk_jobs(gateway: AIGateway, engine: GuardrailEngine | None) -> int:
+    """Startup recovery — re-launch any bulk job left 'pending' by a previous
+    process (restart / crash). Resumes from persisted partial output, so no
+    work is redone and nothing is lost. Returns the count resumed."""
+    async with content_sessionmaker()() as s:
+        jobs = await list_resumable_bulk_jobs(s)
+    resumed = 0
+    for j in jobs:
+        try:
+            req = BulkDraftJobRequest(**j["request"])
+        except Exception as e:
+            log.warning(
+                "bulk_draft.resume_bad_request", extra={"job_id": j["jobId"], "err": str(e)[:200]}
+            )
+            continue
+        done_items = (
+            (j.get("output") or {}).get("items") if isinstance(j.get("output"), dict) else None
+        )
+        import asyncio as _asyncio
+
+        _asyncio.create_task(
+            run_bulk_draft_job(j["jobId"], req, gateway, engine, done_items=done_items)
+        )
+        resumed += 1
+    if resumed:
+        log.info("bulk_draft.resumed_pending_jobs", extra={"count": resumed})
+    return resumed
 
 
 # ── /explanation ─────────────────────────────────────────────────────────────
@@ -260,13 +518,14 @@ async def post_explanation(
 ) -> ExplanationOutput:
     """Expand a stem + answer into a step-by-step explanation."""
     try:
-        return await expand_explanation(
-            gateway, stem=req.stem, answer=req.answer
-        )
+        return await expand_explanation(gateway, stem=req.stem, answer=req.answer)
     except QuotaExceededError as e:
         raise _problem(
-            "quota_exceeded", str(e), http_status=429,
-            scope=e.scope, reset_at=e.reset_at,
+            "quota_exceeded",
+            str(e),
+            http_status=429,
+            scope=e.scope,
+            reset_at=e.reset_at,
         ) from e
     except AIGatewayError as e:
         raise _problem("ai_gateway_error", str(e), http_status=502) from e
@@ -289,12 +548,18 @@ async def post_distractors(
     """Suggest plausible distractors for an MCQ stem + correct answer."""
     try:
         return await suggest_distractors(
-            gateway, stem=req.stem, correct_answer=req.correct_answer, n=req.n,
+            gateway,
+            stem=req.stem,
+            correct_answer=req.correct_answer,
+            n=req.n,
         )
     except QuotaExceededError as e:
         raise _problem(
-            "quota_exceeded", str(e), http_status=429,
-            scope=e.scope, reset_at=e.reset_at,
+            "quota_exceeded",
+            str(e),
+            http_status=429,
+            scope=e.scope,
+            reset_at=e.reset_at,
         ) from e
     except AIGatewayError as e:
         raise _problem("ai_gateway_error", str(e), http_status=502) from e
@@ -349,8 +614,11 @@ async def post_quality_check(
         )
     except QuotaExceededError as e:
         raise _problem(
-            "quota_exceeded", str(e), http_status=429,
-            scope=e.scope, reset_at=e.reset_at,
+            "quota_exceeded",
+            str(e),
+            http_status=429,
+            scope=e.scope,
+            reset_at=e.reset_at,
         ) from e
     return QualityCheckResponse(warnings=warnings)
 

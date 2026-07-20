@@ -61,10 +61,14 @@ export function EmbeddedVideoPlayer({
   resource,
   onClose,
   sessionId,
+  startSeconds,
 }: {
   resource: StudentResource;
   onClose: () => void;
   sessionId?: string;
+  /** Resume position (seconds) — seeks here on ready so the Study
+   *  Materials hub can continue a partially-watched clip. */
+  startSeconds?: number;
 }) {
   const playerRef = useRef<HTMLDivElement | null>(null);
   const ytPlayerRef = useRef<any>(null);
@@ -104,7 +108,17 @@ export function EmbeddedVideoPlayer({
         },
         events: {
           onReady: () => {
-            fire("started", 0);
+            // Resume a partially-watched clip when the hub passes a
+            // furthest position. seekTo before play so milestone polling
+            // (relative-pct) still fires correctly post-seek.
+            if (startSeconds && startSeconds > 0) {
+              try {
+                ytPlayerRef.current?.seekTo?.(startSeconds, true);
+              } catch {
+                /* ignore — seek is best-effort */
+              }
+            }
+            fire("started", startSeconds && startSeconds > 0 ? Math.round(startSeconds) : 0);
             pollTimer = window.setInterval(() => {
               const p = ytPlayerRef.current;
               if (!p || !p.getCurrentTime || !p.getDuration) return;

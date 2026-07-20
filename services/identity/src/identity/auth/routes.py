@@ -102,6 +102,31 @@ def _row_to_user(row: dict) -> User:
     )
 
 
+REFRESH_COOKIE = "alp_refresh"
+
+
+def _set_refresh_cookie(response: Response, token: str, *, remember: bool) -> None:
+    """Persist the refresh token in an HttpOnly cookie so JS (and therefore
+    any XSS) can never read it. Secure is on outside local/test; SameSite=Lax
+    keeps it working across the OAuth redirect while blocking cross-site POSTs."""
+    max_age = (
+        settings.jwt_refresh_ttl_seconds_remember if remember else settings.jwt_refresh_ttl_seconds
+    )
+    response.set_cookie(
+        key=REFRESH_COOKIE,
+        value=token,
+        max_age=max_age,
+        httponly=True,
+        secure=settings.environment not in ("local", "test"),
+        samesite="lax",
+        path="/",
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(key=REFRESH_COOKIE, path="/", httponly=True, samesite="lax")
+
+
 async def _issue_session(session: AsyncSession, row: dict, *, remember: bool) -> Session:
     # Sprint 9 A-1 — staleness fallback: if `premium_until IS NULL` (the
     # user looks free), check Payment service in case a NATS message was
@@ -168,7 +193,7 @@ async def register(req: RegisterRequest, request: Request, session: SessionDep) 
     response_model=Session,
     responses={400: {"model": Problem}, 410: {"model": Problem}},
 )
-async def verify_otp(req: OtpVerifyRequest, session: SessionDep) -> Session:
+async def verify_otp(req: OtpVerifyRequest, response: Response, session: SessionDep) -> Session:
     users = UserRepo(session)
     user = await users.by_id(req.userId)
     if not user:
@@ -210,6 +235,7 @@ async def verify_otp(req: OtpVerifyRequest, session: SessionDep) -> Session:
         last_name=last,
         role=refreshed["role"],
     )
+    _set_refresh_cookie(response, session_obj.tokens.refreshToken, remember=False)
     return session_obj
 
 
@@ -244,7 +270,7 @@ async def resend_otp(req: OtpResendRequest, request: Request, session: SessionDe
     response_model=Session,
     responses={401: {"model": Problem}, 423: {"model": Problem}},
 )
-async def login(req: LoginRequest, request: Request, session: SessionDep) -> Session:
+async def login(req: LoginRequest, request: Request, response: Response, session: SessionDep) -> Session:
     await rate_limit.enforce(rate_limit.LOGIN, request)
     # Lockout check first — short-circuits even valid creds during the cool-down window.
     locked_for = await lockout.is_locked(req.email)
@@ -275,6 +301,7 @@ async def login(req: LoginRequest, request: Request, session: SessionDep) -> Ses
 
     result = await _issue_session(session, row, remember=req.remember)
     await session.commit()
+    _set_refresh_cookie(response, result.tokens.refreshToken, remember=req.remember)
     return result
 
 
@@ -283,8 +310,14 @@ async def login(req: LoginRequest, request: Request, session: SessionDep) -> Ses
     response_model=Tokens,
     responses={401: {"model": Problem}},
 )
-async def refresh(req: RefreshRequest, session: SessionDep) -> Tokens:
-    rt_hash = hash_refresh_token(req.refreshToken)
+async def refresh(
+    req: RefreshRequest, request: Request, response: Response, session: SessionDep
+) -> Tokens:
+    # Prefer the HttpOnly cookie; fall back to the legacy request body.
+    token = request.cookies.get(REFRESH_COOKIE) or req.refreshToken
+    if not token:
+        raise _problem("invalid_refresh", "Refresh token is invalid or expired", http_status=401)
+    rt_hash = hash_refresh_token(token)
     rts = RefreshTokenRepo(session)
     existing = await rts.by_hash_active(rt_hash)
     if not existing:
@@ -300,14 +333,19 @@ async def refresh(req: RefreshRequest, session: SessionDep) -> Tokens:
     await rts.revoke(rt_hash)
     new_session = await _issue_session(session, row, remember=False)
     await session.commit()
+    _set_refresh_cookie(response, new_session.tokens.refreshToken, remember=False)
     return new_session.tokens
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(req: LogoutRequest, session: SessionDep) -> Response:
-    await RefreshTokenRepo(session).revoke(hash_refresh_token(req.refreshToken))
-    await session.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+async def logout(req: LogoutRequest, request: Request, session: SessionDep) -> Response:
+    token = request.cookies.get(REFRESH_COOKIE) or req.refreshToken
+    if token:
+        await RefreshTokenRepo(session).revoke(hash_refresh_token(token))
+        await session.commit()
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    _clear_refresh_cookie(response)
+    return response
 
 
 @router.post("/password/forgot", status_code=status.HTTP_204_NO_CONTENT)

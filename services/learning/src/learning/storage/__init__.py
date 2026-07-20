@@ -13,8 +13,11 @@ by `object_key()`.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
 import os
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -32,9 +35,11 @@ UploadKind = Literal[
     "quiz-response",
     "doubt",
     "content-media",
+    "study-material",
     "profile-avatar",
     "profile-id-proof",
     "tmp",
+    "note-image",
 ]
 
 # Allowed MIME → file extension. Anything outside this map is rejected
@@ -126,6 +131,7 @@ def object_key(
     question_id: str | None = None,
     sub_question_id: str | None = None,
     doubt_id: str | None = None,
+    topic_id: str | None = None,
 ) -> str:
     """Return the canonical object key for `kind` per docs/storage_layout.md.
 
@@ -149,6 +155,13 @@ def object_key(
         if not question_id:
             raise ValueError("content-media requires question_id")
         return f"content-media/{question_id}/{fid}.{extension}"
+    if kind == "study-material":
+        # Topic-scoped curated/uploaded study documents (PDFs etc.). Scoped
+        # by topic so the bucket mirrors the subject→topic content tree.
+        scope = topic_id or question_id
+        if not scope:
+            raise ValueError("study-material requires topic_id (or question_id)")
+        return f"study-materials/{tenant_id}/{scope}/{fid}.{extension}"
     if kind == "profile-avatar":
         if not user_id:
             raise ValueError("profile-avatar requires user_id")
@@ -161,6 +174,10 @@ def object_key(
         if not user_id:
             raise ValueError("tmp requires user_id")
         return f"tmp/{tenant_id}/{user_id}/{fid}.{extension}"
+    if kind == "note-image":
+        if not user_id:
+            raise ValueError("note-image requires user_id")
+        return f"note-images/{user_id}/{fid}.{extension}"
     raise ValueError(f"unknown upload kind: {kind}")
 
 
@@ -228,6 +245,38 @@ def presign_get(object_key_: str) -> PresignGet:
         url=url,
         expires_at=datetime.now(timezone.utc) + timedelta(seconds=GET_URL_TTL_SECONDS),
     )
+
+
+# ── Upload claims — bind an object key to the uploader (anti-IDOR) ────────
+#
+# /uploads/presign issues an HMAC claim over (object_key, user_id, exp). The
+# create-resource handler requires + verifies it before persisting a
+# client-supplied doc_object_key, so a user can't pin an object they didn't
+# upload (which would otherwise yield a signed GET URL via /uploads/sign).
+
+UPLOAD_CLAIM_TTL_SECONDS = 60 * 60  # 1 hour — generous for slow uploads.
+
+
+def sign_upload_claim(object_key_: str, user_id: str, secret: str) -> str:
+    exp = int(time.time()) + UPLOAD_CLAIM_TTL_SECONDS
+    msg = f"{object_key_}|{user_id}|{exp}".encode()
+    sig = hmac.new(secret.encode(), msg, hashlib.sha256).hexdigest()
+    return f"{exp}.{sig}"
+
+
+def verify_upload_claim(
+    claim: str, object_key_: str, user_id: str, secret: str
+) -> bool:
+    try:
+        exp_str, sig = claim.split(".", 1)
+        exp = int(exp_str)
+    except (ValueError, AttributeError):
+        return False
+    if exp < int(time.time()):
+        return False
+    msg = f"{object_key_}|{user_id}|{exp}".encode()
+    expected = hmac.new(secret.encode(), msg, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(sig, expected)
 
 
 def head_object(object_key_: str) -> dict | None:

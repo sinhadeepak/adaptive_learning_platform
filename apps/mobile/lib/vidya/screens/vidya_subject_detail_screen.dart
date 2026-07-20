@@ -1,7 +1,7 @@
-// VidyaSubjectDetailScreen — Phase 3b.full v1. Reached via Navigator.push
-// from VidyaStudyScreen subject taps. Lists topics for a subject with
-// per-topic mastery bucket dots. Topic detail (concept profile
-// equivalent) is deferred to Phase 3b.full v2 — taps snackbar.
+// VidyaSubjectDetailScreen — reached via Navigator.push from
+// VidyaStudyScreen subject taps. Lists topics for a subject with a
+// per-topic mastery bar + percentage (bucket-coloured). Tapping a topic
+// pushes the native VidyaTopicDetailScreen (mastery ring + practice CTA).
 
 import 'package:alp_design_tokens/alp_design_tokens.dart';
 import 'package:flutter/material.dart';
@@ -83,7 +83,8 @@ class _VidyaSubjectDetailScreenState extends State<VidyaSubjectDetailScreen> {
   void _onTopicTap(Topic t) {
     final ewa = _data?.ewaByTopic[t.id] ?? 0.0;
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => VidyaTopicDetailScreen(topic: t, ewa: ewa),
+      builder: (_) =>
+          VidyaTopicDetailScreen(auth: widget.auth, topic: t, ewa: ewa),
     ));
   }
 
@@ -143,7 +144,8 @@ class _LoadedView extends StatelessWidget {
         for (final t in data.topics) ...[
           _TopicCard(
             topic: t,
-            dotColor: bucketColor(data.ewaByTopic[t.id] ?? 0.0),
+            ewa: data.ewaByTopic[t.id] ?? 0.0,
+            barColor: bucketColor(data.ewaByTopic[t.id] ?? 0.0),
             onTap: () => onTopicTap(t),
           ),
           const SizedBox(height: 10),
@@ -155,11 +157,13 @@ class _LoadedView extends StatelessWidget {
 
 class _TopicCard extends StatelessWidget {
   final Topic topic;
-  final Color dotColor;
+  final double ewa;
+  final Color barColor;
   final VoidCallback onTap;
   const _TopicCard({
     required this.topic,
-    required this.dotColor,
+    required this.ewa,
+    required this.barColor,
     required this.onTap,
   });
 
@@ -180,7 +184,7 @@ class _TopicCard extends StatelessWidget {
                     width: 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: dotColor,
+                      color: barColor,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -194,9 +198,18 @@ class _TopicCard extends StatelessWidget {
                       letterSpacing: 1.4,
                     ),
                   ),
+                  const Spacer(),
+                  Text(
+                    ewa > 0 ? '${(ewa * 100).round()}%' : '—',
+                    style: TextStyle(
+                      fontFamily: VidyaFonts.mono,
+                      fontSize: 11,
+                      color: v.ink3,
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 topic.title,
                 style: TextStyle(
@@ -204,6 +217,17 @@ class _TopicCard extends StatelessWidget {
                   fontSize: 20,
                   fontWeight: FontWeight.w500,
                   color: v.ink,
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Mastery bar — fills to EWA, coloured by bucket.
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: ewa.clamp(0.0, 1.0),
+                  minHeight: 5,
+                  backgroundColor: v.ink3.withValues(alpha: 0.14),
+                  valueColor: AlwaysStoppedAnimation<Color>(barColor),
                 ),
               ),
             ],

@@ -26,6 +26,29 @@ wheels = [
 ]
 
 [[package]]
+name = "alp-auth"
+version = "0.1.0"
+source = { editable = "../../libs/python/alp_auth" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "pyjwt" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "pyjwt", specifier = ">=2.9" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
+    { name = "ruff", specifier = ">=0.7" },
+]
+
+[[package]]
 name = "alp-flags"
 version = "0.1.0"
 source = { editable = "../../libs/python/alp_flags" }
@@ -313,6 +336,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiosmtplib" },
     { name = "alembic" },
+    { name = "alp-auth" },
     { name = "alp-flags" },
     { name = "alp-telemetry" },
     { name = "asyncpg" },
@@ -341,6 +365,7 @@ dev = [
 requires-dist = [
     { name = "aiosmtplib", specifier = ">=3.0" },
     { name = "alembic", specifier = ">=1.13" },
+    { name = "alp-auth", editable = "../../libs/python/alp_auth" },
     { name = "alp-flags", editable = "../../libs/python/alp_flags" },
     { name = "alp-telemetry", editable = "../../libs/python/alp_telemetry" },
     { name = "asyncpg", specifier = ">=0.29" },
