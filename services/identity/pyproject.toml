@@ -21,11 +21,13 @@ dependencies = [
     "redis>=5.0",
     "alp-flags",
     "alp-telemetry",
+    "alp-auth",
 ]
 
 [tool.uv.sources]
 alp-flags = { path = "../../libs/python/alp_flags", editable = true }
 alp-telemetry = { path = "../../libs/python/alp_telemetry", editable = true }
+alp-auth = { path = "../../libs/python/alp_auth", editable = true }
 
 [dependency-groups]
 dev = [

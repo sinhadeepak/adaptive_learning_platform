@@ -17,6 +17,13 @@ export interface AuthClient {
   forgotPassword(email: string): Promise<void>;
   resetPassword(token: string, newPassword: string): Promise<void>;
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
+  /**
+   * Silently restore a session on page load from the HttpOnly refresh cookie.
+   * Resolves `true` if an access token was minted, `false` if the visitor is
+   * simply logged out. Unlike the internal 401-triggered refresh, a failure
+   * here does NOT fire `onSessionExpired` — it's the expected anonymous case.
+   */
+  restore(): Promise<boolean>;
   getUser(): User | null;
   // Set by the auth provider after rehydrating user state from /profile/me.
   // Without this, `getUser()` returns null after a page refresh because
@@ -25,6 +32,34 @@ export interface AuthClient {
   setUser(user: User | null): void;
   getTokens(): Tokens | null;
   isAuthenticated(): boolean;
+  /**
+   * Whether a returning session likely exists — a non-sensitive boolean flag
+   * (NOT a token) persisted alongside the HttpOnly refresh cookie. Lets the UI
+   * skip the silent-restore round-trip for anonymous visitors while still
+   * attempting it for users who were previously signed in. Leaking this flag
+   * reveals nothing exploitable.
+   */
+  hasPersistedSession(): boolean;
+}
+
+const PRESENCE_KEY = "alp.auth.present";
+
+function markPresent(present: boolean): void {
+  try {
+    if (typeof localStorage === "undefined") return;
+    if (present) localStorage.setItem(PRESENCE_KEY, "1");
+    else localStorage.removeItem(PRESENCE_KEY);
+  } catch {
+    /* storage unavailable (private mode / SSR) — ignore */
+  }
+}
+
+function readPresent(): boolean {
+  try {
+    return typeof localStorage !== "undefined" && localStorage.getItem(PRESENCE_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export function createAuthClient(opts: AuthClientOptions): AuthClient {
@@ -37,6 +72,8 @@ export function createAuthClient(opts: AuthClientOptions): AuthClient {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
+      // Send + receive the HttpOnly refresh cookie on auth endpoints.
+      credentials: "include",
     });
     if (!res.ok) throw await toAuthError(res);
     return (await res.json()) as T;
@@ -54,20 +91,25 @@ export function createAuthClient(opts: AuthClientOptions): AuthClient {
   function setSession(session: Session) {
     storage.set(session.tokens);
     currentUser = session.user;
+    markPresent(true);
   }
 
   async function refresh(): Promise<Tokens> {
     if (refreshInFlight) return refreshInFlight;
-    const existing = storage.get();
-    if (!existing) throw new AuthError("No refresh token", "refresh_failed");
     refreshInFlight = (async () => {
       try {
-        const tokens = await post<Tokens>("/auth/refresh", { refreshToken: existing.refreshToken });
+        // The refresh token normally rides in the HttpOnly cookie; only send a
+        // body for legacy clients that still hold it in JS-readable storage.
+        const existing = storage.get();
+        const body = existing?.refreshToken ? { refreshToken: existing.refreshToken } : {};
+        const tokens = await post<Tokens>("/auth/refresh", body);
         storage.set(tokens);
+        markPresent(true);
         return tokens;
       } catch (err) {
         storage.clear();
         currentUser = null;
+        markPresent(false);
         opts.onSessionExpired?.();
         throw err instanceof AuthError ? err : new AuthError(String(err), "refresh_failed");
       } finally {
@@ -75,6 +117,20 @@ export function createAuthClient(opts: AuthClientOptions): AuthClient {
       }
     })();
     return refreshInFlight;
+  }
+
+  async function restore(): Promise<boolean> {
+    if (storage.get()) return true;
+    try {
+      const tokens = await post<Tokens>("/auth/refresh", {});
+      storage.set(tokens);
+      markPresent(true);
+      return true;
+    } catch {
+      // 401 = not logged in. Stay quiet — do not fire onSessionExpired.
+      markPresent(false);
+      return false;
+    }
   }
 
   return {
@@ -93,9 +149,11 @@ export function createAuthClient(opts: AuthClientOptions): AuthClient {
     },
     async logout() {
       const t = storage.get();
-      if (t) await post("/auth/logout", { refreshToken: t.refreshToken }).catch(() => undefined);
+      // Body is legacy; the server also reads + clears the HttpOnly cookie.
+      await post("/auth/logout", t ? { refreshToken: t.refreshToken } : {}).catch(() => undefined);
       storage.clear();
       currentUser = null;
+      markPresent(false);
     },
     async forgotPassword(email) {
       // Auth returns 204 regardless of whether the email exists (enumeration-safe).
@@ -148,6 +206,8 @@ export function createAuthClient(opts: AuthClientOptions): AuthClient {
       }
       return res;
     },
+    restore,
+    hasPersistedSession: readPresent,
     getUser: () => currentUser,
     setUser: (u) => {
       currentUser = u;

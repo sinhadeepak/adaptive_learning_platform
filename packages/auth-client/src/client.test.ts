@@ -124,6 +124,39 @@ describe("auth-client", () => {
     expect(onSessionExpired).toHaveBeenCalledOnce();
   });
 
+  it("restore() mints an access token from the refresh cookie", async () => {
+    const storage = createMemoryTokenStorage();
+    const auth = createAuthClient({ baseUrl: BASE, storage });
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    // No stored token (fresh page load); /auth/refresh succeeds via cookie.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { accessToken: "restored", refreshToken: "rt", expiresAt: Date.now() + 60_000 }),
+    );
+
+    const ok = await auth.restore();
+    expect(ok).toBe(true);
+    expect(storage.get()?.accessToken).toBe("restored");
+    // Auth POSTs must include credentials so the cookie is sent.
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init as RequestInit).credentials).toBe("include");
+  });
+
+  it("restore() returns false and stays quiet when logged out", async () => {
+    const onSessionExpired = vi.fn();
+    const auth = createAuthClient({
+      baseUrl: BASE,
+      storage: createMemoryTokenStorage(),
+      onSessionExpired,
+    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      new Response("no cookie", { status: 401 }),
+    );
+
+    const ok = await auth.restore();
+    expect(ok).toBe(false);
+    expect(onSessionExpired).not.toHaveBeenCalled();
+  });
+
   it("logout clears storage even if server logout fails", async () => {
     const storage = createMemoryTokenStorage();
     storage.set({ accessToken: "at", refreshToken: "rt", expiresAt: Date.now() + 60_000 });
