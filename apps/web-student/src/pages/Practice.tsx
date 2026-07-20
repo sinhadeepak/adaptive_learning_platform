@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { auth } from "../lib/api";
 import { useAuth } from "../lib/auth-provider";
+import { daysToExam, targetDateForExam } from "../lib/exam_countdown";
 import { VidyaShell } from "../components/vidya/VidyaShell";
 import { Banner, Pill, strengthFor } from "../components/dashboard";
 // Phase 1B — wire existing analytics primitives.
@@ -356,7 +357,17 @@ interface GuidedResponse {
   headline: string;
   steps: GuidedStep[];
   source: "ai" | "heuristic";
+  // Phase 3.3 — exam-countdown phase the actions are tapered to.
+  phase?: "foundation" | "build" | "consolidate" | "peak";
+  daysToExam?: number | null;
 }
+
+const PHASE_LABEL: Record<NonNullable<GuidedResponse["phase"]>, string> = {
+  foundation: "Foundation",
+  build: "Build",
+  consolidate: "Consolidate",
+  peak: "Final stretch",
+};
 
 interface DrillTopic {
   topicId: string;
@@ -490,7 +501,12 @@ export function Practice() {
         /* swallow */
       }
       try {
-        const r = await auth.fetch(`/api/v1/adaptive/guided-next-steps/${user.id}?exam_id=${examId}`);
+        // Phase 3.3 — taper the suggested actions toward the exam date.
+        const dte = daysToExam(targetDateForExam(profile?.exams, examId));
+        const dteQ = dte != null ? `&daysToExam=${dte}` : "";
+        const r = await auth.fetch(
+          `/api/v1/adaptive/guided-next-steps/${user.id}?exam_id=${examId}${dteQ}`,
+        );
         if (r.ok) setGuided((await r.json()) as GuidedResponse);
       } catch {
         /* swallow */
@@ -516,7 +532,7 @@ export function Practice() {
         /* swallow */
       }
     })();
-  }, [user, examId]);
+  }, [user, examId, profile?.exams]);
 
   // Hydrate any topic titles referenced by guided steps that weren't already
   // pulled in via mastery (e.g. a Diagnose step on a not-yet-attempted topic).
@@ -1168,6 +1184,28 @@ export function Practice() {
             <div className="sec-row">
               <h2 className="section-heading">
                 ◈ AI-recommended drills
+                {guided?.phase ? (
+                  <span
+                    title={
+                      guided.daysToExam != null
+                        ? `${guided.daysToExam} days to exam — plan tapered to this phase`
+                        : "Plan phase"
+                    }
+                    style={{
+                      marginLeft: 6,
+                      padding: "1px 7px",
+                      borderRadius: 9999,
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.4,
+                      color: "var(--accent, #A78BFA)",
+                      border: "1px solid var(--accent, #A78BFA)",
+                    }}
+                  >
+                    {PHASE_LABEL[guided.phase]}
+                  </span>
+                ) : null}
                 {guided?.source === "heuristic" ? (
                   <span style={{ fontSize: 9.5, color: "var(--ink-4)", fontWeight: 500 }}>
                     · heuristic

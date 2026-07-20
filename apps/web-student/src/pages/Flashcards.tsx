@@ -17,6 +17,9 @@ interface Deck {
   createdAt: string;
   nCards: number;
   nSubscribers?: number;
+  // Phase 3.4 — set on recommended decks: why it's suggested + the topic mastery.
+  reason?: string;
+  topicEwa?: number;
 }
 
 interface DueCard {
@@ -386,6 +389,61 @@ function MyDecksTab() {
   );
 }
 
+function RecommendedDecks({ onSubscribe }: { onSubscribe: (deckId: string) => void }) {
+  const [decks, setDecks] = useState<Deck[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const r = await auth.fetch(`/api/v1/content/decks/recommended`);
+      if (alive && r.ok) setDecks(((await r.json()) as { items: Deck[] }).items);
+      else if (alive) setDecks([]);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (!decks || decks.length === 0) return null; // silent when nothing to suggest
+  return (
+    <section style={{ marginBottom: 20 }}>
+      <h3 style={{ fontSize: 14, margin: "0 0 4px" }}>Recommended for your weak topics</h3>
+      <p style={{ fontSize: 12, color: "var(--ink-3)", margin: "0 0 10px" }}>
+        Decks on the topics you're currently weakest at — a quick way to start drilling.
+      </p>
+      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+        {decks.map((d) => (
+          <li key={d.id} style={{ ...deckRowStyle, borderColor: "var(--accent, #A78BFA)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600 }}>{d.title}</div>
+                <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+                  {d.nCards} cards · {d.nSubscribers ?? 0} subscriber
+                  {d.nSubscribers === 1 ? "" : "s"}
+                  {d.reason && (
+                    <>
+                      {" · "}
+                      <span style={{ color: "var(--accent, #A78BFA)", fontWeight: 600 }}>
+                        {d.reason}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="vidya-shell__primary"
+                onClick={() => onSubscribe(d.id)}
+              >
+                Subscribe
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function CommunityTab() {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [q, setQ] = useState("");
@@ -413,6 +471,7 @@ function CommunityTab() {
 
   return (
     <div>
+      <RecommendedDecks onSubscribe={subscribe} />
       <input
         type="search"
         value={q}

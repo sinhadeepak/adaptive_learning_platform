@@ -34,6 +34,8 @@ import { MockExam } from "./pages/MockExam";
 import { Mocks } from "./pages/Mocks";
 import { PYQDrill } from "./pages/PYQDrill";
 import { Revision } from "./pages/Revision";
+import { MistakeNotebook } from "./pages/MistakeNotebook";
+import { RevisionCapsule } from "./pages/RevisionCapsule";
 import { SyllabusCoverage } from "./pages/SyllabusCoverage";
 import { Practice } from "./pages/Practice";
 import { StudyPortfolio } from "./pages/StudyPortfolio";
@@ -450,6 +452,24 @@ export const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <Revision />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    // Phase 3.1 — Mistake Notebook (captured wrong answers + SM-2 replay).
+    path: "/mistakes",
+    element: (
+      <ProtectedRoute>
+        <MistakeNotebook />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    // Phase 3.5 — AI revision capsule (one-page topic summary).
+    path: "/capsule/:topicId",
+    element: (
+      <ProtectedRoute>
+        <RevisionCapsule />
       </ProtectedRoute>
     ),
   },

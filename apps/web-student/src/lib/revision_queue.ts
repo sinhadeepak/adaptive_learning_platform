@@ -9,6 +9,11 @@ export interface RevisionItem {
   easeFactor: number;
   attempts: number;
   overdueDays: number;
+  // Phase 3.2 — yield-weighted priority. Items arrive pre-ranked; the reason
+  // is the dominant factor ("Weak mastery here", "You keep missing this", …).
+  priority?: number;
+  priorityReason?: string;
+  errorCount?: number;
 }
 
 export interface MasteryLookupRow {

@@ -112,6 +112,7 @@ function buildNav(enrolledExams: ExamMeta[]): NavGroup[] {
         { href: "/practice", label: "AI practice", icon: <IconBolt /> },
         { href: "/mocks", label: "Mock tests", icon: <IconTarget />, badge: 3 },
         { href: "/revision", label: "Quick revision", icon: <IconRefresh /> },
+        { href: "/mistakes", label: "Mistake Notebook", icon: <IconRefresh /> },
         { href: "/flashcards", label: "Flashcards", icon: <IconCards /> },
         { href: "/plan", label: "Plan", icon: <IconCalendar /> },
       ],

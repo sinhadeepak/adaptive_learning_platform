@@ -21,21 +21,26 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(auth.getUser());
-  // We're "loading" only when there are tokens in storage but the
-  // in-memory user object hasn't been hydrated yet. No tokens → no
-  // loading; a fresh login already populates the user before we render.
+  // The access token now lives in memory, so after a hard refresh there's no
+  // JS-visible token. We block on a silent cookie-based restore only when a
+  // returning session is signalled by the non-sensitive presence flag —
+  // anonymous visitors render immediately (no wasted /auth/refresh round-trip).
   const [loading, setLoading] = useState<boolean>(
-    () => auth.isAuthenticated() && auth.getUser() === null,
+    () => auth.getUser() === null && auth.hasPersistedSession(),
   );
 
-  // Rehydrate on mount if tokens exist: call /profile/me to get the user.
+  // Rehydrate on mount: restore the session from the HttpOnly refresh cookie
+  // (no-op if we already hold an access token), then fetch /profile/me.
   useEffect(() => {
-    if (!auth.isAuthenticated() || user) {
+    if (user || (!auth.hasPersistedSession() && !auth.isAuthenticated())) {
       setLoading(false);
       return;
     }
+    let cancelled = false;
     (async () => {
       try {
+        const restored = auth.isAuthenticated() || (await auth.restore());
+        if (!restored) return; // session gone — stay logged out, no redirect
         const res = await auth.fetch("/api/v1/profile/me");
         if (res.ok) {
           const profile = (await res.json()) as { user: User };
@@ -43,15 +48,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // internal currentUser so auth.getUser() works after refresh.
           // Without the auth.setUser call, helpers like social.fetch
           // can't read the user id and the backend 401s on every call.
-          setUserState(profile.user);
-          auth.setUser(profile.user);
+          if (!cancelled) {
+            setUserState(profile.user);
+            auth.setUser(profile.user);
+          }
         }
       } catch {
-        // swallow — onSessionExpired will fire if refresh fails
+        // swallow — onSessionExpired will fire if a mid-session refresh fails
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   const login = useCallback(async (email: string, password: string, remember = false) => {

@@ -1,4 +1,4 @@
-import { createAuthClient, type AuthClient } from "@alp/auth-client";
+import { createAuthClient, createMemoryTokenStorage, type AuthClient } from "@alp/auth-client";
 import { createApiClient, type ApiClient } from "@alp/api-client";
 import { env } from "./env";
 
@@ -15,6 +15,11 @@ function createSessionExpiredHandler() {
 
 export const auth: AuthClient = createAuthClient({
   baseUrl: env.apiBaseUrl,
+  // Keep the access token in memory only; the refresh token lives in an
+  // HttpOnly cookie the browser attaches automatically. This removes the
+  // long-lived token from localStorage so a single XSS can't exfiltrate it.
+  // The session survives reloads via auth.restore() (see AuthProvider).
+  storage: createMemoryTokenStorage(),
   onSessionExpired: createSessionExpiredHandler(),
 });
 
