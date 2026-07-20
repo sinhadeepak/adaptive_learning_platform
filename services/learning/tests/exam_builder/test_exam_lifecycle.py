@@ -19,7 +19,7 @@ PREFIX = "/admin/exam-builder"
 
 def _auth(role: str = "PLATFORM_ADMIN") -> dict[str, str]:
     tok = jwt.encode(
-        {"sub": str(uuid4()), "role": role, "iat": int(time.time()),
+        {"sub": str(uuid4()), "role": role, "token_type": "access", "iat": int(time.time()),
          "exp": int(time.time()) + 3600},
         settings.jwt_secret, algorithm="HS256",
     )

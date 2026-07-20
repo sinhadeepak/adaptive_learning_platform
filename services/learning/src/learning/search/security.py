@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-import jwt
+from alp_auth import AuthError, decode_access_token
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -29,10 +29,10 @@ async def require_admin(
     creds: Annotated[HTTPAuthorizationCredentials, Depends(_bearer)],
 ) -> JwtPrincipal:
     try:
-        claims = jwt.decode(creds.credentials, settings.jwt_secret, algorithms=["HS256"])
-    except jwt.InvalidTokenError as err:
+        claims = decode_access_token(creds.credentials, settings.jwt_secret)
+    except AuthError as err:
         raise HTTPException(
-            status_code=401, detail={"code": "invalid_token", "message": "Invalid token"}
+            status_code=401, detail={"code": err.code, "message": err.message}
         ) from err
     p = JwtPrincipal(claims)
     if not p.is_admin:

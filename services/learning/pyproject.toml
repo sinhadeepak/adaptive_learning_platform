@@ -27,6 +27,8 @@ dependencies = [
     "cryptography>=44.0",  # P7 — Fernet at-rest encryption for AI provider keys
     "alp-flags",
     "alp-telemetry",
+    "alp-auth",
+    "alp-srs",
     # Pillar A — Exam Intelligence System (Stream B Phase B1).
     # Shared statistical primitives. Brings scipy + numpy transitively
     # for the forecaster + ADP θ-estimator.
@@ -36,6 +38,8 @@ dependencies = [
 [tool.uv.sources]
 alp-flags = { path = "../../libs/python/alp_flags", editable = true }
 alp-telemetry = { path = "../../libs/python/alp_telemetry", editable = true }
+alp-auth = { path = "../../libs/python/alp_auth", editable = true }
+alp-srs = { path = "../../libs/python/alp_srs", editable = true }
 alp-stats = { path = "../../libs/python/alp_stats", editable = true }
 
 [dependency-groups]

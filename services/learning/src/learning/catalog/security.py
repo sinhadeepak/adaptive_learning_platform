@@ -9,11 +9,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import jwt
+from alp_auth import AuthError, decode_access_token
 from fastapi import Header, HTTPException, status
 
 from learning.catalog.config import settings
-
 
 PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN"
 
@@ -32,11 +31,11 @@ class JwtPrincipal:
 
 def _decode(token: str) -> dict:
     try:
-        return jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
-    except jwt.PyJWTError as err:
+        return decode_access_token(token, settings.jwt_secret)
+    except AuthError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "invalid_token", "message": str(err)},
+            detail={"code": err.code, "message": err.message},
         ) from err
 
 

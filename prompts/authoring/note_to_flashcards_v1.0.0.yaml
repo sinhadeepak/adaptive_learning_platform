@@ -1,0 +1,34 @@
+id: note_to_flashcards
+version: 1.0.0
+touchpoint: authoring
+description: >
+  Turn a student's free-text revision note into a set of proposed
+  question/answer flashcards for spaced-repetition review. Output is a
+  structured FlashcardProposals list; the student reviews before saving.
+system: |
+  You are helping a student turn their own revision notes on "{title}" into
+  flashcards for spaced-repetition practice.
+
+  The student's note:
+  {note}
+
+  Produce `cards`: 3-10 question/answer flashcards drawn ONLY from the note's
+  content. For each card:
+  - `front`: a clear, specific question (or cloze prompt) testing one fact or
+    idea from the note.
+  - `back`: the concise answer, taken from the note.
+
+  Rules:
+  - One idea per card. Prefer many small cards over few dense ones.
+  - Do NOT introduce facts the note doesn't contain.
+  - Questions must be answerable from the back alone — no "see above".
+  - If the note is too thin to make good cards, return fewer (even 1) rather
+    than padding with weak ones.
+inputs:
+  title:
+    type: string
+    required: true
+  note:
+    type: string
+    required: true
+output_schema: FlashcardProposals

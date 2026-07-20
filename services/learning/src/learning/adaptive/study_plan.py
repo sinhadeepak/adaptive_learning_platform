@@ -21,6 +21,7 @@ from typing import Any
 import structlog
 
 from learning.adaptive import llm
+from learning.adaptive import pacing as _pacing
 from learning.adaptive.clients import (
     fetch_mastery,
     fetch_readiness,
@@ -142,6 +143,7 @@ Hard rules:
 - Use the topicId values verbatim from the catalog you are given. Do not invent topic IDs or titles.
 - Prioritise weakest-mastery topics with content available (questionCount > 0).
 - Each day's focus must come from the topicPriorities list; do not introduce extras.
+- If "Days to exam" and a phase are given, TAPER the daily actions to that phase: foundation = concept refreshers + diagnostics; build = practice sets + targeted revision; consolidate = PYQ drills + mistake replay + timed sets; peak = full mocks + mistake replay + quick revision only (no new topics).
 - Keep prose tight and concrete. No filler ("Embark on your journey…"). Speak like a coach who's seen 1000 students."""
 
 
@@ -158,7 +160,9 @@ Hard rules:
 # --- Public composers ----------------------------------------------------------------
 
 
-async def build_study_plan(user_id: str, exam_code: str | None = None) -> dict[str, Any]:
+async def build_study_plan(
+    user_id: str, exam_code: str | None = None, days_to_exam: int | None = None
+) -> dict[str, Any]:
     mastery = await fetch_mastery(user_id)
     readiness = await fetch_readiness(user_id)
     topics = await fetch_topic_catalog(exam_code)
@@ -174,6 +178,7 @@ async def build_study_plan(user_id: str, exam_code: str | None = None) -> dict[s
         readiness=readiness,
         topics=enriched,
         ask="full_study_plan",
+        days_to_exam=days_to_exam,
     )
 
     plan = await llm.call_structured(
@@ -184,9 +189,11 @@ async def build_study_plan(user_id: str, exam_code: str | None = None) -> dict[s
     )
     if plan is not None:
         plan["source"] = "ai"
+        plan["phase"] = _pacing.study_phase(days_to_exam)
+        plan["daysToExam"] = days_to_exam
         return plan
 
-    return _heuristic_study_plan(enriched, readiness)
+    return _heuristic_study_plan(enriched, readiness, days_to_exam=days_to_exam)
 
 
 async def _annotate_prereq_depth(
@@ -210,7 +217,9 @@ async def _annotate_prereq_depth(
     return topics
 
 
-async def build_guided_next_steps(user_id: str, exam_code: str | None = None) -> dict[str, Any]:
+async def build_guided_next_steps(
+    user_id: str, exam_code: str | None = None, days_to_exam: int | None = None
+) -> dict[str, Any]:
     mastery = await fetch_mastery(user_id)
     readiness = await fetch_readiness(user_id)
     topics = await fetch_topic_catalog(exam_code)
@@ -221,6 +230,7 @@ async def build_guided_next_steps(user_id: str, exam_code: str | None = None) ->
         readiness=readiness,
         topics=enriched,
         ask="guided_next_steps",
+        days_to_exam=days_to_exam,
     )
 
     steps = await llm.call_structured(
@@ -231,9 +241,11 @@ async def build_guided_next_steps(user_id: str, exam_code: str | None = None) ->
     )
     if steps is not None:
         steps["source"] = "ai"
+        steps["phase"] = _pacing.study_phase(days_to_exam)
+        steps["daysToExam"] = days_to_exam
         return steps
 
-    return _heuristic_guided_next_steps(enriched)
+    return _heuristic_guided_next_steps(enriched, days_to_exam=days_to_exam)
 
 
 # --- Helpers -------------------------------------------------------------------------
@@ -257,16 +269,32 @@ def _enrich_topics_with_mastery(
     return out
 
 
+_PHASE_GUIDANCE = {
+    "foundation": "Exam is far off — build fundamentals broadly: concept refreshers + diagnostics across weak topics.",
+    "build": "Mid-preparation — mix practice sets with targeted revision of weak sub-concepts; one mock this week.",
+    "consolidate": "Exam approaching — lean on previous-year-question (PYQ) drills, replaying past mistakes, and timed sets; 2 mocks this week.",
+    "peak": "Final stretch — full mocks + mistake replay + quick revision only. Do NOT start new topics.",
+}
+
+
 def _format_user_context(
     *,
     user_id: str,
     readiness: dict[str, Any],
     topics: list[dict[str, Any]],
     ask: str,
+    days_to_exam: int | None = None,
 ) -> str:
     lines = [
         f"Learner ID: {user_id}",
         f"Overall readiness: {readiness.get('score', 0.0):.2f} across {readiness.get('nTopics', 0)} active topics.",
+    ]
+    if days_to_exam is not None:
+        phase = _pacing.study_phase(days_to_exam)
+        lines.append(
+            f"Days to exam: {days_to_exam} (phase: {phase}). {_PHASE_GUIDANCE[phase]}"
+        )
+    lines += [
         "",
         "Topic catalog (topicId | title | subject | exam | EWA | attempts | questionCount):",
     ]
@@ -285,9 +313,40 @@ def _format_user_context(
 # --- Heuristic fallbacks (used when LLM unavailable) ---------------------------------
 
 
+def _phase_daily_actions(phase: str, topic_title: str) -> list[str]:
+    """Action mix for one focus day, tapered to the countdown phase."""
+    if phase == "peak":
+        return [
+            f"Full mock slice covering {topic_title}",
+            "Replay your recent mistakes on this topic",
+            "5-minute formula / quick revision — no new concepts",
+        ]
+    if phase == "consolidate":
+        return [
+            f"PYQ drill on {topic_title} (previous-year questions)",
+            "Replay flagged mistakes on this topic",
+            "Timed 15-question set to build speed",
+        ]
+    if phase == "build":
+        return [
+            f"20-question practice set on {topic_title}",
+            "Targeted revision of the weakest sub-concepts",
+            "Review + tag every wrong answer",
+        ]
+    # foundation (default / no target)
+    return [
+        f"15-minute concept refresh on {topic_title}",
+        "10-question diagnostic (adaptive)",
+        "Review wrong answers and tag the misconception",
+    ]
+
+
 def _heuristic_study_plan(
-    topics: list[dict[str, Any]], readiness: dict[str, Any]
+    topics: list[dict[str, Any]],
+    readiness: dict[str, Any],
+    days_to_exam: int | None = None,
 ) -> dict[str, Any]:
+    phase = _pacing.study_phase(days_to_exam)
     candidates = [t for t in topics if t["questionCount"] > 0]
     if not candidates:
         candidates = topics
@@ -327,11 +386,7 @@ def _heuristic_study_plan(
             {
                 "day": day,
                 "focus": focus_topic["title"],
-                "actions": [
-                    f"15-minute concept refresh on {focus_topic['title']}",
-                    "10-question diagnostic (adaptive)",
-                    "Review wrong answers and tag the misconception",
-                ],
+                "actions": _phase_daily_actions(phase, focus_topic["title"]),
             }
         )
 
@@ -354,11 +409,26 @@ def _heuristic_study_plan(
         "encouragement": (
             "Small daily reps beat weekend marathons — consistency is what moves readiness."
         ),
+        "phase": phase,
+        "daysToExam": days_to_exam,
+        "mocksPerWeek": _pacing.mocks_per_week_target((days_to_exam or 0) / 7.0),
         "source": "heuristic",
     }
 
 
-def _heuristic_guided_next_steps(topics: list[dict[str, Any]]) -> dict[str, Any]:
+# Phase → the 3 next-step action types, tapered toward mocks near the exam.
+_PHASE_GUIDED_ACTIONS = {
+    "foundation": ["DIAGNOSE", "PRACTICE", "REVISE"],
+    "build": ["PRACTICE", "REVISE", "PRACTICE"],
+    "consolidate": ["PRACTICE", "REVISE", "MOCK_SLICE"],
+    "peak": ["MOCK_SLICE", "REVISE", "MOCK_SLICE"],
+}
+
+
+def _heuristic_guided_next_steps(
+    topics: list[dict[str, Any]], days_to_exam: int | None = None
+) -> dict[str, Any]:
+    phase = _pacing.study_phase(days_to_exam)
     candidates = [t for t in topics if t["questionCount"] > 0]
     if not candidates:
         candidates = topics
@@ -376,29 +446,36 @@ def _heuristic_guided_next_steps(topics: list[dict[str, Any]]) -> dict[str, Any]
                 }
                 for _ in range(3)
             ],
+            "phase": phase,
+            "daysToExam": days_to_exam,
             "source": "heuristic",
         }
 
-    actions_pool = ["REVISE", "PRACTICE", "DIAGNOSE"]
+    actions_pool = _PHASE_GUIDED_ACTIONS[phase]
+    minutes = {"REVISE": 15, "PRACTICE": 30, "DIAGNOSE": 20, "MOCK_SLICE": 45}
     steps = []
-    minutes = [15, 30, 20]
     for i, t in enumerate(weakest):
         action = actions_pool[i % 3]
-        why = (
-            f"Lowest mastery on this topic ({t['ewa']:.2f} EWA) — "
-            f"closing this gap moves your readiness fastest."
-        )
+        if action == "MOCK_SLICE":
+            why = f"Exam is close — a timed slice on {t['title']} builds exam stamina."
+        else:
+            why = (
+                f"Lowest mastery on this topic ({t['ewa']:.2f} EWA) — "
+                f"closing this gap moves your readiness fastest."
+            )
         steps.append(
             {
                 "action": action,
                 "topicId": t["topicId"],
                 "topicTitle": t["title"],
                 "why": why,
-                "estMinutes": minutes[i % 3],
+                "estMinutes": minutes[action],
             }
         )
     return {
         "headline": f"Shore up {weakest[0]['title']} before your next mock",
         "steps": steps,
+        "phase": phase,
+        "daysToExam": days_to_exam,
         "source": "heuristic",
     }

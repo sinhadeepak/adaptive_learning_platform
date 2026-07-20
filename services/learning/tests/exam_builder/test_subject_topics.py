@@ -27,7 +27,7 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
 
 def _auth(role: str) -> dict[str, str]:
     tok = jwt.encode(
-        {"sub": str(uuid4()), "role": role, "iat": int(time.time()), "exp": int(time.time()) + 3600},
+        {"sub": str(uuid4()), "role": role, "token_type": "access", "iat": int(time.time()), "exp": int(time.time()) + 3600},
         settings.jwt_secret, algorithm="HS256",
     )
     return {"authorization": f"Bearer {tok}"}

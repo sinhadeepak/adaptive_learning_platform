@@ -31,6 +31,7 @@ def _token(user_id: str, role: str) -> str:
         {
             "sub": user_id,
             "role": role,
+            "token_type": "access",
             "iat": int(time.time()),
             "exp": int(time.time()) + 3600,
         },

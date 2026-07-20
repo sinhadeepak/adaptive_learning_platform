@@ -24,9 +24,10 @@ _HTTP_TIMEOUT = httpx.Timeout(connect=2.0, read=5.0, write=5.0, pool=5.0)
 async def fetch_mastery(user_id: str) -> list[dict[str, Any]]:
     """Returns [{"topicId": ..., "ewa": float, "n": int}, ...] — empty for cold-start users."""
     url = f"{settings.analytics_base_url}/analytics/mastery/{user_id}"
+    headers = {"x-internal-token": settings.internal_service_token}
     async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
         try:
-            r = await client.get(url)
+            r = await client.get(url, headers=headers)
             r.raise_for_status()
         except httpx.HTTPError as e:
             log.warning("fetch_mastery_failed", error=str(e), user_id=user_id)
@@ -37,9 +38,10 @@ async def fetch_mastery(user_id: str) -> list[dict[str, Any]]:
 
 async def fetch_readiness(user_id: str) -> dict[str, Any]:
     url = f"{settings.analytics_base_url}/analytics/readiness/{user_id}"
+    headers = {"x-internal-token": settings.internal_service_token}
     async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
         try:
-            r = await client.get(url)
+            r = await client.get(url, headers=headers)
             r.raise_for_status()
         except httpx.HTTPError as e:
             log.warning("fetch_readiness_failed", error=str(e), user_id=user_id)

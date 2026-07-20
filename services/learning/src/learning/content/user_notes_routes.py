@@ -9,9 +9,9 @@ DELETE /content/notes/{note_id}
 from __future__ import annotations
 
 import json
-from typing import Annotated, Any
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -94,6 +94,44 @@ async def get_note(note_id: str, session: SessionDep, principal: PrincipalDep) -
     if note is None:
         raise HTTPException(status_code=404, detail="note not found")
     return NoteOut(**note)
+
+
+@router.post("/notes/{note_id}/suggest-flashcards")
+async def suggest_flashcards(
+    note_id: str, request: Request, session: SessionDep, principal: PrincipalDep
+) -> dict:
+    """Phase 3.6 — propose Q/A flashcards from this note (owner-only). Returns
+    proposals for the student to review; saving into a deck is a separate,
+    explicit step on the client via the normal deck/card endpoints."""
+    from learning.content import note_flashcards as nf
+
+    note = await repo.get_owned(session, note_id=note_id, user_id=principal.user_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="note not found")
+
+    text = nf.extract_text(note.get("body"))
+    if len(text.strip()) < 40:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "note_too_thin", "message": "Add more to this note before making cards."},
+        )
+
+    gateway = getattr(request.app.state, "ai_gateway", None)
+    if gateway is None:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "ai_unavailable", "message": "Card suggestions are unavailable."},
+        )
+    try:
+        proposals = await nf.suggest(
+            gateway, title=note.get("title", ""), note_text=text, creator_id=principal.user_id
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "suggest_failed", "message": str(e)},
+        ) from e
+    return {"cards": [c.model_dump() for c in proposals.cards]}
 
 
 @router.put("/notes/{note_id}", response_model=NoteOut)

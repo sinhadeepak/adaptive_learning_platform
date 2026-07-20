@@ -27,6 +27,10 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+# Shared logging — every absorbed module had its own configure_logging
+# function but the implementation is identical (structlog setup);
+# call one of them once.
+from alp_auth import assert_secret_configured
 from alp_telemetry import TraceContextMiddleware
 from fastapi import FastAPI
 
@@ -48,14 +52,11 @@ from learning.ai_gateway.routing import default_stub_config
 from learning.ai_providers.routes import (
     router as ai_providers_router,  # P7 — admin-managed multi-provider AI chain
 )
+from learning.catalog.config import settings as _catalog_settings
 
 # catalog
 from learning.catalog.flags import close_flags as close_catalog_flags
 from learning.catalog.flags import connect_flags as connect_catalog_flags
-
-# Shared logging — every absorbed module had its own configure_logging
-# function but the implementation is identical (structlog setup);
-# call one of them once.
 from learning.catalog.logging import configure_logging
 from learning.catalog.routes import router as catalog_router
 
@@ -66,11 +67,12 @@ from learning.content.assignments_routes import router as assignments_router
 from learning.content.db import dispose as dispose_content_db
 from learning.content.notes_routes import router as content_notes_router
 from learning.content.resources.routes import router as content_resources_router
-from learning.content.user_notes_routes import router as user_notes_router
 from learning.content.routes import router as content_router
 
 # Phase 5 (P5-S51) — Per-artifact translation routes (Cat §8.1, CE-401/402)
 from learning.content.translation_routes import router as content_translations_router
+from learning.content.revision_capsule_routes import router as revision_capsule_router
+from learning.content.user_notes_routes import router as user_notes_router
 
 # doubts
 from learning.doubts.db import dispose as dispose_doubts_db
@@ -171,6 +173,15 @@ async def _try(name: str, coro_factory) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
+
+    # Fail closed if a non-local environment is still on the shared dev JWT
+    # secret. All learning sub-modules (catalog/content/doubts/search/adaptive)
+    # default to the same secret, so guarding the catalog config is
+    # representative; igs reads CONTENT_JWT_SECRET separately (also guarded).
+    assert_secret_configured(_catalog_settings.jwt_secret, _catalog_settings.environment)
+    from learning.igs.stream import _JWT_SECRET as _igs_secret
+
+    assert_secret_configured(_igs_secret, _catalog_settings.environment)
 
     # Phase 5 (P5-S38): register all Type Handlers + freeze registry.
     # Done before any traffic-serving connect. Sync call (not via
@@ -393,6 +404,7 @@ app.include_router(syllabus_references_router)
 app.include_router(content_router)
 app.include_router(content_notes_router)  # Phase 7 (P7-A1) — per-topic notes
 app.include_router(user_notes_router)     # Task 2 — per-exam student notebook
+app.include_router(revision_capsule_router)  # Phase 3.5 — AI revision capsules
 app.include_router(content_resources_router)  # R-S1 — YouTube curation
 # Phase 1D-8 — flashcard SRS
 from learning.flashcards.routes import router as flashcards_router  # noqa: E402

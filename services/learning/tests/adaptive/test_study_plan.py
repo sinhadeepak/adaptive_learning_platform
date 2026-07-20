@@ -146,3 +146,39 @@ async def test_study_plan_cold_start_user(
     assert body["source"] == "heuristic"
     assert len(body["topicPriorities"]) >= 1
     assert len(body["weeklySchedule"]) == 7
+
+
+# --- Phase 3.3: exam-countdown tapering (pure-function) ---------------------------
+
+from learning.adaptive.study_plan import _heuristic_study_plan  # noqa: E402
+
+_TOPICS = [
+    {"topicId": "t1", "title": "Kinematics", "subjectName": "Physics",
+     "examName": "JEE", "ewa": 0.2, "attempts": 3, "questionCount": 10, "prereqDepth": 0},
+]
+_READINESS = {"score": 0.4, "nTopics": 1}
+
+
+def test_taper_foundation_when_no_target() -> None:
+    p = _heuristic_study_plan(_TOPICS, _READINESS, days_to_exam=None)
+    assert p["phase"] == "foundation"
+    assert p["mocksPerWeek"] == 0
+    assert "concept refresh" in p["weeklySchedule"][0]["actions"][0].lower()
+
+
+def test_taper_consolidate_uses_pyq_and_mistakes() -> None:
+    p = _heuristic_study_plan(_TOPICS, _READINESS, days_to_exam=20)
+    assert p["phase"] == "consolidate"
+    actions = " ".join(p["weeklySchedule"][0]["actions"]).lower()
+    assert "pyq" in actions and "mistake" in actions
+    assert p["mocksPerWeek"] == 3
+
+
+def test_taper_peak_is_mocks_and_no_new_topics() -> None:
+    p = _heuristic_study_plan(_TOPICS, _READINESS, days_to_exam=5)
+    assert p["phase"] == "peak"
+    actions = " ".join(p["weeklySchedule"][0]["actions"]).lower()
+    assert "mock" in actions
+    assert "no new concepts" in actions or "no new topics" in actions
+    assert p["mocksPerWeek"] == 4
+    assert p["daysToExam"] == 5

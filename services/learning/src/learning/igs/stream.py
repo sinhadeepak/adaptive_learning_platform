@@ -40,7 +40,7 @@ from collections.abc import AsyncIterator
 from contextlib import suppress
 from typing import Any
 
-import jwt
+from alp_auth import AuthError, decode_access_token
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from fastapi.websockets import WebSocketState
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -211,9 +211,9 @@ def _verify_jwt(token: str) -> str | None:
     if not token:
         return None
     try:
-        claims = jwt.decode(token, _JWT_SECRET, algorithms=["HS256"])
-    except jwt.PyJWTError as e:
-        log.info("igs.jwt_failed", extra={"err": str(e)})
+        claims = decode_access_token(token, _JWT_SECRET)
+    except AuthError as e:
+        log.info("igs.jwt_failed", extra={"err": e.message})
         return None
     return str(claims.get("sub") or "") or None
 

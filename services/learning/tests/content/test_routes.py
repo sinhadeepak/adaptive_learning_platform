@@ -22,7 +22,7 @@ def client() -> Iterator[TestClient]:
 
 def _token(user_id: str, role: str) -> str:
     return jwt.encode(
-        {"sub": user_id, "role": role, "iat": int(time.time()), "exp": int(time.time()) + 3600},
+        {"sub": user_id, "role": role, "token_type": "access", "iat": int(time.time()), "exp": int(time.time()) + 3600},
         settings.jwt_secret,
         algorithm="HS256",
     )
