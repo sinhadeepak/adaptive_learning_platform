@@ -73,6 +73,8 @@ export function BulkAIGenerator({
   const [error, setError] = useState<string | null>(null);
   // Running tally of drafts saved (they're removed from the list on save).
   const [savedCount, setSavedCount] = useState(0);
+  // Running tally of drafts the educator discarded (removed without saving).
+  const [discardedCount, setDiscardedCount] = useState(0);
   // Async job: jobId being polled (set on Generate, or from ?bulkJob via toast).
   const [jobId, setJobId] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -108,6 +110,7 @@ export function BulkAIGenerator({
     setResults(null);
     setProgress(null);
     setSavedCount(0);
+    setDiscardedCount(0);
     try {
       const { jobId: id } = await aiAuthoring.bulkDraftJob({
         typeId,
@@ -240,6 +243,31 @@ export function BulkAIGenerator({
       Array.from({ length: Math.min(MAX_PARALLEL_SAVES, queue.length) }, next),
     );
     setSavingAll(false);
+  }
+
+  // Discard a single draft — drops it from the review list without saving.
+  // Drafts are ephemeral review items (already generated), so this is purely
+  // client-side; nothing to delete server-side.
+  function discardOne(idx: number) {
+    setResults((prev) => (prev ? prev.filter((r) => r.index !== idx) : prev));
+    setDiscardedCount((n) => n + 1);
+  }
+
+  // Discard every draft still awaiting review (keeps already-saved cards so the
+  // "saved" tally stays visible). Guarded by a confirm since it can't be undone.
+  function discardAll() {
+    if (!results) return;
+    const toDrop = results.filter((r) => r.status !== "saved");
+    if (toDrop.length === 0) return;
+    if (
+      !window.confirm(
+        `Discard all ${toDrop.length} draft${toDrop.length === 1 ? "" : "s"} still under review? This can't be undone.`,
+      )
+    ) {
+      return;
+    }
+    setResults((prev) => (prev ? prev.filter((r) => r.status === "saved") : prev));
+    setDiscardedCount((n) => n + toDrop.length);
   }
 
   return (
@@ -413,12 +441,17 @@ export function BulkAIGenerator({
                   {results.filter((r) => r.draft).length === 1 ? "" : "s"} to review
                   {(() => {
                     const failed = results.filter((r) => r.status === "save_failed").length;
-                    if (savedCount === 0 && failed === 0) return null;
+                    if (savedCount === 0 && failed === 0 && discardedCount === 0) return null;
                     return (
                       <span style={{ marginLeft: 8 }}>
                         {savedCount > 0 && (
                           <span style={{ color: "var(--good, #10C47A)" }}>
                             · {savedCount} saved to question bank
+                          </span>
+                        )}
+                        {discardedCount > 0 && (
+                          <span style={{ color: "var(--ink-3)" }}>
+                            {" "}· {discardedCount} discarded
                           </span>
                         )}
                         {failed > 0 && (
@@ -430,40 +463,72 @@ export function BulkAIGenerator({
                     );
                   })()}
                 </div>
-                <button
-                  type="button"
-                  onClick={saveAll}
-                  disabled={
-                    savingAll ||
-                    !saveTopicId ||
-                    results.filter(
-                      (r) => r.draft && r.status !== "saved" && r.status !== "saving",
-                    ).length === 0
-                  }
-                  style={{
-                    padding: "6px 14px",
-                    background:
-                      savingAll || !saveTopicId
-                        ? "var(--ink-4, #94a3b8)"
-                        : "var(--good, #10C47A)",
-                    color: "white",
-                    border: "none",
-                    borderRadius: 4,
-                    cursor: savingAll || !saveTopicId ? "not-allowed" : "pointer",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    opacity: savingAll || !saveTopicId ? 0.7 : 1,
-                  }}
-                  title={
-                    !saveTopicId
-                      ? "Pick a topic above to enable bulk-save"
-                      : "Save every generated draft to the question bank as DRAFT — review + publish later from My questions"
-                  }
-                >
-                  {savingAll
-                    ? "Saving all…"
-                    : `💾 Save all as drafts (${results.filter((r) => r.draft && r.status !== "saved").length})`}
-                </button>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={discardAll}
+                    disabled={
+                      savingAll ||
+                      results.filter((r) => r.status !== "saved").length === 0
+                    }
+                    style={{
+                      padding: "6px 14px",
+                      background: "transparent",
+                      color: "var(--bad, #f43f5e)",
+                      border: "1px solid var(--bad, #f43f5e)",
+                      borderRadius: 4,
+                      cursor:
+                        savingAll ||
+                        results.filter((r) => r.status !== "saved").length === 0
+                          ? "not-allowed"
+                          : "pointer",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      opacity:
+                        savingAll ||
+                        results.filter((r) => r.status !== "saved").length === 0
+                          ? 0.5
+                          : 1,
+                    }}
+                    title="Discard every draft still under review (already-saved questions are kept)"
+                  >
+                    Discard all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveAll}
+                    disabled={
+                      savingAll ||
+                      !saveTopicId ||
+                      results.filter(
+                        (r) => r.draft && r.status !== "saved" && r.status !== "saving",
+                      ).length === 0
+                    }
+                    style={{
+                      padding: "6px 14px",
+                      background:
+                        savingAll || !saveTopicId
+                          ? "var(--ink-4, #94a3b8)"
+                          : "var(--good, #10C47A)",
+                      color: "white",
+                      border: "none",
+                      borderRadius: 4,
+                      cursor: savingAll || !saveTopicId ? "not-allowed" : "pointer",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      opacity: savingAll || !saveTopicId ? 0.7 : 1,
+                    }}
+                    title={
+                      !saveTopicId
+                        ? "Pick a topic above to enable bulk-save"
+                        : "Save every generated draft to the question bank as DRAFT — review + publish later from My questions"
+                    }
+                  >
+                    {savingAll
+                      ? "Saving all…"
+                      : `💾 Save all as drafts (${results.filter((r) => r.draft && r.status !== "saved").length})`}
+                  </button>
+                </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {results.map((r) => (
@@ -473,6 +538,7 @@ export function BulkAIGenerator({
                     onUse={() => {
                       if (r.draft && r.marker) onDraftChosen(r.draft, r.marker);
                     }}
+                    onDiscard={() => discardOne(r.index)}
                   />
                 ))}
               </div>
@@ -484,7 +550,15 @@ export function BulkAIGenerator({
   );
 }
 
-function DraftCard({ item, onUse }: { item: Draft; onUse: () => void }) {
+function DraftCard({
+  item,
+  onUse,
+  onDiscard,
+}: {
+  item: Draft;
+  onUse: () => void;
+  onDiscard: () => void;
+}) {
   const stem =
     item.draft && typeof item.draft.stem === "string"
       ? (item.draft.stem as string)
@@ -498,6 +572,10 @@ function DraftCard({ item, onUse }: { item: Draft; onUse: () => void }) {
     return (
       <div
         style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
           padding: 10,
           border: "1px solid var(--rule, #2a2f3a)",
           borderRadius: 6,
@@ -505,7 +583,15 @@ function DraftCard({ item, onUse }: { item: Draft; onUse: () => void }) {
           color: "var(--bad, #f43f5e)",
         }}
       >
-        #{item.index + 1} failed: {item.error}
+        <span>#{item.index + 1} failed: {item.error}</span>
+        <button
+          type="button"
+          onClick={onDiscard}
+          style={discardBtn}
+          title="Remove this failed draft from the list"
+        >
+          Discard
+        </button>
       </div>
     );
   }
@@ -597,26 +683,36 @@ function DraftCard({ item, onUse }: { item: Draft; onUse: () => void }) {
             </ul>
           )}
         </div>
-        <button
-          type="button"
-          onClick={onUse}
-          disabled={saving}
-          style={{
-            padding: "6px 12px",
-            background: "var(--info, #4F87F6)",
-            color: "white",
-            border: "none",
-            borderRadius: 4,
-            cursor: saving ? "not-allowed" : "pointer",
-            fontSize: 12,
-            fontWeight: 600,
-            flexShrink: 0,
-            opacity: saving ? 0.6 : 1,
-          }}
-          title="Load this draft into the form below for manual edits"
-        >
-          {saved ? "Use again" : "Use in form"}
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={onUse}
+            disabled={saving}
+            style={{
+              padding: "6px 12px",
+              background: "var(--info, #4F87F6)",
+              color: "white",
+              border: "none",
+              borderRadius: 4,
+              cursor: saving ? "not-allowed" : "pointer",
+              fontSize: 12,
+              fontWeight: 600,
+              opacity: saving ? 0.6 : 1,
+            }}
+            title="Load this draft into the form below for manual edits"
+          >
+            {saved ? "Use again" : "Use in form"}
+          </button>
+          <button
+            type="button"
+            onClick={onDiscard}
+            disabled={saving}
+            style={{ ...discardBtn, opacity: saving ? 0.6 : 1 }}
+            title="Discard this draft (removes it from the review list)"
+          >
+            Discard
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -638,6 +734,17 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid var(--rule, #2a2f3a)",
   borderRadius: 4,
   fontSize: 13,
+};
+
+const discardBtn: React.CSSProperties = {
+  padding: "5px 12px",
+  background: "transparent",
+  color: "var(--bad, #f43f5e)",
+  border: "1px solid var(--rule, #2a2f3a)",
+  borderRadius: 4,
+  cursor: "pointer",
+  fontSize: 12,
+  fontWeight: 500,
 };
 
 const pill: React.CSSProperties = {
