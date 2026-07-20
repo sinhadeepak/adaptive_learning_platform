@@ -12,13 +12,10 @@ import os
 from dataclasses import dataclass
 from typing import Annotated
 
-import jwt
+from alp_auth import DEFAULT_DEV_SECRET, AuthError, decode_access_token
 from fastapi import Depends, Header, HTTPException
 
-JWT_SECRET = os.environ.get(
-    "MARKETPLACE_JWT_SECRET",
-    "dev-only-change-me-in-staging-at-least-32-bytes-long",
-)
+JWT_SECRET = os.environ.get("MARKETPLACE_JWT_SECRET", DEFAULT_DEV_SECRET)
 
 
 @dataclass(frozen=True)
@@ -31,13 +28,9 @@ class Principal:
 
 def _decode(token: str) -> Principal:
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-    except jwt.ExpiredSignatureError as e:
-        raise HTTPException(401, detail={"code": "token_expired", "message": "JWT expired"}) from e
-    except jwt.InvalidTokenError as e:
-        raise HTTPException(401, detail={"code": "invalid_token", "message": "JWT invalid"}) from e
-    if payload.get("token_type") != "access":
-        raise HTTPException(401, detail={"code": "wrong_token_type", "message": "expected access token"})
+        payload = decode_access_token(token, JWT_SECRET)
+    except AuthError as e:
+        raise HTTPException(401, detail={"code": e.code, "message": e.message}) from e
     return Principal(
         user_id=str(payload["sub"]),
         role=str(payload.get("role", "STUDENT")),

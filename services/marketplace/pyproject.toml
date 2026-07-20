@@ -16,12 +16,14 @@ dependencies = [
     "nats-py>=2.9",
     "alp-flags",
     "alp-telemetry",
+    "alp-auth",
     "pyjwt>=2.12.1",
 ]
 
 [tool.uv.sources]
 alp-flags = { path = "../../libs/python/alp_flags", editable = true }
 alp-telemetry = { path = "../../libs/python/alp_telemetry", editable = true }
+alp-auth = { path = "../../libs/python/alp_auth", editable = true }
 
 [dependency-groups]
 dev = [

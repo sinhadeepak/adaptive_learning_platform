@@ -2,6 +2,7 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Literal
 
+from alp_auth import assert_secret_configured
 from alp_telemetry import TraceContextMiddleware
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -17,6 +18,7 @@ from payment.routes import router as payment_router
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
+    assert_secret_configured(settings.jwt_secret, settings.environment)
     await connect_flags()
     try:
         yield
