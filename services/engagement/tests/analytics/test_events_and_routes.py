@@ -11,6 +11,12 @@ Skipped if Postgres at ANALYTICS_DATABASE_URL is unreachable.
 
 from __future__ import annotations
 
+from engagement.analytics.config import settings as _settings
+# Internal-service token: these tests exercise endpoint LOGIC, so they
+# authenticate as a trusted peer service (post-IDOR-sweep the personal
+# /analytics/{user_id} endpoints require a bearer or this token).
+_ITOK = {"x-internal-token": _settings.internal_service_token}
+
 import json
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -72,13 +78,13 @@ async def test_first_session_seeds_mastery_and_readiness(client: AsyncClient) ->
     topic = str(uuid4())
     await _on_session_completed(FakeMsg(_payload(user_id=user, topic_id=topic, score=0.8)))
 
-    m = await client.get(f"/analytics/mastery/{user}/{topic}")
+    m = await client.get(f"/analytics/mastery/{user}/{topic}", headers=_ITOK)
     assert m.status_code == 200
     body = m.json()
     assert body["ewa"] == pytest.approx(0.8)
     assert body["n"] == 1
 
-    r = await client.get(f"/analytics/readiness/{user}")
+    r = await client.get(f"/analytics/readiness/{user}", headers=_ITOK)
     assert r.status_code == 200
     rb = r.json()
     assert rb["score"] == pytest.approx(0.8)
@@ -92,7 +98,7 @@ async def test_second_session_blends_via_ewa(client: AsyncClient) -> None:
     await _on_session_completed(FakeMsg(_payload(user_id=user, topic_id=topic, score=0.8)))
     await _on_session_completed(FakeMsg(_payload(user_id=user, topic_id=topic, score=0.4)))
 
-    body = (await client.get(f"/analytics/mastery/{user}/{topic}")).json()
+    body = (await client.get(f"/analytics/mastery/{user}/{topic}", headers=_ITOK)).json()
     # alpha=0.4 → ewa = 0.4*0.4 + 0.6*0.8 = 0.64
     assert body["ewa"] == pytest.approx(0.64, abs=1e-3)
     assert body["n"] == 2
@@ -108,7 +114,7 @@ async def test_idempotent_replay(client: AsyncClient) -> None:
     await _on_session_completed(FakeMsg(p))  # redelivery
     await _on_session_completed(FakeMsg(p))  # redelivery
 
-    body = (await client.get(f"/analytics/mastery/{user}/{topic}")).json()
+    body = (await client.get(f"/analytics/mastery/{user}/{topic}", headers=_ITOK)).json()
     # Only counted once: n=1, ewa=0.6 (cold-start single observation)
     assert body["n"] == 1
     assert body["ewa"] == pytest.approx(0.6)
@@ -122,17 +128,17 @@ async def test_multi_topic_readiness_is_average(client: AsyncClient) -> None:
     await _on_session_completed(FakeMsg(_payload(user_id=user, topic_id=topic_a, score=0.9)))
     await _on_session_completed(FakeMsg(_payload(user_id=user, topic_id=topic_b, score=0.5)))
 
-    rb = (await client.get(f"/analytics/readiness/{user}")).json()
+    rb = (await client.get(f"/analytics/readiness/{user}", headers=_ITOK)).json()
     assert rb["score"] == pytest.approx(0.7)
     assert rb["nTopics"] == 2
 
-    listing = (await client.get(f"/analytics/mastery/{user}")).json()
+    listing = (await client.get(f"/analytics/mastery/{user}", headers=_ITOK)).json()
     assert {t["topicId"] for t in listing["topics"]} == {topic_a, topic_b}
 
 
 @pytest.mark.asyncio
 async def test_unknown_user_readiness_is_zero(client: AsyncClient) -> None:
-    r = await client.get(f"/analytics/readiness/{uuid4()}")
+    r = await client.get(f"/analytics/readiness/{uuid4()}", headers=_ITOK)
     assert r.status_code == 200
     body = r.json()
     assert body["score"] == 0.0
@@ -141,5 +147,5 @@ async def test_unknown_user_readiness_is_zero(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_unknown_topic_mastery_is_404(client: AsyncClient) -> None:
-    r = await client.get(f"/analytics/mastery/{uuid4()}/{uuid4()}")
+    r = await client.get(f"/analytics/mastery/{uuid4()}/{uuid4()}", headers=_ITOK)
     assert r.status_code == 404

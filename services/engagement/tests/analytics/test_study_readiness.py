@@ -12,6 +12,12 @@ from sqlalchemy import text
 
 from engagement.analytics import db, learning_client, routes as analytics_routes
 
+from engagement.analytics.config import settings as _settings
+# Internal-service token: these tests exercise endpoint LOGIC, so they
+# authenticate as a trusted peer service (post-IDOR-sweep the personal
+# /analytics/{user_id} endpoints require a bearer or this token).
+_ITOK = {"x-internal-token": _settings.internal_service_token}
+
 UTC = timezone.utc
 
 EXAM = "11111111-1111-1111-1111-111111111111"
@@ -71,7 +77,7 @@ async def test_study_readiness_fuses_three_signals(client, monkeypatch):
     monkeypatch.setattr(analytics_routes, "resolve_exam_topic_ids", fake_resolve)
     monkeypatch.setattr(learning_client, "fetch_watch_summary", fake_watch)
 
-    r = await client.get(f"/analytics/study-readiness/{user}?exam_id={EXAM}")
+    r = await client.get(f"/analytics/study-readiness/{user}?exam_id={EXAM}", headers=_ITOK)
     assert r.status_code == 200, r.text
     body = r.json()
     topics = {t["topicId"]: t for t in body["topics"]}
@@ -106,7 +112,7 @@ async def test_study_readiness_degrades_without_watch(client, monkeypatch):
     monkeypatch.setattr(analytics_routes, "resolve_exam_topic_ids", fake_resolve)
     monkeypatch.setattr(learning_client, "fetch_watch_summary", failing_watch)
 
-    r = await client.get(f"/analytics/study-readiness/{user}?exam_id={EXAM}")
+    r = await client.get(f"/analytics/study-readiness/{user}?exam_id={EXAM}", headers=_ITOK)
     assert r.status_code == 200, r.text
     topics = r.json()["topics"]
     assert len(topics) == 1

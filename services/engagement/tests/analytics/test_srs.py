@@ -44,8 +44,10 @@ def test_third_attempt_correct_uses_ef_multiplication() -> None:
         prev_attempts=2,
         accuracy=1.0,
     )
-    # 6 * 2.5 = 15
-    assert out.interval_days == 15
+    # Canonical SM-2 (shared alp_srs): EF updates to 2.6 at q=5 first, then
+    # 6 * 2.6 = 15.6 -> 16. (Previously multiplied by the pre-update 2.5 = 15;
+    # unified onto the textbook formula that flashcards already used.)
+    assert out.interval_days == 16
 
 
 def test_failed_attempt_resets_to_one_day() -> None:

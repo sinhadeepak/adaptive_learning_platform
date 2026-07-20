@@ -18,11 +18,13 @@ dependencies = [
     "weasyprint>=62",
     "alp-flags",
     "alp-telemetry",
+    "alp-srs",
 ]
 
 [tool.uv.sources]
 alp-flags = { path = "../../libs/python/alp_flags", editable = true }
 alp-telemetry = { path = "../../libs/python/alp_telemetry", editable = true }
+alp-srs = { path = "../../libs/python/alp_srs", editable = true }
 
 [dependency-groups]
 dev = [
