@@ -1016,6 +1016,11 @@ type SessionItemEvent struct {
 	SectionID   *string
 	IsCorrect   bool
 	TimeSpentMs int32
+	// Phase 3.1 — answer context for the Mistake Notebook snapshot.
+	ChosenChoiceText  string
+	CorrectChoiceText string
+	Stem              string
+	Explanation       string
 }
 
 // LoadItemEvents returns the per-item rows for a session, joining onto
@@ -1024,7 +1029,9 @@ type SessionItemEvent struct {
 func (s *Store) LoadItemEvents(ctx context.Context, sessionID uuid.UUID) ([]SessionItemEvent, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT i.item_idx, i.question_id, q.topic_id, i.section_id,
-		       COALESCE(i.is_correct, false), COALESCE(i.time_spent_ms, 0)
+		       COALESCE(i.is_correct, false), COALESCE(i.time_spent_ms, 0),
+		       COALESCE(q.stem, ''), q.choices, q.correct_idx, i.answer_idx,
+		       COALESCE(q.explanation, '')
 		  FROM quiz_schema.quiz_session_items i
 		  JOIN quiz_schema.questions q ON q.id = i.question_id
 		 WHERE i.session_id = $1
@@ -1038,8 +1045,25 @@ func (s *Store) LoadItemEvents(ctx context.Context, sessionID uuid.UUID) ([]Sess
 	var out []SessionItemEvent
 	for rows.Next() {
 		var ev SessionItemEvent
-		if err := rows.Scan(&ev.ItemIdx, &ev.QuestionID, &ev.TopicID, &ev.SectionID, &ev.IsCorrect, &ev.TimeSpentMs); err != nil {
+		var choicesRaw []byte
+		var correctIdx, answerIdx *int16
+		if err := rows.Scan(&ev.ItemIdx, &ev.QuestionID, &ev.TopicID, &ev.SectionID,
+			&ev.IsCorrect, &ev.TimeSpentMs, &ev.Stem, &choicesRaw, &correctIdx,
+			&answerIdx, &ev.Explanation); err != nil {
 			return nil, err
+		}
+		// Resolve chosen + correct choice text from the string-array `choices`
+		// so engagement's Mistake Notebook card is self-contained. Best-effort:
+		// a malformed / non-MCQ choices blob just leaves the text empty.
+		var choices []string
+		if len(choicesRaw) > 0 {
+			_ = json.Unmarshal(choicesRaw, &choices)
+		}
+		if answerIdx != nil && int(*answerIdx) >= 0 && int(*answerIdx) < len(choices) {
+			ev.ChosenChoiceText = choices[*answerIdx]
+		}
+		if correctIdx != nil && int(*correctIdx) >= 0 && int(*correctIdx) < len(choices) {
+			ev.CorrectChoiceText = choices[*correctIdx]
 		}
 		out = append(out, ev)
 	}
