@@ -1,0 +1,31 @@
+[project]
+name = "alp-auth"
+version = "0.1.0"
+description = "ALP shared JWT verification — single source of truth for access-token decode, token_type enforcement, and the non-default-secret startup guard. Pairs with identity's token issuance."
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "pyjwt>=2.9",
+    "fastapi>=0.115",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/alp_auth"]
+
+[tool.ruff]
+extend = "../../../ruff.toml"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
